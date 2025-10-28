@@ -1,3 +1,5 @@
+import { createGem } from './GemFactory.js';
+
 const BASE_MATCH_SCORE = 100;
 
 const detectMatchPattern = (match, size) => {
@@ -49,15 +51,15 @@ export class BonusResolver {
           : primaryMatch.indices[0];
 
       if (pattern.shape === 'line' && pattern.length >= 5) {
-        nextBoard[swapIndex] = { type: 'rainbow', highlight: true };
+        nextBoard[swapIndex] = createGem('rainbow', { highlight: true });
         bonusCreated = 'rainbow';
         bonusIndex = swapIndex;
       } else if (pattern.shape === 'line' && pattern.length === 4) {
-        nextBoard[swapIndex] = { type: 'bomb', highlight: true };
+        nextBoard[swapIndex] = createGem('bomb', { highlight: true });
         bonusCreated = 'bomb';
         bonusIndex = swapIndex;
       } else if (pattern.shape === 'cross') {
-        nextBoard[swapIndex] = { type: 'cross', highlight: true };
+        nextBoard[swapIndex] = createGem('cross', { highlight: true });
         bonusCreated = 'cross';
         bonusIndex = swapIndex;
       }

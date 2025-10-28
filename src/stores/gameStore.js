@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia';
-import { Graphics, Sprite } from 'pixi.js';
 import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { BonusResolver } from '../game/engine/BonusResolver';
+import { BoardAnimator } from '../game/pixi/BoardAnimator';
 
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
@@ -24,6 +24,7 @@ export const useGameStore = defineStore('game', {
     availableLevels: [],
     shuffleAllowance: 3,
     reshufflesUsed: 0,
+    animationInProgress: false,
   }),
   actions: {
     bootstrap() {
@@ -55,14 +56,26 @@ export const useGameStore = defineStore('game', {
       this.reshufflesUsed = 0;
       this.score = 0;
       this.cascadeMultiplier = 1;
+      this.animationInProgress = false;
       this.boardVersion += 1;
-      this.refreshBoardVisuals();
+      this.refreshBoardVisuals(true);
     },
     attachRenderer(renderer) {
-      this.renderer = renderer;
-      // If there's already a board, refresh visuals now
+      if (this.renderer?.animator) {
+        this.renderer.animator.destroy();
+      }
+
+      const animator = new BoardAnimator({
+        app: renderer.app,
+        boardContainer: renderer.boardContainer,
+        textures: renderer.textures,
+        particles: renderer.particles,
+      });
+
+      this.renderer = { ...renderer, animator };
+
       if (this.board.length > 0) {
-        this.refreshBoardVisuals();
+        this.refreshBoardVisuals(true);
       }
     },
     refreshBoardVisuals(forceRedraw = false) {
@@ -70,11 +83,13 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
-      const { boardContainer, app, sprites } = this.renderer;
+      const { boardContainer, app, animator } = this.renderer;
       const viewWidth = app.screen.width;
       const viewHeight = app.screen.height;
 
-      if (!viewWidth || !viewHeight) return;
+      if (!viewWidth || !viewHeight) {
+        return;
+      }
 
       const gridSize = this.boardSize;
       const boardSide = Math.min(viewWidth, viewHeight);
@@ -82,46 +97,22 @@ export const useGameStore = defineStore('game', {
       const offsetX = (viewWidth - boardSide) / 2;
       const offsetY = (viewHeight - boardSide) / 2;
 
-      if (forceRedraw) {
-        boardContainer.removeChildren().forEach((child) => child.destroy());
-      }
-
+      this.cellSize = cellSize;
       boardContainer.position.set(offsetX, offsetY);
 
-      this.board.forEach((cell, index) => {
-        if (!cell) return;
+      if (!animator) {
+        return;
+      }
 
-        const col = index % gridSize;
-        const row = Math.floor(index / gridSize);
-        const x = col * cellSize;
-        const y = row * cellSize;
+      animator.setLayout({ boardSize: gridSize, cellSize });
 
-        // Draw cell border/background
-        const cellBorder = new Graphics();
-        cellBorder.rect(x, y, cellSize, cellSize);
-        cellBorder.stroke({ width: 2, color: 0x87CEEB, alpha: 0.4 });
-        cellBorder.fill({ color: 0x1e293b, alpha: 0.3 });
-        cellBorder.zIndex = 0;
-        boardContainer.addChild(cellBorder);
+      const shouldReset = ((forceRedraw && !this.animationInProgress) || animator.indexToGemId.length === 0);
 
-        const texture = sprites[cell.type];
-        if (!texture) {
-          console.warn(`Missing texture for type: ${cell.type}`);
-          return;
-        }
-
-        const gemSprite = new Sprite(texture);
-        const spriteSize = cellSize * 0.85; // Slightly smaller than the cell
-        gemSprite.width = spriteSize;
-        gemSprite.height = spriteSize;
-        gemSprite.anchor.set(0.5);
-
-        gemSprite.x = x + cellSize / 2;
-        gemSprite.y = y + cellSize / 2;
-        gemSprite.zIndex = 1;
-
-        boardContainer.addChild(gemSprite);
-      });
+      if (shouldReset) {
+        animator.reset(this.board, { boardSize: gridSize, cellSize });
+      } else {
+        animator.syncToBoard(this.board);
+      }
 
       if (boardContainer.sortableChildren) {
         boardContainer.sortChildren();
@@ -129,31 +120,61 @@ export const useGameStore = defineStore('game', {
 
       app.render();
     },
-    resolveSwap(aIndex, bIndex) {
-      if (!this.sessionActive) {
-        return false;
-      }
-      const result = matchEngine.evaluateSwap(this.board, this.boardSize, aIndex, bIndex);
-      if (!result.matches.length) {
+    async resolveSwap(aIndex, bIndex) {
+      if (!this.sessionActive || this.animationInProgress) {
         return false;
       }
 
-      const breakdown = bonusResolver.resolve(result);
-      this.applyMatchResult(breakdown);
-      return true;
-    },
-    applyMatchResult(payload) {
-      this.score += payload.scoreGain;
-      this.cascadeMultiplier = payload.multiplier;
-      this.board = tileManager.applyMatchResult({
-        board: payload.board,
-        tiles: this.tiles,
-        matches: payload.matches,
-        size: this.boardSize,
-        bonusCreated: payload.bonusCreated,
-        bonusIndex: payload.bonusIndex,
-      });
-      this.refreshBoardVisuals(true);
+      const evaluation = matchEngine.evaluateSwap(this.board, this.boardSize, aIndex, bIndex);
+      const animator = this.renderer?.animator;
+      const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, this.boardSize);
+
+      if (!evaluation.matches.length) {
+        if (isAdjacent && animator) {
+          await animator.animateInvalidSwap({ aIndex, bIndex });
+        }
+        return false;
+      }
+
+      this.animationInProgress = true;
+
+      try {
+        if (animator && evaluation.swap) {
+          await animator.animateSwap(evaluation.swap);
+        }
+
+        const breakdown = bonusResolver.resolve(evaluation);
+        this.score += breakdown.scoreGain;
+        this.cascadeMultiplier = breakdown.multiplier;
+
+        const resolution = tileManager.getResolution({
+          board: breakdown.board,
+          tiles: this.tiles,
+          matches: breakdown.matches,
+          size: this.boardSize,
+          bonusCreated: breakdown.bonusCreated,
+          bonusIndex: breakdown.bonusIndex,
+        });
+
+        if (!animator) {
+          this.board = resolution.board;
+          this.boardVersion += 1;
+          this.refreshBoardVisuals(true);
+          return true;
+        }
+
+        if (resolution.steps.length) {
+          await animator.playSteps(resolution.steps);
+        }
+
+        this.board = resolution.board;
+        this.boardVersion += 1;
+        this.refreshBoardVisuals(false);
+
+        return true;
+      } finally {
+        this.animationInProgress = false;
+      }
     },
     exitLevel() {
       this.sessionActive = false;
@@ -164,8 +185,11 @@ export const useGameStore = defineStore('game', {
       this.cascadeMultiplier = 1;
       this.shuffleAllowance = 3;
       this.reshufflesUsed = 0;
-      if (this.renderer?.boardContainer) {
-        this.renderer.boardContainer.removeChildren();
+      this.animationInProgress = false;
+      if (this.renderer?.animator) {
+        this.renderer.animator.clear();
+      } else if (this.renderer?.boardContainer) {
+        this.renderer.boardContainer.removeChildren().forEach((child) => child.destroy());
       }
       this.boardVersion += 1;
     },

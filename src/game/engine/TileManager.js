@@ -1,64 +1,98 @@
 import { MatchEngine } from './MatchEngine.js';
+import { createGem, randomGemType } from './GemFactory.js';
 
 const matchEngine = new MatchEngine();
-const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
-
-const randomGem = () => GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
 
 export class TileManager {
-  applyMatchResult({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
+  getResolution({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
     if (!matches?.length) {
-      return board;
+      return { board, steps: [] };
     }
 
-    const nextBoard = [...board];
-    const clearedIndices = new Set();
+    const workingBoard = [...board];
+    const steps = [];
 
-    matches.forEach((match) => {
-      match.indices.forEach((index) => {
-        clearedIndices.add(index);
+    let iteration = 0;
+    let pendingMatches = matches.map((match) => ({
+      type: match.type,
+      indices: [...match.indices],
+    }));
+
+    while (pendingMatches.length) {
+      const cleared = new Set();
+      pendingMatches.forEach((match) => {
+        match.indices.forEach((index) => {
+          cleared.add(index);
+        });
+      });
+
+      if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {
+        cleared.delete(bonusIndex);
+      }
+
+      if (!cleared.size) {
+        break;
+      }
+
+      const step = {
+        index: iteration,
+        matches: pendingMatches.map((match) => ({
+          type: match.type,
+          indices: [...match.indices],
+        })),
+        cleared: [...cleared].sort((a, b) => a - b),
+        drops: [],
+        spawns: [],
+        bonus:
+          iteration === 0 && bonusCreated && typeof bonusIndex === 'number'
+            ? { type: bonusCreated, index: bonusIndex, gem: workingBoard[bonusIndex] }
+            : null,
+      };
+
+      step.cleared.forEach((index) => {
         if (tiles[index]) {
           tiles[index].health = Math.max(0, tiles[index].health - 1);
         }
+        workingBoard[index] = null;
       });
-    });
 
-    // If a bonus was created, don't clear the gem at the swap location
-    if (bonusCreated && typeof bonusIndex === 'number') {
-      clearedIndices.delete(bonusIndex);
-    }
+      for (let col = 0; col < size; col += 1) {
+        let writeRow = size - 1;
+        for (let row = size - 1; row >= 0; row -= 1) {
+          const index = row * size + col;
+          const gem = workingBoard[index];
+          if (gem) {
+            const targetIndex = writeRow * size + col;
+            if (targetIndex !== index) {
+              workingBoard[targetIndex] = gem;
+              workingBoard[index] = null;
+              step.drops.push({ from: index, to: targetIndex, gem });
+            }
+            writeRow -= 1;
+          }
+        }
 
-    // Remove gems that were cleared
-    clearedIndices.forEach((index) => {
-      nextBoard[index] = null;
-    });
-
-    // Apply gravity column by column
-    for (let col = 0; col < size; col += 1) {
-      let empty = 0;
-      for (let row = size - 1; row >= 0; row--) {
-        const index = row * size + col;
-        if (nextBoard[index] === null) {
-          empty++;
-        } else if (empty > 0) {
-          nextBoard[index + empty * size] = nextBoard[index];
-          nextBoard[index] = null;
+        for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
+          const index = spawnRow * size + col;
+          const newGem = createGem(randomGemType());
+          workingBoard[index] = newGem;
+          step.spawns.push({ index, gem: newGem });
         }
       }
 
-      for (let i = 0; i < empty; i++) {
-        nextBoard[i * size + col] = {
-          type: randomGem(),
-          highlight: false,
-        };
-      }
+      steps.push(step);
+
+      pendingMatches = matchEngine.findMatches(workingBoard, size);
+      iteration += 1;
     }
 
-    const newMatches = matchEngine.findMatches(nextBoard, size);
-    if (newMatches.length > 0) {
-      return this.applyMatchResult({ board: nextBoard, tiles, matches: newMatches, size });
-    }
+    return {
+      board: workingBoard,
+      steps,
+    };
+  }
 
-    return nextBoard;
+  applyMatchResult(payload) {
+    return this.getResolution(payload).board;
   }
 }

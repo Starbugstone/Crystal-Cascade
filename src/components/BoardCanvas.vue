@@ -95,8 +95,8 @@ const setupPixi = async () => {
   canvasRoot.value.appendChild(app.canvas);
   pixiApp.value = app;
 
-  const sprites = await loadSpriteAtlas(app);
-  const particles = createParticleFactory(app, sprites);
+  const { textures, bonusAnimations } = await loadSpriteAtlas(app);
+  const particles = createParticleFactory(app, textures);
 
   const boardContainer = new Container();
   boardContainer.sortableChildren = true;
@@ -108,7 +108,8 @@ const setupPixi = async () => {
   gameStore.attachRenderer({
     app,
     boardContainer,
-    sprites,
+    textures,
+    bonusAnimations,
     particles,
   });
 
@@ -131,6 +132,9 @@ onBeforeUnmount(() => {
     resizeObserver.value.disconnect();
     resizeObserver.value = null;
   }
+  if (gameStore.renderer?.animator) {
+    gameStore.renderer.animator.destroy();
+  }
   if (pixiApp.value) {
     const { canvas } = pixiApp.value;
     if (canvas && canvasRoot.value?.contains(canvas)) {
@@ -140,6 +144,7 @@ onBeforeUnmount(() => {
     pixiApp.value = null;
   }
   boardLayer.value = null;
+  gameStore.renderer = null;
 });
 
 
@@ -163,5 +168,6 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
 }
 </style>

@@ -1,3 +1,5 @@
+import { createGem } from './GemFactory.js';
+
 const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
 const pickRandomType = (rng) => GEM_TYPES[Math.floor(rng() * GEM_TYPES.length)];
@@ -12,10 +14,7 @@ const createSeededRng = (seed) => {
 };
 
 const createBoard = (size, rng) =>
-  Array.from({ length: size * size }, () => ({
-    type: pickRandomType(rng),
-    highlight: false,
-  }));
+  Array.from({ length: size * size }, () => createGem(pickRandomType(rng)));
 
 const createTiles = (size) =>
   Array.from({ length: size * size }, () => ({
