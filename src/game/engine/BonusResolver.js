@@ -34,11 +34,12 @@ export class BonusResolver {
     let bonusCreated = null;
     let bonusIndex = null;
 
-    const primaryMatch = matches.find((m) => m.indices.includes(swap.aIndex)) ||
-      matches.find((m) => m.indices.includes(swap.bIndex)) ||
-      matches[0];
+    // Only process pattern detection for normal matches, not bonus activations
+    const primaryMatch = matches.find((m) => m.type !== 'bonus-activation' && m.indices.includes(swap.aIndex)) ||
+      matches.find((m) => m.type !== 'bonus-activation' && m.indices.includes(swap.bIndex)) ||
+      matches.find((m) => m.type !== 'bonus-activation');
 
-    const pattern = detectMatchPattern(primaryMatch, size);
+    const pattern = primaryMatch ? detectMatchPattern(primaryMatch, size) : null;
 
     if (pattern && primaryMatch) {
       const swapIndex = primaryMatch.indices.includes(swap.aIndex)

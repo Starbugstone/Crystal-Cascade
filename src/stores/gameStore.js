@@ -91,6 +91,19 @@ export const useGameStore = defineStore('game', {
       this.board.forEach((cell, index) => {
         if (!cell) return;
 
+        const col = index % gridSize;
+        const row = Math.floor(index / gridSize);
+        const x = col * cellSize;
+        const y = row * cellSize;
+
+        // Draw cell border/background
+        const cellBorder = new Graphics();
+        cellBorder.rect(x, y, cellSize, cellSize);
+        cellBorder.stroke({ width: 2, color: 0x87CEEB, alpha: 0.4 });
+        cellBorder.fill({ color: 0x1e293b, alpha: 0.3 });
+        cellBorder.zIndex = 0;
+        boardContainer.addChild(cellBorder);
+
         const texture = sprites[cell.type];
         if (!texture) {
           console.warn(`Missing texture for type: ${cell.type}`);
@@ -103,8 +116,8 @@ export const useGameStore = defineStore('game', {
         gemSprite.height = spriteSize;
         gemSprite.anchor.set(0.5);
 
-        gemSprite.x = (index % gridSize) * cellSize + cellSize / 2;
-        gemSprite.y = Math.floor(index / gridSize) * cellSize + cellSize / 2;
+        gemSprite.x = x + cellSize / 2;
+        gemSprite.y = y + cellSize / 2;
         gemSprite.zIndex = 1;
 
         boardContainer.addChild(gemSprite);

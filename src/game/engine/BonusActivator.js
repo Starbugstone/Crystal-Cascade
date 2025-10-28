@@ -3,21 +3,27 @@ export class BonusActivator {
     const a = board[swap.aIndex];
     const b = board[swap.bIndex];
 
+    const allCleared = new Set();
+
+    // Check and activate bonus at position A
     if (a.type === 'bomb') {
-      return this.activateBomb(board, size, swap.aIndex);
-    } else if (b.type === 'bomb') {
-      return this.activateBomb(board, size, swap.bIndex);
+      this.activateBomb(board, size, swap.aIndex).forEach(i => allCleared.add(i));
     } else if (a.type === 'rainbow') {
-      return this.activateRainbow(board, size, swap.aIndex, b.type);
-    } else if (b.type === 'rainbow') {
-      return this.activateRainbow(board, size, swap.bIndex, a.type);
+      this.activateRainbow(board, size, swap.aIndex, b.type).forEach(i => allCleared.add(i));
     } else if (a.type === 'cross') {
-      return this.activateCross(board, size, swap.aIndex);
-    } else if (b.type === 'cross') {
-      return this.activateCross(board, size, swap.bIndex);
+      this.activateCross(board, size, swap.aIndex).forEach(i => allCleared.add(i));
     }
 
-    return [];
+    // Check and activate bonus at position B
+    if (b.type === 'bomb') {
+      this.activateBomb(board, size, swap.bIndex).forEach(i => allCleared.add(i));
+    } else if (b.type === 'rainbow') {
+      this.activateRainbow(board, size, swap.bIndex, a.type).forEach(i => allCleared.add(i));
+    } else if (b.type === 'cross') {
+      this.activateCross(board, size, swap.bIndex).forEach(i => allCleared.add(i));
+    }
+
+    return [...allCleared];
   }
 
   activateBomb(board, size, index) {
