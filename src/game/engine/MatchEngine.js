@@ -1,3 +1,7 @@
+import { BonusActivator } from './BonusActivator.js';
+
+const bonusActivator = new BonusActivator();
+
 export class MatchEngine {
   evaluateSwap(board, size, aIndex, bIndex) {
     if (aIndex === bIndex) {
@@ -12,6 +16,12 @@ export class MatchEngine {
     [nextBoard[aIndex], nextBoard[bIndex]] = [nextBoard[bIndex], nextBoard[aIndex]];
 
     const swap = { aIndex, bIndex };
+
+    const bonusClear = bonusActivator.activate(nextBoard, size, swap);
+    if (bonusClear.length > 0) {
+      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, size, swap };
+    }
+
     const matches = this.findMatches(nextBoard, size, swap);
 
     if (!matches.length) {
@@ -21,30 +31,13 @@ export class MatchEngine {
     return { matches, board: nextBoard, size, swap };
   }
 
-  findMatches(board, size, swap = null) {
+  findMatches(board, size) {
     const matches = [];
     const visited = new Set();
 
-    // Handle rainbow swap first
-    if (swap) {
-      const a = board[swap.aIndex];
-      const b = board[swap.bIndex];
-      if (a.type === 'rainbow') {
-        const targetType = b.type;
-        const indices = board.map((c, i) => c.type === targetType ? i : -1).filter(i => i !== -1);
-        matches.push({ type: 'rainbow-blast', indices: [...indices, swap.aIndex] });
-        return matches;
-      } else if (b.type === 'rainbow') {
-        const targetType = a.type;
-        const indices = board.map((c, i) => c.type === targetType ? i : -1).filter(i => i !== -1);
-        matches.push({ type: 'rainbow-blast', indices: [...indices, swap.bIndex] });
-        return matches;
-      }
-    }
-
     const collectMatch = (start, delta) => {
       const originType = board[start]?.type;
-      if (!originType || originType === 'wildcard') {
+      if (!originType) {
         return;
       }
 
@@ -53,7 +46,7 @@ export class MatchEngine {
 
       while (this.isWithinBounds(start, cursor, delta, size)) {
         const cursorType = board[cursor]?.type;
-        if (cursorType === originType || cursorType === 'wildcard') {
+        if (cursorType === originType) {
           indices.push(cursor);
           cursor += delta;
         } else {
@@ -72,35 +65,6 @@ export class MatchEngine {
         collectMatch(i, 1); // Horizontal
         collectMatch(i, size); // Vertical
       }
-    }
-
-    // Handle special gems in matches
-    const matchedIndices = matches.flatMap(m => m.indices);
-    const specialGems = matchedIndices.map(i => ({ index: i, type: board[i]?.type })).filter(g => g.type === 'bomb' || g.type === 'cross');
-
-    if (specialGems.length > 0) {
-      const clearedBySpecial = new Set();
-      specialGems.forEach(gem => {
-        if (gem.type === 'bomb') {
-          const row = Math.floor(gem.index / size);
-          const col = gem.index % size;
-          for (let r = row - 1; r <= row + 1; r++) {
-            for (let c = col - 1; c <= col + 1; c++) {
-              if (r >= 0 && r < size && c >= 0 && c < size) {
-                clearedBySpecial.add(r * size + c);
-              }
-            }
-          }
-        } else if (gem.type === 'cross') {
-          const row = Math.floor(gem.index / size);
-          const col = gem.index % size;
-          for (let i = 0; i < size; i++) {
-            clearedBySpecial.add(row * size + i);
-            clearedBySpecial.add(i * size + col);
-          }
-        }
-      });
-      matches.push({ type: 'special-blast', indices: [...clearedBySpecial] });
     }
 
     return matches;

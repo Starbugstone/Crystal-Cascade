@@ -1,3 +1,6 @@
+import { MatchEngine } from './MatchEngine.js';
+
+const matchEngine = new MatchEngine();
 const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
 const randomGem = () => GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
@@ -49,6 +52,11 @@ export class TileManager {
           highlight: false,
         };
       }
+    }
+
+    const newMatches = matchEngine.findMatches(nextBoard, size);
+    if (newMatches.length > 0) {
+      return this.applyMatchResult({ board: nextBoard, tiles, matches: newMatches, size });
     }
 
     return nextBoard;
