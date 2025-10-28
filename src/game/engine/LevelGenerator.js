@@ -1,0 +1,62 @@
+const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
+
+const pickRandomType = (rng) => GEM_TYPES[Math.floor(rng() * GEM_TYPES.length)];
+
+const createSeededRng = (seed) => {
+  let current = seed % 2147483647;
+  if (current <= 0) current += 2147483646;
+  return () => {
+    current = (current * 16807) % 2147483647;
+    return (current - 1) / 2147483646;
+  };
+};
+
+const createBoard = (size, rng) =>
+  Array.from({ length: size * size }, () => ({
+    type: pickRandomType(rng),
+    highlight: false,
+  }));
+
+const createTiles = (size) =>
+  Array.from({ length: size * size }, () => ({
+    health: 1,
+  }));
+
+export const generateLevelConfigs = (count = 12) => {
+  const levels = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const id = index + 1;
+    const gridSize = 8;
+    const rng = createSeededRng(id * 1337);
+    const board = createBoard(gridSize, rng);
+    const tiles = createTiles(gridSize);
+
+    levels.push({
+      id,
+      boardSize: gridSize,
+      shuffleAllowance: Math.max(1, 4 - Math.floor(id / 5)),
+      board,
+      tiles,
+      objectives: [
+        {
+          id: `clear-${id}`,
+          label: 'Clear Tiles',
+          target: 20 + id * 2,
+          progress: 0,
+        },
+        {
+          id: `score-${id}`,
+          label: 'Score Points',
+          target: 20000 + id * 1500,
+          progress: 0,
+        },
+      ],
+      summary: `Break ${(20 + id * 2).toLocaleString()} tiles and score ${
+        20000 + id * 1500
+      } points.`,
+    });
+  }
+
+  return levels;
+};

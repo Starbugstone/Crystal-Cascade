@@ -1,0 +1,38 @@
+{
+  "name": "crystal-cascade",
+  "version": "1.0.0",
+  "description": "**Crystal Cascade** is a premium match-3 puzzle game featuring tile-breaking mechanics, procedural level generation, arcade-style gameplay, and mobile-first design. This specification transforms the existing \"Cascade Candy Clash\" prototype into a full-featured game with progression systems, inventory management, and polished visual effects.",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cap:sync": "cap sync",
+    "cap:open:ios": "cap open ios",
+    "cap:open:android": "cap open android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Starbugstone/Crystal-Cascade.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Starbugstone/Crystal-Cascade/issues"
+  },
+  "homepage": "https://github.com/Starbugstone/Crystal-Cascade#readme",
+  "dependencies": {
+    "@capacitor/core": "^7.4.4",
+    "howler": "^2.2.4",
+    "pinia": "^3.0.3",
+    "pixi.js": "^8.14.0",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.4",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "vite": "^7.1.12"
+  }
+}

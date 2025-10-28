@@ -1,0 +1,14 @@
+{
+  "bronze": {
+    "hammer": 0.5,
+    "color-wand": 0.3,
+    "shuffle": 0.15,
+    "tile-breaker": 0.05
+  },
+  "silver": {
+    "hammer": 0.35,
+    "color-wand": 0.35,
+    "shuffle": 0.2,
+    "tile-breaker": 0.1
+  }
+}

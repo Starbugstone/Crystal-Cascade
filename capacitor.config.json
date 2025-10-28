@@ -1,0 +1,7 @@
+{
+  "appId": "com.crystal.cascade",
+  "appName": "Crystal Cascade",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {}
+}

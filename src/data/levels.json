@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "name": "Tutorial Dawn",
+    "summary": "Learn the ropes with gentle cascades.",
+    "objectives": [
+      { "type": "breakTiles", "target": 20 },
+      { "type": "score", "target": 20000 }
+    ]
+  }
+]

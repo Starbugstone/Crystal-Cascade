@@ -4,8 +4,8 @@
 
 **Crystal Cascade** is a premium match-3 puzzle game featuring tile-breaking mechanics, procedural level generation, arcade-style gameplay, and mobile-first design. This specification transforms the existing "Cascade Candy Clash" prototype into a full-featured game with progression systems, inventory management, and polished visual effects.
 
-**Target Platforms:** Web (mobile-first), Progressive Web App (PWA) for iOS/Android tablets and phones  
-**Engine:** Vanilla JavaScript with canvas rendering for particles/effects  
+**Target Platforms:** Web (mobile-first), Progressive Web App (PWA) for iOS/Android tablets and phones, Capacitor shell for app stores  
+**Engine:** Vue 3 + Vite front-end with PixiJS rendering layer for board visuals  
 **Design Philosophy:** Snappy, arcade-style gameplay with immediate feedback and satisfying chain reactions
 
 ---
@@ -47,7 +47,7 @@
 2. Matches clear crystals and damage underlying tiles
 3. Cleared crystals drop down, new ones spawn from top
 4. Cascades trigger automatically, building multipliers
-5. Level objectives must be met within move/time limits
+5. Level objectives remain active until completed, rewarding efficient play without hard turn limits
 6. Victory rewards lootboxes containing inventory power-ups
 
 ### 1.3 Board Configuration
@@ -128,9 +128,9 @@ Each level has 1-3 primary objectives that must be completed to win:
 - **Difficulty Scaling:** More tiles, tougher health values, blockers
 
 #### Objective Type 2: Reach Target Score
-- **Example:** "Score 50,000 points in 25 moves"
+- **Example:** "Score 50,000 points"
 - **Mechanic:** Encourages cascade-building and bonus creation
-- **Difficulty Scaling:** Higher score thresholds, fewer moves
+- **Difficulty Scaling:** Higher score thresholds, increased tile health, tougher layouts
 
 #### Objective Type 3: Collect Special Crystals
 - **Example:** "Collect 15 Ruby Crystals" (specific crystal type drops, player must match them)
@@ -142,33 +142,28 @@ Each level has 1-3 primary objectives that must be completed to win:
 - **Mechanic:** Rewards strategic play and bonus creation
 - **Difficulty:** Requires planning, not just lucky cascades
 
-#### Objective Type 5: Survival Mode
-- **Example:** "Survive 60 seconds while tiles continuously decay"
-- **Mechanic:** Tiles lose health over time, player must keep breaking them
-- **Pressure:** Creates urgency, tests speed and efficiency
-
 ### 3.2 Fail Conditions
 
-- **Out of Moves:** Player exhausts move limit without completing objectives
-- **Out of Time:** (Timed levels) Clock reaches zero
-- **Board Lock:** No legal moves remaining and no shuffle power-up available
-- **Tile Overload:** (Survival mode) Too many tiles reach critical health
+- **Board Lock:** No legal moves remaining after automatic reshuffle attempts
+- **Tile Overload:** Too many tiles reach critical health simultaneously (objective-specific)
+- **Objective Failure:** Special objective constraints (e.g., locked tiles without key match) persist after safety threshold
 
-### 3.3 Move/Time Constraints
+### 3.3 Difficulty & Pacing Levers
 
-- **Move-Based Levels:** 20-40 moves depending on difficulty
-- **Timed Levels:** 60-180 seconds depending on objectives
-- **Hybrid Levels:** Both move and time limits (hard mode)
-- **Infinite Moves:** Rare puzzle levels where only skill matters
+- **Tile Health Scaling:** Increase layers (1-3) and distribution to tune challenge
+- **Blocker Frequency:** Adjust frozen, chained, and indestructible tile density
+- **Objective Targets:** Raise score/collection thresholds to demand deeper cascades
+- **Bonus Availability:** Modify rainbow/bomb/cross spawn rates to influence strategy
+- **Shuffle Budget:** Limit number of automatic board reshuffles before failure
 
 ### 3.4 Star Rating System
 
 Victory is always awarded, but star rating adds replay value:
 
-- **1 Star:** Complete any 1 objective (participation trophy)
-- **2 Stars:** Complete 2 objectives OR exceed target by 50%
-- **3 Stars:** Complete all objectives + bonus criteria (score threshold, moves remaining)
-- **Perfect:** 3 stars + zero moves wasted (flawless efficiency bonus)
+- **1 Star:** Complete the primary objective
+- **2 Stars:** Complete all objectives OR exceed primary target by 50%
+- **3 Stars:** Complete all objectives and hit the premium score benchmark + maintain cascade chain level 3+
+- **Perfect:** Earn 3 stars without requiring manual reshuffle and clear every breakable tile
 
 ### 3.5 Level Progression Structure
 
@@ -176,8 +171,8 @@ Victory is always awarded, but star rating adds replay value:
 - **World 2 (Cascade Caverns):** Levels 16-40 — Standard tile-breaking focus
 - **World 3 (Frozen Depths):** Levels 41-65 — Frozen tiles and blockers
 - **World 4 (Chain Chambers):** Levels 66-90 — Chained tiles and complex patterns
-- **World 5 (Time Trials):** Levels 91-115 — Timed challenges
-- **World 6 (Master Gauntlet):** Levels 116-150 — Multi-objective, hard mode
+- **World 5 (Prismatic Forge):** Levels 91-115 — Dense boards that reward precision cascades
+- **World 6 (Master Gauntlet):** Levels 116-150 — Multi-objective, advanced blocker combinations
 - **Endless Mode:** Unlocked after World 3, survival with increasing difficulty
 
 ---
@@ -207,66 +202,31 @@ Victory is always awarded, but star rating adds replay value:
 - **Bonus:** +400 points
 - **Visual:** Golden plus-sign icon on crystal
 
-#### Square (2×2 match, 4 identical crystals)
-- **Effect:** Creates **Shockwave Crystal** (rare bonus)
-- **Power:** Clears all crystals of same type as the square + adjacent 8 tiles
-- **Bonus:** +600 points
-- **Visual:** Pulsing square outline, electric arcs
-
-#### Cross Intersection (Match-3 horizontal + vertical simultaneously)
-- **Effect:** Creates **Nova Crystal** (ultra-rare)
-- **Power:** Clears entire row + column + creates 4 random bonuses in the cleared area
-- **Bonus:** +800 points
-- **Visual:** Blinding white flash, radial burst
-
 ### 4.3 Bonus Crystal Types (In-Game, Created by Matches)
 
-#### 1. Bomb Crystal 💣
+#### 1. Bomb Crystal
 - **Creation:** Match-4 in a line
 - **Activation:** Match it OR swap it with any adjacent crystal
 - **Effect:** Explodes 3×3 area (9 cells total)
 - **Tile Damage:** 2 HP to all tiles in blast radius
-- **Chain Reaction:** If bomb hits another bomb, triggers secondary explosion (5×5 area)
+- **Chain Reaction:** If a bomb hits another bomb, the secondary explosion uses the same 3×3 radius (no size escalation)
 - **Visual:** Red/orange crystal with crackling energy, explodes with fire particles
 
-#### 2. Rainbow Orb 🌈
+#### 2. Rainbow Orb
 - **Creation:** Match-5 in a line
 - **Activation:** Swap with any crystal type
 - **Effect:** Clears ALL crystals of the swapped type from the board
 - **Tile Damage:** 1 HP to 8-12 random tiles (prioritizes high-health tiles)
-- **Combo:** Swap two Rainbow Orbs together for "Supernova" — clears entire board, 3 HP to all tiles
+- **Combo:** Swapping two Rainbow Orbs clears all crystals (tiles take standard 1 HP damage)
 - **Visual:** Iridescent sphere, emits rainbow particle trails, activation sends beams to all targets
 
-#### 3. Cross Beam Crystal ✚
+#### 3. Cross Beam Crystal
 - **Creation:** T-shape or L-shape match (5 crystals)
 - **Activation:** Match it OR swap with adjacent crystal
 - **Effect:** Fires laser beams in 4 directions (full row + full column)
 - **Tile Damage:** 1 HP to all tiles in beams (16 tiles on 8×8 board)
 - **Chain Reaction:** If beam hits bomb, detonates bomb; if beam hits another cross beam, creates perpendicular beams
 - **Visual:** Golden crystal with plus-sign icon, beams are bright yellow lasers with particle trails
-
-#### 4. Shockwave Crystal ⚡
-- **Creation:** 2×2 square match (4 identical adjacent crystals)
-- **Activation:** Match it OR swap with adjacent crystal
-- **Effect:** Clears all crystals matching the square's original type + creates electrical arc to 8 adjacent tiles
-- **Tile Damage:** 2 HP to the 8 tiles adjacent to shockwave center
-- **Chain Reaction:** If multiple shockwaves activate in one cascade, damage stacks
-- **Visual:** Electric blue crystal with arc lightning, activation creates expanding shockwave ring
-
-#### 5. Nova Crystal ✦
-- **Creation:** Cross intersection (rare: match-3 horizontal + vertical at same cell)
-- **Activation:** Automatically activates on creation
-- **Effect:** Clears entire row + column, spawns 4 random Bomb Crystals in cleared area
-- **Tile Damage:** 3 HP to all tiles in row + column
-- **Visual:** White star-shaped crystal, blindingly bright with radial light rays
-
-#### 6. Vortex Crystal 🌀 (New, Advanced Bonus)
-- **Creation:** Match-6 or longer line
-- **Activation:** Match it OR swap with adjacent crystal
-- **Effect:** Sucks in all adjacent crystals (3×3 area), then explodes, redistributing them to random positions
-- **Tile Damage:** 2 HP to original 3×3, 1 HP to redistribution targets
-- **Strategy:** Creates chaos and new combo opportunities
-- **Visual:** Swirling dark purple crystal with gravitational particle effect
 
 ---
 
@@ -296,13 +256,7 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 - **Cooldown:** Single use per activation
 - **Lootbox Rarity:** Rare (8% drop rate)
 
-##### 4. Extra Moves +5 ⏱️
-- **Effect:** Add 5 moves to move counter (move-based levels only)
-- **Use Case:** Close calls, nearly completed objectives
-- **Cooldown:** Can stack multiple uses
-- **Lootbox Rarity:** Uncommon (25% drop rate)
-
-##### 5. Tile Breaker ⛏️
+##### 4. Tile Breaker ⛏️
 - **Effect:** Instantly destroy 1 tile beneath a crystal (removes 3 HP layers)
 - **Use Case:** Directly advance tile-clearing objectives
 - **Cooldown:** Single use per activation
@@ -328,12 +282,6 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 - **Duration:** Entire level
 - **Lootbox Rarity:** Legendary (2% drop rate)
 
-##### 9. Time Freeze ❄️ (Timed levels only)
-- **Effect:** Timer pauses for 30 seconds of real-time gameplay
-- **Use Case:** Critical moments in timed challenges
-- **Duration:** 30 seconds when activated
-- **Lootbox Rarity:** Epic (6% drop rate)
-
 ### 5.2 Inventory Management
 
 - **Inventory Slots:** Unlimited storage for power-ups
@@ -356,7 +304,7 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 #### Lootbox Tiers
 
 ##### Bronze Lootbox (Common)
-- **Contents:** 2-4 common power-ups (Hammer, Extra Moves)
+- **Contents:** 2-4 common power-ups (Hammer, Color Wand)
 - **Drop Rates:** 60% Common, 30% Uncommon, 10% Rare
 - **Visual:** Bronze metallic box with faint glow
 
@@ -405,16 +353,12 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 
 | **Combination**               | **Effect**                                                                 | **Tile Damage** | **Visual Effect**                          |
 |-------------------------------|---------------------------------------------------------------------------|-----------------|-------------------------------------------|
-| Bomb + Bomb                   | Mega Explosion (5×5 area)                                                 | 3 HP (all)      | Fire shockwave, screen shake              |
-| Bomb + Cross Beam             | Cross explodes at bomb center + original cross beams                      | 2 HP (cross), 3 HP (bomb) | Cross-shaped explosion pattern            |
-| Bomb + Rainbow Orb            | 10 bombs drop at random positions, auto-detonate                          | 2 HP each       | Chain explosions across board              |
-| Rainbow Orb + Rainbow Orb     | **SUPERNOVA**: Clear entire board, 3 HP to all tiles                      | 3 HP (all)      | Blinding white flash, full-screen particles|
-| Rainbow Orb + Cross Beam      | Clear entire board + fire cross beams from center                         | 2 HP (all)      | Radial beams + rainbow trails              |
-| Cross Beam + Cross Beam       | **HYPERCROSS**: 8 directional beams (all diagonals + cardinal)            | 2 HP (all)      | 8-pointed star laser pattern               |
-| Shockwave + Bomb              | Shockwave clears type + bomb chain-explodes cleared positions             | 2 HP (both)     | Electric arcs meet fire explosions         |
-| Shockwave + Rainbow Orb       | Shockwave effect applies to 3 random crystal types                        | 2 HP (random)   | Triple-colored electrical storm            |
-| Vortex + Bomb                 | Vortex sucks in 5×5 area, then mega-explodes redistributed crystals       | 3 HP (center), 2 HP (redistribution) | Implosion → explosion sequence             |
-| Vortex + Rainbow Orb          | Vortex redistributes ALL crystals of one type to new random positions     | 1 HP (all)      | Chaotic rainbow swirl effect               |
+| Bomb + Bomb                   | Sequential 3×3 blasts with slight delay                                   | 2 HP (both)     | Overlapping firebursts, gentle screen shake|
+| Bomb + Cross Beam             | Bomb detonates first, then cross beam fires from blast center             | 2 HP (bomb area), 1 HP (row/column) | Expanding ring followed by laser sweep     |
+| Bomb + Rainbow Orb            | Rainbow clears chosen color, then bomb explodes at swap position          | 1 HP (cleared tiles), 2 HP (3×3 area) | Color beams collapse into fiery burst      |
+| Rainbow Orb + Rainbow Orb     | Clears all crystals; tiles take standard rainbow damage                   | 1 HP (all)      | Soft white flash with prismatic ripple     |
+| Rainbow Orb + Cross Beam      | Cross beam fires, then rainbow clears a chosen color                      | 1 HP (row/column and color) | Golden beam streaks with rainbow afterglow |
+| Cross Beam + Cross Beam       | First beam fires normally; second fires after delay at perpendicular axis | 1 HP (each affected tile) | Dual beam animation with shimmering cross  |
 
 ### 7.3 Chain Reaction Scoring
 
@@ -433,12 +377,12 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 5. Massive cascade continues, multiplier reaches 7×
 6. **Result:** 15+ tiles broken, 50,000+ points
 
-#### Example 2: The Nuclear Option
-1. Player swaps Rainbow Orb + Bomb → 10 bombs drop and detonate
-2. Multiple bomb explosions chain-react with 3 more bombs on board
-3. Explosions trigger 4 cascading Match-3s
-4. Final cascade creates another Cross Beam from falling crystals
-5. **Result:** Entire board cleared, 20+ tiles broken, 100,000+ points
+#### Example 2: Orbiting Beams
+1. Player swaps Rainbow Orb + Cross Beam → cross fires, then rainbow clears blue crystals
+2. Cascaded clears create two Bomb Crystals in adjacent columns
+3. A falling crystal matches one bomb, triggering sequential 3×3 blasts
+4. Blasts uncover chained tiles, creating another Rainbow Orb that clears remaining blues
+5. **Result:** 12+ tiles broken, blockers removed, 65,000+ points
 
 ---
 
@@ -467,12 +411,12 @@ These are **inventory items** obtained from lootboxes. Player can use them BEFOR
 2. **Select 1-3 Objectives:**
    - Primary: Clear X tiles (always)
    - Secondary: Score threshold OR collect crystals OR activate bonuses
-   - Tertiary (hard mode): Survival timer OR perfect moves
-3. **Calculate Move/Time Limits:** Based on tile count and objective complexity
+   - Tertiary (hard mode): Additional blocker constraints OR chained tile challenges
+3. **Set Pacing Parameters:** Define shuffle allowance, cascade targets, and bonus spawn rates
 
 #### Phase 4: Validation
 1. **Solvability Check:** Run simulation to ensure level is completable
-2. **Difficulty Calibration:** Adjust move limits if simulation solves too easily/hard
+2. **Difficulty Calibration:** Adjust tile health or blocker density if simulation solves too easily/hard
 3. **Playtest Metrics:** If win rate < 30% or > 80%, regenerate with adjusted parameters
 
 ### 8.2 Level Templates (Designer-Created)
@@ -485,7 +429,7 @@ For curated experiences, designers can create templates:
 
 ### 8.3 Endless Mode Generation
 
-- **Incremental Difficulty:** Each survived level increases tile health, reduces moves
+- **Incremental Difficulty:** Each survived level increases tile health and blocker density
 - **Tile Spawn Rate:** +1 tile health per 5 levels survived
 - **Blocker Density:** +2% indestructible tiles per 10 levels
 - **Leaderboard:** Global ranking by highest level reached
@@ -497,6 +441,13 @@ For curated experiences, designers can create templates:
 ### 9.1 Crystal Sprite Design
 
 **Moving away from emojis to custom SVG/PNG sprites:**
+
+#### Placeholder Graphics
+The game currently uses placeholder graphics for the gems. These are generated in `src/game/pixi/placeholder-gems.js`. To replace them with real assets, you need to:
+
+1.  Create your own sprite atlas with the gem sprites.
+2.  Update `src/game/pixi/SpriteLoader.js` to load your sprite atlas instead of the placeholder graphics.
+3.  Make sure the gem types in `src/game/engine/LevelGenerator.js` correspond to the names of the sprites in your atlas.
 
 #### Crystal Types (6 Base Types)
 
@@ -540,9 +491,6 @@ For curated experiences, designers can create templates:
 - **Bomb:** Base crystal wrapped in orange/red energy field with crackling arcs
 - **Rainbow Orb:** Transparent sphere containing swirling rainbow liquid
 - **Cross Beam:** Crystal emitting 4 golden laser lines
-- **Shockwave:** Crystal surrounded by electric blue lightning cage
-- **Nova:** Blinding white star shape with light rays
-- **Vortex:** Dark purple crystal with spiraling gravitational distortion
 
 ### 9.2 Tile Sprite Design
 
@@ -579,7 +527,7 @@ For curated experiences, designers can create templates:
 - **Buttons:** Raised 3D style with glow effects, tactile press animations
 
 #### HUD Elements
-- **Move Counter:** Circular icon with number, glows red when low (<5 moves)
+- **Cascade Meter:** Circular icon showing current cascade level, pulses as it rises
 - **Objective Tracker:** Progress bars with icon + fraction (e.g., "💎 15/30")
 - **Score Display:** Large, prominent, animates on score gain (+1000 flies up)
 - **Power-Up Bar:** Bottom of screen, 4 quick-access slots with cooldown overlays
@@ -601,7 +549,7 @@ For curated experiences, designers can create templates:
 - **Physics:** Gravity + lateral spread
 
 ##### 3. Bonus Explosion (Large)
-- **Trigger:** Bomb, Shockwave, Nova activations
+- **Trigger:** Bomb or Cross Beam activations
 - **Style:** 40-60 large particles + shockwave ring
 - **Duration:** 0.8-1.2 seconds
 - **Physics:** Radial explosion + gravity
@@ -613,7 +561,7 @@ For curated experiences, designers can create templates:
 - **Physics:** Curved paths following beams
 
 ##### 5. Screen Effects (Full-Screen)
-- **Trigger:** Supernova, Perfect Clears, Level Victory
+- **Trigger:** Double Rainbow clears, Perfect Clears, Level Victory
 - **Style:** Screen flash (white/color), confetti burst, light rays
 - **Duration:** 2-3 seconds
 - **Physics:** Continuous spawn + gravity
@@ -651,9 +599,6 @@ For curated experiences, designers can create templates:
 - **Bomb Explosion:** Deep bass thump + crackle (500ms)
 - **Rainbow Orb:** Ethereal whoosh + sparkle rain (800ms)
 - **Cross Beam:** Laser charge-up + zap (400ms)
-- **Shockwave:** Electric crackle + thunder (600ms)
-- **Nova:** Angelic choir note + radial burst (1000ms)
-- **Vortex:** Gravitational hum + implosion (700ms)
 
 #### Cascade Sounds
 - **Cascade Multiplier:** Pitch increases with each cascade level (×1 = base pitch, ×10 = +2 octaves)
@@ -820,7 +765,8 @@ const GameState = {
   board: Array(64),           // Flat array: [crystal objects]
   tiles: Array(64),           // Parallel array: [tile objects with health]
   score: 0,
-  moves: 30,
+  shuffleAllowance: 3,        // Automatic reshuffles allowed before failure
+  reshufflesUsed: 0,
   level: 1,
   objectives: [],             // Array of objective objects
   inventory: {},              // Map of power-up IDs to quantities
@@ -839,7 +785,7 @@ class MatchEngine {
   }
   
   detectPattern(matchIndices) {
-    // Returns 'line' | 't-shape' | 'l-shape' | 'square' | 'cross'
+    // Returns 'line' | 't-shape' | 'l-shape'
   }
   
   calculateBonusType(pattern, length) {
@@ -1018,16 +964,16 @@ const SaveData = {
 
 ### 13.1 Difficulty Tiers
 
-| **Level Range** | **Tier**      | **Move Range** | **Tile Health** | **Blockers** | **Objectives**     |
-|-----------------|---------------|----------------|-----------------|--------------|-------------------|
-| 1-10            | Tutorial      | 35-40          | 1-2 layers      | 0-5%         | 1 simple          |
-| 11-25           | Easy          | 30-35          | 1-2 layers      | 5-10%        | 1-2 simple        |
-| 26-50           | Medium        | 25-30          | 1-3 layers      | 10-15%       | 2 moderate        |
-| 51-75           | Medium-Hard   | 22-28          | 2-3 layers      | 15-20%       | 2-3 moderate      |
-| 76-100          | Hard          | 20-25          | 2-3 layers      | 20-25%       | 2-3 complex       |
-| 101-125         | Very Hard     | 18-22          | 2-3 layers      | 25-30%       | 3 complex         |
-| 126-150         | Expert        | 15-20          | 2-3 layers      | 30-35%       | 3 very complex    |
-| 151+            | Master        | 15-18          | 3 layers only   | 35-40%       | 3 master-level    |
+| **Level Range** | **Tier**      | **Auto Reshuffles** | **Tile Health** | **Blockers** | **Objectives**     |
+|-----------------|---------------|---------------------|-----------------|--------------|-------------------|
+| 1-10            | Tutorial      | 5                   | 1-2 layers      | 0-5%         | 1 simple          |
+| 11-25           | Easy          | 4                   | 1-2 layers      | 5-10%        | 1-2 simple        |
+| 26-50           | Medium        | 3                   | 1-3 layers      | 10-15%       | 2 moderate        |
+| 51-75           | Medium-Hard   | 3                   | 2-3 layers      | 15-20%       | 2-3 moderate      |
+| 76-100          | Hard          | 2                   | 2-3 layers      | 20-25%       | 2-3 complex       |
+| 101-125         | Very Hard     | 2                   | 2-3 layers      | 25-30%       | 3 complex         |
+| 126-150         | Expert        | 1                   | 2-3 layers      | 30-35%       | 3 very complex    |
+| 151+            | Master        | 1                   | 3 layers only   | 35-40%       | 3 master-level    |
 
 ### 13.2 Objective Complexity Scaling
 
@@ -1038,17 +984,17 @@ const SaveData = {
 
 **Moderate Objectives (Levels 26-75):**
 - Clear 40 tiles (mix of 1-3 layers)
-- Score 35,000 points in 25 moves
+- Score 35,000 points while reaching cascade multiplier 4
 - Activate 3 bonus crystals
 
 **Complex Objectives (Levels 76-125):**
 - Clear 60 tiles (mostly 2-3 layers) + score 50,000
 - Clear all frozen tiles + collect 15 crystals
-- Survive 90 seconds while tiles decay
+- Stabilize 3 chained tile groups before they relock
 
 **Very Complex Objectives (Levels 126+):**
 - Clear 80 tiles (all 3-layer) + score 100,000 + activate 5 bonuses
-- Perfect clear (entire board) in under 20 moves
+- Perfect clear (entire board) with no manual reshuffles
 - Chain 5 mega combos (3+ bonuses in cascade)
 
 ### 13.3 Reward Scaling
@@ -1084,12 +1030,12 @@ const SaveData = {
 
 ### 14.1 Technology Stack
 
-- **Core:** Vanilla JavaScript (ES6+), no framework required
-- **Graphics:** HTML5 Canvas for particles, CSS3 for DOM animations
-- **Audio:** Web Audio API for SFX, HTML5 `<audio>` for music loops
-- **Storage:** LocalStorage for save data (IndexedDB for large datasets if needed)
-- **Build Tool:** Vite (bundling, minification, hot reload)
-- **Hosting:** Static hosting (Netlify, Vercel, GitHub Pages)
+- **Core:** Vue 3 (Composition API) app scaffolded with Vite (TypeScript-ready)
+- **Rendering:** PixiJS (WebGL canvas) for board + particle effects, standard Vue components for HUD/menus
+- **State Management:** Pinia store modules with persisted state via LocalStorage (IndexedDB fallback for large data)
+- **Audio:** Web Audio API wrapped with Howler.js for consistent cross-browser playback
+- **Mobile Packaging:** Capacitor bridge for deploying the PWA as native shells on iOS/Android
+- **Hosting:** Static hosting (Netlify, Vercel, GitHub Pages) with service worker enabled for offline play
 
 ### 14.2 Browser Compatibility
 
@@ -1129,23 +1075,31 @@ const SaveData = {
 
 ```
 /src
-  /core
-    GameEngine.js         // Main game loop
-    StateManager.js       // Game state
-    MatchEngine.js        // Match detection
-    TileManager.js        // Tile health system
-    ComboResolver.js      // Bonus interactions
-  /systems
-    AnimationQueue.js     // Animation sequencer
-    ParticleSystem.js     // Particle effects
-    AudioManager.js       // Sound engine
-    LevelGenerator.js     // Procedural levels
-    LootboxManager.js     // Lootbox system
-  /ui
-    HUD.js                // Score, moves, objectives
-    PowerUpBar.js         // Inventory quick access
-    LevelSelect.js        // World map UI
-    SettingsMenu.js       // Options screen
+  main.ts                 // Bootstraps Vue app + Pixi stage
+  App.vue                 // Root layout shell
+  /components
+    BoardCanvas.vue       // PixiJS board rendering + interactions
+    HudPanel.vue          // Score, objectives, cascade meter
+    PowerUpBar.vue        // Inventory quick access
+    LevelSelectModal.vue  // World map UI
+    SettingsDrawer.vue    // Options screen
+  /game
+    engine/
+      GameLoop.ts         // Main game loop + tick scheduling
+      MatchEngine.ts      // Match detection (line, T, L)
+      TileManager.ts      // Tile health system
+      BonusResolver.ts    // Bomb/Rainbow/Cross interactions
+      LevelGenerator.ts   // Procedural levels + pacing params
+    pixi/
+      ParticleFactory.ts  // Particle effect definitions
+      SpriteLoader.ts     // Asset loading + caching
+  /stores
+    gameStore.ts          // Pinia store for board + objectives
+    inventoryStore.ts     // Power-up inventory state
+    settingsStore.ts      // Audio, accessibility, preferences
+  /composables
+    useInputHandlers.ts   // Touch/mouse swipe helpers
+    useAudio.ts           // Audio playback controls
   /assets
     /sprites
       crystals/           // Crystal images
@@ -1157,17 +1111,22 @@ const SaveData = {
     /fonts
       Cinzel-Bold.woff2
       Inter-Regular.woff2
+  /styles
+    base.css              // Tailwind-like utility classes
+    theme.css             // Theming + color variables
   /data
     levels.json           // Level templates
     dropTables.json       // Lootbox probabilities
-  main.js                 // Entry point
-  style.css               // Global styles
+/capacitor
+  capacitor.config.ts     // Capacitor configuration
+  ios/                    // iOS native wrapper
+  android/                // Android native wrapper
 ```
 
 ### 14.6 Testing Requirements
 
 #### Functional Testing
-- ✅ All match patterns detect correctly (3, 4, 5, T, L, square, cross)
+- ✅ All match patterns detect correctly (line-3/4/5, T-shape, L-shape)
 - ✅ Tile health decrements properly (1, 2, 3 layers)
 - ✅ All bonus combinations work as specified
 - ✅ Cascades resolve recursively until board stabilizes
@@ -1205,8 +1164,7 @@ const SaveData = {
 - [x] Cascade system
 
 ### Phase 2: Bonuses & Effects (Weeks 4-5)
-- [ ] Bomb, Rainbow Orb, Cross Beam bonuses
-- [ ] Shockwave, Nova, Vortex bonuses
+- [ ] Bomb, Rainbow Orb, Cross Beam bonuses (implementation + polishing)
 - [ ] Bonus combination matrix
 - [ ] Particle system
 - [ ] Audio integration

@@ -1,0 +1,7 @@
+:root {
+  --color-background: radial-gradient(circle at 10% 20%, #1d3557, #0b1120);
+  --color-header: rgba(15, 23, 42, 0.95);
+  --color-foreground: #e2e8f0;
+  --color-accent: #60a5fa;
+  --font-heading: 'Cinzel', 'Trajan Pro', serif;
+}
