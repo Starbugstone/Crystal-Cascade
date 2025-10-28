@@ -10,19 +10,20 @@ export const useInputHandlers = (gameStore) => {
     const rect = root.getBoundingClientRect();
     const boardSize = gameStore.boardSize;
     const viewSize = Math.min(rect.width, rect.height);
-    const margin = viewSize * 0.05;
-    const effectiveSide = viewSize - margin * 2;
-    const offsetX = (rect.width - viewSize) / 2 + margin;
-    const offsetY = (rect.height - viewSize) / 2 + margin;
+    const offsetX = (rect.width - viewSize) / 2;
+    const offsetY = (rect.height - viewSize) / 2;
     const relativeX = event.clientX - rect.left - offsetX;
     const relativeY = event.clientY - rect.top - offsetY;
 
-    if (relativeX < 0 || relativeY < 0 || relativeX > effectiveSide || relativeY > effectiveSide) {
+    if (relativeX < 0 || relativeY < 0 || relativeX > viewSize || relativeY > viewSize) {
       return null;
     }
 
-    const col = Math.floor((relativeX / effectiveSide) * boardSize);
-    const row = Math.floor((relativeY / effectiveSide) * boardSize);
+    const clampedX = Math.min(Math.max(relativeX, 0), viewSize - 0.0001);
+    const clampedY = Math.min(Math.max(relativeY, 0), viewSize - 0.0001);
+
+    const col = Math.floor((clampedX / viewSize) * boardSize);
+    const row = Math.floor((clampedY / viewSize) * boardSize);
 
     if (col < 0 || row < 0 || col >= boardSize || row >= boardSize) {
       return null;

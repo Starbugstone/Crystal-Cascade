@@ -1,0 +1,6 @@
+---
+description: general rules and helper guides
+alwaysApply: true
+---
+
+this project uses pixijs V8, always refer to the updated documentation at https://pixijs.com/8.x/guides/migrations/v8

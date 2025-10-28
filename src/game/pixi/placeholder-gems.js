@@ -1,8 +1,6 @@
 
 import { Graphics } from 'pixi.js';
 
-
-
 const gemTypes = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone', 'bomb', 'rainbow', 'cross'];
 const gemColors = [
   0xff0000, // Red
@@ -12,8 +10,8 @@ const gemColors = [
   0xff00ff, // Purple
   0xffffff, // White
   0x000000, // Black (bomb)
-  0x8A2BE2, // BlueViolet (rainbow)
-  0xFFD700, // Gold (cross)
+  0x8a2be2, // BlueViolet (rainbow)
+  0xffd700, // Gold (cross)
 ];
 const gemShapes = [
   'circle',
@@ -27,12 +25,15 @@ const gemShapes = [
   'plus',
 ];
 
-
-
-export const createPlaceholderGems = (size) => {
+export const createPlaceholderGems = (size, includeTypes = gemTypes) => {
   const textures = {};
 
-  gemTypes.forEach((type, index) => {
+  includeTypes.forEach((type) => {
+    const index = gemTypes.indexOf(type);
+    if (index === -1) {
+      return;
+    }
+
     const g = new Graphics();
     g.fill(gemColors[index]);
 
@@ -104,6 +105,8 @@ export const createPlaceholderGems = (size) => {
       case 'plus':
         g.rect(size / 4, 0, size / 2, size);
         g.rect(0, size / 4, size, size / 2);
+        break;
+      default:
         break;
     }
     g.fill();

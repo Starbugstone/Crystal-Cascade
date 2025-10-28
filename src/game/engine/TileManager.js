@@ -6,7 +6,7 @@ const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonston
 const randomGem = () => GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
 
 export class TileManager {
-  applyMatchResult({ board, tiles, matches, size, bonusCreated, swap }) {
+  applyMatchResult({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
     if (!matches?.length) {
       return board;
     }
@@ -24,8 +24,8 @@ export class TileManager {
     });
 
     // If a bonus was created, don't clear the gem at the swap location
-    if (bonusCreated) {
-      clearedIndices.delete(swap.aIndex);
+    if (bonusCreated && typeof bonusIndex === 'number') {
+      clearedIndices.delete(bonusIndex);
     }
 
     // Remove gems that were cleared

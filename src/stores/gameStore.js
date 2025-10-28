@@ -138,7 +138,7 @@ export const useGameStore = defineStore('game', {
         matches: payload.matches,
         size: this.boardSize,
         bonusCreated: payload.bonusCreated,
-        swap: payload.swap,
+        bonusIndex: payload.bonusIndex,
       });
       this.refreshBoardVisuals(true);
     },

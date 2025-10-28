@@ -32,24 +32,33 @@ export class BonusResolver {
 
     let nextBoard = [...board];
     let bonusCreated = null;
+    let bonusIndex = null;
 
-    const primaryMatch = matches.find(m => m.indices.includes(swap.aIndex)) || 
-                         matches.find(m => m.indices.includes(swap.bIndex)) || 
-                         matches[0];
+    const primaryMatch = matches.find((m) => m.indices.includes(swap.aIndex)) ||
+      matches.find((m) => m.indices.includes(swap.bIndex)) ||
+      matches[0];
 
     const pattern = detectMatchPattern(primaryMatch, size);
 
-    if (pattern) {
-      const index = swap.aIndex; // Create bonus at the swap location
+    if (pattern && primaryMatch) {
+      const swapIndex = primaryMatch.indices.includes(swap.aIndex)
+        ? swap.aIndex
+        : primaryMatch.indices.includes(swap.bIndex)
+          ? swap.bIndex
+          : primaryMatch.indices[0];
+
       if (pattern.shape === 'line' && pattern.length >= 5) {
-        nextBoard[index] = { type: 'rainbow', highlight: true };
+        nextBoard[swapIndex] = { type: 'rainbow', highlight: true };
         bonusCreated = 'rainbow';
+        bonusIndex = swapIndex;
       } else if (pattern.shape === 'line' && pattern.length === 4) {
-        nextBoard[index] = { type: 'bomb', highlight: true };
+        nextBoard[swapIndex] = { type: 'bomb', highlight: true };
         bonusCreated = 'bomb';
+        bonusIndex = swapIndex;
       } else if (pattern.shape === 'cross') {
-        nextBoard[index] = { type: 'cross', highlight: true };
+        nextBoard[swapIndex] = { type: 'cross', highlight: true };
         bonusCreated = 'cross';
+        bonusIndex = swapIndex;
       }
     }
 
@@ -59,6 +68,7 @@ export class BonusResolver {
       scoreGain,
       multiplier,
       bonusCreated,
+      bonusIndex,
     };
   }
 }
