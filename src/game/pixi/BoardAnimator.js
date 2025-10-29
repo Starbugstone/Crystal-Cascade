@@ -194,6 +194,12 @@ export class BoardAnimator {
   async animateSwap({ aIndex, bIndex }) {
     console.log(`🔄 animateSwap called: [${aIndex}] ↔ [${bIndex}]`);
     
+    // Clear any lingering animations from previous moves
+    if (this.animations.size > 0) {
+      console.warn(`  ⚠️ Clearing ${this.animations.size} orphaned animations`);
+      this.animations.clear();
+    }
+    
     if (aIndex == null || bIndex == null) {
       console.warn('  ⚠️ Swap aborted: null indices');
       return;
@@ -228,29 +234,9 @@ export class BoardAnimator {
   }
 
   async animateInvalidSwap({ aIndex, bIndex }) {
-    if (aIndex == null || bIndex == null) {
-      return;
-    }
-
-    const gemA = this.indexToGemId[aIndex];
-    const gemB = this.indexToGemId[bIndex];
-    if (!gemA || !gemB) {
-      return;
-    }
-
-    const spriteA = this.gemSprites.get(gemA);
-    const spriteB = this.gemSprites.get(gemB);
-    if (!spriteA || !spriteB) {
-      return;
-    }
-
-    const posA = this._indexToPosition(aIndex);
-    const posB = this._indexToPosition(bIndex);
-
-    await Promise.all([
-      this._animateShake(spriteA, posB.x, posB.y),
-      this._animateShake(spriteB, posA.x, posA.y),
-    ]);
+    // FOR NOW: Instant invalid swap (no visual feedback), no animation
+    console.log(`  ⚠️ Invalid swap attempted: [${aIndex}] ↔ [${bIndex}]`);
+    return Promise.resolve();
   }
 
   async playSteps(steps) {

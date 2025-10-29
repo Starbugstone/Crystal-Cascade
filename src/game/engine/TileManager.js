@@ -55,8 +55,8 @@ export class TileManager {
             console.log(`🌟 BONUS DETECTED on iteration ${iteration}: ${bonusPattern.type} (${match.indices.length} gems) at position [${bonusPattern.position}]`);
             cascadeBonusType = bonusPattern.type;
             cascadeBonusIndex = bonusPattern.position;
-            // Create the bonus gem in the working board
-            workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType, { highlight: true });
+            // Create the bonus gem in the working board (no highlight)
+            workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType);
           }
         }
         

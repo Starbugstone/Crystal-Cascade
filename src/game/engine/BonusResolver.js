@@ -51,15 +51,15 @@ export class BonusResolver {
           : primaryMatch.indices[0];
 
       if (pattern.shape === 'line' && pattern.length >= 5) {
-        nextBoard[swapIndex] = createGem('rainbow', { highlight: true });
+        nextBoard[swapIndex] = createGem('rainbow');
         bonusCreated = 'rainbow';
         bonusIndex = swapIndex;
       } else if (pattern.shape === 'line' && pattern.length === 4) {
-        nextBoard[swapIndex] = createGem('bomb', { highlight: true });
+        nextBoard[swapIndex] = createGem('bomb');
         bonusCreated = 'bomb';
         bonusIndex = swapIndex;
       } else if (pattern.shape === 'cross') {
-        nextBoard[swapIndex] = createGem('cross', { highlight: true });
+        nextBoard[swapIndex] = createGem('cross');
         bonusCreated = 'cross';
         bonusIndex = swapIndex;
       }
