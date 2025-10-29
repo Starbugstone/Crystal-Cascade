@@ -1,21 +1,5 @@
 import { Container, Graphics, Sprite, AnimatedSprite } from 'pixi.js';
 
-const easeOutQuad = (t) => 1 - (1 - t) * (1 - t);
-const easeInOutQuad = (t) =>
-  t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-const easeOutBack = (t) => {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-};
-
-const DEFAULTS = {
-  swapDuration: 0.18,
-  collapseDuration: 0.22,
-  spawnDuration: 0.28,
-  fadeDuration: 0.16,
-};
-
 export class BoardAnimator {
   constructor({ app, boardContainer, textures, bonusAnimations, particles }) {
     this.app = app;
@@ -48,20 +32,14 @@ export class BoardAnimator {
 
     this.indexToGemId = [];
     this.gemSprites = new Map();
-    this.animations = new Set();
     this.cellHighlights = new Map();
-
-    this._update = this._update.bind(this);
-    this.app.ticker.add(this._update);
   }
 
   destroy() {
-    this.app.ticker.remove(this._update);
     this.clear();
   }
 
   clear() {
-    this._cancelAnimations();
     this.indexToGemId = [];
     this.gemSprites.forEach((sprite) => sprite.destroy());
     this.gemSprites.clear();
@@ -99,7 +77,6 @@ export class BoardAnimator {
     console.log(`🔄 RESET: boardSize=${boardSize}, cellSize=${cellSize}, board length=${board.length}`);
     this.boardSize = boardSize;
     this.cellSize = cellSize;
-    this._cancelAnimations();
     this.backgroundLayer.removeChildren().forEach((child) => child.destroy());
     this._rebuildBackgrounds();
     
@@ -194,12 +171,6 @@ export class BoardAnimator {
   async animateSwap({ aIndex, bIndex }) {
     console.log(`🔄 animateSwap called: [${aIndex}] ↔ [${bIndex}]`);
     
-    // Clear any lingering animations from previous moves
-    if (this.animations.size > 0) {
-      console.warn(`  ⚠️ Clearing ${this.animations.size} orphaned animations`);
-      this.animations.clear();
-    }
-    
     if (aIndex == null || bIndex == null) {
       console.warn('  ⚠️ Swap aborted: null indices');
       return;
@@ -225,16 +196,15 @@ export class BoardAnimator {
     console.log(`  ${gemA} at (${spriteA.x}, ${spriteA.y}) → (${posB.x}, ${posB.y})`);
     console.log(`  ${gemB} at (${spriteB.x}, ${spriteB.y}) → (${posA.x}, ${posA.y})`);
 
-    // FOR NOW: Instant swap, no animation
+    // Instant swap
     spriteA.position.set(posB.x, posB.y);
     spriteB.position.set(posA.x, posA.y);
     this._swapIndexMapping(aIndex, bIndex);
     
-    console.log(`  ✅ Swap complete (instant)`);
+    console.log(`  ✅ Swap complete`);
   }
 
   async animateInvalidSwap({ aIndex, bIndex }) {
-    // FOR NOW: Instant invalid swap (no visual feedback), no animation
     console.log(`  ⚠️ Invalid swap attempted: [${aIndex}] ↔ [${bIndex}]`);
     return Promise.resolve();
   }
@@ -493,7 +463,7 @@ export class BoardAnimator {
 
       console.log(`    🗑️ Clearing ${gemType} (${gemId}) from [${index}]`);
       
-      // FOR NOW: Instant remove, no animation
+      // Remove sprite immediately
       if (sprite.parent) {
         sprite.parent.removeChild(sprite);
       }
@@ -545,7 +515,7 @@ export class BoardAnimator {
     this._setTexture(sprite, type);
     this._applyHighlight(sprite, gem);
 
-    // FOR NOW: Instant bonus creation, no animation
+    // Display bonus immediately
     sprite.alpha = 1;
     sprite.visible = true;
     
@@ -586,7 +556,7 @@ export class BoardAnimator {
         this.indexToGemId[from] = null;
       }
 
-      // FOR NOW: Instant move, no animation
+      // Move sprite immediately
       sprite.position.set(target.x, target.y);
       console.log(`    📦 Dropping ${gem.type} (${gem.id}): [${from}→${to}] (${oldPos.x},${oldPos.y})→(${target.x},${target.y})${oldIdAtTarget ? ` [REPLACED ${oldIdAtTarget}]` : ''}`);
       return Promise.resolve();
@@ -634,32 +604,12 @@ export class BoardAnimator {
 
       console.log(`    ✨ Spawning ${gem.type} (${gem.id}) at [${index}] (${target.x},${target.y})${oldIdAtIndex ? ` [REPLACED ${oldIdAtIndex}]` : ''}`);
       
-      // FOR NOW: Instant spawn, no animation
+      // Display sprite immediately at target position
       sprite.position.set(target.x, target.y);
       sprite.scale.set(baseScaleX, baseScaleY);
       sprite.alpha = 1;
       sprite.visible = true;
       return Promise.resolve();
-      
-      /* DISABLED SPAWN ANIMATION FOR DEBUGGING
-      return this._createAnimation({
-        duration: DEFAULTS.spawnDuration,
-        easing: easeOutBack,
-        onTick: (t) => {
-          sprite.alpha = t;
-          sprite.y = target.y - this.cellSize * (1 - t);
-          // Shrink from 1.2x to 1x using scale
-          const scaleFactor = 1.2 - 0.2 * t;
-          sprite.scale.set(baseScaleX * scaleFactor, baseScaleY * scaleFactor);
-        },
-        onComplete: () => {
-          sprite.position.set(target.x, target.y);
-          sprite.scale.set(baseScaleX, baseScaleY);
-          sprite.alpha = 1;
-          sprite.visible = true; // Ensure sprite is visible
-        },
-      });
-      */
     });
 
     if (!animations.length) {
@@ -669,129 +619,6 @@ export class BoardAnimator {
     return Promise.all(animations);
   }
 
-  _animateMove(sprite, x, y, duration) {
-    const startX = sprite.x;
-    const startY = sprite.y;
-    const deltaX = x - startX;
-    const deltaY = y - startY;
-
-    if (Math.abs(deltaX) < 0.001 && Math.abs(deltaY) < 0.001) {
-      return Promise.resolve();
-    }
-
-    return this._createAnimation({
-      duration,
-      easing: easeInOutQuad,
-      onTick: (t) => {
-        sprite.x = startX + deltaX * t;
-        sprite.y = startY + deltaY * t;
-      },
-    });
-  }
-
-  _animateFadeOut(sprite) {
-    const startAlpha = sprite.alpha;
-    const baseScaleX = sprite.scale.x;
-    const baseScaleY = sprite.scale.y;
-    
-    return this._createAnimation({
-      duration: DEFAULTS.fadeDuration,
-      easing: easeInOutQuad,
-      onTick: (t) => {
-        sprite.alpha = startAlpha * (1 - t);
-        // Grow slightly as it fades
-        const growFactor = 1 + 0.3 * t;
-        sprite.scale.set(baseScaleX * growFactor, baseScaleY * growFactor);
-      },
-    });
-  }
-
-  _animateShake(sprite, x, y) {
-    const startX = sprite.x;
-    const startY = sprite.y;
-    const targetX = x;
-    const targetY = y;
-    const offsetX = targetX - startX;
-    const offsetY = targetY - startY;
-
-    return this._createAnimation({
-      duration: DEFAULTS.swapDuration * 2,
-      easing: easeInOutQuad,
-      onTick: (t) => {
-        const forward = t <= 0.5 ? t * 2 : (1 - t) * 2;
-        sprite.x = startX + offsetX * forward;
-        sprite.y = startY + offsetY * forward;
-      },
-      onComplete: () => {
-        sprite.x = startX;
-        sprite.y = startY;
-      },
-    });
-  }
-
-  _cancelAnimations() {
-    if (!this.animations.size) {
-      return;
-    }
-
-    Array.from(this.animations).forEach((animation) => {
-      this.animations.delete(animation);
-      animation.onComplete();
-    });
-  }
-
-  _createAnimation({ duration, easing, onTick, onComplete }) {
-    return new Promise((resolve) => {
-      const animation = {
-        elapsed: 0,
-        duration: Math.max(0.0001, duration),
-        easing: easing || ((value) => value),
-        onTick,
-        onComplete: () => {
-          if (onComplete) {
-            onComplete();
-          }
-          resolve();
-        },
-      };
-
-      this.animations.add(animation);
-    });
-  }
-
-  _update(ticker) {
-    if (!this.animations.size) {
-      return;
-    }
-    
-    // Log once when animations start
-    if (!this._animationLogged) {
-      console.log(`🎬 _update: ${this.animations.size} animations running`);
-      this._animationLogged = true;
-    }
-    
-    // In PixiJS v8, ticker provides deltaTime in milliseconds
-    // Convert to seconds for our animation system
-    const deltaSeconds = ticker.deltaMS / 1000;
-
-    Array.from(this.animations).forEach((animation) => {
-      animation.elapsed += deltaSeconds;
-      const progress = Math.min(animation.elapsed / animation.duration, 1);
-      const eased = animation.easing(progress);
-      if (animation.onTick) {
-        animation.onTick(eased);
-      }
-      if (progress >= 1) {
-        this.animations.delete(animation);
-        animation.onComplete();
-      }
-    });
-    
-    // Reset logging flag when animations complete
-    if (this.animations.size === 0) {
-      this._animationLogged = false;
-    }
-  }
 
   _createGemSprite(gem) {
     const bonusTypes = ['bomb', 'rainbow', 'cross'];
