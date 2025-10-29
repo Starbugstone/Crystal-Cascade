@@ -40,13 +40,23 @@ export const useInputHandlers = (gameStore) => {
     }
     gameStore.board[index].highlight = true;
     
-    // Also highlight the background cell
     const animator = gameStore.renderer?.animator;
     if (animator) {
+      // Highlight the background cell
       animator.highlightCell(index, true);
+      
+      // Update the gem sprite tint directly
+      const gemId = gameStore.board[index]?.id;
+      if (gemId) {
+        const sprite = animator.gemSprites.get(gemId);
+        if (sprite) {
+          sprite.tint = 0xffff00;
+        }
+      }
+      
+      // Trigger a render to show the highlight
+      gameStore.renderer.app?.render();
     }
-    
-    gameStore.refreshBoardVisuals(false);
   };
 
   const clearHighlights = () => {
@@ -56,13 +66,19 @@ export const useInputHandlers = (gameStore) => {
       }
     });
     
-    // Also clear background cell highlights
     const animator = gameStore.renderer?.animator;
     if (animator) {
+      // Clear background cell highlights
       animator.clearCellHighlights();
+      
+      // Reset all gem sprite tints directly
+      animator.gemSprites.forEach((sprite) => {
+        sprite.tint = 0xffffff;
+      });
+      
+      // Trigger a render to show the changes
+      gameStore.renderer.app?.render();
     }
-    
-    gameStore.refreshBoardVisuals(false);
   };
 
   const handlePointerDown = (event) => {

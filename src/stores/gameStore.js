@@ -69,6 +69,7 @@ export const useGameStore = defineStore('game', {
         app: renderer.app,
         boardContainer: renderer.boardContainer,
         textures: renderer.textures,
+        bonusAnimations: renderer.bonusAnimations,
         particles: renderer.particles,
       });
 
@@ -169,9 +170,34 @@ export const useGameStore = defineStore('game', {
 
         this.board = resolution.board;
         this.boardVersion += 1;
-        this.refreshBoardVisuals(false);
+        
+        // DEBUG: Compare board state with animator state
+        console.log('📋 Comparing board state with animator state:');
+        let mismatches = 0;
+        this.board.forEach((gem, index) => {
+          const gemId = gem?.id;
+          const animatorGemId = animator.indexToGemId[index];
+          if (gemId !== animatorGemId) {
+            mismatches++;
+            console.warn(`  ⚠️ Mismatch at [${index}]: board has ${gemId}, animator has ${animatorGemId}`);
+          }
+        });
+        if (mismatches === 0) {
+          console.log('  ✅ Board and animator states match perfectly');
+        } else {
+          console.error(`  ❌ Found ${mismatches} mismatches between board and animator!`);
+        }
+        
+        // Don't call refreshBoardVisuals - animations already positioned everything
+        // Just trigger a render to show the final state
+        if (animator && this.renderer.app) {
+          this.renderer.app.render();
+        }
 
         return true;
+      } catch (error) {
+        console.error('Error in resolveSwap:', error);
+        return false;
       } finally {
         this.animationInProgress = false;
       }

@@ -40,22 +40,22 @@ const handleResize = () => {
 const drawGrid = () => {
   if (!pixiApp.value) return;
 
-  const gridLayer = pixiApp.value.stage.getChildByName('grid') || new Graphics();
-  gridLayer.name = 'grid';
+  const gridLayer = pixiApp.value.stage.getChildByLabel('grid') || new Graphics();
+  gridLayer.label = 'grid';
   gridLayer.clear();
 
   const { screen } = pixiApp.value;
   const gridSize = gameStore.boardSize;
   const cellSize = Math.min(screen.width, screen.height) / gridSize;
 
-  gridLayer.lineStyle(2, 0x87CEEB, 0.5);
-
+  // PixiJS v8: Use stroke() method instead of lineStyle
   for (let i = 1; i < gridSize; i++) {
     gridLayer.moveTo(i * cellSize, 0);
     gridLayer.lineTo(i * cellSize, screen.height);
     gridLayer.moveTo(0, i * cellSize);
     gridLayer.lineTo(screen.width, i * cellSize);
   }
+  gridLayer.stroke({ width: 2, color: 0x87CEEB, alpha: 0.5 });
 
   pixiApp.value.stage.addChild(gridLayer);
   pixiApp.value.stage.setChildIndex(gridLayer, 0); // Ensure grid is behind gems
@@ -80,9 +80,20 @@ const setupPixi = async () => {
     height: clientHeight || 800,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true,
+    autoStart: false, // We'll manually control rendering
   });
 
+  // Start the ticker manually
   app.ticker.start();
+  
+  // Add explicit render call to ticker - this is critical in PixiJS v8
+  // The ticker won't auto-render without this
+  app.ticker.add(() => {
+    app.render();
+  });
+  
+  // Ensure PixiJS doesn't intercept pointer events (we handle them via DOM)
+  app.stage.eventMode = 'none';
 
   // Ensure canvas is styled properly
   app.canvas.style.position = 'absolute';
@@ -91,6 +102,7 @@ const setupPixi = async () => {
   app.canvas.style.width = '100%';
   app.canvas.style.height = '100%';
   app.canvas.style.display = 'block';
+  app.canvas.style.pointerEvents = 'none';
 
   canvasRoot.value.appendChild(app.canvas);
   pixiApp.value = app;
@@ -100,6 +112,7 @@ const setupPixi = async () => {
 
   const boardContainer = new Container();
   boardContainer.sortableChildren = true;
+  boardContainer.eventMode = 'none'; // Don't intercept pointer events
   app.stage.addChild(boardContainer);
   boardLayer.value = boardContainer;
 
@@ -168,6 +181,5 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
 }
 </style>

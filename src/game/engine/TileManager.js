@@ -3,6 +3,29 @@ import { createGem, randomGemType } from './GemFactory.js';
 
 const matchEngine = new MatchEngine();
 
+// Detect if a match should create a bonus gem
+const detectBonusPattern = (match, size) => {
+  if (match.indices.length < 3) return null;
+
+  const rows = new Set(match.indices.map(i => Math.floor(i / size)));
+  const cols = new Set(match.indices.map(i => i % size));
+
+  const isLine = rows.size === 1 || cols.size === 1;
+  if (isLine) {
+    if (match.indices.length >= 5) {
+      return { type: 'rainbow', position: match.indices[Math.floor(match.indices.length / 2)] };
+    } else if (match.indices.length === 4) {
+      return { type: 'bomb', position: match.indices[Math.floor(match.indices.length / 2)] };
+    }
+  }
+
+  if (rows.size >= 3 && cols.size >= 3) {
+    return { type: 'cross', position: match.indices[Math.floor(match.indices.length / 2)] };
+  }
+
+  return null;
+};
+
 export class TileManager {
   getResolution({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
     if (!matches?.length) {
@@ -20,14 +43,37 @@ export class TileManager {
 
     while (pendingMatches.length) {
       const cleared = new Set();
+      let cascadeBonusType = null;
+      let cascadeBonusIndex = null;
+      
+      // Check each match to see if it should create a bonus
       pendingMatches.forEach((match) => {
+        // Skip bonus activations
+        if (match.type !== 'bonus-activation') {
+          const bonusPattern = detectBonusPattern(match, size);
+          if (bonusPattern && !cascadeBonusType) {
+            console.log(`🌟 BONUS DETECTED on iteration ${iteration}: ${bonusPattern.type} (${match.indices.length} gems) at position [${bonusPattern.position}]`);
+            cascadeBonusType = bonusPattern.type;
+            cascadeBonusIndex = bonusPattern.position;
+            // Create the bonus gem in the working board
+            workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType, { highlight: true });
+          }
+        }
+        
         match.indices.forEach((index) => {
           cleared.add(index);
         });
       });
 
+      // Handle bonus from initial swap (iteration 0)
       if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {
         cleared.delete(bonusIndex);
+        cascadeBonusType = bonusCreated;
+        cascadeBonusIndex = bonusIndex;
+      }
+      // Handle bonus from cascade
+      else if (cascadeBonusType && typeof cascadeBonusIndex === 'number') {
+        cleared.delete(cascadeBonusIndex);
       }
 
       if (!cleared.size) {
@@ -44,8 +90,8 @@ export class TileManager {
         drops: [],
         spawns: [],
         bonus:
-          iteration === 0 && bonusCreated && typeof bonusIndex === 'number'
-            ? { type: bonusCreated, index: bonusIndex, gem: workingBoard[bonusIndex] }
+          cascadeBonusType && typeof cascadeBonusIndex === 'number'
+            ? { type: cascadeBonusType, index: cascadeBonusIndex, gem: workingBoard[cascadeBonusIndex] }
             : null,
       };
 
