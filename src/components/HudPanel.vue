@@ -17,6 +17,11 @@
         </li>
       </ul>
     </div>
+    <div class="hud-card debug-card">
+      <button @click="forceRedraw" class="redraw-btn">
+        🔄 Force Redraw
+      </button>
+    </div>
   </section>
 </template>
 
@@ -26,6 +31,15 @@ import { useGameStore } from '../stores/gameStore';
 
 const gameStore = useGameStore();
 const { objectives } = storeToRefs(gameStore);
+
+const forceRedraw = () => {
+  console.log('🔄 Manual redraw requested');
+  if (gameStore.renderer?.animator) {
+    gameStore.renderer.animator.forceCompleteRedraw();
+  } else {
+    console.error('❌ No animator available');
+  }
+};
 </script>
 
 <style scoped>
@@ -69,5 +83,32 @@ const { objectives } = storeToRefs(gameStore);
   align-items: center;
   justify-content: space-between;
   font-size: 0.95rem;
+}
+
+.debug-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.redraw-btn {
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.redraw-btn:hover {
+  background: var(--color-accent-dark, #e11d48);
+  transform: scale(1.05);
+}
+
+.redraw-btn:active {
+  transform: scale(0.95);
 }
 </style>

@@ -84,6 +84,9 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
+      // Expose current board state for debugging
+      window.__currentBoard = this.board;
+
       const { boardContainer, app, animator } = this.renderer;
       const viewWidth = app.screen.width;
       const viewHeight = app.screen.height;
@@ -170,6 +173,9 @@ export const useGameStore = defineStore('game', {
 
         this.board = resolution.board;
         this.boardVersion += 1;
+        
+        // Update the exposed board reference for debugging
+        window.__currentBoard = this.board;
         
         // DEBUG: Compare board state with animator state
         console.log('📋 Comparing board state with animator state:');

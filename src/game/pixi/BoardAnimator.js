@@ -1,5 +1,10 @@
 import { Container, Graphics, Sprite, AnimatedSprite } from 'pixi.js';
 
+// Simple easing function for smooth falling
+const easeOutQuad = (t) => 1 - (1 - t) * (1 - t);
+
+const FALL_DURATION = 0.4; // 400ms for falling animations (increased for visibility)
+
 export class BoardAnimator {
   constructor({ app, boardContainer, textures, bonusAnimations, particles }) {
     this.app = app;
@@ -33,9 +38,15 @@ export class BoardAnimator {
     this.indexToGemId = [];
     this.gemSprites = new Map();
     this.cellHighlights = new Map();
+    this.animations = new Set();
+
+    // Bind and add ticker for animations
+    this._update = this._update.bind(this);
+    this.app.ticker.add(this._update);
   }
 
   destroy() {
+    this.app.ticker.remove(this._update);
     this.clear();
   }
 
@@ -116,6 +127,60 @@ export class BoardAnimator {
     
     console.log(`  Created ${this.gemSprites.size} new sprites`);
     console.log(`  gemLayer now has ${this.gemLayer.children.length} children`);
+  }
+
+  forceCompleteRedraw() {
+    console.log('🔄 FORCE COMPLETE REDRAW - Clearing all animations and syncing visual state');
+    
+    // Cancel any running animations
+    this.animations.clear();
+    
+    // Get current board state from the game store
+    const currentBoard = window.__currentBoard;
+    if (!currentBoard) {
+      console.error('❌ Cannot redraw - no board state available');
+      return;
+    }
+    
+    console.log(`  Board has ${currentBoard.length} cells`);
+    console.log(`  gemSprites Map has ${this.gemSprites.size} entries`);
+    console.log(`  gemLayer has ${this.gemLayer.children.length} children`);
+    console.log(`  indexToGemId has ${this.indexToGemId.filter(id => id !== null).length} non-null entries`);
+    
+    // Destroy all existing sprites
+    this.gemSprites.forEach((sprite) => sprite.destroy());
+    this.gemSprites.clear();
+    this.gemLayer.removeChildren();
+    this.indexToGemId = new Array(currentBoard.length).fill(null);
+    
+    console.log('  Cleared all sprites, rebuilding from board state...');
+    
+    // Recreate all sprites from current board state
+    currentBoard.forEach((gem, index) => {
+      if (!gem) return;
+      
+      const sprite = this._createGemSprite(gem);
+      const { x, y } = this._indexToPosition(index);
+      
+      sprite.position.set(x, y);
+      sprite.alpha = 1;
+      sprite.visible = true;
+      
+      this.gemLayer.addChild(sprite);
+      this.gemSprites.set(gem.id, sprite);
+      this.indexToGemId[index] = gem.id;
+      
+      if (index < 5) {
+        console.log(`  [${index}] ${gem.type} (${gem.id}) at (${x}, ${y})`);
+      }
+    });
+    
+    console.log(`✅ Redraw complete: ${this.gemSprites.size} sprites created`);
+    
+    // Force a render
+    if (this.app && this.app.render) {
+      this.app.render();
+    }
   }
 
   syncToBoard(board) {
@@ -556,10 +621,23 @@ export class BoardAnimator {
         this.indexToGemId[from] = null;
       }
 
-      // Move sprite immediately
-      sprite.position.set(target.x, target.y);
-      console.log(`    📦 Dropping ${gem.type} (${gem.id}): [${from}→${to}] (${oldPos.x},${oldPos.y})→(${target.x},${target.y})${oldIdAtTarget ? ` [REPLACED ${oldIdAtTarget}]` : ''}`);
-      return Promise.resolve();
+      const startY = sprite.y;
+      const targetY = target.y;
+      const targetX = target.x;
+      
+      console.log(`    📦 Dropping ${gem.type} (${gem.id}): [${from}→${to}] Y: ${startY}→${targetY}`);
+      
+      // Animate the drop
+      return this._createAnimation({
+        duration: FALL_DURATION,
+        easing: easeOutQuad,
+        onTick: (t) => {
+          sprite.position.set(targetX, startY + (targetY - startY) * t);
+        },
+        onComplete: () => {
+          sprite.position.set(targetX, targetY);
+        },
+      });
     });
 
     if (!animations.length) {
@@ -588,28 +666,35 @@ export class BoardAnimator {
       const sprite = this._createGemSprite(gem);
       const target = this._indexToPosition(index);
 
-      // Capture the initial scale after _applyGemDimensions
-      const baseScaleX = sprite.scale.x;
-      const baseScaleY = sprite.scale.y;
-
-      // Start above the board
-      sprite.position.set(target.x, target.y - this.cellSize);
-      sprite.alpha = 0;
-      // Start slightly larger by scaling up from base
-      sprite.scale.set(baseScaleX * 1.2, baseScaleY * 1.2);
-
-      this.gemLayer.addChild(sprite);
-      this.gemSprites.set(gem.id, sprite);
-      this.indexToGemId[index] = gem.id;
-
-      console.log(`    ✨ Spawning ${gem.type} (${gem.id}) at [${index}] (${target.x},${target.y})${oldIdAtIndex ? ` [REPLACED ${oldIdAtIndex}]` : ''}`);
+      // Calculate starting position above the board
+      const row = Math.floor(index / this.boardSize);
+      const startY = -this.cellSize * (row + 2);
       
-      // Display sprite immediately at target position
-      sprite.position.set(target.x, target.y);
-      sprite.scale.set(baseScaleX, baseScaleY);
+      // Set initial position and properties
+      sprite.position.set(target.x, startY);
       sprite.alpha = 1;
       sprite.visible = true;
-      return Promise.resolve();
+      
+      // Track in maps
+      this.gemSprites.set(gem.id, sprite);
+      this.indexToGemId[index] = gem.id;
+      
+      // Add to layer
+      this.gemLayer.addChild(sprite);
+
+      console.log(`    ✨ Spawning ${gem.type} (${gem.id}) at [${index}] from Y=${startY} to Y=${target.y}`);
+      
+      // Animate falling down
+      return this._createAnimation({
+        duration: FALL_DURATION,
+        easing: easeOutQuad,
+        onTick: (t) => {
+          sprite.position.set(target.x, startY + (target.y - startY) * t);
+        },
+        onComplete: () => {
+          sprite.position.set(target.x, target.y);
+        },
+      });
     });
 
     if (!animations.length) {
@@ -619,6 +704,62 @@ export class BoardAnimator {
     return Promise.all(animations);
   }
 
+  _createAnimation({ duration, easing, onTick, onComplete }) {
+    return new Promise((resolve) => {
+      const animation = {
+        elapsed: 0,
+        duration: Math.max(0.001, duration),
+        easing: easing || ((t) => t),
+        onTick,
+        onComplete: () => {
+          if (onComplete) {
+            onComplete();
+          }
+          resolve();
+        },
+      };
+      this.animations.add(animation);
+    });
+  }
+
+  _update(ticker) {
+    if (this.animations.size === 0) {
+      return;
+    }
+
+    if (!this._loggedAnimStart) {
+      console.log(`🎬 Starting ${this.animations.size} animations`);
+      this._loggedAnimStart = true;
+    }
+
+    // Convert deltaMS to seconds
+    const deltaSeconds = ticker.deltaMS / 1000;
+
+    // Process all active animations
+    Array.from(this.animations).forEach((animation) => {
+      animation.elapsed += deltaSeconds;
+      const progress = Math.min(animation.elapsed / animation.duration, 1);
+      const eased = animation.easing(progress);
+      
+      if (animation.onTick) {
+        animation.onTick(eased);
+      }
+      
+      if (progress >= 1) {
+        this.animations.delete(animation);
+        // Ensure we're at EXACTLY the final state
+        if (animation.onTick) {
+          animation.onTick(1.0);
+        }
+        animation.onComplete();
+      }
+    });
+
+    if (this.animations.size === 0 && this._loggedAnimStart) {
+      console.log(`✅ All animations complete - final render`);
+      this._loggedAnimStart = false;
+    }
+  }
 
   _createGemSprite(gem) {
     const bonusTypes = ['bomb', 'rainbow', 'cross'];
