@@ -34,6 +34,10 @@ const { objectives } = storeToRefs(gameStore);
 
 const forceRedraw = () => {
   console.log('🔄 Manual redraw requested');
+  
+  // Clear the animation lock first
+  gameStore.animationInProgress = false;
+  
   if (gameStore.renderer?.animator) {
     gameStore.renderer.animator.forceCompleteRedraw();
   } else {
