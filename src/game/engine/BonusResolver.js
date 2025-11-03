@@ -1,24 +1,7 @@
 import { createGem } from './GemFactory.js';
+import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const BASE_MATCH_SCORE = 100;
-
-const detectMatchPattern = (match, size) => {
-  if (match.indices.length < 3) return null;
-
-  const rows = new Set(match.indices.map(i => Math.floor(i / size)));
-  const cols = new Set(match.indices.map(i => i % size));
-
-  const isLine = rows.size === 1 || cols.size === 1;
-  if (isLine) {
-    return { shape: 'line', length: match.indices.length };
-  }
-
-  if (rows.size >= 3 && cols.size >= 3) {
-    return { shape: 'cross', length: match.indices.length };
-  }
-
-  return null;
-};
 
 export class BonusResolver {
   resolve(result) {
@@ -36,32 +19,14 @@ export class BonusResolver {
     let bonusCreated = null;
     let bonusIndex = null;
 
-    // Only process pattern detection for normal matches, not bonus activations
-    const primaryMatch = matches.find((m) => m.type !== 'bonus-activation' && m.indices.includes(swap.aIndex)) ||
-      matches.find((m) => m.type !== 'bonus-activation' && m.indices.includes(swap.bIndex)) ||
-      matches.find((m) => m.type !== 'bonus-activation');
+    const bonusPattern = detectBonusFromMatches(matches, { swap });
 
-    const pattern = primaryMatch ? detectMatchPattern(primaryMatch, size) : null;
-
-    if (pattern && primaryMatch) {
-      const swapIndex = primaryMatch.indices.includes(swap.aIndex)
-        ? swap.aIndex
-        : primaryMatch.indices.includes(swap.bIndex)
-          ? swap.bIndex
-          : primaryMatch.indices[0];
-
-      if (pattern.shape === 'line' && pattern.length >= 5) {
-        nextBoard[swapIndex] = createGem('rainbow');
-        bonusCreated = 'rainbow';
-        bonusIndex = swapIndex;
-      } else if (pattern.shape === 'line' && pattern.length === 4) {
-        nextBoard[swapIndex] = createGem('bomb');
-        bonusCreated = 'bomb';
-        bonusIndex = swapIndex;
-      } else if (pattern.shape === 'cross') {
-        nextBoard[swapIndex] = createGem('cross');
-        bonusCreated = 'cross';
-        bonusIndex = swapIndex;
+    if (bonusPattern) {
+      const { type, index } = bonusPattern;
+      if (typeof index === 'number') {
+        nextBoard[index] = createGem(type);
+        bonusCreated = type;
+        bonusIndex = index;
       }
     }
 

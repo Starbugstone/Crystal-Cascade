@@ -22,7 +22,7 @@ export class MatchEngine {
       return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, size, swap };
     }
 
-    const matches = this.findMatches(nextBoard, size, swap);
+    const matches = this.findMatches(nextBoard, size);
 
     if (!matches.length) {
       return { matches: [], board, size, swap: null };
@@ -33,55 +33,49 @@ export class MatchEngine {
 
   findMatches(board, size) {
     const matches = [];
-    const visited = new Set();
+    const total = board.length;
 
-    const collectMatch = (start, delta) => {
-      const originType = board[start]?.type;
-      if (!originType) {
-        return;
+    for (let index = 0; index < total; index += 1) {
+      const gem = board[index];
+      if (!gem) {
+        continue;
       }
 
-      const indices = [start];
-      let cursor = start + delta;
+      const row = Math.floor(index / size);
+      const col = index % size;
 
-      while (this.isWithinBounds(start, cursor, delta, size)) {
-        const cursorType = board[cursor]?.type;
-        if (cursorType === originType) {
-          indices.push(cursor);
-          cursor += delta;
-        } else {
-          break;
+      // Horizontal run – only evaluate if this cell is the leftmost in the run
+      const leftIndex = index - 1;
+      const leftSame = col > 0 && board[leftIndex]?.type === gem.type;
+      if (!leftSame) {
+        const horizontal = [index];
+        let cursor = index + 1;
+        while (cursor % size !== 0 && board[cursor]?.type === gem.type) {
+          horizontal.push(cursor);
+          cursor += 1;
+        }
+        if (horizontal.length >= 3) {
+          matches.push({ type: gem.type, indices: horizontal, orientation: 'horizontal' });
         }
       }
 
-      if (indices.length >= 3) {
-        indices.forEach((index) => visited.add(index));
-        matches.push({ type: originType, indices });
-      }
-    };
-
-    for (let i = 0; i < board.length; i++) {
-      if (!visited.has(i)) {
-        collectMatch(i, 1); // Horizontal
-        collectMatch(i, size); // Vertical
+      // Vertical run – only evaluate if this cell is the topmost in the run
+      const upperIndex = index - size;
+      const upperSame = row > 0 && board[upperIndex]?.type === gem.type;
+      if (!upperSame) {
+        const vertical = [index];
+        let cursor = index + size;
+        while (cursor < total && board[cursor]?.type === gem.type) {
+          vertical.push(cursor);
+          cursor += size;
+        }
+        if (vertical.length >= 3) {
+          matches.push({ type: gem.type, indices: vertical, orientation: 'vertical' });
+        }
       }
     }
 
     return matches;
-  }
-
-  isWithinBounds(origin, cursor, delta, size) {
-    if (cursor < 0 || cursor >= size * size) {
-      return false;
-    }
-
-    if (delta === 1) {
-      const originRow = Math.floor(origin / size);
-      const cursorRow = Math.floor(cursor / size);
-      return originRow === cursorRow;
-    }
-
-    return true;
   }
 
   areAdjacent(aIndex, bIndex, size) {

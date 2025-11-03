@@ -1,30 +1,8 @@
 import { MatchEngine } from './MatchEngine.js';
 import { createGem, randomGemType } from './GemFactory.js';
+import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const matchEngine = new MatchEngine();
-
-// Detect if a match should create a bonus gem
-const detectBonusPattern = (match, size) => {
-  if (match.indices.length < 3) return null;
-
-  const rows = new Set(match.indices.map(i => Math.floor(i / size)));
-  const cols = new Set(match.indices.map(i => i % size));
-
-  const isLine = rows.size === 1 || cols.size === 1;
-  if (isLine) {
-    if (match.indices.length >= 5) {
-      return { type: 'rainbow', position: match.indices[Math.floor(match.indices.length / 2)] };
-    } else if (match.indices.length === 4) {
-      return { type: 'bomb', position: match.indices[Math.floor(match.indices.length / 2)] };
-    }
-  }
-
-  if (rows.size >= 3 && cols.size >= 3) {
-    return { type: 'cross', position: match.indices[Math.floor(match.indices.length / 2)] };
-  }
-
-  return null;
-};
 
 export class TileManager {
   getResolution({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
@@ -39,6 +17,7 @@ export class TileManager {
     let pendingMatches = matches.map((match) => ({
       type: match.type,
       indices: [...match.indices],
+      orientation: match.orientation,
     }));
 
     while (pendingMatches.length) {
@@ -46,24 +25,20 @@ export class TileManager {
       let cascadeBonusType = null;
       let cascadeBonusIndex = null;
       
-      // Check each match to see if it should create a bonus
       pendingMatches.forEach((match) => {
-        // Skip bonus activations
-        if (match.type !== 'bonus-activation') {
-          const bonusPattern = detectBonusPattern(match, size);
-          if (bonusPattern && !cascadeBonusType) {
-            console.log(`🌟 BONUS DETECTED on iteration ${iteration}: ${bonusPattern.type} (${match.indices.length} gems) at position [${bonusPattern.position}]`);
-            cascadeBonusType = bonusPattern.type;
-            cascadeBonusIndex = bonusPattern.position;
-            // Create the bonus gem in the working board (no highlight)
-            workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType);
-          }
-        }
-        
         match.indices.forEach((index) => {
           cleared.add(index);
         });
       });
+
+      if (iteration > 0) {
+        const cascadeBonus = detectBonusFromMatches(pendingMatches);
+        if (cascadeBonus && typeof cascadeBonus.index === 'number') {
+          cascadeBonusType = cascadeBonus.type;
+          cascadeBonusIndex = cascadeBonus.index;
+          workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType);
+        }
+      }
 
       // Handle bonus from initial swap (iteration 0)
       if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {

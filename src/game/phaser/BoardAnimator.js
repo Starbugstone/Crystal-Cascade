@@ -26,6 +26,7 @@ export class BoardAnimator {
     this.indexToGemId = [];
     this.gemSprites = new Map();
     this.cellHighlights = new Map();
+    this.comboText = null;
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -41,7 +42,12 @@ export class BoardAnimator {
   destroy() {
     if (this.scene?.tweens) {
       this.scene.tweens.killTweensOf(this.gemLayer?.list || []);
+      if (this.comboText) {
+        this.scene.tweens.killTweensOf(this.comboText);
+      }
     }
+    this.comboText?.destroy();
+    this.comboText = null;
     this.clear();
   }
 
@@ -61,6 +67,7 @@ export class BoardAnimator {
     }
 
     this.cellHighlights.clear();
+    this._hideComboText();
   }
 
   setLayout({ boardSize, cellSize }) {
@@ -77,6 +84,8 @@ export class BoardAnimator {
     } else if (cellChanged) {
       this._updateBackgroundSizing();
     }
+
+    this._positionComboText();
 
     if (cellChanged || sizeChanged) {
       this.gemSprites.forEach((sprite, gemId) => {
@@ -127,7 +136,12 @@ export class BoardAnimator {
 
     if (this.scene?.tweens) {
       this.scene.tweens.killTweensOf(this.gemLayer?.list || []);
+      if (this.comboText) {
+        this.scene.tweens.killTweensOf(this.comboText);
+      }
     }
+
+    this._hideComboText();
 
     if (this.gemLayer) {
       this.gemLayer.removeAll(true);
@@ -196,6 +210,25 @@ export class BoardAnimator {
     const posA = this._indexToPosition(aIndex);
     const posB = this._indexToPosition(bIndex);
 
+    this.scene.tweens.killTweensOf(spriteA);
+    this.scene.tweens.killTweensOf(spriteB);
+
+    const animateSprite = (sprite, target) => new Promise((resolve) => {
+      this.scene.tweens.add({
+        targets: sprite,
+        x: target.x,
+        y: target.y,
+        duration: 160,
+        ease: 'Cubic.easeInOut',
+        onComplete: resolve,
+      });
+    });
+
+    await Promise.all([
+      animateSprite(spriteA, posB),
+      animateSprite(spriteB, posA),
+    ]);
+
     spriteA.setPosition(posB.x, posB.y);
     spriteB.setPosition(posA.x, posA.y);
     this._swapIndexMapping(aIndex, bIndex);
@@ -209,6 +242,9 @@ export class BoardAnimator {
     const spriteA = this.gemSprites.get(gemA);
     const spriteB = this.gemSprites.get(gemB);
     if (!spriteA || !spriteB) return;
+
+    this.scene.tweens.killTweensOf(spriteA);
+    this.scene.tweens.killTweensOf(spriteB);
 
     const targetA = this._indexToPosition(aIndex);
     const targetB = this._indexToPosition(bIndex);
@@ -254,6 +290,12 @@ export class BoardAnimator {
         await this._animateSpawns(step.spawns);
       }
     }
+
+    if (steps.length > 1) {
+      this._celebrateCombo(steps.length);
+    } else {
+      this._hideComboText();
+    }
   }
 
   highlightCell(index, highlight = true) {
@@ -292,6 +334,113 @@ export class BoardAnimator {
     this.gemSprites.forEach((sprite) => {
       sprite.clearTint();
     });
+  }
+
+  _celebrateCombo(comboCount) {
+    if (comboCount <= 1) {
+      this._hideComboText();
+      return;
+    }
+
+    this._ensureComboText();
+    this._positionComboText();
+
+    const label = `Combo x${comboCount}`;
+    this.comboText.setText(label);
+    this.comboText.setVisible(true);
+    this.comboText.setScale(0.65);
+    this.comboText.setAlpha(0);
+
+    this.scene.tweens.killTweensOf(this.comboText);
+    this.scene.tweens.add({
+      targets: this.comboText,
+      alpha: 1,
+      scale: 1,
+      duration: 220,
+      ease: 'Back.Out',
+      onComplete: () => {
+        this.scene.time.delayedCall(650, () => {
+          this.scene.tweens.add({
+            targets: this.comboText,
+            alpha: 0,
+            duration: 220,
+            ease: 'Quad.Out',
+            onComplete: () => {
+              this.comboText.setVisible(false);
+            },
+          });
+        });
+      },
+    });
+
+    this._emitComboParticles(comboCount);
+  }
+
+  _ensureComboText() {
+    if (this.comboText) {
+      return;
+    }
+
+    const fontSize = Math.round(Math.max(24, this.cellSize * 0.7));
+    this.comboText = this.scene.add.text(0, 0, '', {
+      fontFamily: 'Poppins, Arial, sans-serif',
+      fontSize: `${fontSize}px`,
+      color: '#fff7ed',
+      stroke: '#1e293b',
+      strokeThickness: 6,
+      align: 'center',
+    });
+    this.comboText.setOrigin(0.5);
+    this.comboText.setDepth(1000);
+    this.comboText.setVisible(false);
+  }
+
+  _positionComboText() {
+    if (!this.comboText) {
+      return;
+    }
+    const center = this._getBoardCenterWorld();
+    const fontSize = Math.round(Math.max(24, this.cellSize * 0.7));
+    this.comboText.setFontSize(fontSize);
+    this.comboText.setPosition(center.x, center.y - this.cellSize);
+  }
+
+  _hideComboText() {
+    if (!this.comboText) {
+      return;
+    }
+    this.scene?.tweens?.killTweensOf(this.comboText);
+    this.comboText.setVisible(false);
+    this.comboText.setAlpha(0);
+  }
+
+  _emitComboParticles(comboCount) {
+    if (!this.particles) {
+      return;
+    }
+
+    const center = this._getBoardCenterWorld();
+    const colors = [0xfff59d, 0xff80ab, 0x7dd3fc, 0x9aeadb];
+    const bursts = Math.min(3, comboCount);
+    const radius = this.cellSize * 0.8;
+
+    for (let i = 0; i < bursts; i += 1) {
+      const angle = (Math.PI * 2 * i) / bursts;
+      const position = {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      };
+      const color = colors[i % colors.length];
+      const amount = 18 + comboCount * 3;
+      this.particles.emitBurst(position, color, amount);
+    }
+  }
+
+  _getBoardCenterWorld() {
+    return {
+      x: this.boardContainer.x + (this.boardSize * this.cellSize) / 2,
+      y: this.boardContainer.y + (this.boardSize * this.cellSize) / 2,
+    };
   }
 
   _swapIndexMapping(aIndex, bIndex) {
