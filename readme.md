@@ -1,14 +1,14 @@
 # Crystal Cascade
 
-Crystal Cascade is a Vue 3 + Pixi.js match‑3 prototype that focuses on delivering a responsive board, procedural levels, and basic bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
+Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delivering a responsive board, procedural levels, and basic bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
 
-_Last updated: 2025-10-28_
+_Last updated: 2025-10-30_
 
 ---
 
 ## Current Snapshot
 
-- ✅ 8×8 match-3 board rendered with Pixi.js, including swap interaction and cascades.
+- ✅ 8×8 match-3 board rendered with Phaser, including swap interaction and cascades.
 - ✅ Procedural level generator that creates 12 seed-based level configs with simple objectives.
 - ✅ Score + cascade HUD, level select modal, quick power-up bar, and settings drawer.
 - ✅ Bonus resolver that can spawn `bomb`, `rainbow`, and `cross` specials on long matches.
@@ -45,7 +45,7 @@ npm run cap:open:android
 ## Gameplay Overview (Current Build)
 
 - **Session flow:** The app boots to a level select modal fed by the procedural generator. Selecting a level seeds the board and objectives. Sessions can be exited via the header button.
-- **Controls:** Click/tap-and-release swapping is handled by `useInputHandlers`, which converts pointer coordinates into board indices. Drag gestures are not yet implemented.
+- **Controls:** Click/tap swapping runs through a Phaser-driven board input system that supports both tap-to-select and drag swaps with pointer and touch support.
 - **Scoring:** Matches award `tileCount × 100` points scaled by a cascade multiplier that grows with chained clears. Multiplier resets when a cascade sequence ends.
 - **Bonuses:** Matches of 4+ crystals dispatch through `BonusResolver` to replace the swapped gem with a special (`bomb`, `rainbow`, `cross`). `BonusActivator` handles activation when these specials are part of a swap.
 - **Objectives:** The HUD lists level objectives, but progress values never change—no win detection, failure conditions, or reward flow are in place.
@@ -59,7 +59,7 @@ npm run cap:open:android
 
 - **Vue 3 + Vite** for the application shell.
 - **Pinia** stores (`game`, `settings`, `inventory`) for state management.
-- **Pixi.js v8** for board rendering and placeholder gem textures.
+- **Phaser 3** scene + tween system for board rendering, sprites, and particles.
 - **Howler.js** prepared for future audio work.
 - **Capacitor** project scaffold for native packaging.
 
@@ -70,11 +70,12 @@ src/
   App.vue                 # UI shell with header, board, HUD, modals
   main.js                 # Vue bootstrap + Pinia registration
   components/             # BoardCanvas, HudPanel, LevelSelectModal, etc.
-  composables/            # useAudio (stub), useInputHandlers
+  composables/            # useAudio (stub)
+  game/phaser/            # Scene, animator, input, sprite helpers
   data/                   # Static level/drop-table JSON (currently unused)
   game/
     engine/               # MatchEngine, TileManager, LevelGenerator, bonuses
-    pixi/                 # Placeholder sprite + particle helpers
+    phaser/               # Phaser scene, sprite helpers, particles
   stores/                 # Pinia stores for game, settings, inventory
   styles/                 # Base + theme CSS tokens
 ```
@@ -86,7 +87,7 @@ src/
 - `src/game/engine/TileManager.js` applies match results, handles gravity, generates replacement gems, and recurses to resolve cascades.
 - `src/game/engine/BonusResolver.js` scores clears and injects special gems; `BonusActivator.js` executes effects when specials are swapped.
 - `src/game/engine/LevelGenerator.js` seeds reproducible 8×8 boards with two simple objectives per level.
-- `src/components/BoardCanvas.vue` hosts the Pixi renderer, builds placeholder textures via `src/game/pixi/placeholder-gems.js`, and responds to container resize events.
+- `src/components/BoardCanvas.vue` boots the Phaser scene, builds placeholder textures via `src/game/phaser/placeholder-gems.js`, and responds to container resize events.
 
 ---
 
@@ -131,4 +132,3 @@ src/
 ---
 
 By keeping this README aligned with the actual implementation, future contributors can quickly understand what exists today, what is stubbed, and where development should focus next.
-

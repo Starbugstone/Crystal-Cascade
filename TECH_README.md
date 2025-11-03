@@ -1,8 +1,8 @@
 # Crystal Cascade – Technical Reference
 
-_Last updated: 2025-10-28_
+_Last updated: 2025-10-30_
 
-This document captures the current technical makeup of Crystal Cascade, a Vue 3 + Pixi.js match-3 prototype. Use it alongside `readme.md`: the README explains the product snapshot, while this reference focuses on frameworks, architecture, and module responsibilities.
+This document captures the current technical makeup of Crystal Cascade, a Vue 3 + Phaser 3 match-3 prototype. Use it alongside `readme.md`: the README explains the product snapshot, while this reference focuses on frameworks, architecture, and module responsibilities.
 
 ---
 
@@ -12,14 +12,14 @@ This document captures the current technical makeup of Crystal Cascade, a Vue 3 
 |-------|-------|---------|
 | Core Framework | **Vue 3 (Composition API)** | Application shell, component system, reactivity layer. |
 | State Management | **Pinia** | Global stores for game, settings, and inventory state. |
-| Rendering | **Pixi.js v8** | Hardware-accelerated board rendering, sprite generation, particles. |
+| Rendering & Animation | **Phaser 3** | Scene graph, sprite handling, tweened gem animations, particle effects. |
 | Audio | **Howler.js** | Volume management + future-proofed audio playback. |
 | Tooling | **Vite** | Dev server, build pipeline, asset bundling. |
 | Mobile Packaging | **Capacitor 7** | Bridge for iOS/Android builds and native APIs. |
 | Language Features | **ES Modules**, modern JavaScript | Tree-shakeable modules; project is configured as `"type": "module"`. |
 
 Additional project-wide utilities:
-- `ResizeObserver` (browser API) for responsive Pixi canvas sizing.
+- `ResizeObserver` (browser API) for responsive canvas sizing alongside Phaser's Scale manager.
 - Composition helpers (custom composables) for input and audio.
 
 ---
@@ -40,7 +40,7 @@ root/
     data/                 # JSON stubs for levels, loot drops (unused)
     game/
       engine/             # Match logic, tile management, level generation, bonuses
-      pixi/               # Texture creation + particle helper
+      phaser/             # Scene setup, sprite slicing, particle helpers
     stores/               # Pinia stores (game, settings, inventory)
     styles/               # Global CSS tokens and resets
 ```
@@ -58,12 +58,12 @@ root/
 
 1. **Bootstrapping** (`src/main.js`): Creates Vue app, installs Pinia, mounts `App.vue`.
 2. **Session Initialization** (`App.vue`): `onMounted` triggers `gameStore.bootstrap()` to generate level data and populate the level select modal.
-3. **Rendering** (`BoardCanvas.vue`): Instantiates a Pixi Application, generates placeholder textures, and attaches renderer metadata back into the game store for board drawing.
+3. **Rendering** (`BoardCanvas.vue`): Boots a Phaser `Game` instance, slices sprite sheets, and attaches renderer metadata back into the game store for board drawing.
 4. **Interaction Pipeline**:
-   - Pointer events captured in `useInputHandlers` → resolved to board indices.
+   - Pointer and touch events are handled by `game/phaser/BoardInput`, which converts world coordinates into board indices.
    - `gameStore.resolveSwap()` delegates swap logic to `MatchEngine`.
    - `MatchEngine`/`BonusResolver`/`TileManager` coordinate swap validation, scoring, bonus creation, gravity, and cascades.
-   - Store updates trigger HUD/UI changes; `refreshBoardVisuals()` rebuilds Pixi sprites.
+   - Store updates trigger HUD/UI changes; `refreshBoardVisuals()` keeps the Phaser scene in sync with board state.
 5. **Settings & Inventory**: Secondary Pinia stores feed the settings drawer and quick-access power-up buttons.
 
 ---
@@ -76,10 +76,10 @@ root/
 - Provides exit button for resetting sessions.
 
 ### `components/BoardCanvas.vue`
-- Hosts the Pixi.js renderer and board container.
-- Generates placeholder gem textures (`SpriteLoader`) and particle layer (`ParticleFactory`).
+- Hosts the Phaser renderer and board container.
+- Generates sliced gem textures (`SpriteLoader`) and particle layer (`ParticleFactory`).
 - Observes container resize to keep board square and delegates redraw requests to the game store.
-- Binds pointer input via `useInputHandlers`.
+- Relies on the Phaser input controller for pointer/touch swapping.
 
 ### `components/HudPanel.vue`
 - Displays score, cascade multiplier, and objective list from `gameStore`.
@@ -105,11 +105,11 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 ### `stores/gameStore.js`
 - Central coordinator for gameplay state.
-- Maintains board data, tiles, objectives, scoring, cascade multiplier, reshuffle tracking, and Pixi renderer references.
+- Maintains board data, tiles, objectives, scoring, cascade multiplier, reshuffle tracking, and Phaser renderer references.
 - Key actions:
   - `bootstrap()` – Generates level configs using `generateLevelConfigs`.
   - `startLevel(levelId)` – Loads a level, resets session stats.
-  - `attachRenderer(renderer)` and `refreshBoardVisuals()` – Integrate with Pixi renderer.
+  - `attachRenderer(renderer)` and `refreshBoardVisuals()` – Integrate with the Phaser renderer.
   - `resolveSwap()` → uses `MatchEngine.evaluateSwap`.
   - `applyMatchResult()` → merges results from `BonusResolver`, updates board via `TileManager`.
   - `exitLevel()` – Resets session state and clears render layer.
@@ -126,11 +126,6 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 ---
 
 ## Composables
-
-- `composables/useInputHandlers.js`
-  - Translates pointer coordinates to board indices.
-  - Detects swap start/end and dispatches `gameStore.resolveSwap`.
-  - Handles event binding/unbinding for the Pixi canvas root.
 
 - `composables/useAudio.js`
   - Watches `settingsStore.musicVolume` and syncs Howler global volume.
@@ -171,18 +166,24 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 ---
 
-## Pixi Utilities
+## Phaser Utilities
 
-- `game/pixi/SpriteLoader.js`
-  - Builds placeholder textures by delegating to `createPlaceholderGems`.
-  - Uses Pixi renderer to generate textures at runtime (avoids external assets for now).
+- `game/phaser/BoardScene.js`
+  - Configures Phaser containers (background, gems, FX) and emits a `scene-ready` payload once textures and particles are prepared.
 
-- `game/pixi/placeholder-gems.js`
-  - Programmatically draws simple shapes (circle, square, diamond, etc.) for gem types and specials.
+- `game/phaser/BoardInput.js`
+  - Manages pointer/touch interactions, supporting both drag swaps and tap-to-select swapping.
+  - Keeps gem highlights in sync with animator state.
 
-- `game/pixi/ParticleFactory.js`
-  - Prepares a particle layer and exposes `emitBurst()` for effect bursts.
-  - Currently unused; no gameplay hooks trigger particle emission yet.
+- `game/phaser/SpriteLoader.js`
+  - Loads sprite sheets from `public/sprite/`, slices frames into individual textures, and registers bonus animations.
+  - Falls back to canvas-drawn placeholders via `placeholder-gems.js` if assets are missing.
+
+- `game/phaser/BoardAnimator.js`
+  - Maintains gem sprites, cell highlights, tweens for drops/spawns, and wiring for bonus swaps.
+
+- `game/phaser/ParticleFactory.js`
+  - Provides `emitBurst()` helper that spawns short-lived circle particles on the FX layer.
 
 ---
 
@@ -196,7 +197,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 ## Data & Assets
 
 - `data/levels.json`, `data/dropTables.json` – Legacy design documents; runtime code uses procedurally generated data instead.
-- `public/sprite/` – Placeholder folder for future sprite atlases (currently empty).
+- `public/sprite/` – Contains the current gem and bonus sprite sheets sliced by `SpriteLoader`.
 - `public/favicon.svg` – Branding placeholder.
 
 ---
@@ -216,10 +217,9 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 2. Build a state machine for level progression, including objective tracking and result screens.
 3. Implement persistent storage for player inventory and settings.
 4. Wire particle and audio systems into match events for better feedback.
-5. Expand input handling to support drag gestures and mobile-first ergonomics.
+5. Extend input handling with keyboard bindings, haptics, and accessibility affordances.
 6. Add automated testing, linting, and continuous integration configuration.
 
 ---
 
 For any new features, update both `readme.md` (product snapshot) and this technical reference to keep engineering documentation accurate.
-

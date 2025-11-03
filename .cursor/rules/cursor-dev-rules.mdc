@@ -3,4 +3,5 @@ description: general rules and helper guides
 alwaysApply: true
 ---
 
-this project uses pixijs V8, always refer to the updated documentation at https://pixijs.com/8.x/guides/migrations/v8
+this project uses pixijs V7 as the V8 was giving rendering problems with the animations.
+We have multiple .md files explaining diffrent parths of the project, this documentation shoud remain up to date at all times and be consulted whenever a doubt on the functionality or techo stack arrises.

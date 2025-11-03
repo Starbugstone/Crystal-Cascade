@@ -3,7 +3,8 @@ import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { BonusResolver } from '../game/engine/BonusResolver';
-import { BoardAnimator } from '../game/pixi/BoardAnimator';
+import { BoardAnimator } from '../game/phaser/BoardAnimator';
+import { BoardInput } from '../game/phaser/BoardInput';
 
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
@@ -64,16 +65,28 @@ export const useGameStore = defineStore('game', {
       if (this.renderer?.animator) {
         this.renderer.animator.destroy();
       }
+      if (this.renderer?.input) {
+        this.renderer.input.destroy();
+      }
 
       const animator = new BoardAnimator({
-        app: renderer.app,
+        scene: renderer.scene,
         boardContainer: renderer.boardContainer,
+        backgroundLayer: renderer.backgroundLayer,
+        gemLayer: renderer.gemLayer,
+        fxLayer: renderer.fxLayer,
         textures: renderer.textures,
         bonusAnimations: renderer.bonusAnimations,
         particles: renderer.particles,
       });
 
-      this.renderer = { ...renderer, animator };
+      const input = new BoardInput({
+        scene: renderer.scene,
+        boardContainer: renderer.boardContainer,
+        gameStore: this,
+      });
+
+      this.renderer = { ...renderer, animator, input };
 
       if (this.board.length > 0) {
         this.refreshBoardVisuals(true);
@@ -87,9 +100,9 @@ export const useGameStore = defineStore('game', {
       // Expose current board state for debugging
       window.__currentBoard = this.board;
 
-      const { boardContainer, app, animator } = this.renderer;
-      const viewWidth = app.screen.width;
-      const viewHeight = app.screen.height;
+      const { boardContainer, scene, animator } = this.renderer;
+      const viewWidth = scene.scale.gameSize.width;
+      const viewHeight = scene.scale.gameSize.height;
 
       if (!viewWidth || !viewHeight) {
         return;
@@ -102,13 +115,14 @@ export const useGameStore = defineStore('game', {
       const offsetY = (viewHeight - boardSide) / 2;
 
       this.cellSize = cellSize;
-      boardContainer.position.set(offsetX, offsetY);
+      boardContainer.setPosition(offsetX, offsetY);
 
       if (!animator) {
         return;
       }
 
       animator.setLayout({ boardSize: gridSize, cellSize });
+      this.renderer.input?.setLayout({ boardSize: gridSize, cellSize });
 
       const shouldReset = ((forceRedraw && !this.animationInProgress) || animator.indexToGemId.length === 0);
 
@@ -118,11 +132,6 @@ export const useGameStore = defineStore('game', {
         animator.syncToBoard(this.board);
       }
 
-      if (boardContainer.sortableChildren) {
-        boardContainer.sortChildren();
-      }
-
-      app.render();
     },
     async resolveSwap(aIndex, bIndex) {
       if (!this.sessionActive || this.animationInProgress) {
@@ -177,12 +186,6 @@ export const useGameStore = defineStore('game', {
         // Update the exposed board reference for debugging
         window.__currentBoard = this.board;
         
-        // Don't call refreshBoardVisuals - animations already positioned everything
-        // Just trigger a render to show the final state
-        if (animator && this.renderer.app) {
-          this.renderer.app.render();
-        }
-
         return true;
       } catch (error) {
         console.error('Error in resolveSwap:', error);
@@ -204,8 +207,9 @@ export const useGameStore = defineStore('game', {
       if (this.renderer?.animator) {
         this.renderer.animator.clear();
       } else if (this.renderer?.boardContainer) {
-        this.renderer.boardContainer.removeChildren().forEach((child) => child.destroy());
+        this.renderer.boardContainer.removeAll?.(true);
       }
+      this.renderer?.input?.reset();
       this.boardVersion += 1;
     },
   },
