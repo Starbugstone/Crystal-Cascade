@@ -16,9 +16,11 @@ const createSeededRng = (seed) => {
 const createBoard = (size, rng) =>
   Array.from({ length: size * size }, () => createGem(pickRandomType(rng)));
 
-const createTiles = (size) =>
+const createTiles = (size, layerCount = 1) =>
   Array.from({ length: size * size }, () => ({
-    health: 1,
+    type: 'standard',
+    maxHealth: layerCount,
+    health: layerCount,
   }));
 
 export const generateLevelConfigs = (count = 12) => {
@@ -28,8 +30,10 @@ export const generateLevelConfigs = (count = 12) => {
     const id = index + 1;
     const gridSize = 8;
     const rng = createSeededRng(id * 1337);
+    const layerCount = id === 1 ? 1 : 2;
     const board = createBoard(gridSize, rng);
-    const tiles = createTiles(gridSize);
+    const tiles = createTiles(gridSize, layerCount);
+    const totalLayers = tiles.reduce((sum, tile) => sum + (tile.maxHealth ?? tile.health ?? 0), 0);
 
     levels.push({
       id,
@@ -40,20 +44,20 @@ export const generateLevelConfigs = (count = 12) => {
       objectives: [
         {
           id: `clear-${id}`,
-          label: 'Clear Tiles',
-          target: 20 + id * 2,
+          type: 'clear-layers',
+          label: 'Clear Tile Layers',
+          target: totalLayers,
           progress: 0,
         },
         {
           id: `score-${id}`,
+          type: 'score',
           label: 'Score Points',
           target: 20000 + id * 1500,
           progress: 0,
         },
       ],
-      summary: `Break ${(20 + id * 2).toLocaleString()} tiles and score ${
-        20000 + id * 1500
-      } points.`,
+      summary: `Remove all ${totalLayers.toLocaleString()} tile layers and score ${(20000 + id * 1500).toLocaleString()} points.`,
     });
   }
 

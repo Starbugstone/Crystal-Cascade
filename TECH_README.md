@@ -105,14 +105,15 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 ### `stores/gameStore.js`
 - Central coordinator for gameplay state.
-- Maintains board data, tiles, objectives, scoring, cascade multiplier, reshuffle tracking, and Phaser renderer references.
+- Maintains board data, layered tiles, objectives, scoring, cascade multiplier, reshuffle tracking, and Phaser renderer references.
 - Key actions:
   - `bootstrap()` – Generates level configs using `generateLevelConfigs`.
-  - `startLevel(levelId)` – Loads a level, resets session stats.
-  - `attachRenderer(renderer)` and `refreshBoardVisuals()` – Integrate with the Phaser renderer.
+  - `startLevel(levelId)` – Loads a level, resets session stats, and seeds tile-layer goals.
+  - `attachRenderer(renderer)` / `refreshBoardVisuals()` – Integrate with the Phaser renderer and synchronise tile layers.
   - `resolveSwap()` → uses `MatchEngine.evaluateSwap`.
-  - `applyMatchResult()` → merges results from `BonusResolver`, updates board via `TileManager`.
-  - `exitLevel()` – Resets session state and clears render layer.
+  - `applyMatchResult()` → merges results from `BonusResolver`, updates board via `TileManager`, and advances objectives/remaining layers.
+  - `completeLevel()` – Marks the session as cleared once every tile layer is removed (currently console logging only).
+  - `exitLevel()` – Resets session state and clears render/input layers.
 
 ### `stores/settingsStore.js`
 - Controls settings drawer open state, music/sfx volumes, reduced motion, high contrast flags.
@@ -146,6 +147,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 - Tracks tile health (`tiles` array) and decrements when hits occur.
 - Clears matched cells, applies gravity per column, spawns replacement gems.
 - Recursively resolves cascades by re-running `MatchEngine.findMatches`.
+- Emits per-step tile updates and an aggregate `layersCleared` count for the store/UI.
 
 ### `game/engine/BonusResolver.js`
 - Calculates score gain and cascade multiplier.
@@ -154,12 +156,12 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 ### `game/engine/BonusActivator.js`
 - Implements area-clear logic when special gems participate in the initiating swap.
-- Supports bomb (3×3), rainbow (all of a target type), and cross (row + column) clears.
+- Supports bomb (3×3), rainbow (all of a target type or random/board-wide when chained), and cross (row + column) clears, including chained bonus reactions.
 
 ### `game/engine/LevelGenerator.js`
 - Produces deterministic level configurations using a seeded RNG.
 - Outputs board layout, tile metadata, shuffle allowance, and objective stubs.
-- Currently generates 12 levels with identical 8×8 dimensions and 1 HP tiles.
+- Currently seeds 8×8 boards with one or two placeholder tile layers and score/layer objectives.
 
 ### `game/engine/GameLoop.js`
 - Thin wrapper around `requestAnimationFrame`; not yet wired into gameplay.
@@ -184,6 +186,8 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 - `game/phaser/ParticleFactory.js`
   - Emits burst, explosion, and cross-beam particle presets used for cascades and special gem detonations.
+- `game/phaser/particle-presets.js`
+  - Centralises the particle helper implementations shared by combo celebrations and bonus effects.
 
 ---
 
@@ -196,7 +200,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 ## Data & Assets
 
-- `data/levels.json`, `data/dropTables.json` – Legacy design documents; runtime code uses procedurally generated data instead.
+- `data/levels.json`, `data/dropTables.json` – Legacy design documents; runtime code uses procedurally generated levels with placeholder layered tiles instead.
 - `public/sprite/` – Contains the current gem and bonus sprite sheets sliced by `SpriteLoader`.
 - `public/favicon.svg` – Branding placeholder.
 
@@ -216,7 +220,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 1. Replace placeholder textures with sprite sheets and integrate a loader pipeline.
 2. Build a state machine for level progression, including objective tracking and result screens.
 3. Implement persistent storage for player inventory and settings.
-4. Wire particle and audio systems into match events for better feedback.
+4. Layer responsive audio, haptics, and screen effects onto the existing particle-driven feedback.
 5. Extend input handling with keyboard bindings, haptics, and accessibility affordances.
 6. Add automated testing, linting, and continuous integration configuration.
 

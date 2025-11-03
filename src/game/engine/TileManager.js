@@ -19,6 +19,7 @@ export class TileManager {
       indices: [...match.indices],
       orientation: match.orientation,
     }));
+    let totalLayersCleared = 0;
 
     while (pendingMatches.length) {
       const cleared = new Set();
@@ -68,11 +69,23 @@ export class TileManager {
           cascadeBonusType && typeof cascadeBonusIndex === 'number'
             ? { type: cascadeBonusType, index: cascadeBonusIndex, gem: workingBoard[cascadeBonusIndex] }
             : null,
+        tileUpdates: [],
       };
 
       step.cleared.forEach((index) => {
-        if (tiles[index]) {
-          tiles[index].health = Math.max(0, tiles[index].health - 1);
+        const tile = tiles[index];
+        if (tile && tile.health > 0) {
+          const before = tile.health;
+          tile.health = Math.max(0, tile.health - 1);
+          if (tile.maxHealth == null) {
+            tile.maxHealth = before;
+          }
+          tile.cleared = tile.health === 0;
+          const maxHealth = tile.maxHealth ?? before;
+          if (before !== tile.health) {
+            totalLayersCleared += before - tile.health;
+            step.tileUpdates.push({ index, health: tile.health, maxHealth });
+          }
         }
         workingBoard[index] = null;
       });
@@ -110,6 +123,7 @@ export class TileManager {
     return {
       board: workingBoard,
       steps,
+      layersCleared: totalLayersCleared,
     };
   }
 

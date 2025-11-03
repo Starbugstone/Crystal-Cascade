@@ -13,7 +13,8 @@ _Last updated: 2025-10-30_
 - ✅ Score + cascade HUD, level select modal, quick power-up bar, and settings drawer.
 - ✅ Bonus resolver that can spawn `bomb`, `rainbow`, and `cross` specials on long matches.
 - ✅ Capacitor tooling is wired up for future mobile builds.
-- 🚧 Objective progress, tile health variants, blockers, and win/lose conditions are not tracked.
+- ✅ Tile layers under each gem chip away with clears; clearing the entire board now ends the level (console celebration still pending).
+- 🚧 Win/fail UI, multi-layer tile art, and advanced block behaviours (frozen tiles, dwarfs, etc.) are still unimplemented.
 - 🚧 Inventory, loot tables, audio, and art assets are placeholders or unused stubs.
 - 🚧 Documentation now reflects the working feature set instead of the aspirational spec.
 
@@ -48,7 +49,7 @@ npm run cap:open:android
 - **Controls:** Click/tap swapping runs through a Phaser-driven board input system that supports both tap-to-select and drag swaps with pointer and touch support.
 - **Scoring:** Matches award `tileCount × 100` points scaled by a cascade multiplier that grows with chained clears. Multiplier resets when a cascade sequence ends.
 - **Bonuses:** Matches of 4+ crystals dispatch through `BonusResolver` to replace the swapped gem with a special (`bomb`, `rainbow`, `cross`). `BonusActivator` handles activation when these specials are part of a swap.
-- **Objectives:** The HUD lists level objectives, but progress values never change—no win detection, failure conditions, or reward flow are in place.
+- **Objectives:** Strip every tile layer to win; HUD objectives now track remaining layers alongside score, but there is still no win/fail overlay or reward flow.
 - **Audio & FX:** `useAudio` wires up Howler volume control. Phaser-driven particle bursts highlight swaps, cascades, and special gem detonations, but audio remains placeholder-only.
 
 ---
@@ -82,11 +83,11 @@ src/
 
 ### Core Systems
 
-- `src/stores/gameStore.js` orchestrates game sessions, coordinates rendering hooks (`attachRenderer`, `refreshBoardVisuals`), and delegates logic to the engine modules.
+- `src/stores/gameStore.js` orchestrates game sessions, coordinates rendering hooks (`attachRenderer`, `refreshBoardVisuals`), tracks layered tile progress, and delegates logic to the engine modules.
 - `src/game/engine/MatchEngine.js` evaluates swaps, prevents illegal moves, and searches for horizontal/vertical matches.
 - `src/game/engine/TileManager.js` applies match results, handles gravity, generates replacement gems, and recurses to resolve cascades.
 - `src/game/engine/BonusResolver.js` scores clears and injects special gems; `BonusActivator.js` executes effects when specials are swapped.
-- `src/game/engine/LevelGenerator.js` seeds reproducible 8×8 boards with two simple objectives per level.
+- `src/game/engine/LevelGenerator.js` seeds reproducible 8×8 boards with layered tile objectives and score targets per level.
 - `src/components/BoardCanvas.vue` boots the Phaser scene, builds placeholder textures via `src/game/phaser/placeholder-gems.js`, and responds to container resize events.
 
 ---
@@ -94,7 +95,7 @@ src/
 ## Content & Data Status
 
 - `src/data/levels.json` and `dropTables.json` are legacy design artefacts and not consumed by runtime code.
-- Levels generated at bootstrap contain only basic gem data (`type`, `highlight`) and single-hit tiles (`health: 1`). There are no blockers, multi-layer tiles, or scripted layouts yet.
+- Levels generated at bootstrap contain basic gem data plus placeholder layered tiles (currently 1–2 layers). Advanced tile types (frozen blocks, dwarfs to rescue, scripted layouts) are still on the backlog.
 - The inventory store exposes four quick-access slots with static quantities; the "Inventory" button does not open a modal.
 - Asset pipeline is placeholder-only: sprites are runtime-generated vector shapes, and there are no packaged textures, sound files, or fonts beyond CSS-defined web fonts.
 
@@ -102,8 +103,8 @@ src/
 
 ## Known Limitations & Issues
 
-- Objective progress never advances, preventing level completion or rewards.
-- Tile health mutation is applied, but no visuals reflect damage and no tiles start above 1 HP.
+- Level completion currently just disables input and logs to the console—there is no victory/failure UI, rewards, or progression flow.
+- Tile layers use simple colour fills; there is no production art, texture variation, or special block behaviour yet.
 - Special gem activation happens only on swap; passive cascades do not trigger them.
 - Cascades and bonuses now trigger Phaser particle FX and combo celebrations, but match sounds/music remain unimplemented.
 - UI glyphs for icons in `App.vue`/`SettingsDrawer.vue` are placeholder characters that render as garbled symbols.
@@ -114,12 +115,12 @@ src/
 
 ## Suggested Next Steps
 
-1. **Gameplay progression:** Track objective progress, detect level completion/failure, and surface results to players.
-2. **Tile variety:** Introduce multi-hit tiles, blockers, and scripted level layouts (reuse `levels.json` or extend the generator).
-3. **Visual polish:** Replace placeholder graphics with production art, hook up particle bursts, and tune animations.
-4. **Audio pass:** Integrate background music and match effects using the existing Howler scaffolding.
+1. **Gameplay progression:** Build victory/defeat overlays, reward flows, and persistent progression once tile layers are cleared.
+2. **Tile variety:** Implement additional tile types (frozen blocks, dwarfs to rescue, blockers) and author scripted layouts.
+3. **Visual polish:** Replace placeholder board art, design distinctive tile-layer textures, and refine combo/bonus animations.
+4. **Audio pass:** Integrate background music and responsive SFX using the existing Howler scaffolding.
 5. **Inventory & power-ups:** Build a full inventory modal, connect drop tables, and implement power-up interactions.
-6. **Quality of life:** Add drag input, mobile responsiveness checks, accessibility settings (reduced motion, high contrast), and automated tests.
+6. **Quality of life:** Add accessibility settings, mobile-responsive tuning, keyboard bindings, automated tests, and CI tooling.
 
 ---
 

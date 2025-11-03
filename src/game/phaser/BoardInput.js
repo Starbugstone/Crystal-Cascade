@@ -40,7 +40,7 @@ export class BoardInput {
   }
 
   handlePointerDown(pointer) {
-    if (this.gameStore.animationInProgress) {
+    if (!this.gameStore.sessionActive || this.gameStore.animationInProgress) {
       return;
     }
 
@@ -50,7 +50,11 @@ export class BoardInput {
   }
 
   handlePointerMove(pointer) {
-    if (this.startCell == null || this.gameStore.animationInProgress) {
+    if (
+      this.startCell == null ||
+      !this.gameStore.sessionActive ||
+      this.gameStore.animationInProgress
+    ) {
       return;
     }
 
@@ -61,7 +65,11 @@ export class BoardInput {
   }
 
   async handlePointerUp(pointer) {
-    if (this.startCell == null || this.gameStore.animationInProgress) {
+    if (
+      this.startCell == null ||
+      !this.gameStore.sessionActive ||
+      this.gameStore.animationInProgress
+    ) {
       this.startCell = null;
       this.isDragging = false;
       return;

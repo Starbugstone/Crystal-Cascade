@@ -29,6 +29,7 @@ export class BoardAnimator {
     this.gemSprites = new Map();
     this.cellHighlights = new Map();
     this.comboText = null;
+    this.tiles = [];
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -88,6 +89,7 @@ export class BoardAnimator {
     }
 
     this._positionComboText();
+    this._applyTileLayers();
 
     if (cellChanged || sizeChanged) {
       this.gemSprites.forEach((sprite, gemId) => {
@@ -127,6 +129,8 @@ export class BoardAnimator {
       this.gemSprites.set(gem.id, sprite);
       this.indexToGemId[index] = gem.id;
     });
+
+    this._applyTileLayers();
   }
 
   forceCompleteRedraw() {
@@ -162,6 +166,8 @@ export class BoardAnimator {
       this.gemSprites.set(gem.id, sprite);
       this.indexToGemId[index] = gem.id;
     });
+
+    this._applyTileLayers();
   }
 
   syncToBoard(board) {
@@ -280,6 +286,10 @@ export class BoardAnimator {
         await this._animateClear(step);
       }
 
+      if (step.tileUpdates?.length) {
+        this._applyTileLayerUpdates(step.tileUpdates);
+      }
+
       if (step.bonus) {
         await this._animateBonus(step.bonus);
       }
@@ -292,6 +302,8 @@ export class BoardAnimator {
         await this._animateSpawns(step.spawns);
       }
     }
+
+    this._applyTileLayers();
 
     if (steps.length >= 4) {
       this._celebrateCombo(steps.length);
@@ -510,6 +522,11 @@ export class BoardAnimator {
     });
 
     this.particles.emitBurst(center, 0xffffff, 24 + comboCount * 2);
+  }
+
+  updateTiles(tiles = []) {
+    this.tiles = tiles;
+    this._applyTileLayers();
   }
 
   _getBoardCenterWorld() {
@@ -743,6 +760,7 @@ export class BoardAnimator {
         rect.setOrigin(0.5);
         this.backgroundLayer.add(rect);
         this.cellHighlights.set(index, rect);
+        this._updateCellLayer(index, this.tiles?.[index]);
       }
     }
   }
@@ -756,7 +774,7 @@ export class BoardAnimator {
       rect.setPosition(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
       rect.setSize(cellSize, cellSize);
       rect.setStrokeStyle(2, 0x87ceeb, 0.35);
-      rect.setFillStyle(0x1e293b, 0.28);
+      this._updateCellLayer(index, this.tiles?.[index]);
     });
   }
 
@@ -767,5 +785,82 @@ export class BoardAnimator {
       x: col * this.cellSize + this.cellSize / 2,
       y: row * this.cellSize + this.cellSize / 2,
     };
+  }
+
+  _applyTileLayers() {
+    if (!this.tiles?.length) {
+      this.cellHighlights.forEach((rect) => {
+        rect.setFillStyle(0x1e293b, 0.28);
+      });
+      return;
+    }
+    this.tiles.forEach((tile, index) => {
+      this._updateCellLayer(index, tile);
+    });
+  }
+
+  _applyTileLayerUpdates(updates) {
+    if (!updates) {
+      return;
+    }
+    updates.forEach(({ index, health, maxHealth }) => {
+      const currentTile = this.tiles?.[index];
+      if (currentTile) {
+        currentTile.health = health;
+        currentTile.cleared = health <= 0;
+        if (maxHealth != null) {
+          currentTile.maxHealth = maxHealth;
+        }
+      }
+      this._updateCellLayer(index, currentTile ?? { health, maxHealth });
+    });
+  }
+
+  _updateCellLayer(index, tile) {
+    const rect = this.cellHighlights.get(index);
+    if (!rect) {
+      return;
+    }
+
+    const { color, alpha, stroke } = this._resolveLayerStyle(tile);
+    rect.setFillStyle(color, alpha);
+    rect.setStrokeStyle(2, stroke, Math.min(1, alpha + 0.2));
+  }
+
+  _resolveLayerStyle(tile) {
+    if (!tile) {
+      return { color: 0x1e293b, alpha: 0.2, stroke: 0x475569 };
+    }
+
+    const maxHealth = tile.maxHealth ?? 1;
+    const health = Math.max(0, tile.health ?? 0);
+
+    if (health <= 0) {
+      return { color: 0x0f172a, alpha: 0.3, stroke: 0x1e293b };
+    }
+
+    const ratio = Math.min(1, health / maxHealth);
+    const baseColor = 0x0f172a;
+    const fullColor = 0xf97316;
+    const mixed = this._lerpColor(fullColor, baseColor, 1 - ratio * 0.7);
+    return {
+      color: mixed,
+      alpha: 0.55,
+      stroke: this._lerpColor(0xfef08a, 0x1e293b, ratio * 0.5),
+    };
+  }
+
+  _lerpColor(from, to, t) {
+    const clampT = Math.min(1, Math.max(0, t));
+    const fr = (from >> 16) & 0xff;
+    const fg = (from >> 8) & 0xff;
+    const fb = from & 0xff;
+    const tr = (to >> 16) & 0xff;
+    const tg = (to >> 8) & 0xff;
+    const tb = to & 0xff;
+    const r = Math.round(fr + (tr - fr) * clampT);
+    const g = Math.round(fg + (tg - fg) * clampT);
+    const b = Math.round(fb + (tb - fb) * clampT);
+    return (r << 16) | (g << 8) | b;
   }
 }
