@@ -1,3 +1,5 @@
+import { explosionParticles, sparkColumn, sparkRow } from './particle-presets.js';
+
 export const createParticleFactory = (scene, fxLayer) => {
   const emitBurst = (position, color = 0xffffff, count = 12) => {
     for (let i = 0; i < count; i += 1) {
@@ -25,8 +27,18 @@ export const createParticleFactory = (scene, fxLayer) => {
     }
   };
 
+  const emitExplosion = (position, options) => {
+    explosionParticles(scene, fxLayer, position, options);
+  };
+
+  const emitCross = (position, options = {}) => {
+    sparkColumn(scene, fxLayer, position, options.column || {});
+    sparkRow(scene, fxLayer, position, options.row || {});
+  };
+
   return {
     emitBurst,
+    emitExplosion,
+    emitCross,
   };
 };
-

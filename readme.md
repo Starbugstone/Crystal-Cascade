@@ -49,7 +49,7 @@ npm run cap:open:android
 - **Scoring:** Matches award `tileCount × 100` points scaled by a cascade multiplier that grows with chained clears. Multiplier resets when a cascade sequence ends.
 - **Bonuses:** Matches of 4+ crystals dispatch through `BonusResolver` to replace the swapped gem with a special (`bomb`, `rainbow`, `cross`). `BonusActivator` handles activation when these specials are part of a swap.
 - **Objectives:** The HUD lists level objectives, but progress values never change—no win detection, failure conditions, or reward flow are in place.
-- **Audio & FX:** `useAudio` wires up Howler volume control, yet no sound effects or music tracks are loaded. `ParticleFactory` exists, but no emitters are triggered during play.
+- **Audio & FX:** `useAudio` wires up Howler volume control. Phaser-driven particle bursts highlight swaps, cascades, and special gem detonations, but audio remains placeholder-only.
 
 ---
 
@@ -105,7 +105,7 @@ src/
 - Objective progress never advances, preventing level completion or rewards.
 - Tile health mutation is applied, but no visuals reflect damage and no tiles start above 1 HP.
 - Special gem activation happens only on swap; passive cascades do not trigger them.
-- `ParticleFactory` is created but unused; cascades and matches have no visual feedback beyond gem disappearance.
+- Cascades and bonuses now trigger Phaser particle FX and combo celebrations, but match sounds/music remain unimplemented.
 - UI glyphs for icons in `App.vue`/`SettingsDrawer.vue` are placeholder characters that render as garbled symbols.
 - No persistence, user profile, or analytics hooks are implemented.
 - No automated testing or linting scripts are configured.

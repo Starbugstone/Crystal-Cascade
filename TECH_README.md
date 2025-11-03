@@ -180,10 +180,10 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
   - Falls back to canvas-drawn placeholders via `placeholder-gems.js` if assets are missing.
 
 - `game/phaser/BoardAnimator.js`
-  - Maintains gem sprites, cell highlights, tweens for drops/spawns, and wiring for bonus swaps.
+  - Maintains gem sprites, cell highlights, swap animations, combo celebrations, and bonus-trigger particle effects.
 
 - `game/phaser/ParticleFactory.js`
-  - Provides `emitBurst()` helper that spawns short-lived circle particles on the FX layer.
+  - Emits burst, explosion, and cross-beam particle presets used for cascades and special gem detonations.
 
 ---
 

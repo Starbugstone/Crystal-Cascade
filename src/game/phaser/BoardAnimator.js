@@ -1,3 +1,5 @@
+import Phaser from 'phaser';
+
 const FALL_DURATION = 400;
 
 export class BoardAnimator {
@@ -291,7 +293,7 @@ export class BoardAnimator {
       }
     }
 
-    if (steps.length > 1) {
+    if (steps.length >= 4) {
       this._celebrateCombo(steps.length);
     } else {
       this._hideComboText();
@@ -337,7 +339,7 @@ export class BoardAnimator {
   }
 
   _celebrateCombo(comboCount) {
-    if (comboCount <= 1) {
+    if (comboCount < 4) {
       this._hideComboText();
       return;
     }
@@ -345,21 +347,27 @@ export class BoardAnimator {
     this._ensureComboText();
     this._positionComboText();
 
-    const label = `Combo x${comboCount}`;
+    const label = comboCount >= 10 ? `Mega Combo x${comboCount}` : `Combo x${comboCount}`;
     this.comboText.setText(label);
     this.comboText.setVisible(true);
-    this.comboText.setScale(0.65);
+    this.comboText.setScale(0.55);
     this.comboText.setAlpha(0);
+    this.comboText.setTint(0xfffbeb, 0xffe08a, 0xfffbeb, 0xffe08a);
 
     this.scene.tweens.killTweensOf(this.comboText);
     this.scene.tweens.add({
       targets: this.comboText,
       alpha: 1,
       scale: 1,
-      duration: 220,
+      duration: 240,
       ease: 'Back.Out',
+      onUpdate: () => {
+        const shimmer = 0.65 + Math.random() * 0.35;
+        this.comboText.setAlpha(shimmer);
+      },
       onComplete: () => {
-        this.scene.time.delayedCall(650, () => {
+        this.comboText.setAlpha(1);
+        this.scene.time.delayedCall(700, () => {
           this.scene.tweens.add({
             targets: this.comboText,
             alpha: 0,
@@ -385,14 +393,16 @@ export class BoardAnimator {
     this.comboText = this.scene.add.text(0, 0, '', {
       fontFamily: 'Poppins, Arial, sans-serif',
       fontSize: `${fontSize}px`,
-      color: '#fff7ed',
-      stroke: '#1e293b',
-      strokeThickness: 6,
+      color: '#fff5cc',
+      stroke: '#fb7185',
+      strokeThickness: 8,
       align: 'center',
     });
     this.comboText.setOrigin(0.5);
     this.comboText.setDepth(1000);
     this.comboText.setVisible(false);
+    this.comboText.setShadow(0, 0, '#f97316', 16, true, true);
+    this.comboText.setBlendMode(Phaser.BlendModes.ADD);
   }
 
   _positionComboText() {
@@ -414,26 +424,92 @@ export class BoardAnimator {
     this.comboText.setAlpha(0);
   }
 
+  _emitBonusEffect(gemType, index) {
+    if (!this.particles) {
+      return;
+    }
+    if (!gemType || !['bomb', 'cross', 'rainbow'].includes(gemType)) {
+      return;
+    }
+
+    const local = this._indexToPosition(index);
+    const position = {
+      x: this.boardContainer.x + local.x,
+      y: this.boardContainer.y + local.y,
+    };
+
+    if (gemType === 'bomb') {
+      this.particles.emitExplosion(position, {
+        color: 0xffc107,
+        radius: this.cellSize * 1.6,
+        count: 36,
+        duration: 360,
+      });
+      this.particles.emitBurst(position, 0xfff59d, 24);
+    } else if (gemType === 'cross') {
+      this.particles.emitExplosion(position, {
+        color: 0x7dd3fc,
+        radius: this.cellSize * 1.2,
+        count: 28,
+        duration: 320,
+      });
+      this.particles.emitCross(position, {
+        column: {
+          color: 0x7dd3fc,
+          length: Math.ceil(this.boardSize / 2),
+          spacing: this.cellSize,
+          duration: 400,
+        },
+        row: {
+          color: 0xff80ab,
+          length: Math.ceil(this.boardSize / 2),
+          spacing: this.cellSize,
+          duration: 400,
+        },
+      });
+    } else if (gemType === 'rainbow') {
+      this.particles.emitExplosion(position, {
+        color: 0xffffff,
+        radius: this.cellSize * 2,
+        count: 54,
+        duration: 500,
+      });
+      this.particles.emitBurst(position, 0xff80ab, 18);
+      this.particles.emitBurst(position, 0x7dd3fc, 18);
+    }
+  }
+
   _emitComboParticles(comboCount) {
     if (!this.particles) {
       return;
     }
 
     const center = this._getBoardCenterWorld();
-    const colors = [0xfff59d, 0xff80ab, 0x7dd3fc, 0x9aeadb];
-    const bursts = Math.min(3, comboCount);
-    const radius = this.cellSize * 0.8;
+    const radius = this.cellSize * (1.4 + comboCount * 0.1);
 
-    for (let i = 0; i < bursts; i += 1) {
-      const angle = (Math.PI * 2 * i) / bursts;
-      const position = {
-        x: center.x + Math.cos(angle) * radius,
-        y: center.y + Math.sin(angle) * radius,
-      };
-      const color = colors[i % colors.length];
-      const amount = 18 + comboCount * 3;
-      this.particles.emitBurst(position, color, amount);
-    }
+    this.particles.emitExplosion(center, {
+      color: 0xfff59d,
+      radius,
+      count: 48 + comboCount * 6,
+      duration: 420,
+    });
+
+    this.particles.emitCross(center, {
+      column: {
+        color: 0x7dd3fc,
+        length: Math.ceil(this.boardSize / 2),
+        spacing: this.cellSize * 0.75,
+        duration: 420,
+      },
+      row: {
+        color: 0xff80ab,
+        length: Math.ceil(this.boardSize / 2),
+        spacing: this.cellSize * 0.75,
+        duration: 420,
+      },
+    });
+
+    this.particles.emitBurst(center, 0xffffff, 24 + comboCount * 2);
   }
 
   _getBoardCenterWorld() {
@@ -466,7 +542,9 @@ export class BoardAnimator {
       if (!gemId) return Promise.resolve();
       const sprite = this.gemSprites.get(gemId);
       if (!sprite) return Promise.resolve();
+      const gemType = sprite.__gemType;
 
+      this._emitBonusEffect(gemType, index);
       this.indexToGemId[index] = null;
       this.gemSprites.delete(gemId);
 
