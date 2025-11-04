@@ -17,6 +17,9 @@
     <main class="app-main">
       <section class="board-wrapper">
         <BoardCanvas />
+        <aside class="board-rail">
+          <!-- Bonus icons / slide-out trigger area -->
+        </aside>
       </section>
       <section class="hud-wrapper">
         <HudPanel />
@@ -114,33 +117,73 @@ onMounted(() => {
 
 .app-main {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 640px) minmax(260px, 1fr);
-  gap: 2rem;
-  padding: 2rem;
+  display: flex;
+  align-items: stretch;
+  gap: 1.75rem;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  min-height: 0;
 }
 
 .board-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: clamp(420px, calc(100vh - 160px), 100vh);
+  max-width: min(100%, 1680px);
   background: rgba(15, 23, 42, 0.6);
   border-radius: 16px;
-  padding: 1rem;
+  padding: clamp(0.85rem, 1.8vw, 1.5rem);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.4);
+  position: relative;
+  display: flex;
+  gap: clamp(0.75rem, 1.25vw, 1.75rem);
+}
+
+.board-rail {
+  flex: 0 0 clamp(2.5rem, 6vw, 4.5rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 1rem;
 }
 
 .hud-wrapper {
+  flex: 0 0 clamp(260px, 24vw, 340px);
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
+@media (max-width: 1200px) {
+  .board-rail {
+    flex-basis: clamp(2rem, 8vw, 3.5rem);
+  }
+
+  .hud-wrapper {
+    flex-basis: clamp(240px, 30vw, 320px);
+  }
+}
+
 @media (max-width: 1024px) {
   .app-main {
-    grid-template-columns: 1fr;
-    padding: 1.5rem;
+    flex-direction: column;
+    padding: clamp(1rem, 3vw, 1.75rem);
+  }
+
+  .board-wrapper {
+    display: block;
+    max-width: 100%;
+    padding: clamp(0.75rem, 3vw, 1.25rem);
+    min-height: auto;
+    height: auto;
+  }
+
+  .board-rail {
+    display: none;
   }
 
   .hud-wrapper {
     order: -1;
+    flex: 1 1 auto;
   }
 }
 
@@ -150,7 +193,14 @@ onMounted(() => {
   }
 
   .app-main {
-    padding: 1rem;
+    padding: 0.75rem;
+    gap: 1.25rem;
+  }
+
+  .board-wrapper {
+    border-radius: 12px;
+    padding: 0.75rem;
+    min-height: auto;
   }
 }
 </style>

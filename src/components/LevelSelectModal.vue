@@ -44,6 +44,10 @@ const levels = computed(() => gameStore.availableLevels);
   border-radius: 18px;
   padding: 2rem;
   box-shadow: 0 12px 48px rgba(15, 23, 42, 0.6);
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 720px);
+  overflow: hidden;
 }
 
 .modal-card h2 {
@@ -57,6 +61,9 @@ const levels = computed(() => gameStore.availableLevels);
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .level-button {
@@ -85,5 +92,31 @@ const levels = computed(() => gameStore.availableLevels);
 .level-button:hover {
   transform: translateY(-4px);
   background: rgba(59, 130, 246, 0.6);
+}
+
+@media (max-width: 640px) {
+  .modal-scrim {
+    padding: 1.5rem;
+  }
+
+  .modal-card {
+    padding: 1.25rem;
+    max-height: calc(100vh - 2rem);
+  }
+
+  .level-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    row-gap: 0.75rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .modal-card {
+    padding: 1rem;
+  }
+
+  .level-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

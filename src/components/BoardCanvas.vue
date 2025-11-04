@@ -23,7 +23,15 @@ const handleResize = () => {
     return;
   }
 
-  phaserGame.value.scale.resize(clientWidth, clientHeight);
+  const safeWidth = Math.max(32, Math.floor(clientWidth));
+  const safeHeight = Math.max(32, Math.floor(clientHeight));
+
+  if (
+    phaserGame.value.scale.width !== safeWidth ||
+    phaserGame.value.scale.height !== safeHeight
+  ) {
+    phaserGame.value.scale.resize(safeWidth, safeHeight);
+  }
   gameStore.refreshBoardVisuals(true);
 };
 
@@ -127,8 +135,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .board-canvas {
   position: relative;
+  flex: 1 1 auto;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: 100%;
+  min-height: 220px;
+  min-width: 220px;
+  max-width: 1400px;
+  max-height: 1400px;
   border-radius: 12px;
   overflow: hidden;
   background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.45), transparent 60%),
@@ -142,5 +155,24 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .board-canvas {
+    max-width: none;
+    max-height: none;
+    min-width: min(100%, 720px);
+    min-height: clamp(340px, 90vw, 760px);
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .board-canvas {
+    min-width: min(100%, 640px);
+    min-height: clamp(320px, 100vw, 680px);
+    height: auto;
+  }
 }
 </style>
