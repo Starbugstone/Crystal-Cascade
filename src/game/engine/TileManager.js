@@ -31,6 +31,7 @@ export class TileManager {
 
     while (pendingMatches.length) {
       const cleared = new Set();
+      const protectedIndices = new Set();
       let cascadeBonusType = null;
       let cascadeBonusIndex = null;
       
@@ -51,16 +52,20 @@ export class TileManager {
 
       // Handle bonus from initial swap (iteration 0)
       if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {
+        protectedIndices.add(bonusIndex);
         cleared.delete(bonusIndex);
         cascadeBonusType = bonusCreated;
         cascadeBonusIndex = bonusIndex;
       }
       // Handle bonus from cascade
       else if (cascadeBonusType && typeof cascadeBonusIndex === 'number') {
+        protectedIndices.add(cascadeBonusIndex);
         cleared.delete(cascadeBonusIndex);
       }
 
-      if (!cleared.size) {
+      const damageTargets = new Set([...cleared, ...protectedIndices]);
+
+      if (!damageTargets.size) {
         break;
       }
 
@@ -80,7 +85,7 @@ export class TileManager {
         tileUpdates: [],
       };
 
-      step.cleared.forEach((index) => {
+      damageTargets.forEach((index) => {
         const tile = tiles[index];
         if (tile && tile.health > 0) {
           const before = tile.health;
@@ -95,7 +100,9 @@ export class TileManager {
             step.tileUpdates.push({ index, health: tile.health, maxHealth });
           }
         }
-        workingBoard[index] = null;
+        if (!protectedIndices.has(index)) {
+          workingBoard[index] = null;
+        }
       });
 
       for (let col = 0; col < totalCols; col += 1) {
