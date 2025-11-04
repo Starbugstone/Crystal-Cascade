@@ -1,9 +1,12 @@
 import { createPlaceholderGems } from './placeholder-gems';
+import { createPlaceholderTiles } from './placeholder-tiles';
 
 const BASE_GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 const SPECIAL_TYPES = ['bomb', 'rainbow', 'cross'];
 const SPRITE_PATH = '/sprite/gem-sprite-1.png';
 const BONUS_SPRITE_PATH = '/sprite/bonus-sprite-1.png';
+const TILE_PLACEHOLDER_SIZE = 256;
+const TILE_LAYER_STATES = [1, 2, 3, 4];
 
 const SPRITE_GRID_COLS = 3;
 const SPRITE_GRID_ROWS = 3;
@@ -121,6 +124,7 @@ const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
 export const loadSpriteAtlas = (scene) => {
   const textures = {};
   const bonusAnimations = {};
+  const tileTextures = createPlaceholderTiles(scene, TILE_PLACEHOLDER_SIZE, TILE_LAYER_STATES);
 
   const baseResult = sliceBaseGemTextures(scene, textures);
   const bonusResult = sliceBonusAnimations(scene, textures, bonusAnimations);
@@ -146,6 +150,5 @@ export const loadSpriteAtlas = (scene) => {
     });
   }
 
-  return { textures, bonusAnimations };
+  return { textures, bonusAnimations, tileTextures };
 };
-

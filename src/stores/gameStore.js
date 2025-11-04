@@ -83,10 +83,12 @@ export const useGameStore = defineStore('game', {
         scene: renderer.scene,
         boardContainer: renderer.boardContainer,
         backgroundLayer: renderer.backgroundLayer,
+        tileLayer: renderer.tileLayer,
         gemLayer: renderer.gemLayer,
         fxLayer: renderer.fxLayer,
         textures: renderer.textures,
         bonusAnimations: renderer.bonusAnimations,
+        tileTextures: renderer.tileTextures,
         particles: renderer.particles,
       });
 

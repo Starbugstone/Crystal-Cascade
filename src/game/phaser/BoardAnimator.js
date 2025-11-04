@@ -1,25 +1,30 @@
 import Phaser from 'phaser';
 
 const FALL_DURATION = 400;
+const TILE_OVERLAY_ALPHA = 0.20;
 
 export class BoardAnimator {
   constructor({
     scene,
     boardContainer,
     backgroundLayer,
+    tileLayer,
     gemLayer,
     fxLayer,
     textures,
     bonusAnimations,
+    tileTextures,
     particles,
   }) {
     this.scene = scene;
     this.boardContainer = boardContainer;
     this.backgroundLayer = backgroundLayer;
+    this.tileLayer = tileLayer;
     this.gemLayer = gemLayer;
     this.fxLayer = fxLayer;
     this.textures = textures || {};
     this.bonusAnimations = bonusAnimations || {};
+    this.tileTextures = tileTextures || { layers: {} };
     this.particles = particles;
 
     this.boardSize = 0;
@@ -27,6 +32,7 @@ export class BoardAnimator {
 
     this.indexToGemId = [];
     this.gemSprites = new Map();
+    this.tileSprites = new Map();
     this.cellHighlights = new Map();
     this.comboText = null;
     this.tiles = [];
@@ -36,6 +42,9 @@ export class BoardAnimator {
     }
     if (this.gemLayer) {
       this.gemLayer.removeAll(true);
+    }
+    if (this.tileLayer) {
+      this.tileLayer.removeAll(true);
     }
     if (this.fxLayer) {
       this.fxLayer.removeAll(true);
@@ -58,9 +67,14 @@ export class BoardAnimator {
     this.indexToGemId = [];
     this.gemSprites.forEach((sprite) => sprite.destroy());
     this.gemSprites.clear();
+    this.tileSprites.forEach((sprite) => sprite.destroy());
+    this.tileSprites.clear();
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
+    }
+    if (this.tileLayer) {
+      this.tileLayer.removeAll(true);
     }
     if (this.gemLayer) {
       this.gemLayer.removeAll(true);
@@ -110,6 +124,10 @@ export class BoardAnimator {
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
     }
+    if (this.tileLayer) {
+      this.tileLayer.removeAll(true);
+    }
+    this.tileSprites.clear();
     this._rebuildBackgrounds();
 
     if (this.gemLayer) {
@@ -316,12 +334,14 @@ export class BoardAnimator {
     const cell = this.cellHighlights.get(index);
     if (!cell) return;
 
+    cell.__highlighted = highlight;
+
     if (highlight) {
       cell.setStrokeStyle(3, 0xffff00, 0.8);
-      cell.setFillStyle(0xffff00, 0.15);
+      cell.setFillStyle(0xffff00, 0.12);
     } else {
-      cell.setStrokeStyle(2, 0x87ceeb, 0.35);
-      cell.setFillStyle(0x1e293b, 0.28);
+      cell.setStrokeStyle(0, 0x000000, 0);
+      cell.setFillStyle(0x000000, 0);
     }
   }
 
@@ -753,11 +773,12 @@ export class BoardAnimator {
           row * cellSize + cellSize / 2,
           cellSize,
           cellSize,
-          0x1e293b,
-          0.28,
+          0x000000,
+          0,
         );
-        rect.setStrokeStyle(2, 0x87ceeb, 0.35);
+        rect.setStrokeStyle(0, 0x000000, 0);
         rect.setOrigin(0.5);
+        rect.__highlighted = false;
         this.backgroundLayer.add(rect);
         this.cellHighlights.set(index, rect);
         this._updateCellLayer(index, this.tiles?.[index]);
@@ -773,7 +794,7 @@ export class BoardAnimator {
       const col = index % boardSize;
       rect.setPosition(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
       rect.setSize(cellSize, cellSize);
-      rect.setStrokeStyle(2, 0x87ceeb, 0.35);
+      rect.setStrokeStyle(0, 0x000000, 0);
       this._updateCellLayer(index, this.tiles?.[index]);
     });
   }
@@ -788,15 +809,28 @@ export class BoardAnimator {
   }
 
   _applyTileLayers() {
-    if (!this.tiles?.length) {
-      this.cellHighlights.forEach((rect) => {
-        rect.setFillStyle(0x1e293b, 0.28);
-      });
-      return;
-    }
-    this.tiles.forEach((tile, index) => {
+    const totalCells = this.boardSize * this.boardSize;
+    const hasTiles = Array.isArray(this.tiles) && this.tiles.length;
+    const trackTiles = !!this.tileLayer;
+    const seen = trackTiles ? new Set() : null;
+
+    for (let index = 0; index < totalCells; index += 1) {
+      const tile = hasTiles ? this.tiles[index] : null;
       this._updateCellLayer(index, tile);
-    });
+      if (trackTiles) {
+        this._updateTileSprite(index, tile);
+        seen.add(index);
+      }
+    }
+
+    if (trackTiles && seen) {
+      Array.from(this.tileSprites.entries()).forEach(([index, sprite]) => {
+        if (!seen.has(index)) {
+          sprite.destroy();
+          this.tileSprites.delete(index);
+        }
+      });
+    }
   }
 
   _applyTileLayerUpdates(updates) {
@@ -804,50 +838,128 @@ export class BoardAnimator {
       return;
     }
     updates.forEach(({ index, health, maxHealth }) => {
-      const currentTile = this.tiles?.[index];
-      if (currentTile) {
-        currentTile.health = health;
-        currentTile.cleared = health <= 0;
-        if (maxHealth != null) {
-          currentTile.maxHealth = maxHealth;
-        }
+      if (typeof index !== 'number') {
+        return;
       }
-      this._updateCellLayer(index, currentTile ?? { health, maxHealth });
+      const currentTile = this.tiles?.[index];
+      let tileReference = currentTile;
+      if (tileReference) {
+        tileReference.health = health;
+        tileReference.cleared = health <= 0;
+        if (maxHealth != null) {
+          tileReference.maxHealth = maxHealth;
+        }
+      } else if (Array.isArray(this.tiles)) {
+        tileReference = { health, maxHealth };
+        this.tiles[index] = tileReference;
+      }
+      this._updateCellLayer(index, tileReference);
+      this._updateTileSprite(index, tileReference);
     });
   }
 
   _updateCellLayer(index, tile) {
     const rect = this.cellHighlights.get(index);
-    if (!rect) {
+    if (!rect || rect.__highlighted) {
       return;
     }
 
-    const { color, alpha, stroke } = this._resolveLayerStyle(tile);
+    const { color, alpha, stroke, strokeAlpha, strokeWidth } = this._resolveLayerStyle(tile);
     rect.setFillStyle(color, alpha);
-    rect.setStrokeStyle(2, stroke, Math.min(1, alpha + 0.2));
+    const width = strokeWidth ?? (strokeAlpha > 0 ? 1 : 0);
+    rect.setStrokeStyle(width, stroke ?? 0x000000, strokeAlpha ?? 0);
+  }
+
+  _updateTileSprite(index, tile) {
+    if (!this.tileLayer || !this.scene) {
+      return;
+    }
+
+    let sprite = this.tileSprites.get(index);
+    const textureInfo = this._resolveTileTexture(tile);
+
+    if (!textureInfo) {
+      if (sprite) {
+        sprite.setVisible(false);
+      }
+      return;
+    }
+
+    if (!sprite) {
+      sprite = this.scene.add.image(0, 0, textureInfo.key);
+      sprite.setOrigin(0.5);
+      this.tileLayer.add(sprite);
+      this.tileSprites.set(index, sprite);
+    } else if (sprite.texture?.key !== textureInfo.key) {
+      sprite.setTexture(textureInfo.key);
+    }
+
+    const { x, y } = this._indexToPosition(index);
+    sprite.setPosition(x, y);
+    this._applyTileDimensions(sprite);
+    sprite.setAlpha(TILE_OVERLAY_ALPHA);
+    sprite.setVisible(true);
   }
 
   _resolveLayerStyle(tile) {
-    if (!tile) {
-      return { color: 0x1e293b, alpha: 0.2, stroke: 0x475569 };
-    }
-
-    const maxHealth = tile.maxHealth ?? 1;
-    const health = Math.max(0, tile.health ?? 0);
-
-    if (health <= 0) {
-      return { color: 0x0f172a, alpha: 0.3, stroke: 0x1e293b };
-    }
-
-    const ratio = Math.min(1, health / maxHealth);
-    const baseColor = 0x0f172a;
-    const fullColor = 0xf97316;
-    const mixed = this._lerpColor(fullColor, baseColor, 1 - ratio * 0.7);
     return {
-      color: mixed,
-      alpha: 0.55,
-      stroke: this._lerpColor(0xfef08a, 0x1e293b, ratio * 0.5),
+      color: 0x000000,
+      alpha: 0,
+      stroke: 0x000000,
+      strokeAlpha: 0,
+      strokeWidth: 0,
     };
+  }
+
+  _resolveTileTexture(tile) {
+    if (!tile || tile.health == null || tile.health <= 0) {
+      return null;
+    }
+    const layers = this.tileTextures?.layers || {};
+    const layerEntries = Object.entries(layers)
+      .map(([key, value]) => ({ key: Number(key), texture: value }))
+      .filter((entry) => !Number.isNaN(entry.key))
+      .sort((a, b) => a.key - b.key);
+
+    if (!layerEntries.length) {
+      return null;
+    }
+
+    const maxHealth = Math.max(0, tile.maxHealth ?? tile.health ?? 0);
+    const health = Math.max(0, Math.min(tile.health, maxHealth));
+    if (health <= 0 || maxHealth <= 0) {
+      return null;
+    }
+
+    const directMatch = layerEntries.find((entry) => entry.key === health);
+    if (directMatch) {
+      return directMatch.texture;
+    }
+
+    const maxLayerValue = layerEntries[layerEntries.length - 1].key;
+    const ratio = maxHealth > 0 ? Math.min(1, Math.max(0, health / maxHealth)) : 0;
+    const scaledTarget = Math.max(1, Math.round(ratio * maxLayerValue));
+
+    let closest = layerEntries[0];
+    let smallestDelta = Math.abs(closest.key - scaledTarget);
+    for (let i = 1; i < layerEntries.length; i += 1) {
+      const candidate = layerEntries[i];
+      const delta = Math.abs(candidate.key - scaledTarget);
+      if (delta < smallestDelta) {
+        closest = candidate;
+        smallestDelta = delta;
+      }
+    }
+
+    return closest.texture;
+  }
+
+  _applyTileDimensions(sprite) {
+    if (!this.cellSize || !sprite) {
+      return;
+    }
+    const targetSize = this.cellSize * 0.92;
+    sprite.setDisplaySize(targetSize, targetSize);
   }
 
   _lerpColor(from, to, t) {

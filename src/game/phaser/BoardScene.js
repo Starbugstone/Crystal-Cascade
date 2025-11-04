@@ -7,6 +7,7 @@ export class BoardScene extends Phaser.Scene {
     super({ key: 'BoardScene' });
     this.boardContainer = null;
     this.backgroundLayer = null;
+    this.tileLayer = null;
     this.gemLayer = null;
     this.fxLayer = null;
     this.onReady = null;
@@ -19,22 +20,25 @@ export class BoardScene extends Phaser.Scene {
   create() {
     this.boardContainer = this.add.container(0, 0);
     this.backgroundLayer = this.add.container(0, 0);
+    this.tileLayer = this.add.container(0, 0);
     this.gemLayer = this.add.container(0, 0);
     this.fxLayer = this.add.container(0, 0);
 
-    this.boardContainer.add([this.backgroundLayer, this.gemLayer, this.fxLayer]);
+    this.boardContainer.add([this.backgroundLayer, this.tileLayer, this.gemLayer, this.fxLayer]);
 
-    const { textures, bonusAnimations } = loadSpriteAtlas(this);
+    const { textures, bonusAnimations, tileTextures } = loadSpriteAtlas(this);
     const particles = createParticleFactory(this, this.fxLayer);
 
     const payload = {
       scene: this,
       boardContainer: this.boardContainer,
       backgroundLayer: this.backgroundLayer,
+      tileLayer: this.tileLayer,
       gemLayer: this.gemLayer,
       fxLayer: this.fxLayer,
       textures,
       bonusAnimations,
+      tileTextures,
       particles,
     };
 

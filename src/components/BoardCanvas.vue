@@ -41,10 +41,12 @@ const setupPhaser = () => {
       scene,
       boardContainer,
       backgroundLayer,
+      tileLayer,
       gemLayer,
       fxLayer,
       textures,
       bonusAnimations,
+      tileTextures,
       particles,
     } = payload;
     gameStore.attachRenderer({
@@ -52,10 +54,12 @@ const setupPhaser = () => {
       scene,
       boardContainer,
       backgroundLayer,
+      tileLayer,
       gemLayer,
       fxLayer,
       textures,
       bonusAnimations,
+      tileTextures,
       particles,
     });
 

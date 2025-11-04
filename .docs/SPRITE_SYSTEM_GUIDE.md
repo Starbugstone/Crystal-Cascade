@@ -11,11 +11,12 @@ This document provides detailed technical specifications for the sprite system i
 1. [Overview](#overview)
 2. [Gem Sprite Sheet Specifications](#gem-sprite-sheet-specifications)
 3. [Bonus Animation Sprite Sheet Specifications](#bonus-animation-sprite-sheet-specifications)
-4. [How Sprite Cutting Works](#how-sprite-cutting-works)
-5. [Rendering Pipeline](#rendering-pipeline)
-6. [Modifying Sprite Configurations](#modifying-sprite-configurations)
-7. [Adding New Sprites](#adding-new-sprites)
-8. [Performance Considerations](#performance-considerations)
+4. [Background Tile Overlay System](#background-tile-overlay-system)
+5. [How Sprite Cutting Works](#how-sprite-cutting-works)
+6. [Rendering Pipeline](#rendering-pipeline)
+7. [Modifying Sprite Configurations](#modifying-sprite-configurations)
+8. [Adding New Sprites](#adding-new-sprites)
+9. [Performance Considerations](#performance-considerations)
 
 ---
 
@@ -154,6 +155,55 @@ const SPECIAL_TYPES = [
 
 ---
 
+## Background Tile Overlay System
+
+### Purpose
+
+- Breakable board tiles now use dedicated overlay sprites so their health state is visible at all times, even while gems are moving or matches are animating.
+- The renderer keeps tile overlays on a dedicated `tileLayer` that sits between the background grid and the gem sprites. This prevents the green debug rectangles from disappearing and gives space for art-driven feedback.
+
+### Placeholder Implementation (Current)
+
+The sprite loader now returns a `tileTextures` object alongside the gem textures and bonus animations:
+
+```javascript
+const { textures, bonusAnimations, tileTextures } = loadSpriteAtlas(scene);
+```
+
+`tileTextures` is populated today by `src/game/phaser/placeholder-tiles.js`, which draws simple plates with progressively heavier cracks. Four discrete states are generated and keyed by remaining health:
+
+| Layer Key | Intended Health State | Visual Notes |
+|-----------|-----------------------|--------------|
+| `4`       | Pristine / full health | Cool teal plate with no cracks |
+| `3`       | Lightly damaged        | Cyan plate with small corner fractures |
+| `2`       | Damaged                | Blue plate with multiple cracks |
+| `1`       | Critical               | Warm orange plate with heavy cracking |
+
+Each placeholder tile is 256×256 pixels and is automatically scaled to ~92% of the board cell size so the interaction highlight (when active) still hugs the tile edges instead of sitting on top of the art.
+
+### Runtime Integration
+
+- `BoardScene` builds the layer stack as `[backgroundLayer, tileLayer, gemLayer, fxLayer]` and hands every layer to `BoardAnimator`.
+- `BoardAnimator` keeps a `tileSprites` map and updates each sprite whenever `tile.health` changes. Health values are mapped to the closest available texture inside `tileTextures.layers` so the system gracefully handles boards with more (or fewer) damage stages than the placeholder set.
+- The base grid rectangles are transparent by default; they only gain a stroke while you’re actively highlighting a cell, which keeps the placeholder art unobstructed.
+- Placeholder tile overlays are rendered at roughly 78% opacity so you can still read the board background while testing different palettes.
+- Tile overlays stay visible during swaps, cascades, and reshuffles because they never leave the scene—only their texture and visibility are toggled.
+
+### Replacing the Placeholders
+
+When the authored background tile sprite sheet is ready, replace the placeholder pipeline with the real art:
+
+1. **Add the sprite sheet** to `public/sprite/tile-sprite-1.png` (or a new path of your choice). Recommended layout is a single row with one frame per damage stage (e.g. 4 columns × 1 row). Keep every frame square and evenly spaced.
+2. **Update `SpriteLoader.js`**:
+   - Call `scene.load.image('tile-sheet', '/sprite/tile-sprite-1.png')` from `preloadSpriteAssets`.
+   - Replace the `createPlaceholderTiles(...)` call with a slicing helper that reads each frame from `tile-sheet` and fills `tileTextures.layers[layerValue]` with `{ key, width, height }` entries. The indices should still map to health values (`4` = full health, `1` = critical).
+   - If you provide fewer or more stages, make sure the mapper in `BoardAnimator._resolveTileTexture` can still pick a sensible texture for every health ratio.
+3. **Optional polish**: Add a `tileTextures.cleared` entry for decorative debris or sparkle sprites shown when a tile reaches zero health. The animator already hides the overlay if no texture is returned, so this is an additive enhancement.
+
+Design tip: keep the outer 5–8% of each frame mostly transparent so the highlight stroke from the grid remains readable, and push any destruction FX into the FX layer rather than baking them into the static tiles.
+
+---
+
 ## How Sprite Cutting Works
 
 ### Grid-Based Cutting Algorithm
@@ -259,6 +309,8 @@ The system uses `Math.floor()` for cell dimension calculations. This means:
    ↓
 7. gameStore.refreshBoardVisuals() renders sprites
 ```
+
+> **Tile overlays** follow the same path: `loadSpriteAtlas` now injects a `tileTextures` payload, the Phaser board scene forwards a dedicated `tileLayer`, and `BoardAnimator` keeps each overlay sprite in sync with the tile health.
 
 ### Rendering Logic (gameStore.js)
 
