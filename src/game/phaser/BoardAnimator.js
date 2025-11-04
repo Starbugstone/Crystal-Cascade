@@ -468,7 +468,7 @@ export class BoardAnimator {
     if (!this.particles) {
       return;
     }
-    if (!gemType || !['bomb', 'cross', 'rainbow'].includes(gemType)) {
+    if (gemType !== 'bomb') {
       return;
     }
 
@@ -486,36 +486,6 @@ export class BoardAnimator {
         duration: 360,
       });
       this.particles.emitBurst(position, 0xfff59d, 24);
-    } else if (gemType === 'cross') {
-      this.particles.emitExplosion(position, {
-        color: 0x7dd3fc,
-        radius: this.cellSize * 1.2,
-        count: 28,
-        duration: 320,
-      });
-      this.particles.emitCross(position, {
-        column: {
-          color: 0x7dd3fc,
-          length: Math.ceil(this.boardRows / 2),
-          spacing: this.cellSize,
-          duration: 400,
-        },
-        row: {
-          color: 0xff80ab,
-          length: Math.ceil(this.boardSize / 2),
-          spacing: this.cellSize,
-          duration: 400,
-        },
-      });
-    } else if (gemType === 'rainbow') {
-      this.particles.emitExplosion(position, {
-        color: 0xffffff,
-        radius: this.cellSize * 2,
-        count: 54,
-        duration: 500,
-      });
-      this.particles.emitBurst(position, 0xff80ab, 18);
-      this.particles.emitBurst(position, 0x7dd3fc, 18);
     }
   }
 
@@ -582,35 +552,91 @@ export class BoardAnimator {
   }
 
   _animateClear(step) {
-    const animations = step.cleared.map((index) => {
-      const gemId = this.indexToGemId[index];
-      if (!gemId) return Promise.resolve();
-      const sprite = this.gemSprites.get(gemId);
-      if (!sprite) return Promise.resolve();
-      const gemType = sprite.__gemType;
-
-      this._emitBonusEffect(gemType, index);
-      this.indexToGemId[index] = null;
-      this.gemSprites.delete(gemId);
-
-      if (sprite.scene) {
-        this.scene.tweens.killTweensOf(sprite);
-        sprite.destroy();
-      }
-
-      if (this.particles) {
-        const local = this._indexToPosition(index);
-        const position = {
-          x: this.boardContainer.x + local.x,
-          y: this.boardContainer.y + local.y,
-        };
-        this.particles.emitBurst(position);
-      }
-
+    if (!step?.cleared?.length) {
       return Promise.resolve();
+    }
+
+    const clearedSet = new Set(step.cleared);
+    const timer = this.scene?.time ?? null;
+
+    const entries = step.cleared.map((index) => {
+      const gemId = this.indexToGemId[index];
+      const sprite = gemId ? this.gemSprites.get(gemId) : null;
+      return {
+        index,
+        gemId,
+        sprite,
+        gemType: sprite?.__gemType ?? null,
+      };
     });
 
-    return Promise.all(animations);
+    const removalDelays = new Map();
+    const customFxIndices = new Set();
+
+    entries
+      .filter((entry) => entry.sprite && entry.gemType === 'cross')
+      .forEach((entry) => {
+        const indices = this._playCrossFireLine(entry.index, clearedSet, removalDelays);
+        indices.forEach((idx) => customFxIndices.add(idx));
+      });
+
+    entries
+      .filter((entry) => entry.sprite && entry.gemType === 'rainbow')
+      .forEach((entry) => {
+        const targets = step.cleared.filter((idx) => idx !== entry.index);
+        const indices = this._playRainbowLaser(entry.index, targets, removalDelays);
+        indices.forEach((idx) => customFxIndices.add(idx));
+      });
+
+    const animations = entries.map((entry) => {
+      const { index, gemId, sprite, gemType } = entry;
+
+      if (!gemId || !sprite) {
+        this.indexToGemId[index] = null;
+        this.gemSprites.delete(gemId);
+        return Promise.resolve();
+      }
+
+      const delay = removalDelays.get(index) ?? 0;
+
+      return new Promise((resolve) => {
+        const handleRemoval = () => {
+          if (sprite.scene) {
+            this.scene.tweens.killTweensOf(sprite);
+          }
+          sprite.destroy();
+
+          this.gemSprites.delete(gemId);
+          this.indexToGemId[index] = null;
+
+          if (gemType === 'bomb') {
+            this._emitBonusEffect(gemType, index);
+          }
+
+          const useCustomBurst = customFxIndices.has(index);
+          const skipDefaultBurst = useCustomBurst || gemType === 'bomb';
+
+          if (this.particles && !skipDefaultBurst) {
+            const local = this._indexToPosition(index);
+            const position = {
+              x: this.boardContainer.x + local.x,
+              y: this.boardContainer.y + local.y,
+            };
+            this.particles.emitBurst(position);
+          }
+
+          resolve();
+        };
+
+        if (timer) {
+          timer.delayedCall(delay, handleRemoval);
+        } else {
+          setTimeout(handleRemoval, delay);
+        }
+      });
+    });
+
+    return animations.length ? Promise.all(animations) : Promise.resolve();
   }
 
   _animateBonus({ index, gem, type }) {
@@ -711,6 +737,208 @@ export class BoardAnimator {
 
     return animations.length ? Promise.all(animations) : Promise.resolve();
   }
+
+  _playCrossFireLine(centerIndex, validTargets, removalDelays) {
+    const indices = new Set();
+    const baseDelay = 80;
+    const centerLocal = this._indexToPosition(centerIndex);
+    const worldCenter = {
+      x: this.boardContainer.x + centerLocal.x,
+      y: this.boardContainer.y + centerLocal.y,
+    };
+
+    if (this.particles) {
+      this.particles.emitExplosion(worldCenter, {
+        color: 0xffa94d,
+        radius: this.cellSize * 0.9,
+        count: 24,
+        duration: 280,
+      });
+    }
+
+    const applyDelay = (index, stepsFromCenter = 0) => {
+      const delay = Math.max(0, stepsFromCenter * baseDelay);
+      const current = removalDelays.get(index) ?? 0;
+      removalDelays.set(index, Math.max(current, delay));
+      indices.add(index);
+      return delay;
+    };
+
+    applyDelay(centerIndex, 0);
+
+    const col = centerIndex % this.boardSize;
+    const row = Math.floor(centerIndex / this.boardSize);
+    const directions = [
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: 0, dy: -1 },
+    ];
+
+    directions.forEach(({ dx, dy }) => {
+      let step = 1;
+      while (true) {
+        const targetCol = col + dx * step;
+        const targetRow = row + dy * step;
+        if (targetCol < 0 || targetCol >= this.boardSize || targetRow < 0 || targetRow >= this.boardRows) {
+          break;
+        }
+
+        const targetIndex = targetRow * this.boardSize + targetCol;
+        if (!validTargets.has(targetIndex)) {
+          break;
+        }
+
+        const localTarget = this._indexToPosition(targetIndex);
+        const delay = applyDelay(targetIndex, step);
+
+        const flame = this.scene.add.rectangle(
+          centerLocal.x,
+          centerLocal.y,
+          this.cellSize * 0.22,
+          this.cellSize * 0.22,
+          0xff922b,
+          0.95,
+        );
+        flame.setOrigin(0.5);
+        flame.setBlendMode(Phaser.BlendModes.ADD);
+        if (this.fxLayer) {
+          this.fxLayer.add(flame);
+        }
+
+        const duration = Math.max(60, baseDelay * 0.85);
+        this.scene.tweens.add({
+          targets: flame,
+          x: localTarget.x,
+          y: localTarget.y,
+          scaleX: 1.3,
+          scaleY: 1.3,
+          alpha: { from: 1, to: 0.3 },
+          delay,
+          duration,
+          ease: 'Cubic.easeOut',
+          onComplete: () => {
+            flame.destroy();
+            if (this.particles) {
+              const worldTarget = {
+                x: this.boardContainer.x + localTarget.x,
+                y: this.boardContainer.y + localTarget.y,
+              };
+              this.particles.emitBurst(worldTarget, 0xffc266, 12);
+            }
+          },
+        });
+
+        step += 1;
+      }
+    });
+
+    return indices;
+  }
+
+  _playRainbowLaser(sourceIndex, targetIndices, removalDelays) {
+    const indices = new Set();
+    indices.add(sourceIndex);
+
+    const baseDelay = 90;
+    const beamDuration = 130;
+
+    const sourceLocal = this._indexToPosition(sourceIndex);
+    const worldSource = {
+      x: this.boardContainer.x + sourceLocal.x,
+      y: this.boardContainer.y + sourceLocal.y,
+    };
+    const timer = this.scene?.time ?? null;
+
+    const applyDelay = (index, delay) => {
+      const current = removalDelays.get(index) ?? 0;
+      removalDelays.set(index, Math.max(current, delay));
+      indices.add(index);
+    };
+
+    targetIndices.forEach((targetIndex, order) => {
+      const localTarget = this._indexToPosition(targetIndex);
+      const length = Math.max(
+        10,
+        Phaser.Math.Distance.Between(sourceLocal.x, sourceLocal.y, localTarget.x, localTarget.y),
+      );
+      const angle = Phaser.Math.Angle.Between(sourceLocal.x, sourceLocal.y, localTarget.x, localTarget.y);
+      const beam = this.scene.add.rectangle(
+        sourceLocal.x,
+        sourceLocal.y,
+        this.cellSize * 0.18,
+        length,
+        0x9fdaff,
+        0.95,
+      );
+      beam.setOrigin(0.5, 0);
+      beam.setRotation(angle - Math.PI / 2);
+      beam.setScale(1, 0);
+      beam.setBlendMode(Phaser.BlendModes.ADD);
+      if (this.fxLayer) {
+        this.fxLayer.add(beam);
+      }
+
+      const delay = (order + 1) * baseDelay;
+
+      this.scene.tweens.add({
+        targets: beam,
+        scaleY: 1,
+        alpha: { from: 1, to: 0.4 },
+        delay,
+        duration: beamDuration,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          beam.destroy();
+        },
+      });
+
+      const impactDelay = delay + beamDuration;
+      const runImpact = () => {
+        if (this.particles) {
+          const worldTarget = {
+            x: this.boardContainer.x + localTarget.x,
+            y: this.boardContainer.y + localTarget.y,
+          };
+          this.particles.emitExplosion(worldTarget, {
+            color: 0xc4f1ff,
+            radius: this.cellSize * 0.7,
+            count: 20,
+            duration: 260,
+          });
+        }
+      };
+
+      if (timer) {
+        timer.delayedCall(impactDelay, runImpact);
+      } else {
+        setTimeout(runImpact, impactDelay);
+      }
+
+      applyDelay(targetIndex, delay + beamDuration + 40);
+    });
+
+    applyDelay(sourceIndex, targetIndices.length * baseDelay + beamDuration + 60);
+
+    if (this.particles) {
+      const triggerSourceExplosion = () => {
+        this.particles.emitExplosion(worldSource, {
+          color: 0xffffff,
+          radius: this.cellSize * 1.3,
+          count: 36,
+          duration: 320,
+        });
+      };
+      if (timer) {
+        timer.delayedCall(0, triggerSourceExplosion);
+      } else {
+        triggerSourceExplosion();
+      }
+    }
+
+    return indices;
+  }
+
 
   _setTexture(sprite, type) {
     const bonusConfig = this.bonusAnimations[type];
