@@ -28,6 +28,7 @@ export class BoardAnimator {
     this.particles = particles;
 
     this.boardSize = 0;
+    this.boardRows = 0;
     this.cellSize = 0;
 
     this.indexToGemId = [];
@@ -87,11 +88,14 @@ export class BoardAnimator {
     this._hideComboText();
   }
 
-  setLayout({ boardSize, cellSize }) {
-    const sizeChanged = boardSize !== this.boardSize;
+  setLayout({ boardCols, boardRows, cellSize }) {
+    const cols = boardCols ?? this.boardSize;
+    const rows = boardRows ?? this.boardRows;
+    const sizeChanged = cols !== this.boardSize || rows !== this.boardRows;
     const cellChanged = Math.abs(cellSize - this.cellSize) > 0.001;
 
-    this.boardSize = boardSize;
+    this.boardSize = cols;
+    this.boardRows = rows;
     this.cellSize = cellSize;
 
     const hasBackground = this.backgroundLayer && this.backgroundLayer.list && this.backgroundLayer.list.length > 0;
@@ -117,8 +121,12 @@ export class BoardAnimator {
     }
   }
 
-  reset(board, { boardSize = this.boardSize, cellSize = this.cellSize } = {}) {
-    this.boardSize = boardSize;
+  reset(
+    board,
+    { boardCols = this.boardSize, boardRows = this.boardRows, cellSize = this.cellSize } = {},
+  ) {
+    this.boardSize = boardCols;
+    this.boardRows = boardRows;
     this.cellSize = cellSize;
 
     if (this.backgroundLayer) {
@@ -346,7 +354,7 @@ export class BoardAnimator {
   }
 
   clearCellHighlights() {
-    for (let i = 0; i < this.boardSize * this.boardSize; i += 1) {
+    for (let i = 0; i < this.boardSize * this.boardRows; i += 1) {
       this.highlightCell(i, false);
     }
   }
@@ -488,7 +496,7 @@ export class BoardAnimator {
       this.particles.emitCross(position, {
         column: {
           color: 0x7dd3fc,
-          length: Math.ceil(this.boardSize / 2),
+          length: Math.ceil(this.boardRows / 2),
           spacing: this.cellSize,
           duration: 400,
         },
@@ -529,7 +537,7 @@ export class BoardAnimator {
     this.particles.emitCross(center, {
       column: {
         color: 0x7dd3fc,
-        length: Math.ceil(this.boardSize / 2),
+        length: Math.ceil(this.boardRows / 2),
         spacing: this.cellSize * 0.75,
         duration: 420,
       },
@@ -552,7 +560,7 @@ export class BoardAnimator {
   _getBoardCenterWorld() {
     return {
       x: this.boardContainer.x + (this.boardSize * this.cellSize) / 2,
-      y: this.boardContainer.y + (this.boardSize * this.cellSize) / 2,
+      y: this.boardContainer.y + (this.boardRows * this.cellSize) / 2,
     };
   }
 
@@ -764,10 +772,13 @@ export class BoardAnimator {
     this.backgroundLayer.removeAll(true);
     this.cellHighlights.clear();
 
-    const { boardSize, cellSize } = this;
-    for (let row = 0; row < boardSize; row += 1) {
-      for (let col = 0; col < boardSize; col += 1) {
-        const index = row * boardSize + col;
+    const cols = this.boardSize;
+    const rows = this.boardRows;
+    const { cellSize } = this;
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const index = row * cols + col;
         const rect = this.scene.add.rectangle(
           col * cellSize + cellSize / 2,
           row * cellSize + cellSize / 2,
@@ -788,10 +799,11 @@ export class BoardAnimator {
 
   _updateBackgroundSizing() {
     if (!this.backgroundLayer) return;
-    const { boardSize, cellSize } = this;
+    const cols = this.boardSize;
+    const { cellSize } = this;
     this.cellHighlights.forEach((rect, index) => {
-      const row = Math.floor(index / boardSize);
-      const col = index % boardSize;
+      const row = Math.floor(index / cols);
+      const col = index % cols;
       rect.setPosition(col * cellSize + cellSize / 2, row * cellSize + cellSize / 2);
       rect.setSize(cellSize, cellSize);
       rect.setStrokeStyle(0, 0x000000, 0);
@@ -809,7 +821,7 @@ export class BoardAnimator {
   }
 
   _applyTileLayers() {
-    const totalCells = this.boardSize * this.boardSize;
+    const totalCells = this.boardSize * this.boardRows;
     const hasTiles = Array.isArray(this.tiles) && this.tiles.length;
     const trackTiles = !!this.tileLayer;
     const seen = trackTiles ? new Set() : null;

@@ -7,7 +7,7 @@ export class BonusActivator {
     return this.BONUS_TYPES.has(type);
   }
 
-  activate(board, size, swap) {
+  activate(board, cols, rows, swap) {
     if (!swap) {
       return [];
     }
@@ -52,7 +52,7 @@ export class BonusActivator {
       }
       processed.add(index);
 
-      const result = this.activateBonus(type, board, size, index, context);
+      const result = this.activateBonus(type, board, cols, rows, index, context);
       result.forEach((resolvedIndex) => {
         if (!allCleared.has(resolvedIndex)) {
           allCleared.add(resolvedIndex);
@@ -69,14 +69,14 @@ export class BonusActivator {
     return [...allCleared];
   }
 
-  activateBonus(type, board, size, index, context = {}) {
+  activateBonus(type, board, cols, rows, index, context = {}) {
     switch (type) {
       case 'bomb':
-        return this.activateBomb(board, size, index);
+        return this.activateBomb(board, cols, rows, index);
       case 'cross':
-        return this.activateCross(board, size, index);
+        return this.activateCross(board, cols, rows, index);
       case 'rainbow':
-        return this.activateRainbow(board, size, index, context);
+        return this.activateRainbow(board, cols, rows, index, context);
       default:
         return [index];
     }
@@ -92,21 +92,21 @@ export class BonusActivator {
     return {};
   }
 
-  activateBomb(board, size, index) {
+  activateBomb(board, cols, rows, index) {
     const cleared = new Set();
-    const row = Math.floor(index / size);
-    const col = index % size;
+    const row = Math.floor(index / cols);
+    const col = index % cols;
     for (let r = row - 1; r <= row + 1; r++) {
       for (let c = col - 1; c <= col + 1; c++) {
-        if (r >= 0 && r < size && c >= 0 && c < size) {
-          cleared.add(r * size + c);
+        if (r >= 0 && r < rows && c >= 0 && c < cols) {
+          cleared.add(r * cols + c);
         }
       }
     }
     return [...cleared];
   }
 
-  activateRainbow(board, size, index, context) {
+  activateRainbow(board, cols, rows, index, context) {
     const cleared = new Set();
     const mode = context?.mode ?? 'target';
 
@@ -142,13 +142,15 @@ export class BonusActivator {
     return [...cleared];
   }
 
-  activateCross(board, size, index) {
+  activateCross(board, cols, rows, index) {
     const cleared = new Set();
-    const row = Math.floor(index / size);
-    const col = index % size;
-    for (let i = 0; i < size; i++) {
-      cleared.add(row * size + i);
-      cleared.add(i * size + col);
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    for (let i = 0; i < cols; i++) {
+      cleared.add(row * cols + i);
+    }
+    for (let i = 0; i < rows; i++) {
+      cleared.add(i * cols + col);
     }
     cleared.add(index);
     return [...cleared];

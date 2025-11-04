@@ -5,7 +5,7 @@ const BASE_MATCH_SCORE = 100;
 
 export class BonusResolver {
   resolve(result) {
-    const { matches, board, size, swap } = result;
+    const { matches, board, cols, rows, swap } = result;
     if (!matches.length) {
       return { ...result, scoreGain: 0, multiplier: 1 };
     }
@@ -37,6 +37,8 @@ export class BonusResolver {
       multiplier,
       bonusCreated,
       bonusIndex,
+      cols,
+      rows,
     };
   }
 }

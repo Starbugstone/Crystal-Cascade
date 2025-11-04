@@ -1,17 +1,35 @@
 <template>
-  <div ref="canvasRoot" class="board-canvas"></div>
+  <div
+    ref="canvasRoot"
+    class="board-canvas"
+    :class="{ 'board-canvas--fullscreen': fullscreen }"
+    :style="canvasStyle"
+  ></div>
 </template>
 
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import Phaser from 'phaser';
 import { useGameStore } from '../stores/gameStore';
 import { BoardScene } from '../game/phaser/BoardScene';
+
+const props = defineProps({
+  fullscreen: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 const canvasRoot = ref(null);
 const phaserGame = ref(null);
 const gameStore = useGameStore();
 const resizeObserver = ref(null);
+
+const boardCols = computed(() => gameStore.boardCols ?? gameStore.boardSize ?? 8);
+const boardRows = computed(() => gameStore.boardRows ?? gameStore.boardSize ?? 8);
+const canvasStyle = computed(() => ({
+  '--board-aspect': String(boardCols.value / (boardRows.value || 1)),
+}));
 
 const handleResize = () => {
   if (!phaserGame.value || !canvasRoot.value) {
@@ -157,22 +175,46 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
+.board-canvas--fullscreen {
+  flex: 0 1 auto;
+  width: auto;
+  height: min(100%, var(--viewport-height, 100vh));
+  max-height: min(100%, var(--viewport-height, 100vh));
+  max-width: 100%;
+  aspect-ratio: var(--board-aspect, 1);
+  margin: 0 auto;
+  border-radius: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.board-canvas--fullscreen canvas {
+  width: 100%;
+  height: 100%;
+}
+
 @media (max-width: 1024px) {
   .board-canvas {
     max-width: none;
     max-height: none;
     min-width: min(100%, 720px);
-    min-height: clamp(340px, 90vw, 760px);
+    min-height: min(calc(100vw * 1.05), 820px);
     height: auto;
-    aspect-ratio: 1 / 1;
+  }
+
+  .board-canvas--fullscreen {
+    max-height: min(100%, 100vh);
+    aspect-ratio: var(--board-aspect, 1);
   }
 }
 
 @media (max-width: 640px) {
   .board-canvas {
     min-width: min(100%, 640px);
-    min-height: clamp(320px, 100vw, 680px);
+    min-height: min(calc(100vw * 1.1), 840px);
     height: auto;
+  }
+
+  .board-canvas--fullscreen {
+    max-height: 100%;
   }
 }
 </style>

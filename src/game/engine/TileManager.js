@@ -5,8 +5,16 @@ import { detectBonusFromMatches } from './MatchPatterns.js';
 const matchEngine = new MatchEngine();
 
 export class TileManager {
-  getResolution({ board, tiles, matches, size, bonusCreated, bonusIndex }) {
+  getResolution({ board, tiles, matches, cols, rows, bonusCreated, bonusIndex }) {
     if (!matches?.length) {
+      return { board, steps: [] };
+    }
+
+    const totalCols = cols;
+    const inferredRows = cols ? board.length / cols : 0;
+    const totalRows = rows ?? Math.max(0, Math.round(inferredRows));
+
+    if (!totalCols || !totalRows) {
       return { board, steps: [] };
     }
 
@@ -90,13 +98,13 @@ export class TileManager {
         workingBoard[index] = null;
       });
 
-      for (let col = 0; col < size; col += 1) {
-        let writeRow = size - 1;
-        for (let row = size - 1; row >= 0; row -= 1) {
-          const index = row * size + col;
+      for (let col = 0; col < totalCols; col += 1) {
+        let writeRow = totalRows - 1;
+        for (let row = totalRows - 1; row >= 0; row -= 1) {
+          const index = row * totalCols + col;
           const gem = workingBoard[index];
           if (gem) {
-            const targetIndex = writeRow * size + col;
+            const targetIndex = writeRow * totalCols + col;
             if (targetIndex !== index) {
               workingBoard[targetIndex] = gem;
               workingBoard[index] = null;
@@ -107,7 +115,7 @@ export class TileManager {
         }
 
         for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
-          const index = spawnRow * size + col;
+          const index = spawnRow * totalCols + col;
           const newGem = createGem(randomGemType());
           workingBoard[index] = newGem;
           step.spawns.push({ index, gem: newGem });
@@ -116,13 +124,15 @@ export class TileManager {
 
       steps.push(step);
 
-      pendingMatches = matchEngine.findMatches(workingBoard, size);
+      pendingMatches = matchEngine.findMatches(workingBoard, totalCols);
       iteration += 1;
     }
 
     return {
       board: workingBoard,
       steps,
+      cols: totalCols,
+      rows: totalRows,
       layersCleared: totalLayersCleared,
     };
   }

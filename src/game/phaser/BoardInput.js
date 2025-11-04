@@ -5,7 +5,8 @@ export class BoardInput {
     this.gameStore = gameStore;
 
     this.layout = {
-      boardSize: 0,
+      boardCols: 0,
+      boardRows: 0,
       cellSize: 0,
     };
 
@@ -34,8 +35,9 @@ export class BoardInput {
     this.clearHighlights();
   }
 
-  setLayout({ boardSize, cellSize }) {
-    this.layout.boardSize = boardSize;
+  setLayout({ boardCols, boardRows, cellSize }) {
+    this.layout.boardCols = boardCols;
+    this.layout.boardRows = boardRows;
     this.layout.cellSize = cellSize;
   }
 
@@ -115,8 +117,8 @@ export class BoardInput {
   }
 
   getCellIndexFromPointer(pointer) {
-    const { boardSize, cellSize } = this.layout;
-    if (!boardSize || !cellSize) {
+    const { boardCols, boardRows, cellSize } = this.layout;
+    if (!boardCols || !boardRows || !cellSize) {
       return null;
     }
 
@@ -125,20 +127,21 @@ export class BoardInput {
 
     const localX = pointerX - this.boardContainer.x;
     const localY = pointerY - this.boardContainer.y;
-    const boardSide = boardSize * cellSize;
+    const boardWidth = boardCols * cellSize;
+    const boardHeight = boardRows * cellSize;
 
-    if (localX < 0 || localY < 0 || localX >= boardSide || localY >= boardSide) {
+    if (localX < 0 || localY < 0 || localX >= boardWidth || localY >= boardHeight) {
       return null;
     }
 
     const col = Math.floor(localX / cellSize);
     const row = Math.floor(localY / cellSize);
 
-    if (col < 0 || row < 0 || col >= boardSize || row >= boardSize) {
+    if (col < 0 || row < 0 || col >= boardCols || row >= boardRows) {
       return null;
     }
 
-    return row * boardSize + col;
+    return row * boardCols + col;
   }
 
   highlightCell(index) {

@@ -3,13 +3,13 @@ import { BonusActivator } from './BonusActivator.js';
 const bonusActivator = new BonusActivator();
 
 export class MatchEngine {
-  evaluateSwap(board, size, aIndex, bIndex) {
+  evaluateSwap(board, cols, rows, aIndex, bIndex) {
     if (aIndex === bIndex) {
-      return { matches: [], board, size, swap: null };
+      return { matches: [], board, cols, rows, swap: null };
     }
 
-    if (!this.areAdjacent(aIndex, bIndex, size)) {
-      return { matches: [], board, size, swap: null };
+    if (!this.areAdjacent(aIndex, bIndex, cols)) {
+      return { matches: [], board, cols, rows, swap: null };
     }
 
     const nextBoard = [...board];
@@ -17,21 +17,21 @@ export class MatchEngine {
 
     const swap = { aIndex, bIndex };
 
-    const bonusClear = bonusActivator.activate(nextBoard, size, swap);
+    const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap);
     if (bonusClear.length > 0) {
-      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, size, swap };
+      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap };
     }
 
-    const matches = this.findMatches(nextBoard, size);
+    const matches = this.findMatches(nextBoard, cols, rows);
 
     if (!matches.length) {
-      return { matches: [], board, size, swap: null };
+      return { matches: [], board, cols, rows, swap: null };
     }
 
-    return { matches, board: nextBoard, size, swap };
+    return { matches, board: nextBoard, cols, rows, swap };
   }
 
-  findMatches(board, size) {
+  findMatches(board, cols) {
     const matches = [];
     const total = board.length;
 
@@ -41,8 +41,8 @@ export class MatchEngine {
         continue;
       }
 
-      const row = Math.floor(index / size);
-      const col = index % size;
+      const row = Math.floor(index / cols);
+      const col = index % cols;
 
       // Horizontal run – only evaluate if this cell is the leftmost in the run
       const leftIndex = index - 1;
@@ -50,7 +50,7 @@ export class MatchEngine {
       if (!leftSame) {
         const horizontal = [index];
         let cursor = index + 1;
-        while (cursor % size !== 0 && board[cursor]?.type === gem.type) {
+        while (cursor % cols !== 0 && board[cursor]?.type === gem.type) {
           horizontal.push(cursor);
           cursor += 1;
         }
@@ -60,14 +60,14 @@ export class MatchEngine {
       }
 
       // Vertical run – only evaluate if this cell is the topmost in the run
-      const upperIndex = index - size;
+      const upperIndex = index - cols;
       const upperSame = row > 0 && board[upperIndex]?.type === gem.type;
       if (!upperSame) {
         const vertical = [index];
-        let cursor = index + size;
+        let cursor = index + cols;
         while (cursor < total && board[cursor]?.type === gem.type) {
           vertical.push(cursor);
-          cursor += size;
+          cursor += cols;
         }
         if (vertical.length >= 3) {
           matches.push({ type: gem.type, indices: vertical, orientation: 'vertical' });
@@ -78,11 +78,11 @@ export class MatchEngine {
     return matches;
   }
 
-  areAdjacent(aIndex, bIndex, size) {
-    const ax = aIndex % size;
-    const ay = Math.floor(aIndex / size);
-    const bx = bIndex % size;
-    const by = Math.floor(bIndex / size);
+  areAdjacent(aIndex, bIndex, cols) {
+    const ax = aIndex % cols;
+    const ay = Math.floor(aIndex / cols);
+    const bx = bIndex % cols;
+    const by = Math.floor(bIndex / cols);
     const dx = Math.abs(ax - bx);
     const dy = Math.abs(ay - by);
     return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);

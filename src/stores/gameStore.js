@@ -16,6 +16,8 @@ export const useGameStore = defineStore('game', {
     board: [],
     tiles: [],
     boardSize: 8,
+    boardCols: 8,
+    boardRows: 8,
     cellSize: 72,
     score: 0,
     cascadeMultiplier: 1,
@@ -53,7 +55,9 @@ export const useGameStore = defineStore('game', {
       const { config } = selected;
       this.sessionActive = true;
       this.levelCleared = false;
-      this.boardSize = config.boardSize;
+      this.boardCols = config.boardCols ?? config.boardSize ?? 8;
+      this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
+      this.boardSize = this.boardCols;
       this.board = config.board;
       this.tiles = config.tiles;
       this.objectives = config.objectives.map((objective) => ({ ...objective, progress: 0 }));
@@ -120,12 +124,20 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
-      const gridSize = this.boardSize;
-      const boardSide = Math.min(viewWidth, viewHeight);
-      const cellSize = boardSide / gridSize;
-      const offsetX = (viewWidth - boardSide) / 2;
-      const offsetY = (viewHeight - boardSide) / 2;
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
 
+      if (!cols || !rows) {
+        return;
+      }
+
+      const cellSize = Math.min(viewWidth / cols, viewHeight / rows);
+      const boardWidth = cellSize * cols;
+      const boardHeight = cellSize * rows;
+      const offsetX = (viewWidth - boardWidth) / 2;
+      const offsetY = (viewHeight - boardHeight) / 2;
+
+      this.boardSize = cols;
       this.cellSize = cellSize;
       boardContainer.setPosition(offsetX, offsetY);
 
@@ -133,14 +145,14 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
-      animator.setLayout({ boardSize: gridSize, cellSize });
-      this.renderer.input?.setLayout({ boardSize: gridSize, cellSize });
+      animator.setLayout({ boardCols: cols, boardRows: rows, cellSize });
+      this.renderer.input?.setLayout({ boardCols: cols, boardRows: rows, cellSize });
       animator.updateTiles(this.tiles);
 
       const shouldReset = ((forceRedraw && !this.animationInProgress) || animator.indexToGemId.length === 0);
 
       if (shouldReset) {
-        animator.reset(this.board, { boardSize: gridSize, cellSize });
+        animator.reset(this.board, { boardCols: cols, boardRows: rows, cellSize });
       } else {
         animator.syncToBoard(this.board);
       }
@@ -151,9 +163,11 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const evaluation = matchEngine.evaluateSwap(this.board, this.boardSize, aIndex, bIndex);
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
       const animator = this.renderer?.animator;
-      const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, this.boardSize);
+      const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
 
       if (!evaluation.matches.length) {
         if (isAdjacent && animator) {
@@ -178,7 +192,8 @@ export const useGameStore = defineStore('game', {
           board: breakdown.board,
           tiles: this.tiles,
           matches: breakdown.matches,
-          size: this.boardSize,
+          cols,
+          rows,
           bonusCreated: breakdown.bonusCreated,
           bonusIndex: breakdown.bonusIndex,
         });

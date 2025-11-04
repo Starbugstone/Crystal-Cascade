@@ -1,14 +1,27 @@
 <template>
-  <div class="app-shell">
-    <header class="app-header">
+  <div
+    class="app-shell"
+    :class="{ 'board-fullscreen': isBoardFullscreen }"
+    :style="isBoardFullscreen ? { '--fullscreen-header': `${Math.round(headerSize)}px`, ...fullscreenVars } : null"
+  >
+    <header class="app-header" ref="headerRef">
       <h1>Crystal Cascade</h1>
       <div class="header-actions">
         <button
           v-if="gameStore.sessionActive"
           class="exit-button"
           @click="gameStore.exitLevel()"
+          :disabled="!gameStore.sessionActive"
         >
           ⟲ Levels
+        </button>
+        <button
+          class="fullscreen-button"
+          type="button"
+          :aria-pressed="isBoardFullscreen"
+          @click="toggleBoardFullscreen()"
+        >
+          {{ isBoardFullscreen ? '⤡ Exit Fullscreen' : '⤢ Fullscreen' }}
         </button>
         <button class="settings-button" @click="settingsStore.toggleSettings()">⚙️</button>
       </div>
@@ -16,7 +29,7 @@
 
     <main class="app-main">
       <section class="board-wrapper">
-        <BoardCanvas />
+        <BoardCanvas :fullscreen="isBoardFullscreen" />
         <aside class="board-rail">
           <!-- Bonus icons / slide-out trigger area -->
         </aside>
@@ -39,7 +52,7 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import BoardCanvas from './components/BoardCanvas.vue';
 import HudPanel from './components/HudPanel.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
@@ -50,10 +63,79 @@ import { useSettingsStore } from './stores/settingsStore';
 
 const gameStore = useGameStore();
 const settingsStore = useSettingsStore();
+const isBoardFullscreen = ref(false);
+const headerRef = ref(null);
+const headerSize = ref(72);
+const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
+
+const updateHeaderMetrics = () => {
+  if (headerRef.value) {
+    headerSize.value = headerRef.value.offsetHeight ?? 72;
+  }
+};
+
+const updateViewportSize = () => {
+  if (typeof window !== 'undefined') {
+    viewportHeight.value = window.innerHeight;
+  }
+};
+
+const toggleBoardFullscreen = (nextState) => {
+  const target =
+    typeof nextState === 'boolean' ? nextState : !isBoardFullscreen.value;
+  isBoardFullscreen.value = target;
+};
 
 onMounted(() => {
   gameStore.bootstrap();
+  nextTick(() => {
+    updateHeaderMetrics();
+    updateViewportSize();
+  });
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateHeaderMetrics);
+    window.addEventListener('resize', updateViewportSize);
+  }
 });
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = '';
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', updateHeaderMetrics);
+    window.removeEventListener('resize', updateViewportSize);
+  }
+});
+
+watch(isBoardFullscreen, (active) => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = active ? 'hidden' : '';
+  }
+
+  nextTick(() => {
+    updateHeaderMetrics();
+    updateViewportSize();
+    if (active != null && gameStore.renderer) {
+      setTimeout(() => {
+        gameStore.refreshBoardVisuals(true);
+      }, 60);
+    }
+  });
+});
+
+watch(
+  () => gameStore.sessionActive,
+  (active) => {
+    if (!active && isBoardFullscreen.value) {
+      toggleBoardFullscreen(false);
+    }
+  },
+);
+
+const fullscreenVars = computed(() => ({
+  '--viewport-height': viewportHeight.value ? `${viewportHeight.value}px` : null,
+}));
 </script>
 
 <style scoped>
@@ -115,6 +197,29 @@ onMounted(() => {
   background: rgba(59, 130, 246, 0.35);
 }
 
+.fullscreen-button {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.6);
+  color: var(--color-accent);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.fullscreen-button:hover {
+  transform: translateY(-2px);
+  background: rgba(59, 130, 246, 0.45);
+}
+
+.fullscreen-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  background: rgba(30, 41, 59, 0.45);
+}
+
 .app-main {
   flex: 1;
   display: flex;
@@ -151,6 +256,38 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.app-shell.board-fullscreen {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell.board-fullscreen .app-main {
+  flex: 1;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  padding: clamp(0.5rem, 2vw, 1.5rem);
+  height: calc(100vh - var(--fullscreen-header, 72px));
+}
+
+.app-shell.board-fullscreen .board-wrapper {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: clamp(0.75rem, 2vw, 1.5rem);
+  padding: clamp(0.75rem, 2vw, 1.5rem);
+  background: rgba(15, 23, 42, 0.7);
+  display: flex;
+  gap: clamp(0.75rem, 1.25vw, 1.75rem);
+  justify-content: center;
+  align-items: center;
+}
+
+.app-shell.board-fullscreen .board-rail,
+.app-shell.board-fullscreen .hud-wrapper {
+  display: none;
 }
 
 @media (max-width: 1200px) {

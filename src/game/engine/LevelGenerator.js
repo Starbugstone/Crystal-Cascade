@@ -13,11 +13,11 @@ const createSeededRng = (seed) => {
   };
 };
 
-const createBoard = (size, rng) =>
-  Array.from({ length: size * size }, () => createGem(pickRandomType(rng)));
+const createBoard = (cols, rows, rng) =>
+  Array.from({ length: cols * rows }, () => createGem(pickRandomType(rng)));
 
-const createTiles = (size, layerCount = 1) =>
-  Array.from({ length: size * size }, () => ({
+const createTiles = (cols, rows, layerCount = 1) =>
+  Array.from({ length: cols * rows }, () => ({
     type: 'standard',
     maxHealth: layerCount,
     health: layerCount,
@@ -28,16 +28,19 @@ export const generateLevelConfigs = (count = 12) => {
 
   for (let index = 0; index < count; index += 1) {
     const id = index + 1;
-    const gridSize = 8;
+    const columns = 8;
+    const rows = 9;
     const rng = createSeededRng(id * 1337);
     const layerCount = id === 1 ? 1 : 2;
-    const board = createBoard(gridSize, rng);
-    const tiles = createTiles(gridSize, layerCount);
+    const board = createBoard(columns, rows, rng);
+    const tiles = createTiles(columns, rows, layerCount);
     const totalLayers = tiles.reduce((sum, tile) => sum + (tile.maxHealth ?? tile.health ?? 0), 0);
 
     levels.push({
       id,
-      boardSize: gridSize,
+      boardCols: columns,
+      boardRows: rows,
+      boardSize: columns,
       shuffleAllowance: Math.max(1, 4 - Math.floor(id / 5)),
       board,
       tiles,
