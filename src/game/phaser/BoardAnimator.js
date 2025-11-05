@@ -41,6 +41,10 @@ export class BoardAnimator {
     this.tiles = [];
     this.queuedSwapIndices = null;
     this.queuedSwapRects = [];
+    this.hintIndices = null;
+    this.hintRects = [];
+    this.hintTween = null;
+    this.hintGemIds = new Set();
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -93,6 +97,7 @@ export class BoardAnimator {
     }
 
     this.cellHighlights.clear();
+    this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
   }
@@ -130,6 +135,7 @@ export class BoardAnimator {
     }
 
     this._renderQueuedSwapHighlight();
+    this._refreshHintEffects();
   }
 
   reset(
@@ -169,6 +175,7 @@ export class BoardAnimator {
 
     this._applyTileLayers();
     this.clearQueuedSwapHighlight();
+    this._refreshHintEffects();
   }
 
   forceCompleteRedraw() {
@@ -207,6 +214,7 @@ export class BoardAnimator {
 
     this._applyTileLayers();
     this._renderQueuedSwapHighlight();
+    this._refreshHintEffects();
   }
 
   syncToBoard(board) {
@@ -241,6 +249,7 @@ export class BoardAnimator {
         this.gemSprites.delete(gemId);
       }
     });
+    this._refreshHintEffects();
   }
 
   async animateSwap({ aIndex, bIndex }) {
@@ -451,6 +460,172 @@ export class BoardAnimator {
         rect.setStrokeStyle(strokeWidth, 0xffffff, 1);
         rect.setFillStyle(0xffffff, 0.08);
       }
+    });
+  }
+
+  showHintMove(indices) {
+    if (!Array.isArray(indices) || !indices.length) {
+      this.clearHintMove();
+      return;
+    }
+
+    const filtered = indices
+      .filter((index) => typeof index === 'number' && index >= 0)
+      .slice(0, 2);
+
+    if (!filtered.length) {
+      this.clearHintMove();
+      return;
+    }
+
+    const unique = [...new Set(filtered)];
+    this.hintIndices = unique;
+    this._refreshHintEffects();
+  }
+
+  clearHintMove() {
+    if (this.scene?.tweens && this.hintTween) {
+      this.scene.tweens.remove(this.hintTween);
+    }
+    this.hintTween = null;
+
+    if (Array.isArray(this.hintRects)) {
+      this.hintRects.forEach((rect) => rect?.destroy?.());
+    }
+    this.hintRects = [];
+    this.hintIndices = null;
+    this._clearHintGemTint();
+  }
+
+  _refreshHintEffects() {
+    this._renderHintHighlight();
+    this._applyHintGemTint();
+  }
+
+  _renderHintHighlight() {
+    if (!Array.isArray(this.hintIndices) || !this.hintIndices.length || !this.cellSize) {
+      if (Array.isArray(this.hintRects) && this.hintRects.length) {
+        this.hintRects.forEach((rect) => rect?.destroy?.());
+      }
+      this.hintRects = [];
+      if (this.scene?.tweens && this.hintTween) {
+        this.scene.tweens.remove(this.hintTween);
+      }
+      this.hintTween = null;
+      return;
+    }
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer || !this.scene) {
+      return;
+    }
+
+    if (!Array.isArray(this.hintRects)) {
+      this.hintRects = [];
+    }
+
+    const targetSize = this.cellSize * 0.96;
+    const strokeWidth = Math.max(3, Math.round(this.cellSize * 0.1));
+
+    this.hintIndices.forEach((index, slot) => {
+      const { x, y } = this._indexToPosition(index);
+      let rect = this.hintRects[slot];
+
+      if (!rect || !rect.scene) {
+        rect?.destroy?.();
+        rect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0x34d399, 0.2);
+        rect.setOrigin(0.5);
+        rect.setStrokeStyle(strokeWidth, 0x22c55e, 0.95);
+        rect.setDepth(9600);
+        rect.setBlendMode(Phaser.BlendModes.ADD);
+        if (typeof layer.add === 'function') {
+          layer.add(rect);
+        }
+        this.hintRects[slot] = rect;
+      } else {
+        rect.setPosition(x, y);
+        rect.setSize(targetSize, targetSize);
+        rect.setStrokeStyle(strokeWidth, 0x22c55e, 0.95);
+        rect.setFillStyle(0x34d399, 0.2);
+        rect.setVisible(true);
+      }
+    });
+
+    if (this.hintRects.length > this.hintIndices.length) {
+      for (let i = this.hintIndices.length; i < this.hintRects.length; i += 1) {
+        this.hintRects[i]?.destroy?.();
+      }
+      this.hintRects.length = this.hintIndices.length;
+    }
+
+    this._ensureHintTween();
+  }
+
+  _ensureHintTween() {
+    if (!this.scene?.tweens) {
+      return;
+    }
+
+    if (!this.hintRects?.length) {
+      if (this.hintTween) {
+        this.scene.tweens.remove(this.hintTween);
+        this.hintTween = null;
+      }
+      return;
+    }
+
+    if (this.hintTween) {
+      this.scene.tweens.remove(this.hintTween);
+      this.hintTween = null;
+    }
+
+    this.hintTween = this.scene.tweens.add({
+      targets: this.hintRects,
+      alpha: { from: 0.35, to: 0.85 },
+      scale: { from: 0.98, to: 1.02 },
+      duration: 640,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  _clearHintGemTint() {
+    if (!this.hintGemIds) {
+      this.hintGemIds = new Set();
+      return;
+    }
+    this.hintGemIds.forEach((gemId) => {
+      const sprite = this.gemSprites.get(gemId);
+      if (sprite) {
+        sprite.clearTint();
+      }
+    });
+    this.hintGemIds.clear();
+  }
+
+  _applyHintGemTint() {
+    this._clearHintGemTint();
+
+    if (!Array.isArray(this.hintIndices) || !this.hintIndices.length) {
+      return;
+    }
+
+    if (!this.hintGemIds) {
+      this.hintGemIds = new Set();
+    }
+
+    this.hintIndices.forEach((index) => {
+      const gemId = this.indexToGemId[index];
+      if (!gemId) {
+        return;
+      }
+      const sprite = this.gemSprites.get(gemId);
+      if (!sprite) {
+        return;
+      }
+      sprite.setTint(0x86efac);
+      this.hintGemIds.add(gemId);
     });
   }
 

@@ -3,12 +3,16 @@ import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { BonusResolver } from '../game/engine/BonusResolver';
+import { HintEngine } from '../game/engine/HintEngine';
 import { BoardAnimator } from '../game/phaser/BoardAnimator';
 import { BoardInput } from '../game/phaser/BoardInput';
 
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
 const bonusResolver = new BonusResolver();
+const hintEngine = new HintEngine();
+const HINT_DELAY_MS = 15000;
+let hintTimerId = null;
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -34,6 +38,7 @@ export const useGameStore = defineStore('game', {
     remainingLayers: 0,
     levelCleared: false,
     audioManager: null,
+    hintMove: null,
   }),
   getters: {
     activeBoard(state) {
@@ -47,6 +52,67 @@ export const useGameStore = defineStore('game', {
       if (animator?.setAudioManager) {
         animator.setAudioManager(this.audioManager);
       }
+    },
+    clearHint() {
+      this.hintMove = null;
+      this.renderer?.animator?.clearHintMove?.();
+    },
+    cancelHint(clearVisual = false) {
+      if (hintTimerId) {
+        clearTimeout(hintTimerId);
+        hintTimerId = null;
+      }
+      if (clearVisual) {
+        this.clearHint();
+      }
+    },
+    scheduleHint(delay = HINT_DELAY_MS) {
+      if (!this.sessionActive) {
+        return;
+      }
+
+      if (hintTimerId) {
+        clearTimeout(hintTimerId);
+      }
+
+      hintTimerId = setTimeout(() => {
+        hintTimerId = null;
+        this.computeHintMove();
+      }, delay);
+    },
+    notifyPlayerActivity() {
+      this.cancelHint(true);
+      if (this.sessionActive) {
+        this.scheduleHint();
+      }
+    },
+    computeHintMove() {
+      if (!this.sessionActive) {
+        return;
+      }
+
+      if (this.animationInProgress) {
+        this.scheduleHint();
+        return;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+
+      if (!Array.isArray(board) || !board.length) {
+        return;
+      }
+
+      const hint = hintEngine.findBestMove(board, this.tiles ?? [], cols, rows);
+      this.hintMove = hint;
+
+      if (!hint) {
+        this.renderer?.animator?.clearHintMove?.();
+        return;
+      }
+
+      this.renderer?.animator?.showHintMove?.(hint.indices);
     },
     bootstrap() {
       if (this.availableLevels.length) {
@@ -92,6 +158,8 @@ export const useGameStore = defineStore('game', {
       this.updateObjectives({ reset: true });
       this.boardVersion += 1;
       this.refreshBoardVisuals(true);
+      this.cancelHint(true);
+      this.scheduleHint();
     },
     attachRenderer(renderer) {
       if (this.renderer?.animator) {
@@ -182,6 +250,8 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
+      this.cancelHint(true);
+
       if (this.animationInProgress) {
         return this.queueSwap(aIndex, bIndex);
       }
@@ -195,6 +265,9 @@ export const useGameStore = defineStore('game', {
       if (!evaluation.matches.length) {
         if (isAdjacent && animator) {
           await animator.animateInvalidSwap({ aIndex, bIndex });
+        }
+        if (this.sessionActive) {
+          this.scheduleHint();
         }
         return false;
       }
@@ -268,6 +341,9 @@ export const useGameStore = defineStore('game', {
       } finally {
         this.pendingBoardState = null;
         this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
         const queued = this.queuedSwap;
         if (queued) {
           this.queuedSwap = null;
@@ -304,6 +380,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      this.cancelHint(true);
       this.sessionActive = false;
       this.board = [];
       this.tiles = [];
@@ -329,6 +406,7 @@ export const useGameStore = defineStore('game', {
     },
 
     completeLevel() {
+      this.cancelHint(true);
       this.remainingLayers = 0;
       this.levelCleared = true;
       this.sessionActive = false;

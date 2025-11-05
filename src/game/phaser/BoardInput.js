@@ -42,6 +42,10 @@ export class BoardInput {
   }
 
   handlePointerDown(pointer) {
+    if (this.gameStore?.sessionActive && typeof this.gameStore.notifyPlayerActivity === 'function') {
+      this.gameStore.notifyPlayerActivity();
+    }
+
     if (!this.gameStore.sessionActive) {
       return;
     }
@@ -61,11 +65,18 @@ export class BoardInput {
 
     const currentCell = this.getCellIndexFromPointer(pointer);
     if (currentCell != null && currentCell !== this.startCell) {
+      if (!this.isDragging && typeof this.gameStore.notifyPlayerActivity === 'function') {
+        this.gameStore.notifyPlayerActivity();
+      }
       this.isDragging = true;
     }
   }
 
   async handlePointerUp(pointer) {
+    if (this.gameStore?.sessionActive && typeof this.gameStore.notifyPlayerActivity === 'function') {
+      this.gameStore.notifyPlayerActivity();
+    }
+
     if (
       this.startCell == null ||
       !this.gameStore.sessionActive
