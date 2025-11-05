@@ -1,6 +1,6 @@
 # Crystal Cascade – Technical Reference
 
-_Last updated: 2025-10-30_
+_Last updated: 2025-11-21_
 
 This document captures the current technical makeup of Crystal Cascade, a Vue 3 + Phaser 3 match-3 prototype. Use it alongside `readme.md`: the README explains the product snapshot, while this reference focuses on frameworks, architecture, and module responsibilities.
 
@@ -72,8 +72,8 @@ root/
 
 ### `App.vue`
 - Layout shell: header, board canvas, HUD, power-up bar.
-- Manages modal visibility (`LevelSelectModal`, `SettingsDrawer`).
-- Provides exit button for resetting sessions.
+- Manages modal visibility (`LevelSelectModal`, `SettingsDrawer`) and fullscreen toggling for the board.
+- Boots and tears down the ambient audio loop + SFX manager via `useAudio`, forwarding the instance to the game store.
 
 ### `components/BoardCanvas.vue`
 - Hosts the Phaser renderer and board container.
@@ -129,8 +129,8 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 ## Composables
 
 - `composables/useAudio.js`
-  - Watches `settingsStore.musicVolume` and syncs Howler global volume.
-  - Exposes a placeholder `playSfx` for future effect playback.
+  - Creates a shared Howler-backed audio manager with ambient loop control, match/bomb/rainbow SFX helpers, and per-track volume clamping.
+  - Watches `settingsStore` music/SFX sliders to update all active Howl instances in real time.
 
 ---
 
@@ -182,7 +182,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
   - Falls back to canvas-drawn placeholders via `placeholder-gems.js` if assets are missing.
 
 - `game/phaser/BoardAnimator.js`
-  - Maintains gem sprites, cell highlights, swap animations, combo celebrations, and bonus-trigger particle effects.
+  - Maintains gem sprites, cell highlights, swap animations, combo celebrations, bonus-trigger particle effects, and dispatches contextual audio cues through the injected audio manager.
 
 - `game/phaser/ParticleFactory.js`
   - Emits burst, explosion, and cross-beam particle presets used for cascades and special gem detonations.
@@ -202,6 +202,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 - `data/levels.json`, `data/dropTables.json` – Legacy design documents; runtime code uses procedurally generated levels with placeholder layered tiles instead.
 - `public/sprite/` – Contains the current gem and bonus sprite sheets sliced by `SpriteLoader`.
+- `public/sound/` – Ambient loop and match/bonus SFX clips consumed by `useAudio`.
 - `public/favicon.svg` – Branding placeholder.
 
 ---
@@ -209,7 +210,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 ## Integration Notes
 
 - **Capacitor**: Configured via `capacitor.config.json`. Native platforms are synced through npm scripts but no platform-specific plugins are in use yet.
-- **Howler**: Only the global volume slider is functional; actual audio tracks need loading and playback logic.
+- **Howler**: Ambient loop and discrete SFX play through shared Howl instances managed by `useAudio`; library coverage is limited to the current asset set.
 - **Keyboard/Accessibility**: No keyboard bindings, focus management, or ARIA labeling implemented; needs attention before broader releases.
 - **Testing**: No automated tests or lint configuration shipped. Introduce Unit/E2E tooling (Vitest, Playwright, etc.) as the project matures.
 
@@ -220,10 +221,10 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 1. Replace placeholder textures with sprite sheets and integrate a loader pipeline.
 2. Build a state machine for level progression, including objective tracking and result screens.
 3. Implement persistent storage for player inventory and settings.
-4. Layer responsive audio, haptics, and screen effects onto the existing particle-driven feedback.
+4. Broaden the audio system with layered ambience, responsive SFX variations, and persisted volume preferences; explore haptics and richer screen effects alongside audio cues.
 5. Extend input handling with keyboard bindings, haptics, and accessibility affordances.
 6. Add automated testing, linting, and continuous integration configuration.
 
 ---
 
-For any new features, update both `readme.md` (product snapshot) and this technical reference to keep engineering documentation accurate.
+For any new features, update both `readme.md` (product snapshot) and this technical reference, and capture supplemental details under `.docs/` to keep engineering documentation accurate.

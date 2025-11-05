@@ -1,7 +1,9 @@
 ---
-description: general rules and helper guides
+description: core guardrails and helper guides
 alwaysApply: true
 ---
 
-this project uses pixijs V7 as the V8 was giving rendering problems with the animations.
-We have multiple .md files explaining diffrent parths of the project, this documentation shoud remain up to date at all times and be consulted whenever a doubt on the functionality or techo stack arrises.
+- Crystal Cascade runs on Vue 3 (Composition API) with Pinia state, Phaser 3 rendering, Howler audio, Vite tooling, and Capacitor 7 mobile builds—keep integrations aligned with this stack.
+- Enforce clean architecture: SOLID boundaries between stores, engine modules, and Phaser utilities; favor DRY helpers and KISS-level abstractions over bespoke logic.
+- Keep code readable, lint-friendly, and self-documenting with concise comments only where intent is non-obvious; avoid leaking globals or cross-layer coupling.
+- Centralize and maintain all documentation in `.docs/`, updating it alongside features (technical reference, architecture decisions, changelog).

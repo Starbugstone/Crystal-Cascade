@@ -1,8 +1,8 @@
 # Crystal Cascade
 
-Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delivering a responsive board, procedural levels, and basic bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
+Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delivering a responsive board, procedural levels, and emergent bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
 
-_Last updated: 2025-10-30_
+_Last updated: 2025-11-21_
 
 ---
 
@@ -14,8 +14,9 @@ _Last updated: 2025-10-30_
 - ✅ Bonus resolver that can spawn `bomb`, `rainbow`, and `cross` specials on long matches.
 - ✅ Capacitor tooling is wired up for future mobile builds.
 - ✅ Tile layers under each gem chip away with clears; clearing the entire board now ends the level (console celebration still pending).
+- ✅ Ambient music loop and a first pass of match/bonus SFX are wired through Howler.js and the Phaser animator hooks.
 - 🚧 Win/fail UI, multi-layer tile art, and advanced block behaviours (frozen tiles, dwarfs, etc.) are still unimplemented.
-- 🚧 Inventory, loot tables, audio, and art assets are placeholders or unused stubs.
+- 🚧 Inventory, loot tables, and art assets remain placeholders or unused stubs.
 - 🚧 Documentation now reflects the working feature set instead of the aspirational spec.
 
 ---
@@ -46,11 +47,11 @@ npm run cap:open:android
 ## Gameplay Overview (Current Build)
 
 - **Session flow:** The app boots to a level select modal fed by the procedural generator. Selecting a level seeds the board and objectives. Sessions can be exited via the header button.
-- **Controls:** Click/tap swapping runs through a Phaser-driven board input system that supports both tap-to-select and drag swaps with pointer and touch support.
+- **Controls:** Click/tap swapping runs through a Phaser-driven board input system that supports both tap-to-select and drag swaps with pointer and touch support. A fullscreen toggle keeps the board square on wide screens.
 - **Scoring:** Matches award `tileCount × 100` points scaled by a cascade multiplier that grows with chained clears. Multiplier resets when a cascade sequence ends.
 - **Bonuses:** Matches of 4+ crystals dispatch through `BonusResolver` to replace the swapped gem with a special (`bomb`, `rainbow`, `cross`). `BonusActivator` handles activation when these specials are part of a swap.
 - **Objectives:** Strip every tile layer to win; HUD objectives now track remaining layers alongside score, but there is still no win/fail overlay or reward flow.
-- **Audio & FX:** `useAudio` wires up Howler volume control. Phaser-driven particle bursts highlight swaps, cascades, and special gem detonations, but audio remains placeholder-only.
+- **Audio & FX:** `useAudio` wires up Howler-backed ambient music and targeted SFX triggers (`playMatch`, `playBomb`, `playRainbowLaser`, etc.), all routed through the Phaser animator. Particle bursts highlight swaps, cascades, and special gem detonations.
 
 ---
 
@@ -61,7 +62,7 @@ npm run cap:open:android
 - **Vue 3 + Vite** for the application shell.
 - **Pinia** stores (`game`, `settings`, `inventory`) for state management.
 - **Phaser 3** scene + tween system for board rendering, sprites, and particles.
-- **Howler.js** prepared for future audio work.
+- **Howler.js** drives ambient music and context-aware SFX dispatched from Phaser.
 - **Capacitor** project scaffold for native packaging.
 
 ### Project Structure (abridged)
@@ -71,7 +72,7 @@ src/
   App.vue                 # UI shell with header, board, HUD, modals
   main.js                 # Vue bootstrap + Pinia registration
   components/             # BoardCanvas, HudPanel, LevelSelectModal, etc.
-  composables/            # useAudio (stub)
+  composables/            # useAudio (ambient + SFX manager), other hooks
   game/phaser/            # Scene, animator, input, sprite helpers
   data/                   # Static level/drop-table JSON (currently unused)
   game/
@@ -97,7 +98,7 @@ src/
 - `src/data/levels.json` and `dropTables.json` are legacy design artefacts and not consumed by runtime code.
 - Levels generated at bootstrap contain basic gem data plus placeholder layered tiles (currently 1–2 layers). Advanced tile types (frozen blocks, dwarfs to rescue, scripted layouts) are still on the backlog.
 - The inventory store exposes four quick-access slots with static quantities; the "Inventory" button does not open a modal.
-- Asset pipeline is placeholder-only: sprites are runtime-generated vector shapes, and there are no packaged textures, sound files, or fonts beyond CSS-defined web fonts.
+- Asset pipeline is placeholder-only: sprites are runtime-generated vector shapes, and audio assets are limited to the current ambient loop and SFX stubs. There are no packaged textures or custom fonts beyond CSS-defined web fonts.
 
 ---
 
@@ -106,7 +107,7 @@ src/
 - Level completion currently just disables input and logs to the console—there is no victory/failure UI, rewards, or progression flow.
 - Tile layers use simple colour fills; there is no production art, texture variation, or special block behaviour yet.
 - Special gem activation happens only on swap; passive cascades do not trigger them.
-- Cascades and bonuses now trigger Phaser particle FX and combo celebrations, but match sounds/music remain unimplemented.
+- Cascades and bonuses trigger Phaser particle FX plus the current ambient loop and SFX set; richer sound design is still pending.
 - UI glyphs for icons in `App.vue`/`SettingsDrawer.vue` are placeholder characters that render as garbled symbols.
 - No persistence, user profile, or analytics hooks are implemented.
 - No automated testing or linting scripts are configured.
@@ -118,7 +119,7 @@ src/
 1. **Gameplay progression:** Build victory/defeat overlays, reward flows, and persistent progression once tile layers are cleared.
 2. **Tile variety:** Implement additional tile types (frozen blocks, dwarfs to rescue, blockers) and author scripted layouts.
 3. **Visual polish:** Replace placeholder board art, design distinctive tile-layer textures, and refine combo/bonus animations.
-4. **Audio pass:** Integrate background music and responsive SFX using the existing Howler scaffolding.
+4. **Audio pass:** Expand the Howler library with layered ambience, responsive SFX variations, and volume-setting persistence.
 5. **Inventory & power-ups:** Build a full inventory modal, connect drop tables, and implement power-up interactions.
 6. **Quality of life:** Add accessibility settings, mobile-responsive tuning, keyboard bindings, automated tests, and CI tooling.
 
@@ -128,7 +129,7 @@ src/
 
 - The project license is set to **ISC** in `package.json`.
 - Follow typical Git workflows: create a branch, make changes, run `npm run build` to ensure Vite succeeds, then open a pull request.
-- Please document any new systems in this README to keep the project state accurate.
+- Please document any new systems in this README, `TECH_README.md`, and mirror supporting detail under `.docs/` to keep the project state accurate.
 
 ---
 
