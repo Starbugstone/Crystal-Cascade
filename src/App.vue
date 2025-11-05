@@ -60,6 +60,7 @@ import LevelSelectModal from './components/LevelSelectModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import { useGameStore } from './stores/gameStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useAudio } from './composables/useAudio';
 
 const gameStore = useGameStore();
 const settingsStore = useSettingsStore();
@@ -67,6 +68,7 @@ const isBoardFullscreen = ref(false);
 const headerRef = ref(null);
 const headerSize = ref(72);
 const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
+const { playAmbientLoop, stopAmbientLoop } = useAudio();
 
 const updateHeaderMetrics = () => {
   if (headerRef.value) {
@@ -127,7 +129,12 @@ watch(isBoardFullscreen, (active) => {
 watch(
   () => gameStore.sessionActive,
   (active) => {
-    if (!active && isBoardFullscreen.value) {
+    if (active) {
+      playAmbientLoop();
+      return;
+    }
+    stopAmbientLoop({ fadeMs: 600 });
+    if (isBoardFullscreen.value) {
       toggleBoardFullscreen(false);
     }
   },
