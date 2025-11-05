@@ -37,6 +37,8 @@ export class BoardAnimator {
     this.cellHighlights = new Map();
     this.comboText = null;
     this.tiles = [];
+    this.queuedSwapIndices = null;
+    this.queuedSwapRects = [];
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -86,6 +88,7 @@ export class BoardAnimator {
 
     this.cellHighlights.clear();
     this._hideComboText();
+    this.clearQueuedSwapHighlight();
   }
 
   setLayout({ boardCols, boardRows, cellSize }) {
@@ -119,6 +122,8 @@ export class BoardAnimator {
         }
       });
     }
+
+    this._renderQueuedSwapHighlight();
   }
 
   reset(
@@ -157,6 +162,7 @@ export class BoardAnimator {
     });
 
     this._applyTileLayers();
+    this.clearQueuedSwapHighlight();
   }
 
   forceCompleteRedraw() {
@@ -194,6 +200,7 @@ export class BoardAnimator {
     });
 
     this._applyTileLayers();
+    this._renderQueuedSwapHighlight();
   }
 
   syncToBoard(board) {
@@ -375,6 +382,68 @@ export class BoardAnimator {
   clearGemHighlights() {
     this.gemSprites.forEach((sprite) => {
       sprite.clearTint();
+    });
+  }
+
+  showQueuedSwap(aIndex, bIndex) {
+    this.queuedSwapIndices = [aIndex, bIndex];
+    this._renderQueuedSwapHighlight();
+  }
+
+  clearQueuedSwapHighlight() {
+    if (this.queuedSwapRects?.length) {
+      this.queuedSwapRects.forEach((rect) => rect?.destroy?.());
+    }
+    this.queuedSwapRects = [];
+    this.queuedSwapIndices = null;
+  }
+
+  _renderQueuedSwapHighlight() {
+    if (!this.queuedSwapIndices || this.queuedSwapIndices.length !== 2 || !this.cellSize) {
+      if (this.queuedSwapRects?.length) {
+        this.queuedSwapRects.forEach((rect) => rect?.destroy?.());
+      }
+      this.queuedSwapRects = [];
+      return;
+    }
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer) {
+      return;
+    }
+
+    const strokeWidth = Math.max(3, Math.round(this.cellSize * 0.08));
+    const targetSize = this.cellSize * 0.92;
+
+    if (!Array.isArray(this.queuedSwapRects)) {
+      this.queuedSwapRects = [];
+    }
+
+    while (this.queuedSwapRects.length > 2) {
+      const extra = this.queuedSwapRects.pop();
+      extra?.destroy?.();
+    }
+
+    this.queuedSwapIndices.forEach((index, slot) => {
+      const { x, y } = this._indexToPosition(index);
+      let rect = this.queuedSwapRects[slot];
+
+      if (!rect || !rect.scene) {
+        rect?.destroy?.();
+        rect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0xffffff, 0.08);
+        rect.setOrigin(0.5);
+        rect.setStrokeStyle(strokeWidth, 0xffffff, 1);
+        rect.setDepth(9000);
+        if (typeof layer.add === 'function') {
+          layer.add(rect);
+        }
+        this.queuedSwapRects[slot] = rect;
+      } else {
+        rect.setPosition(x, y);
+        rect.setSize(targetSize, targetSize);
+        rect.setStrokeStyle(strokeWidth, 0xffffff, 1);
+        rect.setFillStyle(0xffffff, 0.08);
+      }
     });
   }
 

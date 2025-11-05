@@ -42,7 +42,7 @@ export class BoardInput {
   }
 
   handlePointerDown(pointer) {
-    if (!this.gameStore.sessionActive || this.gameStore.animationInProgress) {
+    if (!this.gameStore.sessionActive) {
       return;
     }
 
@@ -54,8 +54,7 @@ export class BoardInput {
   handlePointerMove(pointer) {
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive ||
-      this.gameStore.animationInProgress
+      !this.gameStore.sessionActive
     ) {
       return;
     }
@@ -69,8 +68,7 @@ export class BoardInput {
   async handlePointerUp(pointer) {
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive ||
-      this.gameStore.animationInProgress
+      !this.gameStore.sessionActive
     ) {
       this.startCell = null;
       this.isDragging = false;
@@ -145,12 +143,12 @@ export class BoardInput {
   }
 
   highlightCell(index) {
-    const gem = this.gameStore.board[index];
-    if (!gem) {
-      return;
+    const board = this.gameStore.activeBoard;
+    const gem = board?.[index];
+    if (gem) {
+      gem.highlight = true;
     }
 
-    gem.highlight = true;
     const animator = this.gameStore.renderer?.animator;
     animator?.highlightCell(index, true);
     animator?.setGemHighlight(index, true);
@@ -159,10 +157,17 @@ export class BoardInput {
   clearHighlights() {
     const animator = this.gameStore.renderer?.animator;
 
-    this.gameStore.board.forEach((gem) => {
-      if (gem) {
-        gem.highlight = false;
+    const processed = new Set();
+    [this.gameStore.board, this.gameStore.pendingBoardState].forEach((board) => {
+      if (!Array.isArray(board) || processed.has(board)) {
+        return;
       }
+      processed.add(board);
+      board.forEach((gem) => {
+        if (gem) {
+          gem.highlight = false;
+        }
+      });
     });
 
     animator?.clearCellHighlights();

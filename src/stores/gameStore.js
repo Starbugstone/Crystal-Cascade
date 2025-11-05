@@ -28,10 +28,17 @@ export const useGameStore = defineStore('game', {
     shuffleAllowance: 3,
     reshufflesUsed: 0,
     animationInProgress: false,
+    pendingBoardState: null,
+    queuedSwap: null,
     totalLayers: 0,
     remainingLayers: 0,
     levelCleared: false,
   }),
+  getters: {
+    activeBoard(state) {
+      return state.pendingBoardState ?? state.board;
+    },
+  },
   actions: {
     bootstrap() {
       if (this.availableLevels.length) {
@@ -66,6 +73,9 @@ export const useGameStore = defineStore('game', {
       this.score = 0;
       this.cascadeMultiplier = 1;
       this.animationInProgress = false;
+      this.pendingBoardState = null;
+      this.queuedSwap = null;
+      this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.totalLayers = this.tiles.reduce(
         (sum, tile) => sum + (tile?.maxHealth ?? tile?.health ?? 0),
         0,
@@ -159,14 +169,18 @@ export const useGameStore = defineStore('game', {
 
     },
     async resolveSwap(aIndex, bIndex) {
-      if (!this.sessionActive || this.animationInProgress) {
+      if (!this.sessionActive) {
         return false;
+      }
+
+      if (this.animationInProgress) {
+        return this.queueSwap(aIndex, bIndex);
       }
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
-      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
       const animator = this.renderer?.animator;
+      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
       const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
 
       if (!evaluation.matches.length) {
@@ -176,6 +190,7 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
+      animator?.clearQueuedSwapHighlight();
       this.animationInProgress = true;
 
       try {
@@ -199,8 +214,12 @@ export const useGameStore = defineStore('game', {
         });
         const layersCleared = resolution.layersCleared ?? 0;
 
+        this.pendingBoardState = resolution.board;
+        window.__currentBoard = this.pendingBoardState;
+
         if (!animator) {
           this.board = resolution.board;
+          this.pendingBoardState = null;
           this.boardVersion += 1;
           if (layersCleared > 0) {
             this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
@@ -219,14 +238,14 @@ export const useGameStore = defineStore('game', {
         }
 
         this.board = resolution.board;
+        this.pendingBoardState = null;
         this.boardVersion += 1;
         if (layersCleared > 0) {
           this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
           this.updateObjectives({ layersCleared });
         }
         animator.updateTiles(this.tiles);
-        
-        // Update the exposed board reference for debugging
+
         window.__currentBoard = this.board;
 
         if (this.remainingLayers === 0 && this.sessionActive) {
@@ -238,8 +257,42 @@ export const useGameStore = defineStore('game', {
         console.error('Error in resolveSwap:', error);
         return false;
       } finally {
+        this.pendingBoardState = null;
         this.animationInProgress = false;
+        const queued = this.queuedSwap;
+        if (queued) {
+          this.queuedSwap = null;
+          setTimeout(() => {
+            if (!this.sessionActive) {
+              return;
+            }
+            this.resolveSwap(queued.aIndex, queued.bIndex);
+          }, 0);
+        }
       }
+    },
+    queueSwap(aIndex, bIndex) {
+      if (!this.sessionActive || !this.animationInProgress) {
+        return false;
+      }
+
+      const boardSnapshot = this.pendingBoardState;
+      if (!boardSnapshot) {
+        return false;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const animator = this.renderer?.animator;
+      const evaluation = matchEngine.evaluateSwap(boardSnapshot, cols, rows, aIndex, bIndex);
+
+      if (!evaluation.matches.length) {
+        return false;
+      }
+
+      this.queuedSwap = { aIndex, bIndex };
+      animator?.showQueuedSwap(aIndex, bIndex);
+      return true;
     },
     exitLevel() {
       this.sessionActive = false;
@@ -251,9 +304,12 @@ export const useGameStore = defineStore('game', {
       this.shuffleAllowance = 3;
       this.reshufflesUsed = 0;
       this.animationInProgress = false;
+      this.pendingBoardState = null;
+      this.queuedSwap = null;
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
+      this.renderer?.animator?.clearQueuedSwapHighlight?.();
       if (this.renderer?.animator) {
         this.renderer.animator.clear();
       } else if (this.renderer?.boardContainer) {
@@ -268,6 +324,9 @@ export const useGameStore = defineStore('game', {
       this.levelCleared = true;
       this.sessionActive = false;
       this.animationInProgress = false;
+      this.pendingBoardState = null;
+      this.queuedSwap = null;
+      this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.renderer?.input?.reset();
       this.updateObjectives();
       console.log('✨ Level cleared!');
