@@ -15,6 +15,7 @@ export class BoardAnimator {
     bonusAnimations,
     tileTextures,
     particles,
+    audio,
   }) {
     this.scene = scene;
     this.boardContainer = boardContainer;
@@ -26,6 +27,7 @@ export class BoardAnimator {
     this.bonusAnimations = bonusAnimations || {};
     this.tileTextures = tileTextures || { layers: {} };
     this.particles = particles;
+    this.audio = audio ?? null;
 
     this.boardSize = 0;
     this.boardRows = 0;
@@ -52,6 +54,10 @@ export class BoardAnimator {
     if (this.fxLayer) {
       this.fxLayer.removeAll(true);
     }
+  }
+
+  setAudioManager(audio) {
+    this.audio = audio ?? null;
   }
 
   destroy() {
@@ -317,6 +323,7 @@ export class BoardAnimator {
 
       if (step.cleared.length) {
         await this._animateClear(step);
+        this._playMatchSound(i + 1);
       }
 
       if (step.tileUpdates?.length) {
@@ -445,6 +452,13 @@ export class BoardAnimator {
         rect.setFillStyle(0xffffff, 0.08);
       }
     });
+  }
+
+  _playMatchSound(comboCount) {
+    if (!this.audio?.playMatch) {
+      return;
+    }
+    this.audio.playMatch({ comboCount });
   }
 
   _celebrateCombo(comboCount) {
@@ -679,6 +693,9 @@ export class BoardAnimator {
           this.indexToGemId[index] = null;
 
           if (gemType === 'bomb') {
+            if (this.audio?.playBomb) {
+              this.audio.playBomb();
+            }
             this._emitBonusEffect(gemType, index);
           }
 
@@ -731,6 +748,10 @@ export class BoardAnimator {
     this.indexToGemId[index] = gem.id;
     this._setTexture(sprite, type);
     this._applyHighlight(sprite, gem);
+
+    if (this.audio?.playBonusAppears) {
+      this.audio.playBonusAppears();
+    }
 
     return Promise.resolve();
   }
@@ -815,6 +836,10 @@ export class BoardAnimator {
       x: this.boardContainer.x + centerLocal.x,
       y: this.boardContainer.y + centerLocal.y,
     };
+
+    if (this.audio?.playCrossFire) {
+      this.audio.playCrossFire();
+    }
 
     if (this.particles) {
       this.particles.emitExplosion(worldCenter, {
@@ -926,6 +951,7 @@ export class BoardAnimator {
     };
 
     targetIndices.forEach((targetIndex, order) => {
+
       const localTarget = this._indexToPosition(targetIndex);
       const length = Math.max(
         10,
@@ -949,6 +975,17 @@ export class BoardAnimator {
       }
 
       const delay = (order + 1) * baseDelay;
+
+      if (this.audio?.playRainbowLaser) {
+        const playLaserSound = () => {
+          this.audio?.playRainbowLaser();
+        };
+        if (timer) {
+          timer.delayedCall(delay, playLaserSound);
+        } else {
+          setTimeout(playLaserSound, delay);
+        }
+      }
 
       this.scene.tweens.add({
         targets: beam,

@@ -33,6 +33,7 @@ export const useGameStore = defineStore('game', {
     totalLayers: 0,
     remainingLayers: 0,
     levelCleared: false,
+    audioManager: null,
   }),
   getters: {
     activeBoard(state) {
@@ -40,6 +41,13 @@ export const useGameStore = defineStore('game', {
     },
   },
   actions: {
+    setAudioManager(manager) {
+      this.audioManager = manager ?? null;
+      const animator = this.renderer?.animator;
+      if (animator?.setAudioManager) {
+        animator.setAudioManager(this.audioManager);
+      }
+    },
     bootstrap() {
       if (this.availableLevels.length) {
         return;
@@ -104,6 +112,7 @@ export const useGameStore = defineStore('game', {
         bonusAnimations: renderer.bonusAnimations,
         tileTextures: renderer.tileTextures,
         particles: renderer.particles,
+        audio: this.audioManager,
       });
 
       const input = new BoardInput({

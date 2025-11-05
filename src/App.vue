@@ -68,7 +68,9 @@ const isBoardFullscreen = ref(false);
 const headerRef = ref(null);
 const headerSize = ref(72);
 const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
-const { playAmbientLoop, stopAmbientLoop } = useAudio();
+const audio = useAudio();
+const { playAmbientLoop, stopAmbientLoop } = audio;
+gameStore.setAudioManager(audio);
 
 const updateHeaderMetrics = () => {
   if (headerRef.value) {
@@ -108,6 +110,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', updateHeaderMetrics);
     window.removeEventListener('resize', updateViewportSize);
   }
+  gameStore.setAudioManager(null);
 });
 
 watch(isBoardFullscreen, (active) => {
