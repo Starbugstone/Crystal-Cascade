@@ -1,44 +1,31 @@
-import { createGem } from './GemFactory.js';
-import { detectBonusFromMatches } from './MatchPatterns.js';
+import { BonusActivator } from './BonusActivator.js';
 
-const BASE_MATCH_SCORE = 100;
+const bonusActivator = new BonusActivator();
 
 export class BonusResolver {
-  resolve(result) {
-    const { matches, board, cols, rows, swap } = result;
-    if (!matches.length) {
-      return { ...result, scoreGain: 0, multiplier: 1 };
-    }
+  resolve(evaluation) {
+    const { board, cols, rows, swap, matches } = evaluation;
 
-    const clearedGems = matches.reduce((total, match) => total + match.indices.length, 0);
-    const cascades = matches.length - 1;
-    const multiplier = Math.min(10, 1 + cascades);
-    const scoreGain = clearedGems * BASE_MATCH_SCORE * multiplier;
+    const clearedIndices = bonusActivator.activate(board, cols, rows, swap);
 
-    let nextBoard = [...board];
-    let bonusCreated = null;
-    let bonusIndex = null;
-
-    const bonusPattern = detectBonusFromMatches(matches, { swap });
-
-    if (bonusPattern) {
-      const { type, index } = bonusPattern;
-      if (typeof index === 'number') {
-        nextBoard[index] = createGem(type);
-        bonusCreated = type;
-        bonusIndex = index;
-      }
+    if (clearedIndices.length > 0) {
+      return {
+        scoreGain: 0, // Score calculation will be handled elsewhere for now
+        multiplier: 1, // Multiplier logic will be handled elsewhere
+        board,
+        matches: [{ type: 'bonus-activation', indices: clearedIndices }],
+        bonusCreated: null,
+        bonusIndex: null,
+      };
     }
 
     return {
-      ...result,
-      board: nextBoard,
-      scoreGain,
-      multiplier,
-      bonusCreated,
-      bonusIndex,
-      cols,
-      rows,
+      scoreGain: 0,
+      multiplier: 1,
+      board,
+      matches,
+      bonusCreated: null,
+      bonusIndex: null,
     };
   }
 }
