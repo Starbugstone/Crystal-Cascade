@@ -3,7 +3,6 @@ import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { BonusActivator } from '../game/engine/BonusActivator';
-import { BonusResolver } from '../game/engine/BonusResolver';
 import { HintEngine } from '../game/engine/HintEngine';
 import { BoardAnimator } from '../game/phaser/BoardAnimator';
 import { BoardInput } from '../game/phaser/BoardInput';
@@ -11,7 +10,6 @@ import { BoardInput } from '../game/phaser/BoardInput';
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
 const bonusActivator = new BonusActivator();
-const bonusResolver = new BonusResolver();
 const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
@@ -339,7 +337,21 @@ export const useGameStore = defineStore('game', {
           await animator.animateSwap(evaluation.swap);
         }
 
-        const breakdown = bonusResolver.resolve(evaluation);
+        const clearedIndices = bonusActivator.activate(evaluation.board, cols, rows, evaluation.swap);
+        let matches = evaluation.matches;
+
+        if (clearedIndices.length > 0) {
+          matches = [{ type: 'bonus-activation', indices: clearedIndices }];
+        }
+        
+        const breakdown = {
+            scoreGain: 0,
+            multiplier: 1,
+            board: evaluation.board,
+            matches,
+            bonusCreated: null,
+            bonusIndex: null,
+        }
         this.score += breakdown.scoreGain;
         this.cascadeMultiplier = breakdown.multiplier;
         this.updateObjectives({ scoreDelta: breakdown.scoreGain });
