@@ -39,7 +39,13 @@ export const useGameStore = defineStore('game', {
     levelCleared: false,
     audioManager: null,
     hintMove: null,
-    currentBoardLayout: null,
+    currentBoardLayout: {
+      name: 'default',
+      shape: 'RECTANGLE',
+      dimensions: { cols: 8, rows: 8 },
+      blockedCells: [],
+      initialTilePlacements: [],
+    },
   }),
   getters: {
     activeBoard(state) {
@@ -195,8 +201,9 @@ export const useGameStore = defineStore('game', {
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
       this.board = config.board;
-      this.currentBoardLayout = config.boardLayout;
+      window.__currentBoard = this.board;
       this.tiles = config.tiles;
+      this.currentBoardLayout = config.boardLayout;
       this.objectives = config.objectives.map((objective) => ({ ...objective, progress: 0 }));
       this.shuffleAllowance = config.shuffleAllowance;
       this.reshufflesUsed = 0;
@@ -253,9 +260,12 @@ export const useGameStore = defineStore('game', {
       }
     },
     refreshBoardVisuals(forceRedraw = false) {
-      if (!this.renderer) {
+      if (!this.renderer || !this.currentBoardLayout) {
         return;
       }
+      
+      // I have also added this line to make sure the boardLayout is set on the animator
+      this.renderer.animator.boardLayout = this.currentBoardLayout;
 
       // Expose current board state for debugging
       window.__currentBoard = this.board;
@@ -267,7 +277,7 @@ export const useGameStore = defineStore('game', {
       if (!viewWidth || !viewHeight) {
         return;
       }
-
+      
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
 
