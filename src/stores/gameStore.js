@@ -351,33 +351,14 @@ export const useGameStore = defineStore('game', {
           await animator.animateSwap(evaluation.swap);
         }
 
-        const clearedIndices = bonusActivator.activate(evaluation.board, cols, rows, evaluation.swap);
-        let matches = evaluation.matches;
-
-        if (clearedIndices.length > 0) {
-          matches = [{ type: 'bonus-activation', indices: clearedIndices }];
-        }
-        
-        const breakdown = {
-            scoreGain: 0,
-            multiplier: 1,
-            board: evaluation.board,
-            matches,
-            bonusCreated: null,
-            bonusIndex: null,
-        }
-        this.score += breakdown.scoreGain;
-        this.cascadeMultiplier = breakdown.multiplier;
-        this.updateObjectives({ scoreDelta: breakdown.scoreGain });
-
         const resolution = tileManager.getResolution({
-          board: breakdown.board,
+          board: evaluation.board,
           tiles: this.tiles,
-          matches: breakdown.matches,
+          matches: evaluation.matches,
           cols,
           rows,
-          bonusCreated: breakdown.bonusCreated,
-          bonusIndex: breakdown.bonusIndex,
+          bonusCreated: evaluation.bonusCreated,
+          bonusIndex: evaluation.bonusIndex,
         });
         const layersCleared = resolution.layersCleared ?? 0;
 
