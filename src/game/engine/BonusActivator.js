@@ -1,6 +1,15 @@
+class OneTimeBonus {
+  constructor(name, effectType, targetCriteria = {}, remainingUses = 1) {
+    this.name = name;
+    this.effectType = effectType;
+    this.targetCriteria = targetCriteria;
+    this.remainingUses = remainingUses;
+  }
+}
+
 export class BonusActivator {
   constructor() {
-    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross']);
+    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'CLEAR_ROW', 'TRANSFORM_GEMS', 'UNFREEZE_ALL']);
   }
 
   isBonus(type) {
@@ -77,6 +86,12 @@ export class BonusActivator {
         return this.activateCross(board, cols, rows, index);
       case 'rainbow':
         return this.activateRainbow(board, cols, rows, index, context);
+      case 'CLEAR_ROW':
+        return this.activateClearRow(board, cols, rows, index);
+      case 'TRANSFORM_GEMS':
+        return this.activateTransformGems(board, cols, rows, index, context);
+      case 'UNFREEZE_ALL':
+        return this.activateUnfreezeAll(board);
       default:
         return [index];
     }
@@ -153,6 +168,33 @@ export class BonusActivator {
       cleared.add(i * cols + col);
     }
     cleared.add(index);
+    return [...cleared];
+  }
+
+  activateClearRow(board, cols, rows, index) {
+    const cleared = new Set();
+    const row = Math.floor(index / cols);
+    for (let i = 0; i < cols; i++) {
+      cleared.add(row * cols + i);
+    }
+    return [...cleared];
+  }
+
+  activateTransformGems(board, cols, rows, index, context) {
+    const cleared = new Set();
+    // This is a placeholder. The actual transformation logic will be implemented later.
+    cleared.add(index);
+    return [...cleared];
+  }
+
+  activateUnfreezeAll(board) {
+    const cleared = new Set();
+    board.forEach((cell, i) => {
+      if (cell?.state === 'FROZEN') {
+        cell.state = 'PLAYABLE';
+      }
+      cleared.add(i);
+    });
     return [...cleared];
   }
 }

@@ -9,7 +9,7 @@ import { BoardInput } from '../game/phaser/BoardInput';
 
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
-const bonusResolver = new BonusResolver();
+const bonusActivator = new BonusActivator();
 const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
@@ -39,6 +39,7 @@ export const useGameStore = defineStore('game', {
     levelCleared: false,
     audioManager: null,
     hintMove: null,
+    currentBoardLayout: null,
   }),
   getters: {
     activeBoard(state) {
@@ -79,6 +80,60 @@ export const useGameStore = defineStore('game', {
         hintTimerId = null;
         this.computeHintMove();
       }, delay);
+    },
+    async activateOneTimeBonus(bonusName) {
+      if (!this.sessionActive || this.animationInProgress) {
+        console.warn('Cannot activate bonus: session not active or animation in progress.');
+        return false;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const animator = this.renderer?.animator;
+
+      this.animationInProgress = true;
+      try {
+        const clearedIndices = bonusActivator.activateBonus(bonusName, this.board, cols, rows, -1); // -1 as index isn't relevant for these bonuses
+        
+        if (clearedIndices.length === 0) {
+          console.log(`Bonus ${bonusName} had no effect.`);
+          return false;
+        }
+
+        const matches = [{ type: bonusName, indices: clearedIndices }];
+
+        const resolution = tileManager.getResolution({
+          board: this.board,
+          tiles: this.tiles,
+          matches: matches,
+          cols,
+          rows,
+        });
+
+        this.pendingBoardState = resolution.board;
+        window.__currentBoard = this.pendingBoardState;
+
+        if (animator && resolution.steps.length) {
+          await animator.playSteps(resolution.steps);
+        }
+
+        this.board = resolution.board;
+        this.pendingBoardState = null;
+        this.boardVersion += 1;
+        animator.updateTiles(this.tiles);
+        window.__currentBoard = this.board;
+        return true;
+
+      } catch (error) {
+        console.error('Error activating bonus:', error);
+        return false;
+      } finally {
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+      }
     },
     notifyPlayerActivity() {
       this.cancelHint(true);
@@ -140,6 +195,7 @@ export const useGameStore = defineStore('game', {
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
       this.board = config.board;
+      this.currentBoardLayout = config.boardLayout;
       this.tiles = config.tiles;
       this.objectives = config.objectives.map((objective) => ({ ...objective, progress: 0 }));
       this.shuffleAllowance = config.shuffleAllowance;
@@ -181,6 +237,7 @@ export const useGameStore = defineStore('game', {
         tileTextures: renderer.tileTextures,
         particles: renderer.particles,
         audio: this.audioManager,
+        boardLayout: this.currentBoardLayout,
       });
 
       const input = new BoardInput({

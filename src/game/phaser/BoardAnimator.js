@@ -16,6 +16,7 @@ export class BoardAnimator {
     tileTextures,
     particles,
     audio,
+    boardLayout,
   }) {
     this.scene = scene;
     this.boardContainer = boardContainer;
@@ -28,6 +29,7 @@ export class BoardAnimator {
     this.tileTextures = tileTextures || { layers: {} };
     this.particles = particles;
     this.audio = audio ?? null;
+    this.boardLayout = boardLayout;
 
     this.boardSize = 0;
     this.boardRows = 0;
@@ -1003,6 +1005,28 @@ export class BoardAnimator {
     return animations.length ? Promise.all(animations) : Promise.resolve();
   }
 
+  async animateEvolution(index) {
+    const gemId = this.indexToGemId[index];
+    if (!gemId) return;
+
+    const sprite = this.gemSprites.get(gemId);
+    if (!sprite) return;
+
+    const { x, y } = this._indexToPosition(index);
+    if (this.particles) {
+      this.particles.emitExplosion({ x: this.boardContainer.x + x, y: this.boardContainer.y + y }, {
+        color: 0xffffff,
+        radius: this.cellSize * 1.2,
+        count: 30,
+        duration: 300,
+      });
+    }
+
+    const newType = `${sprite.__gemType}-evolved`;
+    this._setTexture(sprite, newType);
+    sprite.__gemType = newType;
+  }
+
   _playCrossFireLine(centerIndex, validTargets, removalDelays) {
     const indices = new Set();
     const baseDelay = 80;
@@ -1281,13 +1305,22 @@ export class BoardAnimator {
     this.backgroundLayer.removeAll(true);
     this.cellHighlights.clear();
 
-    const cols = this.boardSize;
-    const rows = this.boardRows;
+    const cols = this.boardLayout.dimensions.cols;
+    const rows = this.boardLayout.dimensions.rows;
     const { cellSize } = this;
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const index = row * cols + col;
+        const isBlocked = this.boardLayout.blockedCells.some(
+          (blocked) => blocked.x === col && blocked.y === row,
+        );
+
+        if (isBlocked) {
+          // No highlight for blocked cells, potentially add a visual indicator later
+          continue;
+        }
+
         const rect = this.scene.add.rectangle(
           col * cellSize + cellSize / 2,
           row * cellSize + cellSize / 2,
@@ -1308,7 +1341,7 @@ export class BoardAnimator {
 
   _updateBackgroundSizing() {
     if (!this.backgroundLayer) return;
-    const cols = this.boardSize;
+    const cols = this.boardLayout.dimensions.cols;
     const { cellSize } = this;
     this.cellHighlights.forEach((rect, index) => {
       const row = Math.floor(index / cols);
@@ -1321,8 +1354,8 @@ export class BoardAnimator {
   }
 
   _indexToPosition(index) {
-    const col = index % this.boardSize;
-    const row = Math.floor(index / this.boardSize);
+    const col = index % this.boardLayout.dimensions.cols;
+    const row = Math.floor(index / this.boardLayout.dimensions.cols);
     return {
       x: col * this.cellSize + this.cellSize / 2,
       y: row * this.cellSize + this.cellSize / 2,
@@ -1385,10 +1418,15 @@ export class BoardAnimator {
       return;
     }
 
-    const { color, alpha, stroke, strokeAlpha, strokeWidth } = this._resolveLayerStyle(tile);
-    rect.setFillStyle(color, alpha);
-    const width = strokeWidth ?? (strokeAlpha > 0 ? 1 : 0);
-    rect.setStrokeStyle(width, stroke ?? 0x000000, strokeAlpha ?? 0);
+    if (tile && tile.state === 'FROZEN') {
+      rect.setFillStyle(0xADD8E6, 0.4); // Light blue
+      rect.setStrokeStyle(3, 0x00BFFF, 0.8); // Deep sky blue border
+    } else {
+      const { color, alpha, stroke, strokeAlpha, strokeWidth } = this._resolveLayerStyle(tile);
+      rect.setFillStyle(color, alpha);
+      const width = strokeWidth ?? (strokeAlpha > 0 ? 1 : 0);
+      rect.setStrokeStyle(width, stroke ?? 0x000000, strokeAlpha ?? 0);
+    }
   }
 
   _updateTileSprite(index, tile) {

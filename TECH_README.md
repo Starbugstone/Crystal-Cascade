@@ -15,12 +15,31 @@ This document captures the current technical makeup of Crystal Cascade, a Vue 3 
 | Rendering & Animation | **Phaser 3** | Scene graph, sprite handling, tweened gem animations, particle effects. |
 | Audio | **Howler.js** | Volume management + future-proofed audio playback. |
 | Tooling | **Vite** | Dev server, build pipeline, asset bundling. |
+| Testing | **Vitest, Playwright** | Unit and component testing with Vitest, end-to-end testing with Playwright. |
 | Mobile Packaging | **Capacitor 7** | Bridge for iOS/Android builds and native APIs. |
 | Language Features | **ES Modules**, modern JavaScript | Tree-shakeable modules; project is configured as `"type": "module"`. |
 
 Additional project-wide utilities:
 - `ResizeObserver` (browser API) for responsive canvas sizing alongside Phaser's Scale manager.
 - Composition helpers (custom composables) for input and audio.
+
+## Engineering Principles
+
+### Code Quality
+- Keep Phaser/Vue boundary modules under 200 lines when possible; factor shared logic into composables or helpers instead of duplicating game math or store wiring.
+- Any new Pinia action must document failure cases inline and guard against inconsistent board state (e.g., never mutate tiles without pairing `refreshBoardVisuals()`).
+
+### Testing Standards
+- Pure utilities (level generation, match detection, gravity resolution) require unit coverage via Vitest; add regression tests for every bug rooted in these modules.
+- For Phaser- or DOM-bound logic, add executable story scripts under `src/game/sandboxes/` that devs can run in dev mode to demonstrate fixes when unit tests are impractical.
+
+### User Experience Consistency
+- Reuse the shared timing tokens in `BoardAnimator` for tweens and audio cues so cascades feel synchronized across devices; no custom magic numbers inside feature branches.
+- Respect the accessibility toggles from `settingsStore` in any new UI: defaults must be readable at 12px minimum and new audio cues must honor global mute.
+
+### Performance Requirements
+- Maintain 60 FPS on mid-tier mobile by keeping per-frame allocations inside Phaser scenes near zero; cache tweens, textures, and particle emitters instead of instantiating per swap.
+- Never block the UI thread for more than 4ms: long-running generation must run via requestIdleCallback or chunking; keep JSON payloads like `levels.json` under 50KB.
 
 ---
 
@@ -141,10 +160,16 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 - Applies tentative swaps and checks for matches.
 - Invokes `BonusActivator` to trigger special gem clears.
 - Detects horizontal/vertical sequences ≥3 and returns match payloads.
+- Calls `EvolutionEngine` to track match counts for evolving gems.
+
+### `game/engine/EvolutionEngine.js`
+- Tracks match counts for each gem type.
+- Determines if a gem should evolve based on predefined rules and thresholds.
 
 ### `game/engine/TileManager.js`
 - Applies match results to the board.
 - Tracks tile health (`tiles` array) and decrements when hits occur.
+- Manages tile states (e.g., `FROZEN`, `PLAYABLE`) and unfreezes adjacent tiles upon matches.
 - Clears matched cells, applies gravity per column, spawns replacement gems.
 - Recursively resolves cascades by re-running `MatchEngine.findMatches`.
 - Emits per-step tile updates and an aggregate `layersCleared` count for the store/UI.
@@ -155,13 +180,13 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 - Returns enriched payload consumed by `applyMatchResult`.
 
 ### `game/engine/BonusActivator.js`
-- Implements area-clear logic when special gems participate in the initiating swap.
-- Supports bomb (3×3), rainbow (all of a target type or random/board-wide when chained), and cross (row + column) clears, including chained bonus reactions.
+- Implements area-clear logic when special gems participate in the initiating swap or when one-time bonuses are activated.
+- Supports bomb (3×3), rainbow (all of a target type or random/board-wide when chained), cross (row + column) clears, clear row, transform gems, and unfreeze all. Includes chained bonus reactions.
 
 ### `game/engine/LevelGenerator.js`
 - Produces deterministic level configurations using a seeded RNG.
 - Outputs board layout, tile metadata, shuffle allowance, and objective stubs.
-- Currently seeds 8×8 boards with one or two placeholder tile layers and score/layer objectives.
+- Supports loading various board layouts, including irregular shapes and blocked cells, from `levels.json`.
 
 ### `game/engine/GameLoop.js`
 - Thin wrapper around `requestAnimationFrame`; not yet wired into gameplay.

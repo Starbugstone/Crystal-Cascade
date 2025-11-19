@@ -21,6 +21,9 @@
       <button @click="forceRedraw" class="redraw-btn">
         🔄 Force Redraw
       </button>
+      <button @click="activateClearRowBonus" class="redraw-btn">
+        💣 Clear Row Bonus
+      </button>
     </div>
   </section>
 </template>
@@ -43,6 +46,10 @@ const forceRedraw = () => {
   } else {
     console.error('❌ No animator available');
   }
+};
+
+const activateClearRowBonus = () => {
+  gameStore.activateOneTimeBonus('CLEAR_ROW');
 };
 </script>
 

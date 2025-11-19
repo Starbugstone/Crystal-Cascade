@@ -1,6 +1,8 @@
 import { BonusActivator } from './BonusActivator.js';
+import { EvolutionEngine } from './EvolutionEngine.js';
 
 const bonusActivator = new BonusActivator();
+const evolutionEngine = new EvolutionEngine();
 
 export class MatchEngine {
   evaluateSwap(board, cols, rows, aIndex, bIndex) {
@@ -27,6 +29,15 @@ export class MatchEngine {
     if (!matches.length) {
       return { matches: [], board, cols, rows, swap: null };
     }
+
+    matches.forEach(match => {
+      match.indices.forEach(index => {
+        const gem = nextBoard[index];
+        if (gem) {
+          evolutionEngine.trackMatch(gem.type);
+        }
+      });
+    });
 
     return { matches, board: nextBoard, cols, rows, swap };
   }

@@ -4,3 +4,4 @@ dist
 *.log
 capacitor/android/build
 capacitor/ios/build
+.env*
