@@ -341,8 +341,8 @@ export class BoardAnimator {
         this._applyTileLayerUpdates(step.tileUpdates);
       }
 
-      if (step.bonus) {
-        await this._animateBonus(step.bonus);
+      if (step.bonuses && step.bonuses.length > 0) {
+        await Promise.all(step.bonuses.map(bonus => this._animateBonus(bonus)));
       }
 
       if (step.drops.length) {
@@ -732,11 +732,7 @@ export class BoardAnimator {
       return;
     }
 
-    const local = this._indexToPosition(index);
-    const position = {
-      x: this.boardContainer.x + local.x,
-      y: this.boardContainer.y + local.y,
-    };
+    const position = this._indexToPosition(index);
 
     if (gemType === 'bomb') {
       this.particles.emitExplosion(position, {
@@ -848,6 +844,15 @@ export class BoardAnimator {
         indices.forEach((idx) => customFxIndices.add(idx));
       });
 
+    entries
+      .filter((entry) => entry.sprite && entry.gemType === 'bomb')
+      .forEach((entry) => {
+        if (this.audio?.playBomb) {
+          this.audio.playBomb();
+        }
+        this._emitBonusEffect(entry.gemType, entry.index);
+      });
+
     const animations = entries.map((entry) => {
       const { index, gemId, sprite, gemType } = entry;
 
@@ -869,22 +874,11 @@ export class BoardAnimator {
           this.gemSprites.delete(gemId);
           this.indexToGemId[index] = null;
 
-          if (gemType === 'bomb') {
-            if (this.audio?.playBomb) {
-              this.audio.playBomb();
-            }
-            this._emitBonusEffect(gemType, index);
-          }
-
           const useCustomBurst = customFxIndices.has(index);
           const skipDefaultBurst = useCustomBurst || gemType === 'bomb';
 
           if (this.particles && !skipDefaultBurst) {
-            const local = this._indexToPosition(index);
-            const position = {
-              x: this.boardContainer.x + local.x,
-              y: this.boardContainer.y + local.y,
-            };
+            const position = this._indexToPosition(index);
             this.particles.emitBurst(position);
           }
 
@@ -924,6 +918,7 @@ export class BoardAnimator {
     this.gemSprites.set(gem.id, sprite);
     this.indexToGemId[index] = gem.id;
     this._setTexture(sprite, type);
+    sprite.__gemType = type;
     this._applyHighlight(sprite, gem);
 
     if (this.audio?.playBonusAppears) {
@@ -1012,9 +1007,9 @@ export class BoardAnimator {
     const sprite = this.gemSprites.get(gemId);
     if (!sprite) return;
 
-    const { x, y } = this._indexToPosition(index);
+    const position = this._indexToPosition(index);
     if (this.particles) {
-      this.particles.emitExplosion({ x: this.boardContainer.x + x, y: this.boardContainer.y + y }, {
+      this.particles.emitExplosion(position, {
         color: 0xffffff,
         radius: this.cellSize * 1.2,
         count: 30,
@@ -1030,11 +1025,7 @@ export class BoardAnimator {
   _playCrossFireLine(centerIndex, validTargets, removalDelays) {
     const indices = new Set();
     const baseDelay = 80;
-    const centerLocal = this._indexToPosition(centerIndex);
-    const worldCenter = {
-      x: this.boardContainer.x + centerLocal.x,
-      y: this.boardContainer.y + centerLocal.y,
-    };
+    const worldCenter = this._indexToPosition(centerIndex);
 
     if (this.audio?.playCrossFire) {
       this.audio.playCrossFire();
@@ -1086,8 +1077,8 @@ export class BoardAnimator {
         const delay = applyDelay(targetIndex, step);
 
         const flame = this.scene.add.rectangle(
-          centerLocal.x,
-          centerLocal.y,
+          worldCenter.x,
+          worldCenter.y,
           this.cellSize * 0.22,
           this.cellSize * 0.22,
           0xff922b,
@@ -1113,11 +1104,7 @@ export class BoardAnimator {
           onComplete: () => {
             flame.destroy();
             if (this.particles) {
-              const worldTarget = {
-                x: this.boardContainer.x + localTarget.x,
-                y: this.boardContainer.y + localTarget.y,
-              };
-              this.particles.emitBurst(worldTarget, 0xffc266, 12);
+              this.particles.emitBurst(localTarget, 0xffc266, 12);
             }
           },
         });
@@ -1137,10 +1124,6 @@ export class BoardAnimator {
     const beamDuration = 130;
 
     const sourceLocal = this._indexToPosition(sourceIndex);
-    const worldSource = {
-      x: this.boardContainer.x + sourceLocal.x,
-      y: this.boardContainer.y + sourceLocal.y,
-    };
     const timer = this.scene?.time ?? null;
 
     const applyDelay = (index, delay) => {
@@ -1201,11 +1184,7 @@ export class BoardAnimator {
       const impactDelay = delay + beamDuration;
       const runImpact = () => {
         if (this.particles) {
-          const worldTarget = {
-            x: this.boardContainer.x + localTarget.x,
-            y: this.boardContainer.y + localTarget.y,
-          };
-          this.particles.emitExplosion(worldTarget, {
+          this.particles.emitExplosion(localTarget, {
             color: 0xc4f1ff,
             radius: this.cellSize * 0.7,
             count: 20,
@@ -1227,7 +1206,7 @@ export class BoardAnimator {
 
     if (this.particles) {
       const triggerSourceExplosion = () => {
-        this.particles.emitExplosion(worldSource, {
+        this.particles.emitExplosion(sourceLocal, {
           color: 0xffffff,
           radius: this.cellSize * 1.3,
           count: 36,

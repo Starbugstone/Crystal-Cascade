@@ -14,7 +14,7 @@ class GameTile {
 }
 
 export class TileManager {
-  getResolution({ board, tiles, matches, cols, rows, bonusCreated, bonusIndex }) {
+  getResolution({ board, tiles, matches, cols, rows, bonusesCreated, bonusIndices }) {
     if (!matches?.length) {
       return { board, steps: [] };
     }
@@ -41,8 +41,7 @@ export class TileManager {
     while (pendingMatches.length) {
       const cleared = new Set();
       const protectedIndices = new Set();
-      let cascadeBonusType = null;
-      let cascadeBonusIndex = null;
+      const cascadeBonuses = [];
       
       pendingMatches.forEach((match) => {
         match.indices.forEach((index) => {
@@ -54,26 +53,30 @@ export class TileManager {
       });
 
       if (iteration > 0) {
-        const cascadeBonus = detectBonusFromMatches(pendingMatches);
-        if (cascadeBonus && typeof cascadeBonus.index === 'number') {
-          cascadeBonusType = cascadeBonus.type;
-          cascadeBonusIndex = cascadeBonus.index;
-          workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType);
+        const newBonuses = detectBonusFromMatches(pendingMatches);
+        if (newBonuses.length > 0) {
+          newBonuses.forEach(bonus => {
+            cascadeBonuses.push(bonus);
+            workingBoard[bonus.index] = createGem(bonus.type);
+          });
         }
       }
 
       // Handle bonus from initial swap (iteration 0)
-      if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {
-        protectedIndices.add(bonusIndex);
-        cleared.delete(bonusIndex);
-        cascadeBonusType = bonusCreated;
-        cascadeBonusIndex = bonusIndex;
+      if (iteration === 0 && bonusesCreated && bonusIndices) {
+        bonusesCreated.forEach((bonusCreated, i) => {
+          const bonusIndex = bonusIndices[i];
+          protectedIndices.add(bonusIndex);
+          cleared.delete(bonusIndex);
+          cascadeBonuses.push({ type: bonusCreated, index: bonusIndex });
+        });
       }
+      
       // Handle bonus from cascade
-      else if (cascadeBonusType && typeof cascadeBonusIndex === 'number') {
-        protectedIndices.add(cascadeBonusIndex);
-        cleared.delete(cascadeBonusIndex);
-      }
+      cascadeBonuses.forEach(bonus => {
+        protectedIndices.add(bonus.index);
+        cleared.delete(bonus.index);
+      });
 
       const damageTargets = new Set([...cleared, ...protectedIndices]);
 
@@ -90,10 +93,7 @@ export class TileManager {
         cleared: [...cleared].sort((a, b) => a - b),
         drops: [],
         spawns: [],
-        bonus:
-          cascadeBonusType && typeof cascadeBonusIndex === 'number'
-            ? { type: cascadeBonusType, index: cascadeBonusIndex, gem: workingBoard[cascadeBonusIndex] }
-            : null,
+        bonuses: cascadeBonuses.map(b => ({ type: b.type, index: b.index, gem: workingBoard[b.index] })),
         tileUpdates: [],
       };
 

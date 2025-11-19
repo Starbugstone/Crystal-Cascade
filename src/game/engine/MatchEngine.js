@@ -31,10 +31,16 @@ export class MatchEngine {
       return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
     }
 
-    const bonus = detectBonusFromMatches(matches, { swap });
+    const bonuses = detectBonusFromMatches(matches, { swap });
+    const bonusesCreated = [];
+    const bonusIndices = [];
 
-    if (bonus) {
+    if (bonuses.length > 0) {
+      bonuses.forEach(bonus => {
         nextBoard[bonus.index] = { ...nextBoard[bonus.index], type: bonus.type };
+        bonusesCreated.push(bonus.type);
+        bonusIndices.push(bonus.index);
+      });
     }
 
     matches.forEach(match => {
@@ -46,7 +52,7 @@ export class MatchEngine {
       });
     });
 
-    return { matches, board: nextBoard, cols, rows, swap, bonusCreated: bonus?.type, bonusIndex: bonus?.index };
+    return { matches, board: nextBoard, cols, rows, swap, bonusesCreated, bonusIndices };
   }
 
   findMatches(board, cols) {

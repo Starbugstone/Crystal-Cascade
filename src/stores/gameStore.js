@@ -357,8 +357,8 @@ export const useGameStore = defineStore('game', {
           matches: evaluation.matches,
           cols,
           rows,
-          bonusCreated: evaluation.bonusCreated,
-          bonusIndex: evaluation.bonusIndex,
+          bonusesCreated: evaluation.bonusesCreated,
+          bonusIndices: evaluation.bonusIndices,
         });
         const layersCleared = resolution.layersCleared ?? 0;
 
