@@ -1354,6 +1354,9 @@ export class BoardAnimator {
   }
 
   _indexToPosition(index) {
+    if (!this.boardLayout) {
+      return { x: 0, y: 0 };
+    }
     const col = index % this.boardLayout.dimensions.cols;
     const row = Math.floor(index / this.boardLayout.dimensions.cols);
     return {

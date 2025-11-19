@@ -1,5 +1,6 @@
 import { BonusActivator } from './BonusActivator.js';
 import { EvolutionEngine } from './EvolutionEngine.js';
+import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const bonusActivator = new BonusActivator();
 const evolutionEngine = new EvolutionEngine();
@@ -7,11 +8,11 @@ const evolutionEngine = new EvolutionEngine();
 export class MatchEngine {
   evaluateSwap(board, cols, rows, aIndex, bIndex) {
     if (aIndex === bIndex) {
-      return { matches: [], board, cols, rows, swap: null };
+      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
     }
 
     if (!this.areAdjacent(aIndex, bIndex, cols)) {
-      return { matches: [], board, cols, rows, swap: null };
+      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
     }
 
     const nextBoard = [...board];
@@ -21,13 +22,19 @@ export class MatchEngine {
 
     const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap);
     if (bonusClear.length > 0) {
-      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap };
+      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap, bonusCreated: null, bonusIndex: null };
     }
 
     const matches = this.findMatches(nextBoard, cols, rows);
 
     if (!matches.length) {
-      return { matches: [], board, cols, rows, swap: null };
+      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
+    }
+
+    const bonus = detectBonusFromMatches(matches, { swap });
+
+    if (bonus) {
+        nextBoard[bonus.index] = { ...nextBoard[bonus.index], type: bonus.type };
     }
 
     matches.forEach(match => {
@@ -39,7 +46,7 @@ export class MatchEngine {
       });
     });
 
-    return { matches, board: nextBoard, cols, rows, swap };
+    return { matches, board: nextBoard, cols, rows, swap, bonusCreated: bonus?.type, bonusIndex: bonus?.index };
   }
 
   findMatches(board, cols) {

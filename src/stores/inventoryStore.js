@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useGameStore } from './gameStore';
 
 const DEFAULT_SLOTS = [
   { id: 'hammer', label: 'Hammer', quantity: 3 },
@@ -19,6 +20,20 @@ export const useInventoryStore = defineStore('inventory', {
         return;
       }
       slot.quantity -= 1;
+      
+      const gameStore = useGameStore();
+
+      switch (id) {
+        case 'shuffle':
+          gameStore.shuffleBoard();
+          break;
+        case 'hammer':
+          // This is a placeholder. We will need to implement a way for the user to select a tile.
+          gameStore.hammerTile(10);
+          break;
+        default:
+          console.warn(`Power-up ${id} not implemented.`);
+      }
     },
     openInventory() {
       this.inventoryOpen = true;

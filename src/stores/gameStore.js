@@ -39,13 +39,7 @@ export const useGameStore = defineStore('game', {
     levelCleared: false,
     audioManager: null,
     hintMove: null,
-    currentBoardLayout: {
-      name: 'default',
-      shape: 'RECTANGLE',
-      dimensions: { cols: 8, rows: 8 },
-      blockedCells: [],
-      initialTilePlacements: [],
-    },
+    currentBoardLayout: null,
   }),
   getters: {
     activeBoard(state) {
@@ -186,6 +180,16 @@ export const useGameStore = defineStore('game', {
         summary: level.summary,
         config: level,
       }));
+
+      // Initialize with a default empty board
+      this.board = Array(64).fill(null);
+      this.currentBoardLayout = {
+        name: 'default',
+        shape: 'RECTANGLE',
+        dimensions: { cols: 8, rows: 8 },
+        blockedCells: [],
+        initialTilePlacements: [],
+      };
     },
     startLevel(levelId) {
       const selected = this.availableLevels.find((entry) => entry.id === levelId);
@@ -203,7 +207,10 @@ export const useGameStore = defineStore('game', {
       this.board = config.board;
       window.__currentBoard = this.board;
       this.tiles = config.tiles;
-      this.currentBoardLayout = config.boardLayout;
+      this.currentBoardLayout = config.boardLayout || this.currentBoardLayout;
+      if (this.renderer?.animator) {
+        this.renderer.animator.boardLayout = this.currentBoardLayout;
+      }
       this.objectives = config.objectives.map((objective) => ({ ...objective, progress: 0 }));
       this.shuffleAllowance = config.shuffleAllowance;
       this.reshufflesUsed = 0;
@@ -263,9 +270,6 @@ export const useGameStore = defineStore('game', {
       if (!this.renderer || !this.currentBoardLayout) {
         return;
       }
-      
-      // I have also added this line to make sure the boardLayout is set on the animator
-      this.renderer.animator.boardLayout = this.currentBoardLayout;
 
       // Expose current board state for debugging
       window.__currentBoard = this.board;
@@ -529,5 +533,46 @@ export const useGameStore = defineStore('game', {
         scoreObjective.progress = Math.min(scoreObjective.target, newScoreProgress);
       }
     },
+    shuffleBoard() {
+      if (!this.sessionActive || this.animationInProgress) {
+        return;
+      }
+      // Simple shuffle algorithm
+      for (let i = this.board.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.board[i], this.board[j]] = [this.board[j], this.board[i]];
+      }
+      this.refreshBoardVisuals(true);
+    },
+    async hammerTile(index) {
+      if (!this.sessionActive || this.animationInProgress) {
+        return;
+      }
+      this.board[index] = null;
+      
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+
+      const resolution = tileManager.getResolution({
+        board: this.board,
+        tiles: this.tiles,
+        matches: [],
+        cols,
+        rows,
+      });
+
+      this.pendingBoardState = resolution.board;
+      window.__currentBoard = this.pendingBoardState;
+
+      if (this.renderer.animator && resolution.steps.length) {
+        await this.renderer.animator.playSteps(resolution.steps);
+      }
+
+      this.board = resolution.board;
+      this.pendingBoardState = null;
+      this.boardVersion += 1;
+      this.renderer.animator.updateTiles(this.tiles);
+      window.__currentBoard = this.board;
+    }
   },
 });
