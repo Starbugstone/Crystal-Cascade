@@ -21,6 +21,36 @@ const getBoardCenterIndex = (cols, rows) => {
   return Math.min(center, totalCells - 1);
 };
 
+const cloneBoardState = (board = []) => {
+  if (!Array.isArray(board)) {
+    return [];
+  }
+  return board.map((gem) => {
+    if (!gem) {
+      return null;
+    }
+    return { ...gem };
+  });
+};
+
+const cloneTileLayers = (tiles = []) => {
+  if (!Array.isArray(tiles)) {
+    return [];
+  }
+  return tiles.map((tile) => {
+    if (!tile) {
+      return null;
+    }
+    const maxHealth = tile.maxHealth ?? tile.health ?? 0;
+    return {
+      ...tile,
+      maxHealth,
+      health: maxHealth,
+      cleared: false,
+    };
+  });
+};
+
 export const useGameStore = defineStore('game', {
   state: () => ({
     sessionActive: false,
@@ -305,15 +335,17 @@ export const useGameStore = defineStore('game', {
 
       const { config } = selected;
       this.currentLevelId = levelId;
+      const freshBoard = cloneBoardState(config.board);
+      const freshTiles = cloneTileLayers(config.tiles);
       this.sessionActive = true;
       this.levelCleared = false;
       this.boardCols = config.boardCols ?? config.boardSize ?? 8;
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
-      this.board = config.board;
+      this.board = freshBoard;
       this.clearBonusPreview(true);
       window.__currentBoard = this.board;
-      this.tiles = config.tiles;
+      this.tiles = freshTiles;
       this.currentBoardLayout = config.boardLayout || this.currentBoardLayout;
       if (this.renderer?.animator) {
         this.renderer.animator.boardLayout = this.currentBoardLayout;
