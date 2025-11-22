@@ -13,8 +13,26 @@ const createSeededRng = (seed) => {
   };
 };
 
-const createBoard = (cols, rows, rng) =>
-  Array.from({ length: cols * rows }, () => createGem(pickRandomType(rng)));
+class BoardLayout {
+  constructor(name, shape, dimensions, blockedCells = [], initialTilePlacements = []) {
+    this.name = name;
+    this.shape = shape;
+    this.dimensions = dimensions;
+    this.blockedCells = blockedCells;
+    this.initialTilePlacements = initialTilePlacements;
+  }
+}
+
+const createBoard = (layout, rng) => {
+  const board = Array.from({ length: layout.dimensions.cols * layout.dimensions.rows });
+  for (let i = 0; i < board.length; i++) {
+    const x = i % layout.dimensions.cols;
+    const y = Math.floor(i / layout.dimensions.cols);
+    const isBlocked = layout.blockedCells.some(cell => cell.x === x && cell.y === y);
+    board[i] = isBlocked ? null : createGem(pickRandomType(rng));
+  }
+  return board;
+}
 
 const createTiles = (cols, rows, layerCount = 1) =>
   Array.from({ length: cols * rows }, () => ({
@@ -28,22 +46,40 @@ export const generateLevelConfigs = (count = 12) => {
 
   for (let index = 0; index < count; index += 1) {
     const id = index + 1;
-    const columns = 8;
-    const rows = 9;
+    let layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols: 8, rows: 9 });
+
+    if (id === 3) {
+      layout = new BoardLayout(
+        'L-Shape',
+        'L_SHAPE',
+        { cols: 5, rows: 5 },
+        [
+          { x: 3, y: 0 },
+          { x: 4, y: 0 },
+          { x: 3, y: 1 },
+          { x: 4, y: 1 },
+          { x: 4, y: 2 },
+          { x: 4, y: 3 },
+          { x: 4, y: 4 },
+        ],
+      );
+    }
+
     const rng = createSeededRng(id * 1337);
     const layerCount = id === 1 ? 1 : 2;
-    const board = createBoard(columns, rows, rng);
-    const tiles = createTiles(columns, rows, layerCount);
+    const board = createBoard(layout, rng);
+    const tiles = createTiles(layout.dimensions.cols, layout.dimensions.rows, layerCount);
     const totalLayers = tiles.reduce((sum, tile) => sum + (tile.maxHealth ?? tile.health ?? 0), 0);
 
     levels.push({
       id,
-      boardCols: columns,
-      boardRows: rows,
-      boardSize: columns,
+      boardCols: layout.dimensions.cols,
+      boardRows: layout.dimensions.rows,
+      boardSize: layout.dimensions.cols,
       shuffleAllowance: Math.max(1, 4 - Math.floor(id / 5)),
       board,
       tiles,
+      boardLayout: layout,
       objectives: [
         {
           id: `clear-${id}`,

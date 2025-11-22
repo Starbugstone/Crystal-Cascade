@@ -1,7 +1,7 @@
 import { MatchEngine } from './MatchEngine.js';
-import { BonusResolver } from './BonusResolver.js';
 import { TileManager } from './TileManager.js';
 import { cloneGem } from './GemFactory.js';
+import { BonusActivator } from './BonusActivator.js';
 
 const PRIORITY_WEIGHTS = {
   useBonus: 4,
@@ -15,8 +15,8 @@ const isValidIndex = (index) => typeof index === 'number' && index >= 0;
 export class HintEngine {
   constructor() {
     this.matchEngine = new MatchEngine();
-    this.bonusResolver = new BonusResolver();
     this.tileManager = new TileManager();
+    this.bonusActivator = new BonusActivator();
   }
 
   findBestMove(board, tiles, cols, rows) {
@@ -73,21 +73,26 @@ export class HintEngine {
     const clonedTiles = Array.isArray(tiles)
       ? tiles.map((tile) => (tile ? { ...tile } : tile))
       : [];
+      
+    const clearedIndices = this.bonusActivator.activate(clonedBoard, cols, rows, evaluation.swap);
+      let matches = evaluation.matches;
 
-    const breakdown = this.bonusResolver.resolve({ ...evaluation, board: clonedBoard });
+      if (clearedIndices.length > 0) {
+        matches = [{ type: 'bonus-activation', indices: clearedIndices }];
+      }
 
     const resolution = this.tileManager.getResolution({
-      board: breakdown.board,
+      board: clonedBoard,
       tiles: clonedTiles,
-      matches: breakdown.matches,
-      cols,
-      rows,
-      bonusCreated: breakdown.bonusCreated,
-      bonusIndex: breakdown.bonusIndex,
-    });
+        matches: matches,
+        cols,
+        rows,
+        bonusesCreated: null,
+        bonusIndices: null,
+      });
 
-    const usesBonus = evaluation.matches.some((match) => match.type === 'bonus-activation');
-    const createsBonus = Boolean(breakdown.bonusCreated);
+      const usesBonus = matches.some((match) => match.type === 'bonus-activation');
+      const createsBonus = false; // This is a simplification, we are not creating bonuses here
 
     const clearedSet = new Set();
     let maxMatchesInStep = 0;
@@ -100,8 +105,8 @@ export class HintEngine {
     });
 
     const cascadeCount = resolution.steps.length;
-    const totalCleared = clearedSet.size;
-    const scoreGain = breakdown.scoreGain ?? 0;
+      const totalCleared = clearedSet.size;
+      const scoreGain = resolution.steps.reduce((sum, step) => sum + (step.score ?? 0), 0);
 
     const priorityTier = this.resolvePriority({
       usesBonus,

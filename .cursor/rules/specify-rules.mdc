@@ -1,0 +1,29 @@
+﻿# Crystal-Cascade Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-11-22
+
+## Active Technologies
+
+- TypeScript / modern ES modules compiled by Vite (Vue 3 Composition API) + Vue 3, Pinia, Phaser 3, Howler.js, Vite, Capacitor 7, Vitest (001-game-evolutions)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+npm test; npm run lint
+
+## Code Style
+
+TypeScript / modern ES modules compiled by Vite (Vue 3 Composition API): Follow standard conventions
+
+## Recent Changes
+
+- 001-game-evolutions: Added TypeScript / modern ES modules compiled by Vite (Vue 3 Composition API) + Vue 3, Pinia, Phaser 3, Howler.js, Vite, Capacitor 7, Vitest
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

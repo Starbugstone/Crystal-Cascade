@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
-    "cap:open:android": "cap open android"
+    "cap:open:android": "cap open android",
+    "test": "vitest",
+    "test:e2e": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -35,7 +37,12 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.4",
+    "@playwright/test": "^1.56.1",
     "@vitejs/plugin-vue": "^6.0.1",
-    "vite": "^7.1.12"
+    "happy-dom": "^20.0.10",
+    "jest-canvas-mock": "^2.5.2",
+    "phaser3spectorjs": "^0.0.8",
+    "vite": "^7.1.12",
+    "vitest": "^4.0.10"
   }
 }

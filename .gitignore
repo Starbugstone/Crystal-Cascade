@@ -1,6 +1,14 @@
 node_modules
 dist
+.coverage
+.nyc_output
+.vscode
 .DS_Store
+Thumbs.db
 *.log
 capacitor/android/build
 capacitor/ios/build
+.env*
+coverage/
+build/
+*.tmp

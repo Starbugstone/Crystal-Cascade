@@ -1,10 +1,35 @@
 export class BonusActivator {
   constructor() {
-    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross']);
+    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all']);
   }
 
   isBonus(type) {
     return this.BONUS_TYPES.has(type);
+  }
+
+  previewSwap(board, cols, rows, swap) {
+    if (!swap || swap.aIndex == null || swap.bIndex == null) {
+      return [];
+    }
+
+    if (!Array.isArray(board) || !board.length) {
+      return [];
+    }
+
+    const clonedBoard = board.map((cell) => (cell ? { ...cell } : null));
+
+    const maxIndex = clonedBoard.length - 1;
+    const { aIndex, bIndex } = swap;
+    if (
+      aIndex >= 0 &&
+      bIndex >= 0 &&
+      aIndex <= maxIndex &&
+      bIndex <= maxIndex
+    ) {
+      [clonedBoard[aIndex], clonedBoard[bIndex]] = [clonedBoard[bIndex], clonedBoard[aIndex]];
+    }
+
+    return this.activate(clonedBoard, cols, rows, swap) ?? [];
   }
 
   activate(board, cols, rows, swap) {
@@ -77,6 +102,12 @@ export class BonusActivator {
         return this.activateCross(board, cols, rows, index);
       case 'rainbow':
         return this.activateRainbow(board, cols, rows, index, context);
+      case 'clear_row':
+        return this.activateClearRow(board, cols, rows, index);
+      case 'transform_gems':
+        return this.activateTransformGems(board, cols, rows, index, context);
+      case 'unfreeze_all':
+        return this.activateUnfreezeAll(board);
       default:
         return [index];
     }
@@ -153,6 +184,81 @@ export class BonusActivator {
       cleared.add(i * cols + col);
     }
     cleared.add(index);
+    return [...cleared];
+  }
+
+  activateClearRow(board, cols, rows, index) {
+    const cleared = new Set();
+    const row = Math.floor(index / cols);
+    for (let i = 0; i < cols; i++) {
+      cleared.add(row * cols + i);
+    }
+    return [...cleared];
+  }
+
+  activateTransformGems(board, cols, rows, index, context) {
+    if (!board || index == null) {
+      return [];
+    }
+
+    const sourceGem = board[index];
+    const targetType = context?.targetType ?? sourceGem?.type;
+    if (!targetType) {
+      return [];
+    }
+
+    const scope = context?.scope ?? 'global';
+    const radius = context?.radius ?? 1;
+    const cleared = new Set();
+
+    const withinRadius = (row, col) => {
+      const centerRow = Math.floor(index / cols);
+      const centerCol = index % cols;
+      return Math.abs(centerRow - row) + Math.abs(centerCol - col) <= radius;
+    };
+
+    const shouldTransform = (i) => {
+      const cell = board[i];
+      if (!cell || cell.type !== targetType) {
+        return false;
+      }
+
+      if (scope === 'global') {
+        return true;
+      }
+
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+
+      if (scope === 'cross') {
+        const centerRow = Math.floor(index / cols);
+        const centerCol = index % cols;
+        return row === centerRow || col === centerCol;
+      }
+
+      if (scope === 'radius') {
+        return withinRadius(row, col);
+      }
+
+      return false;
+    };
+
+    for (let i = 0; i < board.length; i++) {
+      if (shouldTransform(i)) {
+        cleared.add(i);
+      }
+    }
+
+    return [...cleared];
+  }
+
+  activateUnfreezeAll(board) {
+    const cleared = new Set();
+    board.forEach((cell, i) => {
+      if (cell?.state === 'FROZEN') {
+        cleared.add(i);
+      }
+    });
     return [...cleared];
   }
 }

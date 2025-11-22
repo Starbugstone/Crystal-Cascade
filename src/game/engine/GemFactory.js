@@ -2,17 +2,32 @@ const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonston
 
 let gemIdCounter = 0;
 
-const nextGemId = () => {
-  const id = `gem-${gemIdCounter.toString(36)}`;
-  gemIdCounter += 1;
-  return id;
-};
+class EvolvingElement {
+  constructor(type, { highlight = false } = {}) {
+    this.id = this.nextGemId();
+    this.type = type;
+    this.highlight = highlight;
+    this.currentTier = 1;
+    this.evolutionRules = {
+      trigger: 'MATCH_COUNT',
+      threshold: 5,
+    };
+    this.evolvedProperties = {
+      scoreMultiplier: 2,
+      effect: 'line_clear',
+    };
+  }
 
-export const createGem = (type, { highlight = false } = {}) => ({
-  id: nextGemId(),
-  type,
-  highlight,
-});
+  nextGemId() {
+    const id = `gem-${gemIdCounter.toString(36)}`;
+    gemIdCounter += 1;
+    return id;
+  }
+}
+
+export const createGem = (type, { highlight = false } = {}) => {
+  return new EvolvingElement(type, { highlight });
+};
 
 export const cloneGem = (gem, overrides = {}) => ({
   ...gem,
@@ -28,3 +43,4 @@ export const resetGemFactory = () => {
 };
 
 export { GEM_TYPES };
+

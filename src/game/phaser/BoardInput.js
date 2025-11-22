@@ -14,17 +14,26 @@ export class BoardInput {
     this.selectedCell = null;
     this.isDragging = false;
 
-    this.scene.input.on('pointerdown', this.handlePointerDown, this);
-    this.scene.input.on('pointermove', this.handlePointerMove, this);
-    this.scene.input.on('pointerup', this.handlePointerUp, this);
-    this.scene.input.on('pointerupoutside', this.handlePointerUp, this);
+    const input = this.scene?.input;
+    if (!input?.on) {
+      return;
+    }
+
+    input.on('pointerdown', this.handlePointerDown, this);
+    input.on('pointermove', this.handlePointerMove, this);
+    input.on('pointerup', this.handlePointerUp, this);
+    input.on('pointerupoutside', this.handlePointerUp, this);
   }
 
   destroy() {
-    this.scene.input.off('pointerdown', this.handlePointerDown, this);
-    this.scene.input.off('pointermove', this.handlePointerMove, this);
-    this.scene.input.off('pointerup', this.handlePointerUp, this);
-    this.scene.input.off('pointerupoutside', this.handlePointerUp, this);
+    const input = this.scene?.input;
+    if (!input?.off) {
+      return;
+    }
+    input.off('pointerdown', this.handlePointerDown, this);
+    input.off('pointermove', this.handlePointerMove, this);
+    input.off('pointerup', this.handlePointerUp, this);
+    input.off('pointerupoutside', this.handlePointerUp, this);
     this.reset();
   }
 
@@ -46,7 +55,7 @@ export class BoardInput {
       this.gameStore.notifyPlayerActivity();
     }
 
-    if (!this.gameStore.sessionActive) {
+    if (!this.gameStore.sessionActive || this.gameStore.levelCleared) {
       return;
     }
 
@@ -58,17 +67,23 @@ export class BoardInput {
   handlePointerMove(pointer) {
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive
+      !this.gameStore.sessionActive ||
+      this.gameStore.animationInProgress ||
+      this.gameStore.levelCleared
     ) {
+      this.gameStore.clearBonusPreview();
       return;
     }
 
     const currentCell = this.getCellIndexFromPointer(pointer);
     if (currentCell != null && currentCell !== this.startCell) {
+      this.gameStore.previewBonusSwap(this.startCell, currentCell);
       if (!this.isDragging && typeof this.gameStore.notifyPlayerActivity === 'function') {
         this.gameStore.notifyPlayerActivity();
       }
       this.isDragging = true;
+    } else if (this.isDragging) {
+      this.gameStore.clearBonusPreview();
     }
   }
 
@@ -79,7 +94,8 @@ export class BoardInput {
 
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive
+      !this.gameStore.sessionActive ||
+      this.gameStore.levelCleared
     ) {
       this.startCell = null;
       this.isDragging = false;
@@ -97,6 +113,7 @@ export class BoardInput {
     if (this.isDragging && endCell !== this.startCell) {
       this.clearHighlights();
       this.selectedCell = null;
+      this.gameStore.clearBonusPreview();
       await this.gameStore.resolveSwap(this.startCell, endCell);
       this.startCell = null;
       this.isDragging = false;
@@ -112,6 +129,7 @@ export class BoardInput {
           const firstCell = this.selectedCell;
           this.clearHighlights();
           this.selectedCell = null;
+          this.gameStore.clearBonusPreview();
           await this.gameStore.resolveSwap(firstCell, endCell);
         }
       } else {
@@ -123,6 +141,7 @@ export class BoardInput {
 
     this.startCell = null;
     this.isDragging = false;
+    this.gameStore.clearBonusPreview();
   }
 
   getCellIndexFromPointer(pointer) {

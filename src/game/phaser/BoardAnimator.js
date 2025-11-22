@@ -16,6 +16,7 @@ export class BoardAnimator {
     tileTextures,
     particles,
     audio,
+    boardLayout,
   }) {
     this.scene = scene;
     this.boardContainer = boardContainer;
@@ -28,6 +29,7 @@ export class BoardAnimator {
     this.tileTextures = tileTextures || { layers: {} };
     this.particles = particles;
     this.audio = audio ?? null;
+    this.boardLayout = boardLayout;
 
     this.boardSize = 0;
     this.boardRows = 0;
@@ -45,6 +47,10 @@ export class BoardAnimator {
     this.hintRects = [];
     this.hintTween = null;
     this.hintGemIds = new Set();
+    this.introCascadeInProgress = null;
+    this.bonusPreviewRects = [];
+    this.bonusPreviewTween = null;
+    this.bonusPreviewIndices = [];
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -83,6 +89,7 @@ export class BoardAnimator {
     this.tileSprites.forEach((sprite) => sprite.destroy());
     this.tileSprites.clear();
 
+    
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
     }
@@ -100,6 +107,8 @@ export class BoardAnimator {
     this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
+    this.clearBonusPreview();
+    this.introCascadeInProgress = null;
   }
 
   setLayout({ boardCols, boardRows, cellSize }) {
@@ -136,12 +145,14 @@ export class BoardAnimator {
 
     this._renderQueuedSwapHighlight();
     this._refreshHintEffects();
+    this._repositionBonusPreviewRects();
   }
 
   reset(
     board,
     { boardCols = this.boardSize, boardRows = this.boardRows, cellSize = this.cellSize } = {},
   ) {
+    this.introCascadeInProgress = null;
     this.boardSize = boardCols;
     this.boardRows = boardRows;
     this.cellSize = cellSize;
@@ -176,9 +187,107 @@ export class BoardAnimator {
     this._applyTileLayers();
     this.clearQueuedSwapHighlight();
     this._refreshHintEffects();
+    this.clearBonusPreview();
+  }
+
+  playIntroCascade({
+    columnDelay = 95,
+    rowDelay = 35,
+    dropDuration = 420,
+  } = {}) {
+    if (!this.scene?.tweens || !this.cellSize) {
+      return null;
+    }
+
+    if (this.introCascadeInProgress) {
+      return this.introCascadeInProgress;
+    }
+
+    const columnCount = this.boardLayout?.dimensions?.cols ?? this.boardSize ?? 0;
+    const rowCount = this.boardLayout?.dimensions?.rows ?? this.boardRows ?? 0;
+    if (!columnCount || !rowCount || !Array.isArray(this.indexToGemId) || !this.indexToGemId.length) {
+      return null;
+    }
+
+    const columnBursts = new Set();
+    const tweenPromises = [];
+
+    for (let index = 0; index < this.indexToGemId.length; index += 1) {
+      const gemId = this.indexToGemId[index];
+      if (!gemId) {
+        continue;
+      }
+
+      const sprite = this.gemSprites.get(gemId);
+      if (!sprite) {
+        continue;
+      }
+
+      this.scene.tweens.killTweensOf(sprite);
+
+      const position = this._indexToPosition(index);
+      const column = index % columnCount;
+      const row = Math.floor(index / columnCount);
+      const delay = (column * columnDelay) + (row * rowDelay);
+      const offscreenY = -this.cellSize * (rowCount + row + 1.2);
+      const jitter = (Math.random() - 0.5) * this.cellSize * 0.18;
+
+      sprite.setPosition(position.x + jitter, offscreenY);
+      sprite.setAlpha(0);
+
+      if (!columnBursts.has(column)) {
+        columnBursts.add(column);
+        this._scheduleCascadeBurst(position.x, delay);
+      }
+
+      tweenPromises.push(new Promise((resolve) => {
+        this.scene.tweens.add({
+          targets: sprite,
+          x: position.x,
+          y: position.y,
+          alpha: 1,
+          delay,
+          duration: dropDuration + row * 22,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            sprite.setPosition(position.x, position.y);
+            sprite.setAlpha(1);
+            resolve();
+          },
+        });
+      }));
+    }
+
+    if (!tweenPromises.length) {
+      return null;
+    }
+
+    const cascadePromise = Promise.all(tweenPromises);
+    this.introCascadeInProgress = cascadePromise.finally(() => {
+      this.introCascadeInProgress = null;
+    });
+    return this.introCascadeInProgress;
+  }
+
+  _scheduleCascadeBurst(xPosition, delay) {
+    if (!this.particles) {
+      return;
+    }
+
+    const origin = { x: xPosition, y: this.cellSize * 0.2 };
+    const runBurst = () => {
+      this.particles.emitBurst(origin, 0xfff7d6, 18);
+    };
+
+    if (this.scene?.time) {
+      this.scene.time.delayedCall(delay, runBurst);
+    } else {
+      setTimeout(runBurst, delay);
+    }
   }
 
   forceCompleteRedraw() {
+    this.introCascadeInProgress = null;
     const currentBoard = window.__currentBoard;
     if (!currentBoard) {
       console.error('Cannot redraw board: missing state snapshot');
@@ -263,31 +372,112 @@ export class BoardAnimator {
     const spriteB = this.gemSprites.get(gemB);
     if (!spriteA || !spriteB) return;
 
+    const baseScaleA = { x: spriteA.scaleX, y: spriteA.scaleY };
+    const baseScaleB = { x: spriteB.scaleX, y: spriteB.scaleY };
+
     const posA = this._indexToPosition(aIndex);
     const posB = this._indexToPosition(bIndex);
 
     this.scene.tweens.killTweensOf(spriteA);
     this.scene.tweens.killTweensOf(spriteB);
 
-    const animateSprite = (sprite, target) => new Promise((resolve) => {
-      this.scene.tweens.add({
-        targets: sprite,
-        x: target.x,
-        y: target.y,
-        duration: 160,
-        ease: 'Cubic.easeInOut',
-        onComplete: resolve,
+    const animateSprite = (sprite, target, baseScale) =>
+      new Promise((resolve) => {
+        this.scene.tweens.add({
+          targets: sprite,
+          x: target.x,
+          y: target.y,
+          scaleX: baseScale.x,
+          scaleY: baseScale.y,
+          alpha: 1,
+          duration: 180,
+          ease: 'Cubic.easeInOut',
+          onComplete: resolve,
+        });
       });
-    });
 
     await Promise.all([
-      animateSprite(spriteA, posB),
-      animateSprite(spriteB, posA),
+      animateSprite(spriteA, posB, baseScaleA),
+      animateSprite(spriteB, posA, baseScaleB),
     ]);
 
-    spriteA.setPosition(posB.x, posB.y);
-    spriteB.setPosition(posA.x, posA.y);
     this._swapIndexMapping(aIndex, bIndex);
+  }
+
+  async animateShuffle(nextBoard) {
+    if (!Array.isArray(nextBoard) || !nextBoard.length) return;
+
+    const targetPositions = new Map();
+    nextBoard.forEach((gem, index) => {
+      if (gem?.id != null) {
+        targetPositions.set(gem.id, { index, pos: this._indexToPosition(index) });
+      }
+    });
+
+    const currentScales = new Map();
+    this.gemSprites.forEach((sprite, gemId) => {
+      currentScales.set(gemId, { x: sprite.scaleX, y: sprite.scaleY });
+    });
+
+    const fadeOuts = [];
+    this.gemSprites.forEach((sprite, gemId) => {
+      const baseScale = currentScales.get(gemId) || { x: 1, y: 1 };
+      fadeOuts.push(
+        new Promise((resolve) => {
+          this.scene.tweens.add({
+            targets: sprite,
+            scaleX: baseScale.x * 0.55,
+            scaleY: baseScale.y * 0.55,
+            alpha: 0,
+            duration: 160,
+            ease: 'Cubic.easeIn',
+            onComplete: resolve,
+          });
+        }),
+      );
+    });
+
+    if (fadeOuts.length) {
+      await Promise.all(fadeOuts);
+    }
+
+    // Reassign positions based on new board ordering
+    this.indexToGemId = new Array(nextBoard.length).fill(null);
+
+    const fadeIns = [];
+    this.gemSprites.forEach((sprite, gemId) => {
+      const target = targetPositions.get(gemId);
+      if (!target) {
+        sprite.destroy();
+        this.gemSprites.delete(gemId);
+        return;
+      }
+      const baseScale = currentScales.get(gemId) || { x: 1, y: 1 };
+      sprite.setPosition(target.pos.x, target.pos.y);
+      sprite.setScale(baseScale.x * 0.55, baseScale.y * 0.55);
+      sprite.setAlpha(0);
+      this.indexToGemId[target.index] = gemId;
+
+      fadeIns.push(
+        new Promise((resolve) => {
+          this.scene.tweens.add({
+            targets: sprite,
+            scaleX: baseScale.x,
+            scaleY: baseScale.y,
+            alpha: 1,
+            duration: 220,
+            ease: 'Back.easeOut',
+            onComplete: resolve,
+          });
+        }),
+      );
+    });
+
+    if (fadeIns.length) {
+      await Promise.all(fadeIns);
+    }
+
+    this._refreshHintEffects();
   }
 
   async animateInvalidSwap({ aIndex, bIndex }) {
@@ -339,8 +529,8 @@ export class BoardAnimator {
         this._applyTileLayerUpdates(step.tileUpdates);
       }
 
-      if (step.bonus) {
-        await this._animateBonus(step.bonus);
+      if (step.bonuses && step.bonuses.length > 0) {
+        await Promise.all(step.bonuses.map(bonus => this._animateBonus(bonus)));
       }
 
       if (step.drops.length) {
@@ -496,6 +686,129 @@ export class BoardAnimator {
     this.hintIndices = null;
     this._clearHintGemTint();
   }
+
+  showBonusPreview(indices) {
+    if (!Array.isArray(indices) || !indices.length || !this.cellSize) {
+      this.clearBonusPreview();
+      return;
+    }
+
+    const unique = [...new Set(indices)].filter((index) => typeof index === 'number' && index >= 0);
+    if (!unique.length) {
+      this.clearBonusPreview();
+      return;
+    }
+    this.bonusPreviewIndices = unique;
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer) {
+      return;
+    }
+
+    if (!Array.isArray(this.bonusPreviewRects)) {
+      this.bonusPreviewRects = [];
+    }
+
+    const targetSize = this.cellSize * 0.94;
+    const strokeWidth = Math.max(2, Math.round(this.cellSize * 0.08));
+
+    unique.forEach((index, slot) => {
+      const { x, y } = this._indexToPosition(index);
+      let rect = this.bonusPreviewRects[slot];
+
+      if (!rect || !rect.scene) {
+        rect?.destroy?.();
+        rect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0x38bdf8, 0.28);
+        rect.setOrigin(0.5);
+        rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+        rect.setDepth(9700);
+        rect.setBlendMode(Phaser.BlendModes.ADD);
+        if (typeof layer.add === 'function') {
+          layer.add(rect);
+        }
+        this.bonusPreviewRects[slot] = rect;
+      } else {
+        rect.setPosition(x, y);
+        rect.setSize(targetSize, targetSize);
+        rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+        rect.setFillStyle(0x38bdf8, 0.28);
+        rect.setVisible(true);
+      }
+    });
+
+    if (this.bonusPreviewRects.length > unique.length) {
+      for (let i = unique.length; i < this.bonusPreviewRects.length; i += 1) {
+        this.bonusPreviewRects[i]?.destroy?.();
+      }
+      this.bonusPreviewRects.length = unique.length;
+    }
+
+    this._ensureBonusPreviewTween();
+  }
+
+  clearBonusPreview() {
+    if (this.scene?.tweens && this.bonusPreviewTween) {
+      this.scene.tweens.remove(this.bonusPreviewTween);
+    }
+    this.bonusPreviewTween = null;
+
+    if (Array.isArray(this.bonusPreviewRects) && this.bonusPreviewRects.length) {
+      this.bonusPreviewRects.forEach((rect) => rect?.destroy?.());
+    }
+    this.bonusPreviewRects = [];
+    this.bonusPreviewIndices = [];
+  }
+
+  _ensureBonusPreviewTween() {
+    if (!this.scene?.tweens || !this.bonusPreviewRects?.length) {
+      if (this.bonusPreviewTween) {
+        this.scene?.tweens?.remove(this.bonusPreviewTween);
+        this.bonusPreviewTween = null;
+      }
+      return;
+    }
+
+    if (this.bonusPreviewTween) {
+      return;
+    }
+
+    this.bonusPreviewTween = this.scene.tweens.add({
+      targets: this.bonusPreviewRects,
+      alpha: { from: 0.3, to: 0.75 },
+      scale: { from: 0.95, to: 1.03 },
+      duration: 520,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  _repositionBonusPreviewRects() {
+    if (!Array.isArray(this.bonusPreviewRects) || !this.bonusPreviewRects.length || !this.cellSize) {
+      return;
+    }
+
+    const targetSize = this.cellSize * 0.94;
+    const strokeWidth = Math.max(2, Math.round(this.cellSize * 0.08));
+
+    this.bonusPreviewRects.forEach((rect, slot) => {
+      if (!rect || !rect.scene) {
+        return;
+      }
+      const index = this.bonusPreviewIndices?.[slot];
+      if (typeof index !== 'number') {
+        const fallbackIndex = slot;
+        const { x: fx, y: fy } = this._indexToPosition(fallbackIndex);
+        rect.setPosition(fx, fy);
+      } else {
+        const { x, y } = this._indexToPosition(index);
+        rect.setPosition(x, y);
+      }
+      rect.setSize(targetSize, targetSize);
+      rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+    });
+  }
+
 
   _refreshHintEffects() {
     this._renderHintHighlight();
@@ -730,11 +1043,7 @@ export class BoardAnimator {
       return;
     }
 
-    const local = this._indexToPosition(index);
-    const position = {
-      x: this.boardContainer.x + local.x,
-      y: this.boardContainer.y + local.y,
-    };
+    const position = this._indexToPosition(index);
 
     if (gemType === 'bomb') {
       this.particles.emitExplosion(position, {
@@ -846,6 +1155,15 @@ export class BoardAnimator {
         indices.forEach((idx) => customFxIndices.add(idx));
       });
 
+    entries
+      .filter((entry) => entry.sprite && entry.gemType === 'bomb')
+      .forEach((entry) => {
+        if (this.audio?.playBomb) {
+          this.audio.playBomb();
+        }
+        this._emitBonusEffect(entry.gemType, entry.index);
+      });
+
     const animations = entries.map((entry) => {
       const { index, gemId, sprite, gemType } = entry;
 
@@ -867,22 +1185,11 @@ export class BoardAnimator {
           this.gemSprites.delete(gemId);
           this.indexToGemId[index] = null;
 
-          if (gemType === 'bomb') {
-            if (this.audio?.playBomb) {
-              this.audio.playBomb();
-            }
-            this._emitBonusEffect(gemType, index);
-          }
-
           const useCustomBurst = customFxIndices.has(index);
           const skipDefaultBurst = useCustomBurst || gemType === 'bomb';
 
           if (this.particles && !skipDefaultBurst) {
-            const local = this._indexToPosition(index);
-            const position = {
-              x: this.boardContainer.x + local.x,
-              y: this.boardContainer.y + local.y,
-            };
+            const position = this._indexToPosition(index);
             this.particles.emitBurst(position);
           }
 
@@ -922,6 +1229,7 @@ export class BoardAnimator {
     this.gemSprites.set(gem.id, sprite);
     this.indexToGemId[index] = gem.id;
     this._setTexture(sprite, type);
+    sprite.__gemType = type;
     this._applyHighlight(sprite, gem);
 
     if (this.audio?.playBonusAppears) {
@@ -1003,14 +1311,32 @@ export class BoardAnimator {
     return animations.length ? Promise.all(animations) : Promise.resolve();
   }
 
+  async animateEvolution(index) {
+    const gemId = this.indexToGemId[index];
+    if (!gemId) return;
+
+    const sprite = this.gemSprites.get(gemId);
+    if (!sprite) return;
+
+    const position = this._indexToPosition(index);
+    if (this.particles) {
+      this.particles.emitExplosion(position, {
+        color: 0xffffff,
+        radius: this.cellSize * 1.2,
+        count: 30,
+        duration: 300,
+      });
+    }
+
+    const newType = `${sprite.__gemType}-evolved`;
+    this._setTexture(sprite, newType);
+    sprite.__gemType = newType;
+  }
+
   _playCrossFireLine(centerIndex, validTargets, removalDelays) {
     const indices = new Set();
     const baseDelay = 80;
-    const centerLocal = this._indexToPosition(centerIndex);
-    const worldCenter = {
-      x: this.boardContainer.x + centerLocal.x,
-      y: this.boardContainer.y + centerLocal.y,
-    };
+    const worldCenter = this._indexToPosition(centerIndex);
 
     if (this.audio?.playCrossFire) {
       this.audio.playCrossFire();
@@ -1062,8 +1388,8 @@ export class BoardAnimator {
         const delay = applyDelay(targetIndex, step);
 
         const flame = this.scene.add.rectangle(
-          centerLocal.x,
-          centerLocal.y,
+          worldCenter.x,
+          worldCenter.y,
           this.cellSize * 0.22,
           this.cellSize * 0.22,
           0xff922b,
@@ -1089,11 +1415,7 @@ export class BoardAnimator {
           onComplete: () => {
             flame.destroy();
             if (this.particles) {
-              const worldTarget = {
-                x: this.boardContainer.x + localTarget.x,
-                y: this.boardContainer.y + localTarget.y,
-              };
-              this.particles.emitBurst(worldTarget, 0xffc266, 12);
+              this.particles.emitBurst(localTarget, 0xffc266, 12);
             }
           },
         });
@@ -1113,10 +1435,6 @@ export class BoardAnimator {
     const beamDuration = 130;
 
     const sourceLocal = this._indexToPosition(sourceIndex);
-    const worldSource = {
-      x: this.boardContainer.x + sourceLocal.x,
-      y: this.boardContainer.y + sourceLocal.y,
-    };
     const timer = this.scene?.time ?? null;
 
     const applyDelay = (index, delay) => {
@@ -1177,11 +1495,7 @@ export class BoardAnimator {
       const impactDelay = delay + beamDuration;
       const runImpact = () => {
         if (this.particles) {
-          const worldTarget = {
-            x: this.boardContainer.x + localTarget.x,
-            y: this.boardContainer.y + localTarget.y,
-          };
-          this.particles.emitExplosion(worldTarget, {
+          this.particles.emitExplosion(localTarget, {
             color: 0xc4f1ff,
             radius: this.cellSize * 0.7,
             count: 20,
@@ -1203,7 +1517,7 @@ export class BoardAnimator {
 
     if (this.particles) {
       const triggerSourceExplosion = () => {
-        this.particles.emitExplosion(worldSource, {
+        this.particles.emitExplosion(sourceLocal, {
           color: 0xffffff,
           radius: this.cellSize * 1.3,
           count: 36,
@@ -1281,13 +1595,28 @@ export class BoardAnimator {
     this.backgroundLayer.removeAll(true);
     this.cellHighlights.clear();
 
-    const cols = this.boardSize;
-    const rows = this.boardRows;
+    const layout = this.boardLayout;
+    const dimensions = layout?.dimensions;
+    const cols = dimensions?.cols ?? 0;
+    const rows = dimensions?.rows ?? 0;
+    if (!cols || !rows) {
+      return;
+    }
     const { cellSize } = this;
+    const blockedCells = layout?.blockedCells ?? [];
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const index = row * cols + col;
+        const isBlocked = blockedCells.some(
+          (blocked) => blocked.x === col && blocked.y === row,
+        );
+
+        if (isBlocked) {
+          // No highlight for blocked cells, potentially add a visual indicator later
+          continue;
+        }
+
         const rect = this.scene.add.rectangle(
           col * cellSize + cellSize / 2,
           row * cellSize + cellSize / 2,
@@ -1308,7 +1637,10 @@ export class BoardAnimator {
 
   _updateBackgroundSizing() {
     if (!this.backgroundLayer) return;
-    const cols = this.boardSize;
+    const cols = this.boardLayout?.dimensions?.cols ?? 0;
+    if (!cols) {
+      return;
+    }
     const { cellSize } = this;
     this.cellHighlights.forEach((rect, index) => {
       const row = Math.floor(index / cols);
@@ -1321,8 +1653,13 @@ export class BoardAnimator {
   }
 
   _indexToPosition(index) {
-    const col = index % this.boardSize;
-    const row = Math.floor(index / this.boardSize);
+    const dimensions = this.boardLayout?.dimensions;
+    const cols = dimensions?.cols ?? 0;
+    if (!cols) {
+      return { x: 0, y: 0 };
+    }
+    const col = index % cols;
+    const row = Math.floor(index / cols);
     return {
       x: col * this.cellSize + this.cellSize / 2,
       y: row * this.cellSize + this.cellSize / 2,
@@ -1385,10 +1722,15 @@ export class BoardAnimator {
       return;
     }
 
-    const { color, alpha, stroke, strokeAlpha, strokeWidth } = this._resolveLayerStyle(tile);
-    rect.setFillStyle(color, alpha);
-    const width = strokeWidth ?? (strokeAlpha > 0 ? 1 : 0);
-    rect.setStrokeStyle(width, stroke ?? 0x000000, strokeAlpha ?? 0);
+    if (tile && tile.state === 'FROZEN') {
+      rect.setFillStyle(0xADD8E6, 0.4); // Light blue
+      rect.setStrokeStyle(3, 0x00BFFF, 0.8); // Deep sky blue border
+    } else {
+      const { color, alpha, stroke, strokeAlpha, strokeWidth } = this._resolveLayerStyle(tile);
+      rect.setFillStyle(color, alpha);
+      const width = strokeWidth ?? (strokeAlpha > 0 ? 1 : 0);
+      rect.setStrokeStyle(width, stroke ?? 0x000000, strokeAlpha ?? 0);
+    }
   }
 
   _updateTileSprite(index, tile) {

@@ -44,6 +44,17 @@
       v-if="!gameStore.sessionActive"
       @start-level="gameStore.startLevel"
     />
+    <VictoryModal
+      v-if="gameStore.levelCleared"
+      :score="gameStore.score"
+      :moves="gameStore.moves" 
+      :max-combo="gameStore.maxCascade"
+      :score-target="scoreTarget"
+      :has-next-level="hasNextLevel"
+      @menu="handleVictoryMenu"
+      @replay="handleVictoryReplay"
+      @next="handleVictoryNext"
+    />
     <SettingsDrawer
       :open="settingsStore.isSettingsOpen"
       @close="settingsStore.toggleSettings(false)"
@@ -57,6 +68,7 @@ import BoardCanvas from './components/BoardCanvas.vue';
 import HudPanel from './components/HudPanel.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
 import LevelSelectModal from './components/LevelSelectModal.vue';
+import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import { useGameStore } from './stores/gameStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -146,6 +158,33 @@ watch(
 const fullscreenVars = computed(() => ({
   '--viewport-height': viewportHeight.value ? `${viewportHeight.value}px` : null,
 }));
+
+const hasNextLevel = computed(() => {
+  if (!gameStore.currentLevelId) return false;
+  const nextId = gameStore.currentLevelId + 1;
+  return gameStore.availableLevels.some(l => l.id === nextId);
+});
+
+const scoreTarget = computed(() => {
+  const objective = gameStore.objectives.find((entry) => entry.type === 'score');
+  return objective?.target ?? 0;
+});
+
+const handleVictoryMenu = () => {
+  gameStore.exitLevel();
+};
+
+const handleVictoryReplay = () => {
+  if (gameStore.currentLevelId) {
+    gameStore.startLevel(gameStore.currentLevelId);
+  }
+};
+
+const handleVictoryNext = () => {
+  if (hasNextLevel.value) {
+    gameStore.startLevel(gameStore.currentLevelId + 1);
+  }
+};
 </script>
 
 <style scoped>

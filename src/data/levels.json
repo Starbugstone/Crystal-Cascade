@@ -7,5 +7,26 @@
       { "type": "breakTiles", "target": 20 },
       { "type": "score", "target": 20000 }
     ]
+  },
+  {
+    "id": 2,
+    "name": "L-Shape Challenge",
+    "summary": "Navigate an L-shaped board with strategic moves.",
+    "boardCols": 8,
+    "boardRows": 8,
+    "boardLayout": {
+      "name": "L-Shape",
+      "shape": "L_SHAPE",
+      "dimensions": { "cols": 8, "rows": 8 },
+      "blockedCells": [
+        {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 2, "y": 0},
+        {"x": 0, "y": 1}, {"x": 1, "y": 1},
+        {"x": 0, "y": 2}
+      ]
+    },
+    "objectives": [
+      { "type": "clear-layers", "target": 30 },
+      { "type": "score", "target": 35000 }
+    ]
   }
 ]

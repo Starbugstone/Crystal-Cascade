@@ -76,57 +76,49 @@ const determineSwapIndex = (match, swapIndices) => {
   return match.indices[Math.floor(match.indices.length / 2)];
 };
 
-const findLineCandidate = (matches, swapIndices) => {
+const findLineCandidates = (matches, swapIndices) => {
   const lines = matches.filter(
     (match) =>
       (match.orientation === 'horizontal' || match.orientation === 'vertical') &&
       match.indices.length >= 4,
   );
   if (!lines.length) {
-    return null;
+    return [];
   }
 
-  const sorted = [...lines].sort((a, b) => b.indices.length - a.indices.length);
-  const withSwap = sorted.filter((match) =>
-    match.indices.some((index) => swapIndices.includes(index)),
-  );
-
-  const chosen = withSwap.length ? withSwap[0] : sorted[0];
-  return {
-    match: chosen,
-    swapIndex: determineSwapIndex(chosen, swapIndices),
-  };
+  return lines.map(line => ({
+    match: line,
+    swapIndex: determineSwapIndex(line, swapIndices),
+  }));
 };
 
 export const detectBonusFromMatches = (matches, { swap } = {}) => {
   const normalMatches = matches.filter((match) => match.type !== 'bonus-activation');
   if (!normalMatches.length) {
-    return null;
+    return [];
   }
 
+  const bonuses = [];
   const swapIndices = toSwapIndices(swap);
 
   const crossCandidate = findCrossCandidate(normalMatches, swapIndices);
   if (crossCandidate) {
-    return {
+    bonuses.push({
       type: 'cross',
       index: crossCandidate.centerIndex,
-    };
+    });
   }
 
-  const lineCandidate = findLineCandidate(normalMatches, swapIndices);
-  if (!lineCandidate) {
-    return null;
-  }
+  const lineCandidates = findLineCandidates(normalMatches, swapIndices);
+  lineCandidates.forEach(lineCandidate => {
+    const lineLength = lineCandidate.match.indices.length;
+    if (lineLength >= 5) {
+      bonuses.push({ type: 'rainbow', index: lineCandidate.swapIndex });
+    } else if (lineLength === 4) {
+      bonuses.push({ type: 'bomb', index: lineCandidate.swapIndex });
+    }
+  });
 
-  const lineLength = lineCandidate.match.indices.length;
-  if (lineLength >= 5) {
-    return { type: 'rainbow', index: lineCandidate.swapIndex };
-  }
 
-  if (lineLength === 4) {
-    return { type: 'bomb', index: lineCandidate.swapIndex };
-  }
-
-  return null;
+  return bonuses;
 };

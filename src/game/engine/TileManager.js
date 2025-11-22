@@ -4,8 +4,17 @@ import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const matchEngine = new MatchEngine();
 
+class GameTile {
+  constructor(state, coordinates, element, unfreezeCondition = { trigger: 'ADJACENT_MATCH' }) {
+    this.state = state;
+    this.coordinates = coordinates;
+    this.element = element;
+    this.unfreezeCondition = unfreezeCondition;
+  }
+}
+
 export class TileManager {
-  getResolution({ board, tiles, matches, cols, rows, bonusCreated, bonusIndex }) {
+  getResolution({ board, tiles, matches, cols, rows, bonusesCreated, bonusIndices }) {
     if (!matches?.length) {
       return { board, steps: [] };
     }
@@ -32,36 +41,54 @@ export class TileManager {
     while (pendingMatches.length) {
       const cleared = new Set();
       const protectedIndices = new Set();
-      let cascadeBonusType = null;
-      let cascadeBonusIndex = null;
+      const cascadeBonuses = [];
       
-      pendingMatches.forEach((match) => {
-        match.indices.forEach((index) => {
-          cleared.add(index);
+        pendingMatches.forEach((match) => {
+          match.indices.forEach((index) => {
+            const tile = tiles[index];
+            if (!tile || tile.state !== 'FROZEN') {
+              cleared.add(index);
+            }
+          });
         });
-      });
 
       if (iteration > 0) {
-        const cascadeBonus = detectBonusFromMatches(pendingMatches);
-        if (cascadeBonus && typeof cascadeBonus.index === 'number') {
-          cascadeBonusType = cascadeBonus.type;
-          cascadeBonusIndex = cascadeBonus.index;
-          workingBoard[cascadeBonusIndex] = createGem(cascadeBonusType);
+        const newBonuses = detectBonusFromMatches(pendingMatches);
+        if (newBonuses.length > 0) {
+          newBonuses.forEach(bonus => {
+            cascadeBonuses.push(bonus);
+            workingBoard[bonus.index] = createGem(bonus.type);
+          });
         }
       }
 
       // Handle bonus from initial swap (iteration 0)
-      if (iteration === 0 && bonusCreated && typeof bonusIndex === 'number') {
-        protectedIndices.add(bonusIndex);
-        cleared.delete(bonusIndex);
-        cascadeBonusType = bonusCreated;
-        cascadeBonusIndex = bonusIndex;
+      if (iteration === 0) {
+        const hasBonusArrays = Array.isArray(bonusesCreated) && Array.isArray(bonusIndices);
+        if (hasBonusArrays) {
+          const loopCount = Math.min(bonusesCreated.length, bonusIndices.length);
+          for (let i = 0; i < loopCount; i += 1) {
+            const bonusIndex = bonusIndices[i];
+            protectedIndices.add(bonusIndex);
+            cleared.delete(bonusIndex);
+            cascadeBonuses.push({ type: bonusesCreated[i], index: bonusIndex });
+          }
+          if (bonusesCreated.length !== bonusIndices.length) {
+            console.warn('TileManager: bonus metadata length mismatch', {
+              bonusesCreatedLength: bonusesCreated.length,
+              bonusIndicesLength: bonusIndices.length,
+            });
+          }
+        } else if (bonusesCreated || bonusIndices) {
+          console.warn('TileManager: expected arrays for bonusesCreated and bonusIndices during initial swap handling');
+        }
       }
+      
       // Handle bonus from cascade
-      else if (cascadeBonusType && typeof cascadeBonusIndex === 'number') {
-        protectedIndices.add(cascadeBonusIndex);
-        cleared.delete(cascadeBonusIndex);
-      }
+      cascadeBonuses.forEach(bonus => {
+        protectedIndices.add(bonus.index);
+        cleared.delete(bonus.index);
+      });
 
       const damageTargets = new Set([...cleared, ...protectedIndices]);
 
@@ -78,10 +105,7 @@ export class TileManager {
         cleared: [...cleared].sort((a, b) => a - b),
         drops: [],
         spawns: [],
-        bonus:
-          cascadeBonusType && typeof cascadeBonusIndex === 'number'
-            ? { type: cascadeBonusType, index: cascadeBonusIndex, gem: workingBoard[cascadeBonusIndex] }
-            : null,
+        bonuses: cascadeBonuses.map(b => ({ type: b.type, index: b.index, gem: workingBoard[b.index] })),
         tileUpdates: [],
       };
 
@@ -103,6 +127,28 @@ export class TileManager {
         if (!protectedIndices.has(index)) {
           workingBoard[index] = null;
         }
+      });
+      
+      // Unfreeze adjacent tiles
+      cleared.forEach(index => {
+        const x = index % totalCols;
+        const y = Math.floor(index / totalCols);
+        const adjacent = [
+          { x: x - 1, y },
+          { x: x + 1, y },
+          { x, y: y - 1 },
+          { x, y: y + 1 },
+        ];
+        adjacent.forEach(pos => {
+          if (pos.x >= 0 && pos.x < totalCols && pos.y >= 0 && pos.y < totalRows) {
+            const adjacentIndex = pos.y * totalCols + pos.x;
+            const adjacentTile = tiles[adjacentIndex];
+            if (adjacentTile && adjacentTile.state === 'FROZEN') {
+              adjacentTile.state = 'PLAYABLE';
+              step.tileUpdates.push({ index: adjacentIndex, state: 'PLAYABLE' });
+            }
+          }
+        });
       });
 
       for (let col = 0; col < totalCols; col += 1) {

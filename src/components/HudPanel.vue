@@ -21,6 +21,9 @@
       <button @click="forceRedraw" class="redraw-btn">
         🔄 Force Redraw
       </button>
+      <button @click="activateClearRowBonus" class="redraw-btn">
+        💣 Clear Row Bonus
+      </button>
     </div>
   </section>
 </template>
@@ -42,6 +45,27 @@ const forceRedraw = () => {
     gameStore.renderer.animator.forceCompleteRedraw();
   } else {
     console.error('❌ No animator available');
+  }
+};
+
+const activateClearRowBonus = async () => {
+  if (gameStore.animationInProgress) {
+    console.warn('Cannot trigger Clear Row bonus during animations.');
+    return;
+  }
+
+  if (!gameStore.sessionActive) {
+    console.warn('Cannot trigger Clear Row bonus without an active session.');
+    return;
+  }
+
+  try {
+    const activated = await gameStore.activateOneTimeBonus('clear_row');
+    if (!activated) {
+      console.warn('Clear Row bonus was not activated.');
+    }
+  } catch (error) {
+    console.error('Failed to activate Clear Row bonus:', error);
   }
 };
 </script>
