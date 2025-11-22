@@ -644,21 +644,26 @@ export const useGameStore = defineStore('game', {
       }
 
       const boardSnapshot = this.pendingBoardState;
-      if (!boardSnapshot) {
+      if (!Array.isArray(boardSnapshot) || !boardSnapshot.length) {
+        return false;
+      }
+
+      if (!Number.isInteger(aIndex) || !Number.isInteger(bIndex)) {
+        return false;
+      }
+
+      const boardLength = boardSnapshot.length;
+      if (aIndex < 0 || bIndex < 0 || aIndex >= boardLength || bIndex >= boardLength) {
         return false;
       }
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
-      const rows = this.boardRows ?? this.boardSize ?? 8;
-      const animator = this.renderer?.animator;
-      const evaluation = matchEngine.evaluateSwap(boardSnapshot, cols, rows, aIndex, bIndex);
-
-      if (!evaluation.matches.length) {
+      if (!matchEngine.areAdjacent(aIndex, bIndex, cols)) {
         return false;
       }
 
       this.queuedSwap = { aIndex, bIndex };
-      animator?.showQueuedSwap(aIndex, bIndex);
+      this.renderer?.animator?.showQueuedSwap(aIndex, bIndex);
       return true;
     },
     exitLevel() {

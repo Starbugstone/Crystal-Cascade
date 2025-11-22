@@ -133,6 +133,40 @@ describe('Swap Bonus Power-up', () => {
   });
 });
 
+describe('Queued swap buffering', () => {
+  let gameStore;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    gameStore = useGameStore();
+    gameStore.boardCols = 3;
+    gameStore.boardRows = 3;
+    gameStore.sessionActive = true;
+    gameStore.animationInProgress = true;
+    gameStore.pendingBoardState = [
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('topaz'), createGem('amethyst'), createGem('moonstone'),
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+    ];
+    gameStore.renderer = {
+      animator: {
+        showQueuedSwap: vi.fn(),
+      },
+    };
+  });
+
+  it('queues swaps even if they do not immediately form a match', () => {
+    const result = gameStore.queueSwap(0, 1);
+    expect(result).toBe(true);
+    expect(gameStore.queuedSwap).toEqual({ aIndex: 0, bIndex: 1 });
+    expect(gameStore.renderer.animator.showQueuedSwap).toHaveBeenCalledWith(0, 1);
+  });
+
+  afterEach(() => {
+    gameStore.cancelHint(true);
+  });
+});
+
 describe('GameStore bonus preview highlighting', () => {
   let gameStore;
 
