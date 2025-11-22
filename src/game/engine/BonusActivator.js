@@ -1,12 +1,3 @@
-class OneTimeBonus {
-  constructor(name, effectType, targetCriteria = {}, remainingUses = 1) {
-    this.name = name;
-    this.effectType = effectType;
-    this.targetCriteria = targetCriteria;
-    this.remainingUses = remainingUses;
-  }
-}
-
 export class BonusActivator {
   constructor() {
     this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all']);
@@ -206,9 +197,58 @@ export class BonusActivator {
   }
 
   activateTransformGems(board, cols, rows, index, context) {
+    if (!board || index == null) {
+      return [];
+    }
+
+    const sourceGem = board[index];
+    const targetType = context?.targetType ?? sourceGem?.type;
+    if (!targetType) {
+      return [];
+    }
+
+    const scope = context?.scope ?? 'global';
+    const radius = context?.radius ?? 1;
     const cleared = new Set();
-    // This is a placeholder. The actual transformation logic will be implemented later.
-    cleared.add(index);
+
+    const withinRadius = (row, col) => {
+      const centerRow = Math.floor(index / cols);
+      const centerCol = index % cols;
+      return Math.abs(centerRow - row) + Math.abs(centerCol - col) <= radius;
+    };
+
+    const shouldTransform = (i) => {
+      const cell = board[i];
+      if (!cell || cell.type !== targetType) {
+        return false;
+      }
+
+      if (scope === 'global') {
+        return true;
+      }
+
+      const row = Math.floor(i / cols);
+      const col = i % cols;
+
+      if (scope === 'cross') {
+        const centerRow = Math.floor(index / cols);
+        const centerCol = index % cols;
+        return row === centerRow || col === centerCol;
+      }
+
+      if (scope === 'radius') {
+        return withinRadius(row, col);
+      }
+
+      return false;
+    };
+
+    for (let i = 0; i < board.length; i++) {
+      if (shouldTransform(i)) {
+        cleared.add(i);
+      }
+    }
+
     return [...cleared];
   }
 
@@ -216,9 +256,8 @@ export class BonusActivator {
     const cleared = new Set();
     board.forEach((cell, i) => {
       if (cell?.state === 'FROZEN') {
-        cell.state = 'PLAYABLE';
+        cleared.add(i);
       }
-      cleared.add(i);
     });
     return [...cleared];
   }

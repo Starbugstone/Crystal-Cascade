@@ -3,7 +3,7 @@
 **Feature Branch**: `001-enhance-arcade-ux`  
 **Created**: 2025-11-19  
 **Status**: Draft  
-**Input**: User description: "this project is a candy crush clone on the web using vueJs and phazor. Th UI needs to be user friendly and fast, adapted to PC and mobile + touchscreen. we need to have a fast and snappy interface. the animations need to be over the top and very arcade and visualy dynamic"
+**Input**: User description: "this project is a candy crush clone on the web using Vue.js and Phaser. The UI needs to be user-friendly and fast, adapted to PC and mobile + touchscreen. We need a fast and snappy interface. The animations should be over the top, very arcade, and visually dynamic"
 
 ## Clarifications
 ### Session 2025-11-19

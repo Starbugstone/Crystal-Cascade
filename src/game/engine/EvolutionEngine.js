@@ -14,10 +14,21 @@ export class EvolutionEngine {
   }
 
   checkEvolution(gemType, evolutionRules) {
+    if (!evolutionRules || typeof evolutionRules.threshold !== 'number') {
+      return false;
+    }
     const progress = this.evolutionProgress.get(gemType);
     if (progress !== undefined && progress >= evolutionRules.threshold) {
       return true;
     }
     return false;
+  }
+
+  reset() {
+    this.evolutionProgress.clear();
+  }
+
+  resetGemType(gemType) {
+    this.evolutionProgress.delete(gemType);
   }
 }

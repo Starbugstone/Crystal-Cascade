@@ -194,29 +194,40 @@ export const useGameStore = defineStore('game', {
 
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
-        const resolution = tileManager.getResolution({
-          board: this.board,
-          tiles: this.tiles,
-          matches: matches,
-          cols,
-          rows,
-        });
+      const resolution = tileManager.getResolution({
+        board: this.board,
+        tiles: this.tiles,
+        matches: matches,
+        cols,
+        rows,
+      });
 
-        this._applyScoring(resolution.steps);
+      const layersCleared = resolution.layersCleared ?? 0;
+      this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
         window.__currentBoard = this.pendingBoardState;
 
-        if (animator && resolution.steps.length) {
-          await animator.playSteps(resolution.steps);
-        }
+      if (animator && resolution.steps.length) {
+        await animator.playSteps(resolution.steps);
+      }
 
-        this.board = resolution.board;
-        this.pendingBoardState = null;
-        this.boardVersion += 1;
-        animator.updateTiles(this.tiles);
-        window.__currentBoard = this.board;
-        return true;
+      this.board = resolution.board;
+      this.pendingBoardState = null;
+      this.boardVersion += 1;
+
+      if (layersCleared > 0) {
+        this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
+        this.updateObjectives({ layersCleared });
+      }
+
+      animator?.updateTiles(this.tiles);
+      window.__currentBoard = this.board;
+
+      if (this.remainingLayers === 0 && this.sessionActive) {
+        this.completeLevel();
+      }
+      return true;
 
       } catch (error) {
         console.error('Error activating bonus:', error);

@@ -25,7 +25,7 @@
       ]
     },
     "objectives": [
-      { "type": "clearLayers", "target": 30 },
+      { "type": "clear-layers", "target": 30 },
       { "type": "score", "target": 35000 }
     ]
   }

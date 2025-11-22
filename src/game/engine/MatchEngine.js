@@ -3,9 +3,11 @@ import { EvolutionEngine } from './EvolutionEngine.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const bonusActivator = new BonusActivator();
-const evolutionEngine = new EvolutionEngine();
-
 export class MatchEngine {
+  constructor() {
+    this.evolutionEngine = new EvolutionEngine();
+  }
+
   evaluateSwap(board, cols, rows, aIndex, bIndex) {
     if (aIndex === bIndex) {
       return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
@@ -46,11 +48,11 @@ export class MatchEngine {
     matches.forEach(match => {
       match.indices.forEach(index => {
         const gem = nextBoard[index];
-        if (gem) {
-          evolutionEngine.trackMatch(gem.type);
-        }
+          if (gem) {
+            this.evolutionEngine.trackMatch(gem.type);
+          }
+        });
       });
-    });
 
     return { matches, board: nextBoard, cols, rows, swap, bonusesCreated, bonusIndices };
   }

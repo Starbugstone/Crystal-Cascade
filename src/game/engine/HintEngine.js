@@ -75,24 +75,24 @@ export class HintEngine {
       : [];
       
     const clearedIndices = this.bonusActivator.activate(clonedBoard, cols, rows, evaluation.swap);
-    let matches = evaluation.matches;
+      let matches = evaluation.matches;
 
-    if (clearedIndices.length > 0) {
+      if (clearedIndices.length > 0) {
         matches = [{ type: 'bonus-activation', indices: clearedIndices }];
-    }
+      }
 
     const resolution = this.tileManager.getResolution({
       board: clonedBoard,
       tiles: clonedTiles,
-      matches: matches,
-      cols,
-      rows,
-      bonusCreated: null,
-      bonusIndex: null,
-    });
+        matches: matches,
+        cols,
+        rows,
+        bonusesCreated: null,
+        bonusIndices: null,
+      });
 
-    const usesBonus = evaluation.matches.some((match) => match.type === 'bonus-activation');
-    const createsBonus = false; // This is a simplification, we are not creating bonuses here
+      const usesBonus = matches.some((match) => match.type === 'bonus-activation');
+      const createsBonus = false; // This is a simplification, we are not creating bonuses here
 
     const clearedSet = new Set();
     let maxMatchesInStep = 0;
@@ -105,8 +105,8 @@ export class HintEngine {
     });
 
     const cascadeCount = resolution.steps.length;
-    const totalCleared = clearedSet.size;
-    const scoreGain = 0;
+      const totalCleared = clearedSet.size;
+      const scoreGain = resolution.steps.reduce((sum, step) => sum + (step.score ?? 0), 0);
 
     const priorityTier = this.resolvePriority({
       usesBonus,

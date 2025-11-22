@@ -29,19 +29,23 @@ export const useInventoryStore = defineStore('inventory', {
       const gameStore = useGameStore();
       let powerUpExecuted = false;
 
-      try {
-        switch (id) {
-          case 'swap-extra':
-            powerUpExecuted = gameStore.armSwapBonus();
-            break;
-          case 'shuffle':
-            gameStore.shuffleBoard();
-            powerUpExecuted = true;
-            break;
-          case 'hammer':
-            console.warn('Hammer power-up is disabled for now.');
-            powerUpExecuted = false;
-            break;
+        try {
+          switch (id) {
+            case 'swap-extra':
+              powerUpExecuted = gameStore.armSwapBonus();
+              break;
+            case 'shuffle':
+              {
+                const result = gameStore.shuffleBoard();
+                if (result !== false) {
+                  powerUpExecuted = true;
+                }
+              }
+              break;
+            case 'hammer':
+              console.warn('Hammer power-up is disabled for now.');
+              powerUpExecuted = false;
+              break;
           default:
             console.warn(`Power-up ${id} not implemented.`);
         }

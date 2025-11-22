@@ -43,14 +43,14 @@ export class TileManager {
       const protectedIndices = new Set();
       const cascadeBonuses = [];
       
-      pendingMatches.forEach((match) => {
-        match.indices.forEach((index) => {
-          const tile = tiles[index];
-          if (tile.state !== 'FROZEN') {
-            cleared.add(index);
-          }
+        pendingMatches.forEach((match) => {
+          match.indices.forEach((index) => {
+            const tile = tiles[index];
+            if (!tile || tile.state !== 'FROZEN') {
+              cleared.add(index);
+            }
+          });
         });
-      });
 
       if (iteration > 0) {
         const newBonuses = detectBonusFromMatches(pendingMatches);
