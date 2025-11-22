@@ -55,7 +55,7 @@ export class BoardInput {
       this.gameStore.notifyPlayerActivity();
     }
 
-    if (!this.gameStore.sessionActive) {
+    if (!this.gameStore.sessionActive || this.gameStore.levelCleared) {
       return;
     }
 
@@ -68,7 +68,8 @@ export class BoardInput {
     if (
       this.startCell == null ||
       !this.gameStore.sessionActive ||
-      this.gameStore.animationInProgress
+      this.gameStore.animationInProgress ||
+      this.gameStore.levelCleared
     ) {
       this.gameStore.clearBonusPreview();
       return;
@@ -93,7 +94,8 @@ export class BoardInput {
 
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive
+      !this.gameStore.sessionActive ||
+      this.gameStore.levelCleared
     ) {
       this.startCell = null;
       this.isDragging = false;
