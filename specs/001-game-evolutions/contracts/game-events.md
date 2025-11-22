@@ -24,6 +24,33 @@ These are actions initiated by the user through the Vue UI that command the game
     -   `bonusName`: `String` - The unique identifier for the bonus to activate (e.g., 'row_clear_bonus').
 -   **Example**: A button in the `HudPanel.vue` or `PowerUpBar.vue` component would call this method.
 
+### `startBonusDrag(dragContext)`
+
+-   **Description**: Signals that the user has begun dragging a bonus towards the board so the engine can start computing previews.
+-   **Payload**:
+    - `bonusId`: `String` - Slot identifier from the inventory (`swap-extra`, `clear_row`, etc.).
+    - `effectType`: `String` - Matches `BonusActivator` effect keys.
+    - `pointerId`: `Number | String` - Browser pointer id for multi-touch safety.
+    - `origin`: `Object` - `{ clientX, clientY }` starting position.
+-   **Example**: `PowerUpBar.vue` handles `pointerdown` on a bonus button and calls `startBonusDrag`.
+
+### `updateBonusDragTarget(pointer)`
+
+-   **Description**: Streams pointer positions while the drag is active so the engine can recompute affected tiles.
+-   **Payload**:
+    - `pointerId`: Matches the pointer captured at start.
+    - `clientX`, `clientY`: Latest DOM coordinates.
+-   **Example**: Attached to `pointermove` on `window` to ensure updates still arrive if the pointer leaves the button area.
+
+### `finishBonusDrag(result)`
+
+-   **Description**: Ends the drag, optionally confirming that the bonus should be dropped on the currently targeted cell.
+-   **Payload**:
+    - `pointerId`: Pointer being released or canceled.
+    - `apply`: `Boolean` - If `true`, engine should activate the bonus at `targetIndex`; otherwise it just clears the preview.
+    - `fallback`: `String | null` - Optional reason for cancellation (`'out_of_bounds'`, `'insufficient_bonus'`).
+-   **Example**: `pointerup` on window calls `finishBonusDrag({ apply: isInsideBoard })`.
+
 ### `pauseGame()`
 
 -   **Description**: Pauses the game loop and animations.
@@ -57,6 +84,15 @@ These are events emitted by the game engine to inform the UI about changes in th
 -   **Description**: Fired when a bonus is consumed.
 -   **Payload**: `Object`
     -   `bonusName`: `String` - The identifier of the consumed bonus.
+
+### `event: 'bonusPreviewChanged'`
+
+-   **Description**: Emitted whenever the engine recalculates drag preview tiles so Vue overlays (if any) can stay in sync or announce accessibility hints.
+-   **Payload**:
+    - `bonusId`: `String`
+    - `targetIndex`: `Number | null`
+    - `affectedIndices`: `Number[]`
+    - `meta`: `Object` - Additional context like `mode: 'cross'`.
 
 ### `event: 'levelComplete'`
 

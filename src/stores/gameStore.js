@@ -14,6 +14,12 @@ const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
 
+const getBoardCenterIndex = (cols, rows) => {
+  const totalCells = Math.max(1, (cols || 0) * (rows || 0));
+  const center = Math.floor(totalCells / 2);
+  return Math.min(center, totalCells - 1);
+};
+
 export const useGameStore = defineStore('game', {
   state: () => ({
     sessionActive: false,
@@ -34,6 +40,7 @@ export const useGameStore = defineStore('game', {
     animationInProgress: false,
     pendingBoardState: null,
     queuedSwap: null,
+    swapBonusArmed: false,
     totalLayers: 0,
     remainingLayers: 0,
     levelCleared: false,
@@ -81,6 +88,14 @@ export const useGameStore = defineStore('game', {
         this.computeHintMove();
       }, delay);
     },
+    armSwapBonus() {
+      if (!this.sessionActive || this.animationInProgress) {
+        return false;
+      }
+      this.cancelHint(true);
+      this.swapBonusArmed = true;
+      return true;
+    },
     async activateOneTimeBonus(bonusName) {
       if (!this.sessionActive || this.animationInProgress) {
         console.warn('Cannot activate bonus: session not active or animation in progress.');
@@ -90,10 +105,18 @@ export const useGameStore = defineStore('game', {
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
       const animator = this.renderer?.animator;
+      const bonusOriginIndex = getBoardCenterIndex(cols, rows);
 
       this.animationInProgress = true;
       try {
-        const clearedIndices = bonusActivator.activateBonus(bonusName, this.board, cols, rows, -1); // -1 as index isn't relevant for these bonuses
+        // Use the board center as a neutral origin so bonus math always receives a safe index.
+        const clearedIndices = bonusActivator.activateBonus(
+          bonusName,
+          this.board,
+          cols,
+          rows,
+          bonusOriginIndex,
+        );
         
         if (clearedIndices.length === 0) {
           console.log(`Bonus ${bonusName} had no effect.`);
@@ -216,9 +239,10 @@ export const useGameStore = defineStore('game', {
       this.reshufflesUsed = 0;
       this.score = 0;
       this.cascadeMultiplier = 1;
-      this.animationInProgress = false;
+      this.animationInProgress = true;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.swapBonusArmed = false;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.totalLayers = this.tiles.reduce(
         (sum, tile) => sum + (tile?.maxHealth ?? tile?.health ?? 0),
@@ -229,7 +253,27 @@ export const useGameStore = defineStore('game', {
       this.boardVersion += 1;
       this.refreshBoardVisuals(true);
       this.cancelHint(true);
-      this.scheduleHint();
+
+      const introPromise = this.renderer?.animator?.playIntroCascade?.();
+      const finalizeIntro = () => {
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+      };
+
+      if (introPromise?.then) {
+        introPromise
+          .then(() => {
+            this.renderer?.animator?.updateTiles?.(this.tiles);
+          })
+          .catch((error) => {
+            console.warn('Intro cascade animation failed:', error);
+          })
+          .finally(finalizeIntro);
+      } else {
+        finalizeIntro();
+      }
     },
     attachRenderer(renderer) {
       if (this.renderer?.animator) {
@@ -275,8 +319,17 @@ export const useGameStore = defineStore('game', {
       window.__currentBoard = this.board;
 
       const { boardContainer, scene, animator } = this.renderer;
-      const viewWidth = scene.scale.gameSize.width;
-      const viewHeight = scene.scale.gameSize.height;
+      const fallbackWidth =
+        scene?.scale?.width ??
+        scene?.scale?.parentSize?.width ??
+        scene?.sys?.game?.canvas?.width;
+      const fallbackHeight =
+        scene?.scale?.height ??
+        scene?.scale?.parentSize?.height ??
+        scene?.sys?.game?.canvas?.height;
+
+      const viewWidth = scene?.scale?.gameSize?.width ?? fallbackWidth;
+      const viewHeight = scene?.scale?.gameSize?.height ?? fallbackHeight;
 
       if (!viewWidth || !viewHeight) {
         return;
@@ -330,10 +383,28 @@ export const useGameStore = defineStore('game', {
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
       const animator = this.renderer?.animator;
+      const tiles = this.tiles ?? [];
+      const tileA = tiles[aIndex];
+      const tileB = tiles[bIndex];
+      if (tileA?.state === 'FROZEN' || tileB?.state === 'FROZEN') {
+        if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
+          await animator.animateInvalidSwap({ aIndex, bIndex });
+        }
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        return false;
+      }
+
       const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
       const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
+      const swapBonusReady = this.swapBonusArmed;
+      if (swapBonusReady) {
+        this.swapBonusArmed = false;
+      }
+      const canForceSwap = swapBonusReady && isAdjacent && evaluation.matches.length === 0;
 
-      if (!evaluation.matches.length) {
+      if (!evaluation.matches.length && !canForceSwap) {
         if (isAdjacent && animator) {
           await animator.animateInvalidSwap({ aIndex, bIndex });
         }
@@ -347,8 +418,27 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = true;
 
       try {
-        if (animator && evaluation.swap) {
-          await animator.animateSwap(evaluation.swap);
+        const swapPayload = evaluation.swap ?? { aIndex, bIndex };
+        if (animator && swapPayload) {
+          await animator.animateSwap(swapPayload);
+        }
+
+        if (canForceSwap) {
+          const nextBoard = [...this.board];
+          [nextBoard[aIndex], nextBoard[bIndex]] = [nextBoard[bIndex], nextBoard[aIndex]];
+          this.pendingBoardState = nextBoard;
+          window.__currentBoard = this.pendingBoardState;
+
+          this.board = nextBoard;
+          this.pendingBoardState = null;
+          this.boardVersion += 1;
+          if (animator) {
+            animator.updateTiles(this.tiles);
+          } else {
+            this.refreshBoardVisuals(true);
+          }
+          window.__currentBoard = this.board;
+          return true;
         }
 
         const resolution = tileManager.getResolution({
@@ -458,6 +548,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.swapBonusArmed = false;
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
@@ -479,6 +570,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.swapBonusArmed = false;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.renderer?.input?.reset();
       this.updateObjectives();

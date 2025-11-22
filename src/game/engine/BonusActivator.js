@@ -9,7 +9,7 @@ class OneTimeBonus {
 
 export class BonusActivator {
   constructor() {
-    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'CLEAR_ROW', 'TRANSFORM_GEMS', 'UNFREEZE_ALL']);
+    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all']);
   }
 
   isBonus(type) {
@@ -86,11 +86,11 @@ export class BonusActivator {
         return this.activateCross(board, cols, rows, index);
       case 'rainbow':
         return this.activateRainbow(board, cols, rows, index, context);
-      case 'CLEAR_ROW':
+      case 'clear_row':
         return this.activateClearRow(board, cols, rows, index);
-      case 'TRANSFORM_GEMS':
+      case 'transform_gems':
         return this.activateTransformGems(board, cols, rows, index, context);
-      case 'UNFREEZE_ALL':
+      case 'unfreeze_all':
         return this.activateUnfreezeAll(board);
       default:
         return [index];

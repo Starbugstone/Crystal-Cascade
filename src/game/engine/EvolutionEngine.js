@@ -15,7 +15,7 @@ export class EvolutionEngine {
 
   checkEvolution(gemType, evolutionRules) {
     const progress = this.evolutionProgress.get(gemType);
-    if (progress && progress >= evolutionRules.threshold) {
+    if (progress !== undefined && progress >= evolutionRules.threshold) {
       return true;
     }
     return false;

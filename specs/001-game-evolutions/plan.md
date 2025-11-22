@@ -1,32 +1,30 @@
-# Implementation Plan: Game Evolutions & New Mechanics
+# Implementation Plan: Game Evolutions & New Mechanics – Bonus Drag Highlight
 
-**Branch**: `001-game-evolutions` | **Date**: 2025-11-19 | **Spec**: `../spec.md`
-**Input**: Feature specification from `specs/001-game-evolutions/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `001-game-evolutions` | **Date**: 2025-11-22 | **Spec**: `/specs/001-game-evolutions/spec.md`
+**Input**: Feature specification for evolving gameplay, one-time bonuses, new boards, frozen tiles
 
 ## Summary
 
-This plan outlines the technical approach for introducing new game mechanics: evolutions, one-time bonuses, different board layouts, and frozen tiles. The implementation will extend the existing Phaser 3 game engine logic and Vue.js components.
+Players must see exactly which tiles a dragged one-time bonus will affect before releasing it. We will reuse the existing `BonusActivator` geometry to compute affected indices, expose a safe preview API, and drive a Phaser-powered glow overlay (blue additive rectangles) while the bonus is hovering above the board. Drag state will travel from the Vue inventory UI → Pinia stores → Phaser `BoardInput` so previews clear immediately when the pointer leaves the board or the drag ends.
 
 ## Technical Context
 
-**Language/Version**: JavaScript (ESM), running on Node.js >= 20.19.0
-**Primary Dependencies**: Vue.js 3, Phaser 3, Pinia 3, Howler.js, Capacitor 7
-**Storage**: N/A (Client-side, state managed by Pinia)
-**Testing**: NEEDS CLARIFICATION (No testing framework configured)
-**Target Platform**: Web (Desktop & Mobile), iOS, Android (via Capacitor)
-**Project Type**: Single project (Vue.js frontend with integrated Phaser canvas)
-**Performance Goals**: 60 FPS
-**Constraints**: Mobile-first responsive design
-**Scale/Scope**: Single-player client-side game
+**Language/Version**: TypeScript / modern ES modules compiled by Vite (Vue 3 Composition API)  
+**Primary Dependencies**: Vue 3, Pinia, Phaser 3, Howler.js, Vite, Capacitor 7, Vitest  
+**Storage**: In-memory Pinia state plus Phaser scene objects (no external persistence)  
+**Testing**: Vitest for unit logic (Bonus preview math, Pinia state); Playwright for drag→highlight UX flows  
+**Target Platform**: Web (desktop + touch) with Capacitor mobile shell  
+**Project Type**: Single-page front-end with embedded Phaser renderer  
+**Performance Goals**: Maintain 60 FPS; pointer-to-preview latency < 50 ms; preview computation < 2 ms per move  
+**Constraints**: Preview must not mutate board tiles/bonuses; highlight uses Phaser layers (not DOM overlays) to respect Howler audio timing – NEEDS CLARIFICATION on permitted blend/tint palette  
+**Scale/Scope**: Default 8×8 boards but must support up to 12×12 layouts and six active bonus archetypes per drag  
+**Bonus Drag Signaling**: NEEDS CLARIFICATION – confirm whether drag originates from `PowerUpBar` buttons or separate inventory modal and what events are already fired
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-The project constitution from `.specify/memory/constitution.md` needs to be filled out.
-[Pasted content from .specify/memory/constitution.md should go here, but it is currently a template.]
+The project constitution placeholder (`.specify/memory/constitution.md`) defines no enforceable principles, so no explicit gates are triggered. We still align with SOLID/DRY requirements from workspace rules. ✅ Gate PASSED.
 
 ## Project Structure
 
@@ -34,32 +32,37 @@ The project constitution from `.specify/memory/constitution.md` needs to be fill
 
 ```text
 specs/001-game-evolutions/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+├── plan.md              # This file (/speckit.plan output)
+├── research.md          # Phase 0 research log
+├── data-model.md        # Phase 1 entity definitions
+├── quickstart.md        # Phase 1 developer onboarding
+├── contracts/           # Phase 1 API/events (e.g., game-events.md)
+└── tasks.md             # Phase 2 task backlog (via /speckit.tasks)
 ```
 
 ### Source Code (repository root)
+
 ```text
 src/
-├── components/
-├── composables/
-├── data/
+├── components/          # Vue UI (BoardCanvas, PowerUpBar, HUD, modals)
+├── composables/         # Shared hooks (e.g., audio manager)
+├── data/                # Level + loot tables
 ├── game/
-├── stores/
-└── styles/
+│   ├── engine/          # Pure logic (MatchEngine, TileManager, BonusActivator)
+│   └── phaser/          # Rendering + input (BoardScene, BoardAnimator, BoardInput)
+├── stores/              # Pinia stores (gameStore, inventoryStore, settingsStore)
+├── styles/              # Base/theme CSS
+└── main.js              # Vite entry (mounts Vue, boots Pinia)
+
+testing/
+├── bonus.test.js
+├── board.test.js
+├── evolution.test.js
+└── frozen.test.js
 ```
 
-**Structure Decision**: The project uses a single-project structure (Option 1). New game logic will be added to the `src/game/engine` and `src/game/phaser` directories. Data definitions for new mechanics (e.g., board layouts, evolution rules) will be added to `src/data`.
+**Structure Decision**: Single Vite/Phaser front-end. Feature work spans Pinia stores (`src/stores`), bonus math (`src/game/engine`), Phaser input/rendering (`src/game/phaser`), and tests under `testing/`.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+> No constitution violations identified; table intentionally left empty.

@@ -8,11 +8,11 @@ const evolutionEngine = new EvolutionEngine();
 export class MatchEngine {
   evaluateSwap(board, cols, rows, aIndex, bIndex) {
     if (aIndex === bIndex) {
-      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
+      return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
     }
 
     if (!this.areAdjacent(aIndex, bIndex, cols)) {
-      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
+      return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
     }
 
     const nextBoard = [...board];
@@ -22,13 +22,13 @@ export class MatchEngine {
 
     const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap);
     if (bonusClear.length > 0) {
-      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap, bonusCreated: null, bonusIndex: null };
+      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap, bonusesCreated: [], bonusIndices: [] };
     }
 
     const matches = this.findMatches(nextBoard, cols, rows);
 
     if (!matches.length) {
-      return { matches: [], board, cols, rows, swap: null, bonusCreated: null, bonusIndex: null };
+      return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
     }
 
     const bonuses = detectBonusFromMatches(matches, { swap });

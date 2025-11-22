@@ -48,8 +48,25 @@ const forceRedraw = () => {
   }
 };
 
-const activateClearRowBonus = () => {
-  gameStore.activateOneTimeBonus('CLEAR_ROW');
+const activateClearRowBonus = async () => {
+  if (gameStore.animationInProgress) {
+    console.warn('Cannot trigger Clear Row bonus during animations.');
+    return;
+  }
+
+  if (!gameStore.sessionActive) {
+    console.warn('Cannot trigger Clear Row bonus without an active session.');
+    return;
+  }
+
+  try {
+    const activated = await gameStore.activateOneTimeBonus('clear_row');
+    if (!activated) {
+      console.warn('Clear Row bonus was not activated.');
+    }
+  } catch (error) {
+    console.error('Failed to activate Clear Row bonus:', error);
+  }
 };
 </script>
 

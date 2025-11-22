@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useGameStore } from '../src/stores/gameStore';
+import { useInventoryStore } from '../src/stores/inventoryStore';
 import { createPinia, setActivePinia } from 'pinia';
 import { createGem } from '../src/game/engine/GemFactory';
 
@@ -24,7 +25,7 @@ describe('GameStore - Bonus Activation', () => {
     };
   });
 
-  it('should activate a CLEAR_ROW bonus and clear a row', async () => {
+  it('should activate a clear_row bonus and clear a row', async () => {
     // Manually set gems to allow for a clear row bonus effect
     gameStore.board = [
       createGem('gem0'), createGem('gem1'), createGem('gem2'),
@@ -35,18 +36,16 @@ describe('GameStore - Bonus Activation', () => {
     const initialBoard = [...gameStore.board];
     const initialTiles = JSON.parse(JSON.stringify(gameStore.tiles));
 
-    await gameStore.activateOneTimeBonus('CLEAR_ROW');
+    await gameStore.activateOneTimeBonus('clear_row');
 
-    // Expecting the first row to be cleared (nullified gems) and new gems to drop/spawn
-    // Given the board setup, the activateBonus in BonusActivator will clear the first row
-    // and then TileManager will handle drops and spawns.
-    // So, we primarily check if some gems are null (cleared) and then new ones appear.
+    // Expecting the first row to be cleared, then immediately refilled once drops/spawns complete.
+    // Because activateOneTimeBonus awaits the full animation pipeline, we only care that replacements happen.
 
     const clearedCount = gameStore.board.filter(gem => gem === null).length;
     expect(clearedCount).toBeLessThan(initialBoard.length); // Some gems should have been replaced
 
-    const nullCountInFirstRow = gameStore.board.slice(0, gameStore.boardCols).filter(gem => gem === null).length;
-    expect(nullCountInFirstRow).toBe(gameStore.boardCols); // First row should be completely nullified before drops
+    const firstRowFilled = gameStore.board.slice(0, gameStore.boardCols).every(gem => gem !== null);
+    expect(firstRowFilled).toBe(true); // First row should be refilled after drops/spawns resolve
 
     // Check if new gems were spawned
     const spawnedCount = gameStore.board.filter(gem => gem !== null).length;
@@ -57,8 +56,62 @@ describe('GameStore - Bonus Activation', () => {
   it('should not activate bonus if session is not active', async () => {
     gameStore.sessionActive = false;
     const initialBoard = [...gameStore.board];
-    const activated = await gameStore.activateOneTimeBonus('CLEAR_ROW');
+    const activated = await gameStore.activateOneTimeBonus('clear_row');
     expect(activated).toBe(false);
     expect(gameStore.board).toEqual(initialBoard);
+  });
+
+  afterEach(() => {
+    gameStore.cancelHint(true);
+  });
+});
+
+describe('Swap Bonus Power-up', () => {
+  let gameStore;
+  let inventoryStore;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    gameStore = useGameStore();
+    inventoryStore = useInventoryStore();
+
+    gameStore.boardCols = 3;
+    gameStore.boardRows = 3;
+    gameStore.board = [
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('topaz'), createGem('amethyst'), createGem('moonstone'),
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+    ];
+    gameStore.tiles = Array.from({ length: 9 }, () => ({ state: 'PLAYABLE', health: 1 }));
+    gameStore.sessionActive = true;
+    gameStore.renderer = {
+      animator: {
+        animateSwap: vi.fn(() => Promise.resolve()),
+        updateTiles: vi.fn(),
+        clearQueuedSwapHighlight: vi.fn(),
+      },
+    };
+  });
+
+  it('starts with 10 swap bonuses and consumes one for a forced swap', async () => {
+    const swapSlot = inventoryStore.quickAccessSlots.find((slot) => slot.id === 'swap-extra');
+    expect(swapSlot.quantity).toBe(10);
+
+    const activated = inventoryStore.usePowerUp('swap-extra');
+    expect(activated).toBe(true);
+    expect(gameStore.swapBonusArmed).toBe(true);
+
+    const result = await gameStore.resolveSwap(0, 1);
+
+    expect(result).toBe(true);
+    expect(gameStore.swapBonusArmed).toBe(false);
+    expect(gameStore.board[0].type).toBe('sapphire');
+    expect(gameStore.board[1].type).toBe('ruby');
+    expect(swapSlot.quantity).toBe(9);
+    expect(gameStore.renderer.animator.animateSwap).toHaveBeenCalledWith({ aIndex: 0, bIndex: 1 });
+  });
+
+  afterEach(() => {
+    gameStore.cancelHint(true);
   });
 });

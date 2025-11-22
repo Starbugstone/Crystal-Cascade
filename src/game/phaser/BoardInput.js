@@ -14,17 +14,26 @@ export class BoardInput {
     this.selectedCell = null;
     this.isDragging = false;
 
-    this.scene.input.on('pointerdown', this.handlePointerDown, this);
-    this.scene.input.on('pointermove', this.handlePointerMove, this);
-    this.scene.input.on('pointerup', this.handlePointerUp, this);
-    this.scene.input.on('pointerupoutside', this.handlePointerUp, this);
+    const input = this.scene?.input;
+    if (!input?.on) {
+      return;
+    }
+
+    input.on('pointerdown', this.handlePointerDown, this);
+    input.on('pointermove', this.handlePointerMove, this);
+    input.on('pointerup', this.handlePointerUp, this);
+    input.on('pointerupoutside', this.handlePointerUp, this);
   }
 
   destroy() {
-    this.scene.input.off('pointerdown', this.handlePointerDown, this);
-    this.scene.input.off('pointermove', this.handlePointerMove, this);
-    this.scene.input.off('pointerup', this.handlePointerUp, this);
-    this.scene.input.off('pointerupoutside', this.handlePointerUp, this);
+    const input = this.scene?.input;
+    if (!input?.off) {
+      return;
+    }
+    input.off('pointerdown', this.handlePointerDown, this);
+    input.off('pointermove', this.handlePointerMove, this);
+    input.off('pointerup', this.handlePointerUp, this);
+    input.off('pointerupoutside', this.handlePointerUp, this);
     this.reset();
   }
 

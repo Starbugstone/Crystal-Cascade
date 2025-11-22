@@ -18,9 +18,10 @@ Represents a game element (e.g., a gem) that can change its state or properties 
 Represents a consumable in-game power-up that the player can activate.
 
 -   **`name`**: `String` - The unique identifier for the bonus (e.g., 'row_clear_bonus').
--   **`effectType`**: `String` - The type of effect the bonus applies (e.g., 'CLEAR_ROW', 'TRANSFORM_GEMS', 'UNFREEZE_ALL').
+-   **`effectType`**: `String` - The type of effect the bonus applies (e.g., 'clear_row', 'transform_gems', 'unfreeze_all').
 -   **`targetCriteria`**: `Object` - (Optional) Defines what the bonus can target (e.g., `{ color: 'red' }`, `{ tileState: 'frozen' }`).
 -   **`remainingUses`**: `Integer` - The number of times the bonus can be used. For one-time bonuses, this will be 1.
+-   **`previewProfile`**: `Object` - Metadata for drag previews (e.g., `{ glowColor: '#38BDF8', maxRange: 15 }`) so UI can stay in sync with engine calculations.
 
 ## BoardLayout
 
@@ -40,3 +41,17 @@ Represents a single tile on the game board, holding its state and any game piece
 -   **`coordinates`**: `Object` - The `{x, y}` position of the tile on the board grid.
 -   **`element`**: `EvolvingElement` - A reference to the game element currently on this tile.
 -   **`unfreezeCondition`**: `Object` - (Optional) The condition required to change the state from 'FROZEN' to 'PLAYABLE' (e.g., `{ trigger: 'ADJACENT_MATCH' }`).
+
+## BonusPreviewState
+
+Tracks the transient data required to render glowing previews while a one-time bonus is being dragged.
+
+-   **`active`**: `Boolean` - Whether a drag preview is in progress.
+-   **`bonusId` / `effectType`**: `String` - Identifiers for the bonus being previewed.
+-   **`pointer`**: `Object` - Latest pointer data (`{ clientX, clientY, pointerId }`) from the DOM drag.
+-   **`targetIndex`**: `Number | null` - Board index currently under the pointer, computed by `BoardInput`.
+-   **`affectedIndices`**: `Number[]` - Cached result from `BonusActivator.preview`.
+-   **`previewMeta`**: `Object` - Extra info returned by preview (e.g., rainbow mode, requires secondary selection).
+-   **`lastUpdatedAt`**: `Number (ms)` - Timestamp for throttling; helps Phaser avoid redundant renders.
+
+Pinia (`gameStore`) owns this state. `BoardInput` updates `targetIndex` and `affectedIndices`, while `BoardAnimator` listens for changes to drive the glowing rectangles. When `active` becomes `false`, both the store and animator clear caches immediately so outdated highlights never persist.

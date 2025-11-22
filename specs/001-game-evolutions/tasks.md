@@ -51,6 +51,12 @@ This task list is generated from the feature specification and technical plan. T
 - [x] T024 Update documentation to reflect new features.
 - [x] T025 Perform cross-browser testing with Playwright.
 
+## Phase 8: User Story 5 - Arcade Intro Cascade (P1)
+
+- [x] T026 [US5] Implement start-of-level waterfall cascade animation in `src/game/phaser/BoardAnimator.js`.
+- [x] T027 [US5] Gate player input/hints until the intro cascade completes via `src/stores/gameStore.js`.
+- [x] T028 [US5] Document the arcade cascade behavior in `TECH_README.md`.
+
 ## Dependencies
 
 - User Story 1 (Evolving Gameplay) is a prerequisite for User Story 2 (Bonuses) as bonuses may affect evolved gems.

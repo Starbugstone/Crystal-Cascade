@@ -63,13 +63,25 @@ export class TileManager {
       }
 
       // Handle bonus from initial swap (iteration 0)
-      if (iteration === 0 && bonusesCreated && bonusIndices) {
-        bonusesCreated.forEach((bonusCreated, i) => {
-          const bonusIndex = bonusIndices[i];
-          protectedIndices.add(bonusIndex);
-          cleared.delete(bonusIndex);
-          cascadeBonuses.push({ type: bonusCreated, index: bonusIndex });
-        });
+      if (iteration === 0) {
+        const hasBonusArrays = Array.isArray(bonusesCreated) && Array.isArray(bonusIndices);
+        if (hasBonusArrays) {
+          const loopCount = Math.min(bonusesCreated.length, bonusIndices.length);
+          for (let i = 0; i < loopCount; i += 1) {
+            const bonusIndex = bonusIndices[i];
+            protectedIndices.add(bonusIndex);
+            cleared.delete(bonusIndex);
+            cascadeBonuses.push({ type: bonusesCreated[i], index: bonusIndex });
+          }
+          if (bonusesCreated.length !== bonusIndices.length) {
+            console.warn('TileManager: bonus metadata length mismatch', {
+              bonusesCreatedLength: bonusesCreated.length,
+              bonusIndicesLength: bonusIndices.length,
+            });
+          }
+        } else if (bonusesCreated || bonusIndices) {
+          console.warn('TileManager: expected arrays for bonusesCreated and bonusIndices during initial swap handling');
+        }
       }
       
       // Handle bonus from cascade

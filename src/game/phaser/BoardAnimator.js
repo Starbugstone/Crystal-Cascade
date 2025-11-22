@@ -47,6 +47,7 @@ export class BoardAnimator {
     this.hintRects = [];
     this.hintTween = null;
     this.hintGemIds = new Set();
+    this.introCascadeInProgress = null;
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -85,6 +86,7 @@ export class BoardAnimator {
     this.tileSprites.forEach((sprite) => sprite.destroy());
     this.tileSprites.clear();
 
+    
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
     }
@@ -102,6 +104,7 @@ export class BoardAnimator {
     this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
+    this.introCascadeInProgress = null;
   }
 
   setLayout({ boardCols, boardRows, cellSize }) {
@@ -144,6 +147,7 @@ export class BoardAnimator {
     board,
     { boardCols = this.boardSize, boardRows = this.boardRows, cellSize = this.cellSize } = {},
   ) {
+    this.introCascadeInProgress = null;
     this.boardSize = boardCols;
     this.boardRows = boardRows;
     this.cellSize = cellSize;
@@ -180,7 +184,104 @@ export class BoardAnimator {
     this._refreshHintEffects();
   }
 
+  playIntroCascade({
+    columnDelay = 95,
+    rowDelay = 35,
+    dropDuration = 420,
+  } = {}) {
+    if (!this.scene?.tweens || !this.cellSize) {
+      return null;
+    }
+
+    if (this.introCascadeInProgress) {
+      return this.introCascadeInProgress;
+    }
+
+    const columnCount = this.boardLayout?.dimensions?.cols ?? this.boardSize ?? 0;
+    const rowCount = this.boardLayout?.dimensions?.rows ?? this.boardRows ?? 0;
+    if (!columnCount || !rowCount || !Array.isArray(this.indexToGemId) || !this.indexToGemId.length) {
+      return null;
+    }
+
+    const columnBursts = new Set();
+    const tweenPromises = [];
+
+    for (let index = 0; index < this.indexToGemId.length; index += 1) {
+      const gemId = this.indexToGemId[index];
+      if (!gemId) {
+        continue;
+      }
+
+      const sprite = this.gemSprites.get(gemId);
+      if (!sprite) {
+        continue;
+      }
+
+      this.scene.tweens.killTweensOf(sprite);
+
+      const position = this._indexToPosition(index);
+      const column = index % columnCount;
+      const row = Math.floor(index / columnCount);
+      const delay = (column * columnDelay) + (row * rowDelay);
+      const offscreenY = -this.cellSize * (rowCount + row + 1.2);
+      const jitter = (Math.random() - 0.5) * this.cellSize * 0.18;
+
+      sprite.setPosition(position.x + jitter, offscreenY);
+      sprite.setAlpha(0);
+
+      if (!columnBursts.has(column)) {
+        columnBursts.add(column);
+        this._scheduleCascadeBurst(position.x, delay);
+      }
+
+      tweenPromises.push(new Promise((resolve) => {
+        this.scene.tweens.add({
+          targets: sprite,
+          x: position.x,
+          y: position.y,
+          alpha: 1,
+          delay,
+          duration: dropDuration + row * 22,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            sprite.setPosition(position.x, position.y);
+            sprite.setAlpha(1);
+            resolve();
+          },
+        });
+      }));
+    }
+
+    if (!tweenPromises.length) {
+      return null;
+    }
+
+    const cascadePromise = Promise.all(tweenPromises);
+    this.introCascadeInProgress = cascadePromise.finally(() => {
+      this.introCascadeInProgress = null;
+    });
+    return this.introCascadeInProgress;
+  }
+
+  _scheduleCascadeBurst(xPosition, delay) {
+    if (!this.particles) {
+      return;
+    }
+
+    const origin = { x: xPosition, y: this.cellSize * 0.2 };
+    const runBurst = () => {
+      this.particles.emitBurst(origin, 0xfff7d6, 18);
+    };
+
+    if (this.scene?.time) {
+      this.scene.time.delayedCall(delay, runBurst);
+    } else {
+      setTimeout(runBurst, delay);
+    }
+  }
+
   forceCompleteRedraw() {
+    this.introCascadeInProgress = null;
     const currentBoard = window.__currentBoard;
     if (!currentBoard) {
       console.error('Cannot redraw board: missing state snapshot');
@@ -265,30 +366,35 @@ export class BoardAnimator {
     const spriteB = this.gemSprites.get(gemB);
     if (!spriteA || !spriteB) return;
 
+    const baseScaleA = { x: spriteA.scaleX, y: spriteA.scaleY };
+    const baseScaleB = { x: spriteB.scaleX, y: spriteB.scaleY };
+
     const posA = this._indexToPosition(aIndex);
     const posB = this._indexToPosition(bIndex);
 
     this.scene.tweens.killTweensOf(spriteA);
     this.scene.tweens.killTweensOf(spriteB);
 
-    const animateSprite = (sprite, target) => new Promise((resolve) => {
-      this.scene.tweens.add({
-        targets: sprite,
-        x: target.x,
-        y: target.y,
-        duration: 160,
-        ease: 'Cubic.easeInOut',
-        onComplete: resolve,
+    const animateSprite = (sprite, target, baseScale) =>
+      new Promise((resolve) => {
+        this.scene.tweens.add({
+          targets: sprite,
+          x: target.x,
+          y: target.y,
+          scaleX: baseScale.x,
+          scaleY: baseScale.y,
+          alpha: 1,
+          duration: 180,
+          ease: 'Cubic.easeInOut',
+          onComplete: resolve,
+        });
       });
-    });
 
     await Promise.all([
-      animateSprite(spriteA, posB),
-      animateSprite(spriteB, posA),
+      animateSprite(spriteA, posB, baseScaleA),
+      animateSprite(spriteB, posA, baseScaleB),
     ]);
 
-    spriteA.setPosition(posB.x, posB.y);
-    spriteB.setPosition(posA.x, posA.y);
     this._swapIndexMapping(aIndex, bIndex);
   }
 
@@ -1284,14 +1390,20 @@ export class BoardAnimator {
     this.backgroundLayer.removeAll(true);
     this.cellHighlights.clear();
 
-    const cols = this.boardLayout.dimensions.cols;
-    const rows = this.boardLayout.dimensions.rows;
+    const layout = this.boardLayout;
+    const dimensions = layout?.dimensions;
+    const cols = dimensions?.cols ?? 0;
+    const rows = dimensions?.rows ?? 0;
+    if (!cols || !rows) {
+      return;
+    }
     const { cellSize } = this;
+    const blockedCells = layout?.blockedCells ?? [];
 
     for (let row = 0; row < rows; row += 1) {
       for (let col = 0; col < cols; col += 1) {
         const index = row * cols + col;
-        const isBlocked = this.boardLayout.blockedCells.some(
+        const isBlocked = blockedCells.some(
           (blocked) => blocked.x === col && blocked.y === row,
         );
 
@@ -1320,7 +1432,10 @@ export class BoardAnimator {
 
   _updateBackgroundSizing() {
     if (!this.backgroundLayer) return;
-    const cols = this.boardLayout.dimensions.cols;
+    const cols = this.boardLayout?.dimensions?.cols ?? 0;
+    if (!cols) {
+      return;
+    }
     const { cellSize } = this;
     this.cellHighlights.forEach((rect, index) => {
       const row = Math.floor(index / cols);
@@ -1333,11 +1448,13 @@ export class BoardAnimator {
   }
 
   _indexToPosition(index) {
-    if (!this.boardLayout) {
+    const dimensions = this.boardLayout?.dimensions;
+    const cols = dimensions?.cols ?? 0;
+    if (!cols) {
       return { x: 0, y: 0 };
     }
-    const col = index % this.boardLayout.dimensions.cols;
-    const row = Math.floor(index / this.boardLayout.dimensions.cols);
+    const col = index % cols;
+    const row = Math.floor(index / cols);
     return {
       x: col * this.cellSize + this.cellSize / 2,
       y: row * this.cellSize + this.cellSize / 2,

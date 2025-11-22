@@ -28,9 +28,8 @@ const createBoard = (layout, rng) => {
   for (let i = 0; i < board.length; i++) {
     const x = i % layout.dimensions.cols;
     const y = Math.floor(i / layout.dimensions.cols);
-    if (!layout.blockedCells.some(cell => cell.x === x && cell.y === y)) {
-      board[i] = createGem(pickRandomType(rng));
-    }
+    const isBlocked = layout.blockedCells.some(cell => cell.x === x && cell.y === y);
+    board[i] = isBlocked ? null : createGem(pickRandomType(rng));
   }
   return board;
 }
@@ -47,7 +46,25 @@ export const generateLevelConfigs = (count = 12) => {
 
   for (let index = 0; index < count; index += 1) {
     const id = index + 1;
-    const layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols: 8, rows: 9 });
+    let layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols: 8, rows: 9 });
+
+    if (id === 3) {
+      layout = new BoardLayout(
+        'L-Shape',
+        'L_SHAPE',
+        { cols: 5, rows: 5 },
+        [
+          { x: 3, y: 0 },
+          { x: 4, y: 0 },
+          { x: 3, y: 1 },
+          { x: 4, y: 1 },
+          { x: 4, y: 2 },
+          { x: 4, y: 3 },
+          { x: 4, y: 4 },
+        ],
+      );
+    }
+
     const rng = createSeededRng(id * 1337);
     const layerCount = id === 1 ? 1 : 2;
     const board = createBoard(layout, rng);
@@ -62,6 +79,7 @@ export const generateLevelConfigs = (count = 12) => {
       shuffleAllowance: Math.max(1, 4 - Math.floor(id / 5)),
       board,
       tiles,
+      boardLayout: layout,
       objectives: [
         {
           id: `clear-${id}`,

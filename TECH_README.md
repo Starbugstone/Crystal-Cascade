@@ -36,6 +36,7 @@ Additional project-wide utilities:
 ### User Experience Consistency
 - Reuse the shared timing tokens in `BoardAnimator` for tweens and audio cues so cascades feel synchronized across devices; no custom magic numbers inside feature branches.
 - Respect the accessibility toggles from `settingsStore` in any new UI: defaults must be readable at 12px minimum and new audio cues must honor global mute.
+- Level start sequences must invoke the `BoardAnimator.playIntroCascade()` waterfall effect and keep input locked until it resolves so every session opens with the same arcade punch.
 
 ### Performance Requirements
 - Maintain 60 FPS on mid-tier mobile by keeping per-frame allocations inside Phaser scenes near zero; cache tweens, textures, and particle emitters instead of instantiating per swap.
@@ -208,6 +209,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 
 - `game/phaser/BoardAnimator.js`
   - Maintains gem sprites, cell highlights, swap animations, combo celebrations, bonus-trigger particle effects, and dispatches contextual audio cues through the injected audio manager.
+  - Exposes `playIntroCascade()` which animates columns dropping in staggered waves at level start; reuse its default timings for any new intro FX to preserve 60 FPS pacing.
 
 - `game/phaser/ParticleFactory.js`
   - Emits burst, explosion, and cross-beam particle presets used for cascades and special gem detonations.

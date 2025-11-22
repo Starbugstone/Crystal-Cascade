@@ -41,6 +41,7 @@
     "@vitejs/plugin-vue": "^6.0.1",
     "happy-dom": "^20.0.10",
     "jest-canvas-mock": "^2.5.2",
+    "phaser3spectorjs": "^0.0.8",
     "vite": "^7.1.12",
     "vitest": "^4.0.10"
   }

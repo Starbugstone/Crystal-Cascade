@@ -3,9 +3,9 @@
     <button
       v-for="item in quickAccess"
       :key="item.id"
-      class="powerup-button"
-      :disabled="!item.quantity"
-      @click="inventoryStore.usePowerUp(item.id)"
+      :class="['powerup-button', { 'powerup-button--glow': glowingId === item.id, 'powerup-button--disabled': item.disabled }]"
+      :disabled="!item.quantity || item.disabled"
+      @click="handleUse(item.id)"
     >
       <span class="powerup-name">{{ item.label }}</span>
       <span class="powerup-qty">{{ item.quantity }}</span>
@@ -17,12 +17,38 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useInventoryStore } from '../stores/inventoryStore';
 
 const inventoryStore = useInventoryStore();
+const glowingId = ref(null);
+const glowTimer = ref(null);
 
 const quickAccess = computed(() => inventoryStore.quickAccessSlots);
+
+const triggerGlow = (id) => {
+  glowingId.value = id;
+  if (glowTimer.value) {
+    clearTimeout(glowTimer.value);
+  }
+  glowTimer.value = setTimeout(() => {
+    glowingId.value = null;
+    glowTimer.value = null;
+  }, 500);
+};
+
+const handleUse = (id) => {
+  const executed = inventoryStore.usePowerUp(id);
+  if (executed && id === 'swap-extra') {
+    triggerGlow(id);
+  }
+};
+
+onBeforeUnmount(() => {
+  if (glowTimer.value) {
+    clearTimeout(glowTimer.value);
+  }
+});
 </script>
 
 <style scoped>
@@ -47,6 +73,7 @@ const quickAccess = computed(() => inventoryStore.quickAccessSlots);
   justify-content: space-between;
   gap: 0.5rem;
   transition: transform 150ms ease, background 150ms ease;
+  position: relative;
 }
 
 .powerup-button:hover:not(:disabled),
@@ -58,6 +85,16 @@ const quickAccess = computed(() => inventoryStore.quickAccessSlots);
 .powerup-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.powerup-button--disabled {
+  border-style: dashed;
+}
+
+.powerup-button--glow {
+  box-shadow: 0 0 0.8rem 0.15rem rgba(96, 165, 250, 0.8), 0 0 18px rgba(59, 130, 246, 0.45);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(236, 72, 153, 0.7));
+  color: #fff;
 }
 
 .inventory-button {
