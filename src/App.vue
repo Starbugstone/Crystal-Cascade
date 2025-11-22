@@ -48,7 +48,8 @@
       v-if="gameStore.levelCleared"
       :score="gameStore.score"
       :moves="gameStore.moves" 
-      :max-combo="gameStore.cascadeMultiplier"
+      :max-combo="gameStore.maxCascade"
+      :score-target="scoreTarget"
       :has-next-level="hasNextLevel"
       @menu="handleVictoryMenu"
       @replay="handleVictoryReplay"
@@ -162,6 +163,11 @@ const hasNextLevel = computed(() => {
   if (!gameStore.currentLevelId) return false;
   const nextId = gameStore.currentLevelId + 1;
   return gameStore.availableLevels.some(l => l.id === nextId);
+});
+
+const scoreTarget = computed(() => {
+  const objective = gameStore.objectives.find((entry) => entry.type === 'score');
+  return objective?.target ?? 0;
 });
 
 const handleVictoryMenu = () => {

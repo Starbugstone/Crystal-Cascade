@@ -4,8 +4,17 @@
       <div class="victory-header">
         <h2>Level Cleared!</h2>
         <div class="stars-container">
-          <span class="star" v-for="i in 3" :key="i">⭐</span>
+          <span
+            class="star"
+            v-for="i in 3"
+            :key="i"
+            :class="{ earned: i <= earnedStars }"
+            aria-hidden="true"
+          >
+            ★
+          </span>
         </div>
+        <p class="star-rules">1★ clear · 2★ hit target · 3★ big combo or crush the target</p>
       </div>
       
       <div class="victory-body">
@@ -25,6 +34,10 @@
              <span class="stat-label">Best Combo</span>
              <span class="stat-value">x{{ maxCombo }}</span>
            </div>
+           <div class="stat-item" v-if="scoreTarget">
+             <span class="stat-label">Score Target</span>
+             <span class="stat-value">{{ formattedScoreTarget }}</span>
+           </div>
         </div>
       </div>
 
@@ -36,7 +49,7 @@
           Replay Level
         </button>
         <button class="action-button primary next-level" @click="$emit('next')" v-if="hasNextLevel">
-          Next Level ➔
+          Next Level →
         </button>
       </div>
     </div>
@@ -59,6 +72,10 @@ const props = defineProps({
     type: Number,
     default: 1,
   },
+  scoreTarget: {
+    type: Number,
+    default: 0,
+  },
   hasNextLevel: {
     type: Boolean,
     default: false,
@@ -68,6 +85,7 @@ const props = defineProps({
 defineEmits(['menu', 'replay', 'next']);
 
 const formattedScore = computed(() => props.score.toLocaleString());
+const formattedScoreTarget = computed(() => props.scoreTarget ? props.scoreTarget.toLocaleString() : '—');
 
 const messages = [
   "Spectacular!",
@@ -80,6 +98,22 @@ const messages = [
 
 const encouragementMessage = computed(() => {
   return messages[Math.floor(Math.random() * messages.length)];
+});
+
+const earnedStars = computed(() => {
+  if (props.score <= 0) {
+    return 0;
+  }
+
+  const targetMet = props.scoreTarget > 0 && props.score >= props.scoreTarget;
+  const targetCrushed = props.scoreTarget > 0 && props.score >= props.scoreTarget * 1.35;
+  const comboAchieved = props.maxCombo >= 4;
+
+  let stars = 1; // cleared the level
+  if (targetMet) stars += 1;
+  if (comboAchieved || targetCrushed) stars += 1;
+
+  return Math.min(3, stars);
 });
 </script>
 
@@ -123,19 +157,32 @@ const encouragementMessage = computed(() => {
 
 .stars-container {
   font-size: 2.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   display: flex;
   justify-content: center;
   gap: 0.5rem;
 }
 
 .star {
+  color: #1f2937;
+  text-shadow: 0 0 0 rgba(0, 0, 0, 0);
   animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards;
+}
+
+.star.earned {
+  color: #fbbf24;
+  text-shadow: 0 6px 18px rgba(251, 191, 36, 0.35);
 }
 
 .star:nth-child(1) { animation-delay: 0.2s; }
 .star:nth-child(2) { animation-delay: 0.3s; }
 .star:nth-child(3) { animation-delay: 0.4s; }
+
+.star-rules {
+  margin: 0.25rem 0 1.25rem;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
 
 .encouragement {
   font-size: 1.25rem;
@@ -171,7 +218,7 @@ const encouragementMessage = computed(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }

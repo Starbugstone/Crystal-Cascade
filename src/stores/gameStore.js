@@ -31,6 +31,7 @@ export const useGameStore = defineStore('game', {
     boardRows: 8,
     cellSize: 72,
     score: 0,
+    maxCascade: 1,
     cascadeMultiplier: 1,
     objectives: [],
     boardVersion: 0,
@@ -201,6 +202,8 @@ export const useGameStore = defineStore('game', {
           rows,
         });
 
+        this._applyScoring(resolution.steps);
+
         this.pendingBoardState = resolution.board;
         window.__currentBoard = this.pendingBoardState;
 
@@ -309,6 +312,7 @@ export const useGameStore = defineStore('game', {
       this.reshufflesUsed = 0;
       this.moves = 0;
       this.score = 0;
+      this.maxCascade = 1;
       this.cascadeMultiplier = 1;
       this.animationInProgress = true;
       this.pendingBoardState = null;
@@ -512,6 +516,7 @@ export const useGameStore = defineStore('game', {
             this.refreshBoardVisuals(true);
           }
           window.__currentBoard = this.board;
+          this.cascadeMultiplier = 1;
           this.moves += 1;
           return true;
         }
@@ -526,6 +531,7 @@ export const useGameStore = defineStore('game', {
           bonusIndices: evaluation.bonusIndices,
         });
         const layersCleared = resolution.layersCleared ?? 0;
+        this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
         window.__currentBoard = this.pendingBoardState;
@@ -543,6 +549,7 @@ export const useGameStore = defineStore('game', {
           if (this.remainingLayers === 0 && this.sessionActive) {
             this.completeLevel();
           }
+          this.moves += 1;
           return true;
         }
 
@@ -618,6 +625,7 @@ export const useGameStore = defineStore('game', {
       this.tiles = [];
       this.objectives = [];
       this.score = 0;
+      this.maxCascade = 1;
       this.cascadeMultiplier = 1;
       this.shuffleAllowance = 3;
       this.reshufflesUsed = 0;
@@ -684,6 +692,35 @@ export const useGameStore = defineStore('game', {
         const newScoreProgress = (scoreObjective.progress ?? 0) + scoreDelta;
         scoreObjective.progress = Math.min(scoreObjective.target, newScoreProgress);
       }
+    },
+    _applyScoring(steps) {
+      if (!Array.isArray(steps) || !steps.length) {
+        this.cascadeMultiplier = 1;
+        return 0;
+      }
+
+      let total = 0;
+      let deepestCascade = 1;
+
+      steps.forEach((step, index) => {
+        const clearedCount = Array.isArray(step?.cleared) ? step.cleared.length : 0;
+        if (!clearedCount) {
+          return;
+        }
+        const cascadeBonus = Math.max(1, index + 1);
+        total += clearedCount * 100 * cascadeBonus;
+        deepestCascade = Math.max(deepestCascade, cascadeBonus);
+      });
+
+      this.cascadeMultiplier = deepestCascade;
+      this.maxCascade = Math.max(this.maxCascade ?? 1, deepestCascade);
+
+      if (total > 0) {
+        this.score += total;
+        this.updateObjectives({ scoreDelta: total });
+      }
+
+      return total;
     },
     shuffleBoard() {
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
@@ -780,6 +817,7 @@ export const useGameStore = defineStore('game', {
           bonusIndices,
         });
         const layersCleared = resolution.layersCleared ?? 0;
+        this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
         window.__currentBoard = this.pendingBoardState;
