@@ -5,7 +5,7 @@ const DEFAULT_SLOTS = [
   { id: 'swap-extra', label: 'Swap Bonus', quantity: 10 },
   { id: 'hammer', label: 'Hammer', quantity: 0, disabled: true },
   { id: 'color-wand', label: 'Color Wand', quantity: 2 },
-  { id: 'shuffle', label: 'Shuffle', quantity: 1 },
+  { id: 'shuffle', label: 'Shuffle', quantity: 20 },
   { id: 'tile-breaker', label: 'Tile Breaker', quantity: 1 },
 ];
 

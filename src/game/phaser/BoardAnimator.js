@@ -398,6 +398,82 @@ export class BoardAnimator {
     this._swapIndexMapping(aIndex, bIndex);
   }
 
+  async animateShuffle(nextBoard) {
+    if (!Array.isArray(nextBoard) || !nextBoard.length) return;
+
+    const targetPositions = new Map();
+    nextBoard.forEach((gem, index) => {
+      if (gem?.id != null) {
+        targetPositions.set(gem.id, { index, pos: this._indexToPosition(index) });
+      }
+    });
+
+    const currentScales = new Map();
+    this.gemSprites.forEach((sprite, gemId) => {
+      currentScales.set(gemId, { x: sprite.scaleX, y: sprite.scaleY });
+    });
+
+    const fadeOuts = [];
+    this.gemSprites.forEach((sprite, gemId) => {
+      const baseScale = currentScales.get(gemId) || { x: 1, y: 1 };
+      fadeOuts.push(
+        new Promise((resolve) => {
+          this.scene.tweens.add({
+            targets: sprite,
+            scaleX: baseScale.x * 0.55,
+            scaleY: baseScale.y * 0.55,
+            alpha: 0,
+            duration: 160,
+            ease: 'Cubic.easeIn',
+            onComplete: resolve,
+          });
+        }),
+      );
+    });
+
+    if (fadeOuts.length) {
+      await Promise.all(fadeOuts);
+    }
+
+    // Reassign positions based on new board ordering
+    this.indexToGemId = new Array(nextBoard.length).fill(null);
+
+    const fadeIns = [];
+    this.gemSprites.forEach((sprite, gemId) => {
+      const target = targetPositions.get(gemId);
+      if (!target) {
+        sprite.destroy();
+        this.gemSprites.delete(gemId);
+        return;
+      }
+      const baseScale = currentScales.get(gemId) || { x: 1, y: 1 };
+      sprite.setPosition(target.pos.x, target.pos.y);
+      sprite.setScale(baseScale.x * 0.55, baseScale.y * 0.55);
+      sprite.setAlpha(0);
+      this.indexToGemId[target.index] = gemId;
+
+      fadeIns.push(
+        new Promise((resolve) => {
+          this.scene.tweens.add({
+            targets: sprite,
+            scaleX: baseScale.x,
+            scaleY: baseScale.y,
+            alpha: 1,
+            duration: 220,
+            ease: 'Back.easeOut',
+            onComplete: resolve,
+          });
+        }),
+      );
+    });
+
+    if (fadeIns.length) {
+      await Promise.all(fadeIns);
+    }
+
+    this._refreshHintEffects();
+  }
+
   async animateInvalidSwap({ aIndex, bIndex }) {
     if (aIndex == null || bIndex == null) return;
     const gemA = this.indexToGemId[aIndex];

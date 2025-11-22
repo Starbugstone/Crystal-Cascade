@@ -4,6 +4,7 @@ import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { BonusActivator } from '../game/engine/BonusActivator';
 import { HintEngine } from '../game/engine/HintEngine';
+import { detectBonusFromMatches } from '../game/engine/MatchPatterns';
 import { BoardAnimator } from '../game/phaser/BoardAnimator';
 import { BoardInput } from '../game/phaser/BoardInput';
 
@@ -608,14 +609,38 @@ export const useGameStore = defineStore('game', {
     },
     shuffleBoard() {
       if (!this.sessionActive || this.animationInProgress) {
-        return;
+        return false;
       }
-      // Simple shuffle algorithm
-      for (let i = this.board.length - 1; i > 0; i--) {
+      this.cancelHint(true);
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const animator = this.renderer?.animator;
+
+      const nextBoard = [...this.board];
+      for (let i = nextBoard.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [this.board[i], this.board[j]] = [this.board[j], this.board[i]];
+        [nextBoard[i], nextBoard[j]] = [nextBoard[j], nextBoard[i]];
       }
-      this.refreshBoardVisuals(true);
+
+      this.animationInProgress = true;
+      this.pendingBoardState = nextBoard;
+      window.__currentBoard = this.pendingBoardState;
+
+      const runAnimation = animator?.animateShuffle
+        ? animator
+            .animateShuffle(nextBoard, { cols, rows })
+            .catch((error) => console.error('Shuffle animation failed:', error))
+        : Promise.resolve();
+
+      return runAnimation
+        .then(() => this._resolveBoardAfterShuffle(nextBoard, { cols, rows, animator }))
+        .finally(() => {
+          this.pendingBoardState = null;
+          this.animationInProgress = false;
+          if (this.sessionActive) {
+            this.scheduleHint();
+          }
+        });
     },
     async hammerTile(index) {
       if (!this.sessionActive || this.animationInProgress) {
@@ -646,6 +671,67 @@ export const useGameStore = defineStore('game', {
       this.boardVersion += 1;
       this.renderer.animator.updateTiles(this.tiles);
       window.__currentBoard = this.board;
-    }
+    },
+    async _resolveBoardAfterShuffle(nextBoard, { cols, rows, animator }) {
+      try {
+        const matches = matchEngine.findMatches(nextBoard, cols, rows);
+
+        let bonusesCreated = [];
+        let bonusIndices = [];
+
+        if (matches.length) {
+          const bonuses = detectBonusFromMatches(matches, {});
+          bonusesCreated = [];
+          bonusIndices = [];
+          bonuses.forEach((bonus) => {
+            if (typeof bonus.index === 'number') {
+              nextBoard[bonus.index] = { ...nextBoard[bonus.index], type: bonus.type };
+              bonusesCreated.push(bonus.type);
+              bonusIndices.push(bonus.index);
+            }
+          });
+        }
+
+        const resolution = tileManager.getResolution({
+          board: nextBoard,
+          tiles: this.tiles,
+          matches,
+          cols,
+          rows,
+          bonusesCreated,
+          bonusIndices,
+        });
+        const layersCleared = resolution.layersCleared ?? 0;
+
+        this.pendingBoardState = resolution.board;
+        window.__currentBoard = this.pendingBoardState;
+
+        if (animator && resolution.steps.length) {
+          await animator.playSteps(resolution.steps);
+        }
+
+        this.board = resolution.board;
+        this.pendingBoardState = null;
+        this.boardVersion += 1;
+        if (layersCleared > 0) {
+          this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
+          this.updateObjectives({ layersCleared });
+        }
+        if (animator) {
+          animator.updateTiles(this.tiles);
+        } else {
+          this.refreshBoardVisuals(true);
+        }
+        window.__currentBoard = this.board;
+
+        if (this.remainingLayers === 0 && this.sessionActive) {
+          this.completeLevel();
+        }
+        return true;
+      } catch (error) {
+        console.error('Error resolving board after shuffle:', error);
+        return false;
+      }
+    },
   },
 });
