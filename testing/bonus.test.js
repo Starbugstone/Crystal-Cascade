@@ -3,6 +3,7 @@ import { useGameStore } from '../src/stores/gameStore';
 import { useInventoryStore } from '../src/stores/inventoryStore';
 import { createPinia, setActivePinia } from 'pinia';
 import { createGem } from '../src/game/engine/GemFactory';
+import { BonusActivator } from '../src/game/engine/BonusActivator';
 
 describe('GameStore - Bonus Activation', () => {
   let gameStore;
@@ -66,6 +67,22 @@ describe('GameStore - Bonus Activation', () => {
   });
 });
 
+describe('BonusActivator previewSwap', () => {
+  it('returns affected indices for bomb without mutating board', () => {
+    const activator = new BonusActivator();
+    const board = [
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('topaz'), { ...createGem('bomb'), type: 'bomb' }, createGem('moonstone'),
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+    ];
+
+    const preview = activator.previewSwap(board, 3, 3, { aIndex: 4, bIndex: 5 });
+    expect(preview.length).toBeGreaterThan(0);
+    expect(preview).toContain(5);
+    expect(board[4].type).toBe('bomb');
+  });
+});
+
 describe('Swap Bonus Power-up', () => {
   let gameStore;
   let inventoryStore;
@@ -113,5 +130,44 @@ describe('Swap Bonus Power-up', () => {
 
   afterEach(() => {
     gameStore.cancelHint(true);
+  });
+});
+
+describe('GameStore bonus preview highlighting', () => {
+  let gameStore;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    gameStore = useGameStore();
+    gameStore.boardCols = 3;
+    gameStore.boardRows = 3;
+    gameStore.board = [
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('topaz'), { ...createGem('bomb'), type: 'bomb' }, createGem('moonstone'),
+      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+    ];
+    gameStore.tiles = Array.from({ length: 9 }, () => ({ state: 'PLAYABLE', health: 1 }));
+    gameStore.sessionActive = true;
+    gameStore.renderer = {
+      animator: {
+        showBonusPreview: vi.fn(),
+        clearBonusPreview: vi.fn(),
+        playSteps: vi.fn(() => Promise.resolve()),
+        updateTiles: vi.fn(),
+      },
+    };
+  });
+
+  it('computes preview indices when dragging a bomb', () => {
+    gameStore.previewBonusSwap(4, 5);
+    expect(gameStore.bonusPreview.indices.length).toBeGreaterThan(0);
+    expect(gameStore.renderer.animator.showBonusPreview).toHaveBeenCalledWith(gameStore.bonusPreview.indices);
+  });
+
+  it('clears preview state when requested', () => {
+    gameStore.previewBonusSwap(4, 5);
+    gameStore.clearBonusPreview(true);
+    expect(gameStore.bonusPreview.indices).toHaveLength(0);
+    expect(gameStore.renderer.animator.clearBonusPreview).toHaveBeenCalled();
   });
 });

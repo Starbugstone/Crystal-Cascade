@@ -67,17 +67,22 @@ export class BoardInput {
   handlePointerMove(pointer) {
     if (
       this.startCell == null ||
-      !this.gameStore.sessionActive
+      !this.gameStore.sessionActive ||
+      this.gameStore.animationInProgress
     ) {
+      this.gameStore.clearBonusPreview();
       return;
     }
 
     const currentCell = this.getCellIndexFromPointer(pointer);
     if (currentCell != null && currentCell !== this.startCell) {
+      this.gameStore.previewBonusSwap(this.startCell, currentCell);
       if (!this.isDragging && typeof this.gameStore.notifyPlayerActivity === 'function') {
         this.gameStore.notifyPlayerActivity();
       }
       this.isDragging = true;
+    } else if (this.isDragging) {
+      this.gameStore.clearBonusPreview();
     }
   }
 
@@ -106,6 +111,7 @@ export class BoardInput {
     if (this.isDragging && endCell !== this.startCell) {
       this.clearHighlights();
       this.selectedCell = null;
+      this.gameStore.clearBonusPreview();
       await this.gameStore.resolveSwap(this.startCell, endCell);
       this.startCell = null;
       this.isDragging = false;
@@ -121,6 +127,7 @@ export class BoardInput {
           const firstCell = this.selectedCell;
           this.clearHighlights();
           this.selectedCell = null;
+          this.gameStore.clearBonusPreview();
           await this.gameStore.resolveSwap(firstCell, endCell);
         }
       } else {
@@ -132,6 +139,7 @@ export class BoardInput {
 
     this.startCell = null;
     this.isDragging = false;
+    this.gameStore.clearBonusPreview();
   }
 
   getCellIndexFromPointer(pointer) {

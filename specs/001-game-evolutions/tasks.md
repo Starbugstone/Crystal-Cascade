@@ -57,6 +57,12 @@ This task list is generated from the feature specification and technical plan. T
 - [x] T027 [US5] Gate player input/hints until the intro cascade completes via `src/stores/gameStore.js`.
 - [x] T028 [US5] Document the arcade cascade behavior in `TECH_README.md`.
 
+## Phase 9: Bonus Drag Highlight (P1)
+
+- [x] T029 Implement non-destructive `previewSwap` helper in `src/game/engine/BonusActivator.js`.
+- [x] T030 Render glowing blue preview rectangles through `src/game/phaser/BoardAnimator.js`.
+- [x] T031 Drive preview state via `src/stores/gameStore.js`, `BoardInput.js`, and cover with `testing/bonus.test.js`.
+
 ## Dependencies
 
 - User Story 1 (Evolving Gameplay) is a prerequisite for User Story 2 (Bonuses) as bonuses may affect evolved gems.

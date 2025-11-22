@@ -16,6 +16,31 @@ export class BonusActivator {
     return this.BONUS_TYPES.has(type);
   }
 
+  previewSwap(board, cols, rows, swap) {
+    if (!swap || swap.aIndex == null || swap.bIndex == null) {
+      return [];
+    }
+
+    if (!Array.isArray(board) || !board.length) {
+      return [];
+    }
+
+    const clonedBoard = board.map((cell) => (cell ? { ...cell } : null));
+
+    const maxIndex = clonedBoard.length - 1;
+    const { aIndex, bIndex } = swap;
+    if (
+      aIndex >= 0 &&
+      bIndex >= 0 &&
+      aIndex <= maxIndex &&
+      bIndex <= maxIndex
+    ) {
+      [clonedBoard[aIndex], clonedBoard[bIndex]] = [clonedBoard[bIndex], clonedBoard[aIndex]];
+    }
+
+    return this.activate(clonedBoard, cols, rows, swap) ?? [];
+  }
+
   activate(board, cols, rows, swap) {
     if (!swap) {
       return [];

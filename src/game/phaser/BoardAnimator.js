@@ -48,6 +48,9 @@ export class BoardAnimator {
     this.hintTween = null;
     this.hintGemIds = new Set();
     this.introCascadeInProgress = null;
+    this.bonusPreviewRects = [];
+    this.bonusPreviewTween = null;
+    this.bonusPreviewIndices = [];
 
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
@@ -104,6 +107,7 @@ export class BoardAnimator {
     this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
+    this.clearBonusPreview();
     this.introCascadeInProgress = null;
   }
 
@@ -141,6 +145,7 @@ export class BoardAnimator {
 
     this._renderQueuedSwapHighlight();
     this._refreshHintEffects();
+    this._repositionBonusPreviewRects();
   }
 
   reset(
@@ -182,6 +187,7 @@ export class BoardAnimator {
     this._applyTileLayers();
     this.clearQueuedSwapHighlight();
     this._refreshHintEffects();
+    this.clearBonusPreview();
   }
 
   playIntroCascade({
@@ -680,6 +686,129 @@ export class BoardAnimator {
     this.hintIndices = null;
     this._clearHintGemTint();
   }
+
+  showBonusPreview(indices) {
+    if (!Array.isArray(indices) || !indices.length || !this.cellSize) {
+      this.clearBonusPreview();
+      return;
+    }
+
+    const unique = [...new Set(indices)].filter((index) => typeof index === 'number' && index >= 0);
+    if (!unique.length) {
+      this.clearBonusPreview();
+      return;
+    }
+    this.bonusPreviewIndices = unique;
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer) {
+      return;
+    }
+
+    if (!Array.isArray(this.bonusPreviewRects)) {
+      this.bonusPreviewRects = [];
+    }
+
+    const targetSize = this.cellSize * 0.94;
+    const strokeWidth = Math.max(2, Math.round(this.cellSize * 0.08));
+
+    unique.forEach((index, slot) => {
+      const { x, y } = this._indexToPosition(index);
+      let rect = this.bonusPreviewRects[slot];
+
+      if (!rect || !rect.scene) {
+        rect?.destroy?.();
+        rect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0x38bdf8, 0.28);
+        rect.setOrigin(0.5);
+        rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+        rect.setDepth(9700);
+        rect.setBlendMode(Phaser.BlendModes.ADD);
+        if (typeof layer.add === 'function') {
+          layer.add(rect);
+        }
+        this.bonusPreviewRects[slot] = rect;
+      } else {
+        rect.setPosition(x, y);
+        rect.setSize(targetSize, targetSize);
+        rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+        rect.setFillStyle(0x38bdf8, 0.28);
+        rect.setVisible(true);
+      }
+    });
+
+    if (this.bonusPreviewRects.length > unique.length) {
+      for (let i = unique.length; i < this.bonusPreviewRects.length; i += 1) {
+        this.bonusPreviewRects[i]?.destroy?.();
+      }
+      this.bonusPreviewRects.length = unique.length;
+    }
+
+    this._ensureBonusPreviewTween();
+  }
+
+  clearBonusPreview() {
+    if (this.scene?.tweens && this.bonusPreviewTween) {
+      this.scene.tweens.remove(this.bonusPreviewTween);
+    }
+    this.bonusPreviewTween = null;
+
+    if (Array.isArray(this.bonusPreviewRects) && this.bonusPreviewRects.length) {
+      this.bonusPreviewRects.forEach((rect) => rect?.destroy?.());
+    }
+    this.bonusPreviewRects = [];
+    this.bonusPreviewIndices = [];
+  }
+
+  _ensureBonusPreviewTween() {
+    if (!this.scene?.tweens || !this.bonusPreviewRects?.length) {
+      if (this.bonusPreviewTween) {
+        this.scene?.tweens?.remove(this.bonusPreviewTween);
+        this.bonusPreviewTween = null;
+      }
+      return;
+    }
+
+    if (this.bonusPreviewTween) {
+      return;
+    }
+
+    this.bonusPreviewTween = this.scene.tweens.add({
+      targets: this.bonusPreviewRects,
+      alpha: { from: 0.3, to: 0.75 },
+      scale: { from: 0.95, to: 1.03 },
+      duration: 520,
+      ease: 'Sine.easeInOut',
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  _repositionBonusPreviewRects() {
+    if (!Array.isArray(this.bonusPreviewRects) || !this.bonusPreviewRects.length || !this.cellSize) {
+      return;
+    }
+
+    const targetSize = this.cellSize * 0.94;
+    const strokeWidth = Math.max(2, Math.round(this.cellSize * 0.08));
+
+    this.bonusPreviewRects.forEach((rect, slot) => {
+      if (!rect || !rect.scene) {
+        return;
+      }
+      const index = this.bonusPreviewIndices?.[slot];
+      if (typeof index !== 'number') {
+        const fallbackIndex = slot;
+        const { x: fx, y: fy } = this._indexToPosition(fallbackIndex);
+        rect.setPosition(fx, fy);
+      } else {
+        const { x, y } = this._indexToPosition(index);
+        rect.setPosition(x, y);
+      }
+      rect.setSize(targetSize, targetSize);
+      rect.setStrokeStyle(strokeWidth, 0x0ea5e9, 0.95);
+    });
+  }
+
 
   _refreshHintEffects() {
     this._renderHintHighlight();

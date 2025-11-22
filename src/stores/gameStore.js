@@ -42,6 +42,11 @@ export const useGameStore = defineStore('game', {
     pendingBoardState: null,
     queuedSwap: null,
     swapBonusArmed: false,
+    bonusPreview: {
+      indices: [],
+      swap: null,
+      key: null,
+    },
     totalLayers: 0,
     remainingLayers: 0,
     levelCleared: false,
@@ -97,11 +102,71 @@ export const useGameStore = defineStore('game', {
       this.swapBonusArmed = true;
       return true;
     },
+    previewBonusSwap(aIndex, bIndex) {
+      if (!this.sessionActive || this.animationInProgress) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+
+      if (
+        aIndex == null ||
+        bIndex == null ||
+        !Number.isInteger(aIndex) ||
+        !Number.isInteger(bIndex) ||
+        !matchEngine.areAdjacent(aIndex, bIndex, cols)
+      ) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const board = this.activeBoard;
+      if (!Array.isArray(board) || !board.length) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const gemA = board[aIndex];
+      const gemB = board[bIndex];
+
+      if (!bonusActivator.isBonus(gemA?.type) && !bonusActivator.isBonus(gemB?.type)) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const indices = bonusActivator.previewSwap(board, cols, rows, { aIndex, bIndex }) ?? [];
+      if (!indices.length) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const cacheKey = `${aIndex}-${bIndex}-${indices.join(',')}`;
+      if (this.bonusPreview?.key === cacheKey) {
+        return;
+      }
+
+      this.bonusPreview = {
+        indices,
+        swap: { aIndex, bIndex },
+        key: cacheKey,
+      };
+      this.renderer?.animator?.showBonusPreview?.(indices);
+    },
+    clearBonusPreview(force = false) {
+      if (!force && !this.bonusPreview?.indices?.length && !this.bonusPreview?.swap) {
+        return;
+      }
+      this.bonusPreview = { indices: [], swap: null, key: null };
+      this.renderer?.animator?.clearBonusPreview?.();
+    },
     async activateOneTimeBonus(bonusName) {
       if (!this.sessionActive || this.animationInProgress) {
         console.warn('Cannot activate bonus: session not active or animation in progress.');
         return false;
       }
+      this.clearBonusPreview(true);
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
@@ -229,6 +294,7 @@ export const useGameStore = defineStore('game', {
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
       this.board = config.board;
+      this.clearBonusPreview(true);
       window.__currentBoard = this.board;
       this.tiles = config.tiles;
       this.currentBoardLayout = config.boardLayout || this.currentBoardLayout;
@@ -244,6 +310,7 @@ export const useGameStore = defineStore('game', {
       this.pendingBoardState = null;
       this.queuedSwap = null;
       this.swapBonusArmed = false;
+      this.clearBonusPreview(true);
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.totalLayers = this.tiles.reduce(
         (sum, tile) => sum + (tile?.maxHealth ?? tile?.health ?? 0),
@@ -306,6 +373,7 @@ export const useGameStore = defineStore('game', {
       });
 
       this.renderer = { ...renderer, animator, input };
+      this.clearBonusPreview(true);
 
       if (this.board.length > 0) {
         this.refreshBoardVisuals(true);
@@ -376,6 +444,7 @@ export const useGameStore = defineStore('game', {
       }
 
       this.cancelHint(true);
+      this.clearBonusPreview(true);
 
       if (this.animationInProgress) {
         return this.queueSwap(aIndex, bIndex);
@@ -550,6 +619,7 @@ export const useGameStore = defineStore('game', {
       this.pendingBoardState = null;
       this.queuedSwap = null;
       this.swapBonusArmed = false;
+      this.clearBonusPreview(true);
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
