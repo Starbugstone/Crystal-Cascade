@@ -2,11 +2,11 @@ import { defineStore } from 'pinia';
 import { useGameStore } from './gameStore';
 
 const DEFAULT_SLOTS = [
-  { id: 'swap-extra', label: 'Swap Bonus', quantity: 10 },
-  { id: 'hammer', label: 'Hammer', quantity: 0, disabled: true },
-  { id: 'color-wand', label: 'Color Wand', quantity: 2 },
+  { id: 'clear-row', label: 'Clear Row', quantity: 20 },
+  { id: 'hammer', label: 'Hammer', quantity: 20 },
+  { id: 'color-wand', label: 'Color Wand', quantity: 20 },
   { id: 'shuffle', label: 'Shuffle', quantity: 20 },
-  { id: 'tile-breaker', label: 'Tile Breaker', quantity: 1 },
+  { id: 'tile-breaker', label: 'Tile Breaker', quantity: 20 },
 ];
 
 export const useInventoryStore = defineStore('inventory', {
@@ -15,7 +15,7 @@ export const useInventoryStore = defineStore('inventory', {
     inventoryOpen: false,
   }),
   actions: {
-    usePowerUp(id) {
+    async usePowerUp(id) {
       const slot = this.quickAccessSlots.find((entry) => entry.id === id);
       if (!slot || slot.quantity <= 0) {
         return false;
@@ -28,24 +28,33 @@ export const useInventoryStore = defineStore('inventory', {
 
       const gameStore = useGameStore();
       let powerUpExecuted = false;
+      let consumeImmediately = true;
 
-        try {
-          switch (id) {
-            case 'swap-extra':
-              powerUpExecuted = gameStore.armSwapBonus();
-              break;
-            case 'shuffle':
-              {
-                const result = gameStore.shuffleBoard();
-                if (result !== false) {
-                  powerUpExecuted = true;
-                }
-              }
-              break;
-            case 'hammer':
-              console.warn('Hammer power-up is disabled for now.');
-              powerUpExecuted = false;
-              break;
+      try {
+        switch (id) {
+          case 'clear-row':
+            gameStore.setBonusMode(null); // Ensure other interactive bonuses toggle off
+            powerUpExecuted = await gameStore.activateOneTimeBonus('clear_row');
+            break;
+          case 'shuffle':
+            {
+              gameStore.setBonusMode(null); // Clear other bonus selections
+              const result = await gameStore.shuffleBoard();
+              powerUpExecuted = result !== false;
+            }
+            break;
+          case 'hammer':
+          case 'color-wand':
+          case 'tile-breaker':
+            // Map inventory IDs to internal bonus names
+            const bonusModeMap = {
+              'hammer': 'hammer',
+              'color-wand': 'color_wand',
+              'tile-breaker': 'tile_breaker'
+            };
+            powerUpExecuted = gameStore.setBonusMode(bonusModeMap[id]);
+            consumeImmediately = false; // Will be consumed upon successful board interaction
+            break;
           default:
             console.warn(`Power-up ${id} not implemented.`);
         }
@@ -54,11 +63,30 @@ export const useInventoryStore = defineStore('inventory', {
         throw error;
       }
 
-      if (powerUpExecuted) {
+      if (powerUpExecuted && consumeImmediately) {
         slot.quantity -= 1;
         return true;
       }
 
+      return powerUpExecuted;
+    },
+    consumeItem(id) {
+      // Map internal bonus names back to inventory IDs if needed, or assume they match for now
+      // The gameStore passes the internal bonus mode name (e.g., 'color_wand')
+      // We need to map 'color_wand' -> 'color-wand', 'tile_breaker' -> 'tile-breaker'
+      const modeToIdMap = {
+        'hammer': 'hammer',
+        'color_wand': 'color-wand',
+        'tile_breaker': 'tile-breaker'
+      };
+
+      const inventoryId = modeToIdMap[id] || id;
+      const slot = this.quickAccessSlots.find((entry) => entry.id === inventoryId);
+
+      if (slot && slot.quantity > 0) {
+        slot.quantity -= 1;
+        return true;
+      }
       return false;
     },
     openInventory() {
