@@ -74,6 +74,7 @@ export const useGameStore = defineStore('game', {
     animationInProgress: false,
     pendingBoardState: null,
     queuedSwap: null,
+    queuedBonus: null,
     activeBonusMode: null,
     bonusPreview: {
       indices: [],
@@ -129,21 +130,56 @@ export const useGameStore = defineStore('game', {
       }, delay);
     },
     setBonusMode(mode) {
-      if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
+      // Allow clearing even if session is paused; activation still requires sessionActive checks elsewhere
+      if (mode === null) {
+        this.activeBonusMode = null;
+        this.queuedBonus = null;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.clearBonusPreview(true);
+        return true;
+      }
+
+      if (!this.sessionActive || this.levelCleared) {
         return false;
       }
+
       this.cancelHint(true);
+
+      // Toggle off if already selected
+      if (this.activeBonusMode === mode) {
+        this.activeBonusMode = null;
+        this.queuedBonus = null;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.clearBonusPreview(true);
+        return true;
+      }
+
+      // Switching modes clears any queued bonus target and previews
       this.activeBonusMode = mode;
+      this.queuedBonus = null;
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
+      this.clearBonusPreview(true);
       return true;
     },
     async resolveBonusClick(index) {
-      if (!this.sessionActive || !this.activeBonusMode || this.animationInProgress || this.levelCleared) {
+      if (!this.sessionActive || !this.activeBonusMode || this.levelCleared) {
         return false;
       }
 
       const bonusName = this.activeBonusMode;
-      this.activeBonusMode = null;
       this.cancelHint(true);
+
+      if (this.animationInProgress) {
+        // Queue the bonus activation to run once current animations finish
+        this.queuedBonus = { index, bonusName };
+        this.renderer?.animator?.showQueuedBonus?.(index);
+        this.activeBonusMode = null;
+        this.renderer?.animator?.clearBonusPreview?.();
+        return true;
+      }
+
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
+      this.activeBonusMode = null;
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
@@ -208,11 +244,12 @@ export const useGameStore = defineStore('game', {
         console.error('Error activating bonus:', error);
         return false;
       } finally {
-        this.pendingBoardState = null;
-        this.animationInProgress = false;
-        if (this.sessionActive) {
-          this.scheduleHint();
-        }
+      this.pendingBoardState = null;
+      this.animationInProgress = false;
+      if (this.sessionActive) {
+        this.scheduleHint();
+      }
+      this._processQueuedBonusSoon();
       }
     },
     previewBonusSwap(aIndex, bIndex) {
@@ -273,6 +310,31 @@ export const useGameStore = defineStore('game', {
       }
       this.bonusPreview = { indices: [], swap: null, key: null };
       this.renderer?.animator?.clearBonusPreview?.();
+    },
+    _processQueuedBonusSoon() {
+      if (!this.queuedBonus) {
+        return;
+      }
+      const queued = this.queuedBonus;
+      this.queuedBonus = null;
+
+      const tryActivate = () => {
+        if (!this.sessionActive || this.levelCleared) {
+          this.renderer?.animator?.clearQueuedBonusHighlight?.();
+          return;
+        }
+        if (this.animationInProgress) {
+          // Still busy; requeue and try again shortly
+          this.queuedBonus = queued;
+          setTimeout(() => this._processQueuedBonusSoon(), 60);
+          return;
+        }
+        this.activeBonusMode = queued.bonusName;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.resolveBonusClick(queued.index);
+      };
+
+      setTimeout(tryActivate, 0);
     },
     async activateOneTimeBonus(bonusName) {
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
@@ -682,21 +744,22 @@ export const useGameStore = defineStore('game', {
         console.error('Error in resolveSwap:', error);
         return false;
       } finally {
-        this.pendingBoardState = null;
-        this.animationInProgress = false;
-        if (this.sessionActive) {
-          this.scheduleHint();
-        }
-        const queued = this.queuedSwap;
-        if (queued) {
-          this.queuedSwap = null;
-          setTimeout(() => {
-            if (!this.sessionActive) {
-              return;
-            }
-            this.resolveSwap(queued.aIndex, queued.bIndex);
-          }, 0);
-        }
+      this.pendingBoardState = null;
+      this.animationInProgress = false;
+      if (this.sessionActive) {
+        this.scheduleHint();
+      }
+      const queued = this.queuedSwap;
+      if (queued) {
+        this.queuedSwap = null;
+        setTimeout(() => {
+          if (!this.sessionActive) {
+            return;
+          }
+          this.resolveSwap(queued.aIndex, queued.bIndex);
+        }, 0);
+      }
+      this._processQueuedBonusSoon();
       }
     },
     queueSwap(aIndex, bIndex) {
@@ -741,7 +804,9 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.queuedBonus = null;
       this.activeBonusMode = null;
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
       this.clearBonusPreview(true);
       this.totalLayers = 0;
       this.remainingLayers = 0;
@@ -864,6 +929,7 @@ export const useGameStore = defineStore('game', {
           if (this.sessionActive) {
             this.scheduleHint();
           }
+          this._processQueuedBonusSoon();
         });
     },
     async hammerTile(index) {
@@ -967,6 +1033,13 @@ export const useGameStore = defineStore('game', {
       } catch (error) {
         console.error('Error resolving board after shuffle:', error);
         return false;
+      } finally {
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        this._processQueuedBonusSoon();
       }
     },
   },

@@ -43,6 +43,8 @@ export class BoardAnimator {
     this.tiles = [];
     this.queuedSwapIndices = null;
     this.queuedSwapRects = [];
+    this.queuedBonusIndex = null;
+    this.queuedBonusRect = null;
     this.hintIndices = null;
     this.hintRects = [];
     this.hintTween = null;
@@ -107,6 +109,7 @@ export class BoardAnimator {
     this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
+    this.clearQueuedBonusHighlight();
     this.clearBonusPreview();
     this.introCascadeInProgress = null;
   }
@@ -144,6 +147,7 @@ export class BoardAnimator {
     }
 
     this._renderQueuedSwapHighlight();
+    this._renderQueuedBonusHighlight();
     this._refreshHintEffects();
     this._repositionBonusPreviewRects();
   }
@@ -604,6 +608,19 @@ export class BoardAnimator {
     this.queuedSwapIndices = null;
   }
 
+  showQueuedBonus(index) {
+    this.queuedBonusIndex = index;
+    this._renderQueuedBonusHighlight();
+  }
+
+  clearQueuedBonusHighlight() {
+    if (this.queuedBonusRect) {
+      this.queuedBonusRect.destroy();
+    }
+    this.queuedBonusRect = null;
+    this.queuedBonusIndex = null;
+  }
+
   _renderQueuedSwapHighlight() {
     if (!this.queuedSwapIndices || this.queuedSwapIndices.length !== 2 || !this.cellSize) {
       if (this.queuedSwapRects?.length) {
@@ -651,6 +668,38 @@ export class BoardAnimator {
         rect.setFillStyle(0xffffff, 0.08);
       }
     });
+  }
+
+  _renderQueuedBonusHighlight() {
+    if (this.queuedBonusIndex == null || !this.cellSize) {
+      this.clearQueuedBonusHighlight();
+      return;
+    }
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer) {
+      return;
+    }
+
+    const { x, y } = this._indexToPosition(this.queuedBonusIndex);
+    const strokeWidth = Math.max(3, Math.round(this.cellSize * 0.08));
+    const targetSize = this.cellSize * 0.94;
+
+    if (!this.queuedBonusRect || !this.queuedBonusRect.scene) {
+      this.queuedBonusRect?.destroy?.();
+      this.queuedBonusRect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0xf97316, 0.16);
+      this.queuedBonusRect.setOrigin(0.5);
+      this.queuedBonusRect.setStrokeStyle(strokeWidth, 0xf97316, 1);
+      this.queuedBonusRect.setDepth(9001);
+      if (typeof layer.add === 'function') {
+        layer.add(this.queuedBonusRect);
+      }
+    } else {
+      this.queuedBonusRect.setPosition(x, y);
+      this.queuedBonusRect.setSize(targetSize, targetSize);
+      this.queuedBonusRect.setStrokeStyle(strokeWidth, 0xf97316, 1);
+      this.queuedBonusRect.setFillStyle(0xf97316, 0.16);
+    }
   }
 
   showHintMove(indices) {

@@ -33,10 +33,12 @@ export const useInventoryStore = defineStore('inventory', {
       try {
         switch (id) {
           case 'clear-row':
+            gameStore.setBonusMode(null); // Ensure other interactive bonuses toggle off
             powerUpExecuted = await gameStore.activateOneTimeBonus('clear_row');
             break;
           case 'shuffle':
             {
+              gameStore.setBonusMode(null); // Clear other bonus selections
               const result = await gameStore.shuffleBoard();
               powerUpExecuted = result !== false;
             }
