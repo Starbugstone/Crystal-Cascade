@@ -176,14 +176,13 @@ onBeforeUnmount(() => {
 }
 
 .board-canvas--fullscreen {
-  flex: 0 1 auto;
-  width: auto;
-  height: min(100%, var(--viewport-height, 100vh));
-  max-height: min(100%, var(--viewport-height, 100vh));
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
   max-width: 100%;
-  aspect-ratio: var(--board-aspect, 1);
-  margin: 0 auto;
-  border-radius: clamp(0.75rem, 2vw, 1.5rem);
+  margin: 0;
+  border-radius: 0;
 }
 
 .board-canvas--fullscreen canvas {
@@ -201,8 +200,7 @@ onBeforeUnmount(() => {
   }
 
   .board-canvas--fullscreen {
-    max-height: min(100%, 100vh);
-    aspect-ratio: var(--board-aspect, 1);
+    max-height: 100%;
   }
 }
 

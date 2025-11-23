@@ -1,17 +1,28 @@
 <template>
-  <section class="powerup-bar">
+  <section class="powerup-bar" :class="{ 'powerup-bar--compact': compact }">
     <button
       v-for="item in quickAccess"
       :key="item.id"
-      :class="['powerup-button', { 'powerup-button--glow': glowingId === item.id, 'powerup-button--disabled': item.disabled }]"
+      :class="['powerup-button', { 
+        'powerup-button--glow': glowingId === item.id, 
+        'powerup-button--disabled': item.disabled,
+        'powerup-button--compact': compact
+      }]"
       :disabled="!item.quantity || item.disabled"
+      :title="item.label"
       @click="handleUse(item.id)"
     >
-      <span class="powerup-name">{{ item.label }}</span>
+      <span v-if="compact" class="powerup-icon">{{ iconMap[item.id] || '⚡' }}</span>
+      <span v-else class="powerup-name">{{ item.label }}</span>
       <span class="powerup-qty">{{ item.quantity }}</span>
     </button>
-    <button class="inventory-button" @click="inventoryStore.openInventory">
-      Inventory
+    <button 
+      class="inventory-button" 
+      :class="{ 'inventory-button--compact': compact }"
+      @click="inventoryStore.openInventory"
+      :title="compact ? 'Inventory' : ''"
+    >
+      {{ compact ? '🎒' : 'Inventory' }}
     </button>
   </section>
 </template>
@@ -20,9 +31,24 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { useInventoryStore } from '../stores/inventoryStore';
 
+const props = defineProps({
+  compact: {
+    type: Boolean,
+    default: false,
+  },
+});
+
 const inventoryStore = useInventoryStore();
 const glowingId = ref(null);
 const glowTimer = ref(null);
+
+const iconMap = {
+  'swap-extra': '⇄',
+  'hammer': '🔨',
+  'color-wand': '🪄',
+  'shuffle': '🔀',
+  'tile-breaker': '⛏️',
+};
 
 const quickAccess = computed(() => inventoryStore.quickAccessSlots);
 
@@ -101,5 +127,40 @@ onBeforeUnmount(() => {
   flex: 1;
   justify-content: center;
   border-style: dashed;
+}
+
+.powerup-bar--compact {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.powerup-button--compact,
+.inventory-button--compact {
+  min-width: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.powerup-button--compact .powerup-qty {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: var(--color-accent, #3b82f6);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 2px solid rgba(30, 41, 59, 1);
+}
+
+.powerup-icon {
+  font-size: 1.25rem;
+}
+
+.inventory-button--compact {
+  flex: 0 0 auto;
 }
 </style>
