@@ -30,6 +30,9 @@
     <main class="app-main">
       <section class="board-wrapper">
         <BoardCanvas :fullscreen="isBoardFullscreen" />
+        <div v-if="isBoardFullscreen" class="fullscreen-hud">
+          <PowerUpBar :compact="true" class="fullscreen-powerups" />
+        </div>
         <aside class="board-rail">
           <!-- Bonus icons / slide-out trigger area -->
         </aside>
@@ -133,10 +136,23 @@ watch(isBoardFullscreen, (active) => {
   nextTick(() => {
     updateHeaderMetrics();
     updateViewportSize();
-    if (active != null && gameStore.renderer) {
-      setTimeout(() => {
+    
+    // Trigger a real window resize event to ensure all listeners (including Phaser) update
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    if (gameStore.renderer) {
+      // Force multiple refreshes to catch layout settlement
+      const refresh = () => {
+        if (typeof window !== 'undefined') {
+           window.dispatchEvent(new Event('resize'));
+        }
         gameStore.refreshBoardVisuals(true);
-      }, 60);
+      };
+      setTimeout(refresh, 50);
+      setTimeout(refresh, 150);
+      setTimeout(refresh, 300);
     }
   });
 });
@@ -315,8 +331,8 @@ const handleVictoryNext = () => {
 .app-shell.board-fullscreen .app-main {
   flex: 1;
   flex-direction: column;
-  gap: clamp(0.75rem, 2vw, 1.5rem);
-  padding: clamp(0.5rem, 2vw, 1.5rem);
+  gap: 0;
+  padding: 0;
   height: calc(100vh - var(--fullscreen-header, 72px));
 }
 
@@ -325,11 +341,12 @@ const handleVictoryNext = () => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-radius: clamp(0.75rem, 2vw, 1.5rem);
-  padding: clamp(0.75rem, 2vw, 1.5rem);
-  background: rgba(15, 23, 42, 0.7);
+  border-radius: 0;
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.85);
   display: flex;
-  gap: clamp(0.75rem, 1.25vw, 1.75rem);
+  flex-direction: row; /* Changed to row to put HUD on side */
+  gap: 1rem;
   justify-content: center;
   align-items: center;
 }
@@ -337,6 +354,30 @@ const handleVictoryNext = () => {
 .app-shell.board-fullscreen .board-rail,
 .app-shell.board-fullscreen .hud-wrapper {
   display: none;
+}
+
+.fullscreen-hud {
+  position: static; /* Remove absolute positioning */
+  transform: none;
+  z-index: 10;
+  width: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: none; /* Let clicks pass through container if needed, but children need pointer-events: auto */
+}
+
+.fullscreen-powerups {
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column; /* Stack icons vertically */
+  gap: 0.5rem;
 }
 
 @media (max-width: 1200px) {
