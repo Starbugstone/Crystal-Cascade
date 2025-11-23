@@ -40,6 +40,9 @@ export const useInventoryStore = defineStore('inventory', {
             {
               gameStore.setBonusMode(null); // Clear other bonus selections
               const result = await gameStore.shuffleBoard();
+              if (result !== false) {
+                await gameStore.ensurePlayableBoard();
+              }
               powerUpExecuted = result !== false;
             }
             break;

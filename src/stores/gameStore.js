@@ -15,6 +15,8 @@ const bonusActivator = new BonusActivator();
 const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
+let scoreFlashTimeoutId = null;
+let reshuffleNoticeTimeoutId = null;
 
 const getBoardCenterIndex = (cols, rows) => {
   const totalCells = Math.max(1, (cols || 0) * (rows || 0));
@@ -88,6 +90,8 @@ export const useGameStore = defineStore('game', {
     hintMove: null,
     currentBoardLayout: null,
     currentLevelId: null,
+    reshuffleNotice: null,
+    scorePenaltyFlash: false,
   }),
   getters: {
     activeBoard(state) {
@@ -168,6 +172,7 @@ export const useGameStore = defineStore('game', {
 
       const bonusName = this.activeBonusMode;
       this.cancelHint(true);
+      let boardUpdated = false;
 
       if (this.animationInProgress) {
         // Queue the bonus activation to run once current animations finish
@@ -238,18 +243,22 @@ export const useGameStore = defineStore('game', {
 
         const inventoryStore = useInventoryStore();
         inventoryStore.consumeItem(bonusName);
+        boardUpdated = true;
         return true;
 
       } catch (error) {
         console.error('Error activating bonus:', error);
         return false;
       } finally {
-      this.pendingBoardState = null;
-      this.animationInProgress = false;
-      if (this.sessionActive) {
-        this.scheduleHint();
-      }
-      this._processQueuedBonusSoon();
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        this._processQueuedBonusSoon();
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
+        }
       }
     },
     previewBonusSwap(aIndex, bIndex) {
@@ -342,6 +351,7 @@ export const useGameStore = defineStore('game', {
         return false;
       }
       this.clearBonusPreview(true);
+      let boardUpdated = false;
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
@@ -405,6 +415,7 @@ export const useGameStore = defineStore('game', {
         if (this.remainingLayers === 0 && this.sessionActive) {
           this.completeLevel();
         }
+        boardUpdated = true;
         return true;
 
       } catch (error) {
@@ -415,6 +426,9 @@ export const useGameStore = defineStore('game', {
         this.animationInProgress = false;
         if (this.sessionActive) {
           this.scheduleHint();
+        }
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
         }
       }
     },
@@ -483,10 +497,20 @@ export const useGameStore = defineStore('game', {
 
       const { config } = selected;
       this.currentLevelId = levelId;
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
       const freshBoard = cloneBoardState(config.board);
       const freshTiles = cloneTileLayers(config.tiles);
       this.sessionActive = true;
       this.levelCleared = false;
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.boardCols = config.boardCols ?? config.boardSize ?? 8;
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
@@ -527,6 +551,7 @@ export const useGameStore = defineStore('game', {
         if (this.sessionActive) {
           this.scheduleHint();
         }
+        this.ensurePlayableBoard();
       };
 
       if (introPromise?.then) {
@@ -655,6 +680,7 @@ export const useGameStore = defineStore('game', {
       const tiles = this.tiles ?? [];
       const tileA = tiles[aIndex];
       const tileB = tiles[bIndex];
+      let boardUpdated = false;
       if (tileA?.state === 'FROZEN' || tileB?.state === 'FROZEN') {
         if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
           await animator.animateInvalidSwap({ aIndex, bIndex });
@@ -716,6 +742,7 @@ export const useGameStore = defineStore('game', {
             this.completeLevel();
           }
           this.moves += 1;
+          boardUpdated = true;
           return true;
         }
 
@@ -739,27 +766,31 @@ export const useGameStore = defineStore('game', {
         }
 
         this.moves += 1;
+        boardUpdated = true;
         return true;
       } catch (error) {
         console.error('Error in resolveSwap:', error);
         return false;
       } finally {
-      this.pendingBoardState = null;
-      this.animationInProgress = false;
-      if (this.sessionActive) {
-        this.scheduleHint();
-      }
-      const queued = this.queuedSwap;
-      if (queued) {
-        this.queuedSwap = null;
-        setTimeout(() => {
-          if (!this.sessionActive) {
-            return;
-          }
-          this.resolveSwap(queued.aIndex, queued.bIndex);
-        }, 0);
-      }
-      this._processQueuedBonusSoon();
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        const queued = this.queuedSwap;
+        if (queued) {
+          this.queuedSwap = null;
+          setTimeout(() => {
+            if (!this.sessionActive) {
+              return;
+            }
+            this.resolveSwap(queued.aIndex, queued.bIndex);
+          }, 0);
+        }
+        this._processQueuedBonusSoon();
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
+        }
       }
     },
     queueSwap(aIndex, bIndex) {
@@ -792,6 +823,14 @@ export const useGameStore = defineStore('game', {
     },
     exitLevel() {
       this.cancelHint(true);
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
       this.sessionActive = false;
       this.board = [];
       this.tiles = [];
@@ -811,6 +850,8 @@ export const useGameStore = defineStore('game', {
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       if (this.renderer?.animator) {
         this.renderer.animator.clear();
@@ -824,6 +865,16 @@ export const useGameStore = defineStore('game', {
 
     completeLevel() {
       this.cancelHint(true);
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.remainingLayers = 0;
       this.levelCleared = true;
       // Keep session active so the board remains visible behind the victory modal
@@ -863,9 +914,93 @@ export const useGameStore = defineStore('game', {
       }
 
       if (scoreObjective && scoreDelta) {
-        const newScoreProgress = (scoreObjective.progress ?? 0) + scoreDelta;
+        const newScoreProgress = Math.max(0, (scoreObjective.progress ?? 0) + scoreDelta);
         scoreObjective.progress = Math.min(scoreObjective.target, newScoreProgress);
       }
+    },
+    _hasPlayableMove() {
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+
+      if (
+        !this.sessionActive ||
+        this.levelCleared ||
+        !Array.isArray(board) ||
+        !board.length ||
+        !cols ||
+        !rows
+      ) {
+        return false;
+      }
+
+      const hint = hintEngine.findBestMove(board, this.tiles ?? [], cols, rows);
+      return !!hint;
+    },
+    _triggerScorePenaltyFlash() {
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+      }
+      this.scorePenaltyFlash = false;
+      const enableFlash = () => {
+        this.scorePenaltyFlash = true;
+        scoreFlashTimeoutId = setTimeout(() => {
+          this.scorePenaltyFlash = false;
+        }, 1200);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(enableFlash);
+      } else {
+        enableFlash();
+      }
+    },
+    _showReshuffleNotice(lostScore = 0) {
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+      }
+      this.reshuffleNotice = {
+        loss: lostScore,
+        message: `Reshuffling, losing ${Math.max(0, lostScore).toLocaleString()} score`,
+        timestamp: Date.now(),
+      };
+      reshuffleNoticeTimeoutId = setTimeout(() => {
+        this.reshuffleNotice = null;
+      }, 2000);
+    },
+    async ensurePlayableBoard({ attempts = 0 } = {}) {
+      if (this.animationInProgress || !this.sessionActive || this.levelCleared) {
+        return false;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+      if (!Array.isArray(board) || !board.length || !cols || !rows) {
+        return false;
+      }
+
+      if (this._hasPlayableMove()) {
+        return false;
+      }
+
+      const lostScore = Math.floor(this.score * (2 / 3));
+      if (lostScore > 0) {
+        this.score = Math.max(0, this.score - lostScore);
+        this.updateObjectives({ scoreDelta: -lostScore });
+      }
+      this._triggerScorePenaltyFlash();
+      this._showReshuffleNotice(lostScore);
+
+      const shuffleResult = await this.shuffleBoard();
+      if (!shuffleResult) {
+        return false;
+      }
+
+      if (!this._hasPlayableMove() && attempts < 2) {
+        return this.ensurePlayableBoard({ attempts: attempts + 1 });
+      }
+
+      return true;
     },
     _applyScoring(steps) {
       if (!Array.isArray(steps) || !steps.length) {
