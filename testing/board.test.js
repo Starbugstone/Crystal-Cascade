@@ -1,8 +1,44 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGameStore } from '../src/stores/gameStore';
 import { createPinia, setActivePinia } from 'pinia';
-import { createGem } from '../src/game/engine/GemFactory';
-import { generateLevelConfigs } from '../src/game/engine/LevelGenerator';
+import { MatchEngine } from '../src/game/engine/MatchEngine';
+import { LEVEL_STARTING_MOVE_REQUIREMENTS } from '../src/game/engine/LevelGenerator';
+
+const matchEngine = new MatchEngine();
+const DEFAULT_MIN_MOVES = 1;
+
+const countPlayableMoves = (board, cols, rows) => {
+  if (!Array.isArray(board) || !cols || !rows) {
+    return 0;
+  }
+
+  let moveCount = 0;
+
+  for (let index = 0; index < board.length; index += 1) {
+    if (!board[index]) {
+      continue;
+    }
+
+    const col = index % cols;
+    const rightIndex = col < cols - 1 ? index + 1 : -1;
+    if (rightIndex >= 0 && board[rightIndex]) {
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, rightIndex);
+      if (evaluation?.matches?.length) {
+        moveCount += 1;
+      }
+    }
+
+    const belowIndex = index + cols;
+    if (belowIndex < board.length && board[belowIndex]) {
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, belowIndex);
+      if (evaluation?.matches?.length) {
+        moveCount += 1;
+      }
+    }
+  }
+
+  return moveCount;
+};
 
 describe('GameStore - Diverse Board Layouts', () => {
   let gameStore;
@@ -29,33 +65,21 @@ describe('GameStore - Diverse Board Layouts', () => {
     gameStore.sessionActive = true;
   });
 
-  it('should load a level with a non-rectangular board layout', () => {
-    const lShapeLevel = gameStore.availableLevels.find(level => level.config.boardLayout?.name === 'L-Shape');
-    expect(lShapeLevel).toBeDefined();
+  it('starts level 3 with a compact, fully populated, and playable board', () => {
+    const levelThree = gameStore.availableLevels.find((level) => level.id === 3);
+    expect(levelThree).toBeDefined();
 
-    gameStore.startLevel(lShapeLevel.id);
+    gameStore.startLevel(levelThree.id);
 
-    expect(gameStore.boardCols).toBe(lShapeLevel.config.boardLayout.dimensions.cols);
-    expect(gameStore.boardRows).toBe(lShapeLevel.config.boardLayout.dimensions.rows);
-    expect(gameStore.currentBoardLayout).toEqual(lShapeLevel.config.boardLayout);
+    expect(gameStore.boardCols).toBe(5);
+    expect(gameStore.boardRows).toBe(5);
+    expect(gameStore.currentBoardLayout.name).toBe('Compact-5x5');
 
-    // Verify blocked cells are null in the board
-    lShapeLevel.config.boardLayout.blockedCells.forEach(cell => {
-      const index = cell.y * gameStore.boardCols + cell.x;
-      expect(gameStore.board[index]).toBeNull();
-    });
+    const allCellsFilled = gameStore.board.every((cell) => cell !== null);
+    expect(allCellsFilled).toBe(true);
 
-    // Verify non-blocked cells have gems
-    const totalCells = lShapeLevel.config.boardLayout.dimensions.cols * lShapeLevel.config.boardLayout.dimensions.rows;
-    const blockedCount = lShapeLevel.config.boardLayout.blockedCells.length;
-    let gemCount = 0;
-    for (let i = 0; i < totalCells; i++) {
-      if (!lShapeLevel.config.boardLayout.blockedCells.some(cell => cell.y * gameStore.boardCols + cell.x === i)) {
-        if (gameStore.board[i]) {
-          gemCount++;
-        }
-      }
-    }
-    expect(gemCount).toBe(totalCells - blockedCount);
+    const requiredMoves = LEVEL_STARTING_MOVE_REQUIREMENTS[levelThree.id] ?? DEFAULT_MIN_MOVES;
+    const actualMoves = countPlayableMoves(gameStore.board, gameStore.boardCols, gameStore.boardRows);
+    expect(actualMoves).toBeGreaterThanOrEqual(requiredMoves);
   });
 });

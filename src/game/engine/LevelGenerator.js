@@ -1,4 +1,5 @@
 import { createGem } from './GemFactory.js';
+import { MatchEngine } from './MatchEngine.js';
 
 const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
@@ -23,16 +24,106 @@ class BoardLayout {
   }
 }
 
+export const LEVEL_STARTING_MOVE_REQUIREMENTS = {
+  3: 3,
+};
+
+const DEFAULT_MIN_STARTING_MOVES = 1;
+const MAX_BOARD_GENERATION_ATTEMPTS = 60;
+const matchEngine = new MatchEngine();
+
+const isBlockedCell = (layout, x, y) =>
+  layout.blockedCells.some((cell) => cell.x === x && cell.y === y);
+
 const createBoard = (layout, rng) => {
   const board = Array.from({ length: layout.dimensions.cols * layout.dimensions.rows });
   for (let i = 0; i < board.length; i++) {
     const x = i % layout.dimensions.cols;
     const y = Math.floor(i / layout.dimensions.cols);
-    const isBlocked = layout.blockedCells.some(cell => cell.x === x && cell.y === y);
-    board[i] = isBlocked ? null : createGem(pickRandomType(rng));
+    board[i] = isBlockedCell(layout, x, y) ? null : createGem(pickRandomType(rng));
   }
   return board;
-}
+};
+
+const hasMissingGems = (board, layout) => {
+  for (let i = 0; i < board.length; i += 1) {
+    if (board[i]) {
+      continue;
+    }
+    const x = i % layout.dimensions.cols;
+    const y = Math.floor(i / layout.dimensions.cols);
+    if (!isBlockedCell(layout, x, y)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const countPotentialMoves = (board, cols, rows, minMoves = 1) => {
+  if (!Array.isArray(board) || !cols || !rows) {
+    return 0;
+  }
+
+  let moveCount = 0;
+
+  for (let index = 0; index < board.length; index += 1) {
+    const gem = board[index];
+    if (!gem) {
+      continue;
+    }
+
+    const col = index % cols;
+
+    // Adjacent right swap
+    const rightIndex = col < cols - 1 ? index + 1 : -1;
+    if (rightIndex >= 0 && board[rightIndex]) {
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, rightIndex);
+      if (evaluation?.matches?.length) {
+        moveCount += 1;
+      }
+    }
+
+    // Adjacent down swap
+    const belowIndex = index + cols;
+    if (belowIndex < board.length && board[belowIndex]) {
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, belowIndex);
+      if (evaluation?.matches?.length) {
+        moveCount += 1;
+      }
+    }
+
+    if (moveCount >= minMoves) {
+      break;
+    }
+  }
+
+  return moveCount;
+};
+
+const createPlayableBoard = (layout, rng, { minMoves = 1 } = {}) => {
+  let lastBoard = null;
+  for (let attempt = 0; attempt < MAX_BOARD_GENERATION_ATTEMPTS; attempt += 1) {
+    const board = createBoard(layout, rng);
+    lastBoard = board;
+
+    if (hasMissingGems(board, layout)) {
+      continue;
+    }
+
+    const moves = countPotentialMoves(board, layout.dimensions.cols, layout.dimensions.rows, minMoves);
+    if (moves >= minMoves) {
+      return board;
+    }
+  }
+
+  console.warn('LevelGenerator: falling back to last board after exhausting attempts', {
+    layout: layout.name,
+    minMoves,
+    attempts: MAX_BOARD_GENERATION_ATTEMPTS,
+  });
+
+  return lastBoard ?? createBoard(layout, rng);
+};
 
 const createTiles = (cols, rows, layerCount = 1) =>
   Array.from({ length: cols * rows }, () => ({
@@ -50,24 +141,17 @@ export const generateLevelConfigs = (count = 12) => {
 
     if (id === 3) {
       layout = new BoardLayout(
-        'L-Shape',
-        'L_SHAPE',
+        'Compact-5x5',
+        'RECTANGLE',
         { cols: 5, rows: 5 },
-        [
-          { x: 3, y: 0 },
-          { x: 4, y: 0 },
-          { x: 3, y: 1 },
-          { x: 4, y: 1 },
-          { x: 4, y: 2 },
-          { x: 4, y: 3 },
-          { x: 4, y: 4 },
-        ],
+        [],
       );
     }
 
     const rng = createSeededRng(id * 1337);
     const layerCount = id === 1 ? 1 : 2;
-    const board = createBoard(layout, rng);
+    const minMoves = LEVEL_STARTING_MOVE_REQUIREMENTS[id] ?? DEFAULT_MIN_STARTING_MOVES;
+    const board = createPlayableBoard(layout, rng, { minMoves });
     const tiles = createTiles(layout.dimensions.cols, layout.dimensions.rows, layerCount);
     const totalLayers = tiles.reduce((sum, tile) => sum + (tile.maxHealth ?? tile.health ?? 0), 0);
 
