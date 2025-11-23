@@ -89,7 +89,7 @@ export class BoardAnimator {
     this.tileSprites.forEach((sprite) => sprite.destroy());
     this.tileSprites.clear();
 
-    
+
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
     }
@@ -1140,42 +1140,41 @@ export class BoardAnimator {
     const removalDelays = new Map();
     const customFxIndices = new Set();
 
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'cross')
-      .forEach((entry) => {
-        const indices = this._playCrossFireLine(entry.index, clearedSet, removalDelays);
-        indices.forEach((idx) => customFxIndices.add(idx));
-      });
+    const animations = [];
 
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'rainbow')
-      .forEach((entry) => {
+    entries.forEach((entry) => {
+      const { index, gemType } = entry;
+      if (gemType === 'rainbow') {
         const targets = step.cleared.filter((idx) => idx !== entry.index);
-        const indices = this._playRainbowLaser(entry.index, targets, removalDelays);
+        const indices = this._playRainbowLaser(index, targets, removalDelays);
         indices.forEach((idx) => customFxIndices.add(idx));
-      });
-
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'bomb')
-      .forEach((entry) => {
+      } else if (gemType === 'color_wand' || (step.bonusEffect?.type === 'color_wand' && step.bonusEffect?.originIndex === index)) {
+        const laserPromise = this._playColorWandAnimation(index, clearedSet, removalDelays);
+        animations.push(laserPromise);
+      } else if (gemType === 'cross' || gemType === 'tile_breaker' || (step.bonusEffect?.type === 'tile_breaker' && step.bonusEffect?.originIndex === index)) {
+        const indices = this._playCrossFireLine(index, clearedSet, removalDelays);
+        indices.forEach((idx) => customFxIndices.add(idx));
+      } else if (gemType === 'bomb') {
         if (this.audio?.playBomb) {
           this.audio.playBomb();
         }
         this._emitBonusEffect(entry.gemType, entry.index);
-      });
+      }
+    });
 
-    const animations = entries.map((entry) => {
+    entries.forEach((entry) => {
       const { index, gemId, sprite, gemType } = entry;
 
       if (!gemId || !sprite) {
         this.indexToGemId[index] = null;
         this.gemSprites.delete(gemId);
-        return Promise.resolve();
+        animations.push(Promise.resolve());
+        return;
       }
 
       const delay = removalDelays.get(index) ?? 0;
 
-      return new Promise((resolve) => {
+      animations.push(new Promise((resolve) => {
         const handleRemoval = () => {
           if (sprite.scene) {
             this.scene.tweens.killTweensOf(sprite);
@@ -1201,7 +1200,7 @@ export class BoardAnimator {
         } else {
           setTimeout(handleRemoval, delay);
         }
-      });
+      }));
     });
 
     return animations.length ? Promise.all(animations) : Promise.resolve();
@@ -1425,6 +1424,77 @@ export class BoardAnimator {
     });
 
     return indices;
+  }
+
+  _playColorWandAnimation(originIndex, clearedSet, removalDelays) {
+    if (!this.scene || !this.cellSize) {
+      return Promise.resolve();
+    }
+
+    const originPos = this._indexToPosition(originIndex);
+    const layer = this.fxLayer ?? this.scene;
+    const beams = [];
+
+    // Find all targets (gems of same color)
+    const targets = [];
+    clearedSet.forEach((targetIndex) => {
+      if (targetIndex !== originIndex) {
+        targets.push(targetIndex);
+      }
+    });
+
+    if (targets.length === 0) return Promise.resolve();
+
+    const applyDelay = (index, delay) => {
+      const current = removalDelays.get(index) ?? 0;
+      removalDelays.set(index, Math.max(current, delay));
+    };
+
+    // Create beams to all targets
+    targets.forEach((targetIndex) => {
+      const targetPos = this._indexToPosition(targetIndex);
+      const distance = Phaser.Math.Distance.Between(originPos.x, originPos.y, targetPos.x, targetPos.y);
+      const angle = Phaser.Math.Angle.Between(originPos.x, originPos.y, targetPos.x, targetPos.y);
+
+      const beam = this.scene.add.rectangle(originPos.x, originPos.y, distance, 6, 0xffffff);
+      beam.setOrigin(0, 0.5);
+      beam.setRotation(angle);
+      beam.setBlendMode(Phaser.BlendModes.ADD);
+      beam.setDepth(2000);
+
+      if (layer.add) layer.add(beam);
+      beams.push(beam);
+
+      // Delay removal of target
+      applyDelay(targetIndex, 300);
+
+      // Impact effect at target
+      this.scene.time.delayedCall(150, () => {
+        if (this.particles) {
+          this.particles.emitExplosion(targetPos, {
+            color: 0xffffff,
+            radius: this.cellSize * 0.5,
+            count: 10,
+            duration: 200,
+          });
+        }
+      });
+    });
+
+    // Animate beams
+    return new Promise((resolve) => {
+      this.scene.tweens.add({
+        targets: beams,
+        alpha: { from: 1, to: 0 },
+        scaleY: { from: 1, to: 0.1 },
+        duration: 350,
+        ease: 'Quad.Out',
+        onComplete: () => {
+          beams.forEach(b => b.destroy());
+          resolve();
+        }
+      });
+    });
   }
 
   _playRainbowLaser(sourceIndex, targetIndices, removalDelays) {

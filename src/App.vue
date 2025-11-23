@@ -28,7 +28,14 @@
     </header>
 
     <main class="app-main">
-      <section class="board-wrapper">
+      <section
+        class="board-wrapper"
+        :class="{
+          'cursor-hammer': gameStore.activeBonusMode === 'hammer',
+          'cursor-color-wand': gameStore.activeBonusMode === 'color_wand',
+          'cursor-tile-breaker': gameStore.activeBonusMode === 'tile_breaker'
+        }"
+      >
         <BoardCanvas :fullscreen="isBoardFullscreen" />
         <div v-if="isBoardFullscreen" class="fullscreen-hud">
           <PowerUpBar :compact="true" class="fullscreen-powerups" />
@@ -306,6 +313,12 @@ const handleVictoryNext = () => {
   position: relative;
   display: flex;
   gap: clamp(0.75rem, 1.25vw, 1.75rem);
+}
+
+.board-wrapper.cursor-hammer,
+.board-wrapper.cursor-color-wand,
+.board-wrapper.cursor-tile-breaker {
+  cursor: crosshair;
 }
 
 .board-rail {

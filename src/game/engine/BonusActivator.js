@@ -1,6 +1,6 @@
 export class BonusActivator {
   constructor() {
-    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all']);
+    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all', 'hammer', 'color_wand', 'tile_breaker']);
   }
 
   isBonus(type) {
@@ -108,6 +108,12 @@ export class BonusActivator {
         return this.activateTransformGems(board, cols, rows, index, context);
       case 'unfreeze_all':
         return this.activateUnfreezeAll(board);
+      case 'hammer':
+        return this.activateHammer(board, cols, rows, index);
+      case 'color_wand':
+        return this.activateColorWand(board, cols, rows, index);
+      case 'tile_breaker':
+        return this.activateTileBreaker(board, cols, rows, index);
       default:
         return [index];
     }
@@ -260,5 +266,26 @@ export class BonusActivator {
       }
     });
     return [...cleared];
+  }
+
+  activateHammer(board, cols, rows, index) {
+    return this.activateBomb(board, cols, rows, index);
+  }
+
+  activateColorWand(board, cols, rows, index) {
+    const targetGem = board[index];
+    if (!targetGem) return [];
+
+    const cleared = new Set();
+    board.forEach((gem, i) => {
+      if (gem && gem.type === targetGem.type) {
+        cleared.add(i);
+      }
+    });
+    return [...cleared];
+  }
+
+  activateTileBreaker(board, cols, rows, index) {
+    return this.activateCross(board, cols, rows, index);
   }
 }

@@ -68,7 +68,6 @@ export class BoardInput {
     if (
       this.startCell == null ||
       !this.gameStore.sessionActive ||
-      this.gameStore.animationInProgress ||
       this.gameStore.levelCleared
     ) {
       this.gameStore.clearBonusPreview();
@@ -77,7 +76,11 @@ export class BoardInput {
 
     const currentCell = this.getCellIndexFromPointer(pointer);
     if (currentCell != null && currentCell !== this.startCell) {
-      this.gameStore.previewBonusSwap(this.startCell, currentCell);
+      if (!this.gameStore.animationInProgress) {
+        this.gameStore.previewBonusSwap(this.startCell, currentCell);
+      } else {
+        this.gameStore.clearBonusPreview();
+      }
       if (!this.isDragging && typeof this.gameStore.notifyPlayerActivity === 'function') {
         this.gameStore.notifyPlayerActivity();
       }
@@ -105,6 +108,17 @@ export class BoardInput {
     const endCell = this.getCellIndexFromPointer(pointer);
 
     if (endCell == null) {
+      this.startCell = null;
+      this.isDragging = false;
+      return;
+    }
+
+    // Handle active bonus mode click
+    if (this.gameStore.activeBonusMode && endCell === this.startCell) {
+      this.clearHighlights();
+      this.selectedCell = null;
+      this.gameStore.clearBonusPreview();
+      await this.gameStore.resolveBonusClick(endCell);
       this.startCell = null;
       this.isDragging = false;
       return;

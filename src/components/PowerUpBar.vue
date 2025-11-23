@@ -4,8 +4,8 @@
       v-for="item in quickAccess"
       :key="item.id"
       :class="['powerup-button', { 
-        'powerup-button--glow': glowingId === item.id, 
-        'powerup-button--disabled': item.disabled,
+        'powerup-button--glow': glowingId === item.id || activeBonusId === item.id, 
+        'powerup-button--disabled': item.disabled || !item.quantity,
         'powerup-button--compact': compact
       }]"
       :disabled="!item.quantity || item.disabled"
@@ -16,19 +16,14 @@
       <span v-else class="powerup-name">{{ item.label }}</span>
       <span class="powerup-qty">{{ item.quantity }}</span>
     </button>
-    <button 
-      class="inventory-button" 
-      :class="{ 'inventory-button--compact': compact }"
-      @click="inventoryStore.openInventory"
-      :title="compact ? 'Inventory' : ''"
-    >
-      {{ compact ? '🎒' : 'Inventory' }}
-    </button>
+
   </section>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useGameStore } from '../stores/gameStore';
 import { useInventoryStore } from '../stores/inventoryStore';
 
 const props = defineProps({
@@ -39,11 +34,13 @@ const props = defineProps({
 });
 
 const inventoryStore = useInventoryStore();
+const gameStore = useGameStore();
+const { activeBonusMode } = storeToRefs(gameStore);
 const glowingId = ref(null);
 const glowTimer = ref(null);
 
 const iconMap = {
-  'swap-extra': '⇄',
+  'clear-row': '➖',
   'hammer': '🔨',
   'color-wand': '🪄',
   'shuffle': '🔀',
@@ -51,6 +48,14 @@ const iconMap = {
 };
 
 const quickAccess = computed(() => inventoryStore.quickAccessSlots);
+const activeBonusId = computed(() => {
+  const modeToIdMap = {
+    hammer: 'hammer',
+    color_wand: 'color-wand',
+    tile_breaker: 'tile-breaker',
+  };
+  return modeToIdMap[activeBonusMode.value] ?? null;
+});
 
 const triggerGlow = (id) => {
   glowingId.value = id;
@@ -63,8 +68,8 @@ const triggerGlow = (id) => {
   }, 500);
 };
 
-const handleUse = (id) => {
-  const executed = inventoryStore.usePowerUp(id);
+const handleUse = async (id) => {
+  const executed = await inventoryStore.usePowerUp(id);
   if (executed && id === 'swap-extra') {
     triggerGlow(id);
   }
@@ -84,8 +89,7 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
 }
 
-.powerup-button,
-.inventory-button {
+.powerup-button {
   min-width: 120px;
   padding: 0.75rem 1rem;
   border-radius: 999px;
@@ -102,8 +106,7 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.powerup-button:hover:not(:disabled),
-.inventory-button:hover {
+.powerup-button:hover:not(:disabled) {
   transform: translateY(-2px);
   background: rgba(79, 70, 229, 0.7);
 }
@@ -123,19 +126,14 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
-.inventory-button {
-  flex: 1;
-  justify-content: center;
-  border-style: dashed;
-}
+
 
 .powerup-bar--compact {
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.powerup-button--compact,
-.inventory-button--compact {
+.powerup-button--compact {
   min-width: 0;
   width: 48px;
   height: 48px;
@@ -160,7 +158,5 @@ onBeforeUnmount(() => {
   font-size: 1.25rem;
 }
 
-.inventory-button--compact {
-  flex: 0 0 auto;
-}
+
 </style>
