@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
+import { useInventoryStore } from './inventoryStore';
 import { BonusActivator } from '../game/engine/BonusActivator';
 import { HintEngine } from '../game/engine/HintEngine';
 import { detectBonusFromMatches } from '../game/engine/MatchPatterns';
@@ -14,6 +15,8 @@ const bonusActivator = new BonusActivator();
 const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
+let scoreFlashTimeoutId = null;
+let reshuffleNoticeTimeoutId = null;
 
 const getBoardCenterIndex = (cols, rows) => {
   const totalCells = Math.max(1, (cols || 0) * (rows || 0));
@@ -73,7 +76,8 @@ export const useGameStore = defineStore('game', {
     animationInProgress: false,
     pendingBoardState: null,
     queuedSwap: null,
-    swapBonusArmed: false,
+    queuedBonus: null,
+    activeBonusMode: null,
     bonusPreview: {
       indices: [],
       swap: null,
@@ -86,6 +90,8 @@ export const useGameStore = defineStore('game', {
     hintMove: null,
     currentBoardLayout: null,
     currentLevelId: null,
+    reshuffleNotice: null,
+    scorePenaltyFlash: false,
   }),
   getters: {
     activeBoard(state) {
@@ -127,13 +133,133 @@ export const useGameStore = defineStore('game', {
         this.computeHintMove();
       }, delay);
     },
-    armSwapBonus() {
-      if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
+    setBonusMode(mode) {
+      // Allow clearing even if session is paused; activation still requires sessionActive checks elsewhere
+      if (mode === null) {
+        this.activeBonusMode = null;
+        this.queuedBonus = null;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.clearBonusPreview(true);
+        return true;
+      }
+
+      if (!this.sessionActive || this.levelCleared) {
         return false;
       }
+
       this.cancelHint(true);
-      this.swapBonusArmed = true;
+
+      // Toggle off if already selected
+      if (this.activeBonusMode === mode) {
+        this.activeBonusMode = null;
+        this.queuedBonus = null;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.clearBonusPreview(true);
+        return true;
+      }
+
+      // Switching modes clears any queued bonus target and previews
+      this.activeBonusMode = mode;
+      this.queuedBonus = null;
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
+      this.clearBonusPreview(true);
       return true;
+    },
+    async resolveBonusClick(index) {
+      if (!this.sessionActive || !this.activeBonusMode || this.levelCleared) {
+        return false;
+      }
+
+      const bonusName = this.activeBonusMode;
+      this.cancelHint(true);
+      let boardUpdated = false;
+
+      if (this.animationInProgress) {
+        // Queue the bonus activation to run once current animations finish
+        this.queuedBonus = { index, bonusName };
+        this.renderer?.animator?.showQueuedBonus?.(index);
+        this.activeBonusMode = null;
+        this.renderer?.animator?.clearBonusPreview?.();
+        return true;
+      }
+
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
+      this.activeBonusMode = null;
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const animator = this.renderer?.animator;
+
+      this.animationInProgress = true;
+      try {
+        const clearedIndices = bonusActivator.activateBonus(
+          bonusName,
+          this.board,
+          cols,
+          rows,
+          index,
+        );
+
+        if (clearedIndices.length === 0) {
+          console.log(`Bonus ${bonusName} had no effect.`);
+          return false;
+        }
+
+        const matches = [{ type: bonusName, indices: clearedIndices }];
+
+        const resolution = tileManager.getResolution({
+          board: this.board,
+          tiles: this.tiles,
+          matches: matches,
+          cols,
+          rows,
+        });
+
+        const layersCleared = resolution.layersCleared ?? 0;
+        this._applyScoring(resolution.steps);
+
+        this.pendingBoardState = resolution.board;
+        window.__currentBoard = this.pendingBoardState;
+
+        if (animator && resolution.steps.length) {
+          await animator.playSteps(resolution.steps);
+        }
+
+        this.board = resolution.board;
+        this.pendingBoardState = null;
+        this.boardVersion += 1;
+
+        if (layersCleared > 0) {
+          this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
+          this.updateObjectives({ layersCleared });
+        }
+
+        animator?.updateTiles(this.tiles);
+        window.__currentBoard = this.board;
+
+        if (this.remainingLayers === 0 && this.sessionActive) {
+          this.completeLevel();
+        }
+
+        const inventoryStore = useInventoryStore();
+        inventoryStore.consumeItem(bonusName);
+        boardUpdated = true;
+        return true;
+
+      } catch (error) {
+        console.error('Error activating bonus:', error);
+        return false;
+      } finally {
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        this._processQueuedBonusSoon();
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
+        }
+      }
     },
     previewBonusSwap(aIndex, bIndex) {
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
@@ -194,17 +320,49 @@ export const useGameStore = defineStore('game', {
       this.bonusPreview = { indices: [], swap: null, key: null };
       this.renderer?.animator?.clearBonusPreview?.();
     },
+    _processQueuedBonusSoon() {
+      if (!this.queuedBonus) {
+        return;
+      }
+      const queued = this.queuedBonus;
+      this.queuedBonus = null;
+
+      const tryActivate = () => {
+        if (!this.sessionActive || this.levelCleared) {
+          this.renderer?.animator?.clearQueuedBonusHighlight?.();
+          return;
+        }
+        if (this.animationInProgress) {
+          // Still busy; requeue and try again shortly
+          this.queuedBonus = queued;
+          setTimeout(() => this._processQueuedBonusSoon(), 60);
+          return;
+        }
+        this.activeBonusMode = queued.bonusName;
+        this.renderer?.animator?.clearQueuedBonusHighlight?.();
+        this.resolveBonusClick(queued.index);
+      };
+
+      setTimeout(tryActivate, 0);
+    },
     async activateOneTimeBonus(bonusName) {
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
         console.warn('Cannot activate bonus: session not active, animation in progress, or level cleared.');
         return false;
       }
       this.clearBonusPreview(true);
+      let boardUpdated = false;
 
       const cols = this.boardCols ?? this.boardSize ?? 8;
       const rows = this.boardRows ?? this.boardSize ?? 8;
       const animator = this.renderer?.animator;
-      const bonusOriginIndex = getBoardCenterIndex(cols, rows);
+      let bonusOriginIndex = getBoardCenterIndex(cols, rows);
+
+      if (bonusName === 'clear_row') {
+        // Pick a random row
+        const randomRow = Math.floor(Math.random() * rows);
+        bonusOriginIndex = randomRow * cols;
+      }
 
       this.animationInProgress = true;
       try {
@@ -224,40 +382,41 @@ export const useGameStore = defineStore('game', {
 
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
-      const resolution = tileManager.getResolution({
-        board: this.board,
-        tiles: this.tiles,
-        matches: matches,
-        cols,
-        rows,
-      });
+        const resolution = tileManager.getResolution({
+          board: this.board,
+          tiles: this.tiles,
+          matches: matches,
+          cols,
+          rows,
+        });
 
-      const layersCleared = resolution.layersCleared ?? 0;
-      this._applyScoring(resolution.steps);
+        const layersCleared = resolution.layersCleared ?? 0;
+        this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
         window.__currentBoard = this.pendingBoardState;
 
-      if (animator && resolution.steps.length) {
-        await animator.playSteps(resolution.steps);
-      }
+        if (animator && resolution.steps.length) {
+          await animator.playSteps(resolution.steps);
+        }
 
-      this.board = resolution.board;
-      this.pendingBoardState = null;
-      this.boardVersion += 1;
+        this.board = resolution.board;
+        this.pendingBoardState = null;
+        this.boardVersion += 1;
 
-      if (layersCleared > 0) {
-        this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
-        this.updateObjectives({ layersCleared });
-      }
+        if (layersCleared > 0) {
+          this.remainingLayers = Math.max(0, this.remainingLayers - layersCleared);
+          this.updateObjectives({ layersCleared });
+        }
 
-      animator?.updateTiles(this.tiles);
-      window.__currentBoard = this.board;
+        animator?.updateTiles(this.tiles);
+        window.__currentBoard = this.board;
 
-      if (this.remainingLayers === 0 && this.sessionActive) {
-        this.completeLevel();
-      }
-      return true;
+        if (this.remainingLayers === 0 && this.sessionActive) {
+          this.completeLevel();
+        }
+        boardUpdated = true;
+        return true;
 
       } catch (error) {
         console.error('Error activating bonus:', error);
@@ -267,6 +426,9 @@ export const useGameStore = defineStore('game', {
         this.animationInProgress = false;
         if (this.sessionActive) {
           this.scheduleHint();
+        }
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
         }
       }
     },
@@ -335,10 +497,20 @@ export const useGameStore = defineStore('game', {
 
       const { config } = selected;
       this.currentLevelId = levelId;
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
       const freshBoard = cloneBoardState(config.board);
       const freshTiles = cloneTileLayers(config.tiles);
       this.sessionActive = true;
       this.levelCleared = false;
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.boardCols = config.boardCols ?? config.boardSize ?? 8;
       this.boardRows = config.boardRows ?? config.boardCols ?? config.boardSize ?? 8;
       this.boardSize = this.boardCols;
@@ -360,7 +532,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = true;
       this.pendingBoardState = null;
       this.queuedSwap = null;
-      this.swapBonusArmed = false;
+      this.activeBonusMode = null;
       this.clearBonusPreview(true);
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.totalLayers = this.tiles.reduce(
@@ -379,6 +551,7 @@ export const useGameStore = defineStore('game', {
         if (this.sessionActive) {
           this.scheduleHint();
         }
+        this.ensurePlayableBoard();
       };
 
       if (introPromise?.then) {
@@ -507,6 +680,7 @@ export const useGameStore = defineStore('game', {
       const tiles = this.tiles ?? [];
       const tileA = tiles[aIndex];
       const tileB = tiles[bIndex];
+      let boardUpdated = false;
       if (tileA?.state === 'FROZEN' || tileB?.state === 'FROZEN') {
         if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
           await animator.animateInvalidSwap({ aIndex, bIndex });
@@ -519,13 +693,8 @@ export const useGameStore = defineStore('game', {
 
       const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
       const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
-      const swapBonusReady = this.swapBonusArmed;
-      if (swapBonusReady) {
-        this.swapBonusArmed = false;
-      }
-      const canForceSwap = swapBonusReady && isAdjacent && evaluation.matches.length === 0;
 
-      if (!evaluation.matches.length && !canForceSwap) {
+      if (!evaluation.matches.length) {
         if (isAdjacent && animator) {
           await animator.animateInvalidSwap({ aIndex, bIndex });
         }
@@ -542,26 +711,6 @@ export const useGameStore = defineStore('game', {
         const swapPayload = evaluation.swap ?? { aIndex, bIndex };
         if (animator && swapPayload) {
           await animator.animateSwap(swapPayload);
-        }
-
-        if (canForceSwap) {
-          const nextBoard = [...this.board];
-          [nextBoard[aIndex], nextBoard[bIndex]] = [nextBoard[bIndex], nextBoard[aIndex]];
-          this.pendingBoardState = nextBoard;
-          window.__currentBoard = this.pendingBoardState;
-
-          this.board = nextBoard;
-          this.pendingBoardState = null;
-          this.boardVersion += 1;
-          if (animator) {
-            animator.updateTiles(this.tiles);
-          } else {
-            this.refreshBoardVisuals(true);
-          }
-          window.__currentBoard = this.board;
-          this.cascadeMultiplier = 1;
-          this.moves += 1;
-          return true;
         }
 
         const resolution = tileManager.getResolution({
@@ -593,6 +742,7 @@ export const useGameStore = defineStore('game', {
             this.completeLevel();
           }
           this.moves += 1;
+          boardUpdated = true;
           return true;
         }
 
@@ -616,6 +766,7 @@ export const useGameStore = defineStore('game', {
         }
 
         this.moves += 1;
+        boardUpdated = true;
         return true;
       } catch (error) {
         console.error('Error in resolveSwap:', error);
@@ -635,6 +786,10 @@ export const useGameStore = defineStore('game', {
             }
             this.resolveSwap(queued.aIndex, queued.bIndex);
           }, 0);
+        }
+        this._processQueuedBonusSoon();
+        if (boardUpdated && this.sessionActive && !this.levelCleared) {
+          await this.ensurePlayableBoard();
         }
       }
     },
@@ -668,6 +823,14 @@ export const useGameStore = defineStore('game', {
     },
     exitLevel() {
       this.cancelHint(true);
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
       this.sessionActive = false;
       this.board = [];
       this.tiles = [];
@@ -680,11 +843,15 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
-      this.swapBonusArmed = false;
+      this.queuedBonus = null;
+      this.activeBonusMode = null;
+      this.renderer?.animator?.clearQueuedBonusHighlight?.();
       this.clearBonusPreview(true);
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       if (this.renderer?.animator) {
         this.renderer.animator.clear();
@@ -698,6 +865,16 @@ export const useGameStore = defineStore('game', {
 
     completeLevel() {
       this.cancelHint(true);
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+        scoreFlashTimeoutId = null;
+      }
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+        reshuffleNoticeTimeoutId = null;
+      }
+      this.scorePenaltyFlash = false;
+      this.reshuffleNotice = null;
       this.remainingLayers = 0;
       this.levelCleared = true;
       // Keep session active so the board remains visible behind the victory modal
@@ -705,7 +882,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
-      this.swapBonusArmed = false;
+      this.activeBonusMode = null;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.renderer?.input?.reset();
       this.updateObjectives();
@@ -737,9 +914,93 @@ export const useGameStore = defineStore('game', {
       }
 
       if (scoreObjective && scoreDelta) {
-        const newScoreProgress = (scoreObjective.progress ?? 0) + scoreDelta;
+        const newScoreProgress = Math.max(0, (scoreObjective.progress ?? 0) + scoreDelta);
         scoreObjective.progress = Math.min(scoreObjective.target, newScoreProgress);
       }
+    },
+    _hasPlayableMove() {
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+
+      if (
+        !this.sessionActive ||
+        this.levelCleared ||
+        !Array.isArray(board) ||
+        !board.length ||
+        !cols ||
+        !rows
+      ) {
+        return false;
+      }
+
+      const hint = hintEngine.findBestMove(board, this.tiles ?? [], cols, rows);
+      return !!hint;
+    },
+    _triggerScorePenaltyFlash() {
+      if (scoreFlashTimeoutId) {
+        clearTimeout(scoreFlashTimeoutId);
+      }
+      this.scorePenaltyFlash = false;
+      const enableFlash = () => {
+        this.scorePenaltyFlash = true;
+        scoreFlashTimeoutId = setTimeout(() => {
+          this.scorePenaltyFlash = false;
+        }, 1200);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(enableFlash);
+      } else {
+        enableFlash();
+      }
+    },
+    _showReshuffleNotice(lostScore = 0) {
+      if (reshuffleNoticeTimeoutId) {
+        clearTimeout(reshuffleNoticeTimeoutId);
+      }
+      this.reshuffleNotice = {
+        loss: lostScore,
+        message: `Reshuffling, losing ${Math.max(0, lostScore).toLocaleString()} score`,
+        timestamp: Date.now(),
+      };
+      reshuffleNoticeTimeoutId = setTimeout(() => {
+        this.reshuffleNotice = null;
+      }, 2000);
+    },
+    async ensurePlayableBoard({ attempts = 0 } = {}) {
+      if (this.animationInProgress || !this.sessionActive || this.levelCleared) {
+        return false;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+      if (!Array.isArray(board) || !board.length || !cols || !rows) {
+        return false;
+      }
+
+      if (this._hasPlayableMove()) {
+        return false;
+      }
+
+      const lostScore = Math.floor(this.score * (2 / 3));
+      if (lostScore > 0) {
+        this.score = Math.max(0, this.score - lostScore);
+        this.updateObjectives({ scoreDelta: -lostScore });
+      }
+      this._triggerScorePenaltyFlash();
+      this._showReshuffleNotice(lostScore);
+
+      const shuffleResult = await this.shuffleBoard();
+      if (!shuffleResult) {
+        return false;
+      }
+
+      if (!this._hasPlayableMove() && attempts < 2) {
+        return this.ensurePlayableBoard({ attempts: attempts + 1 });
+      }
+
+      return true;
     },
     _applyScoring(steps) {
       if (!Array.isArray(steps) || !steps.length) {
@@ -803,6 +1064,7 @@ export const useGameStore = defineStore('game', {
           if (this.sessionActive) {
             this.scheduleHint();
           }
+          this._processQueuedBonusSoon();
         });
     },
     async hammerTile(index) {
@@ -826,8 +1088,19 @@ export const useGameStore = defineStore('game', {
       window.__currentBoard = this.pendingBoardState;
 
       if (this.renderer.animator && resolution.steps.length) {
+        // Inject bonus effect metadata into the first step if applicable
+        if (resolution.steps[0] && resolution.steps[0].cleared.includes(index)) {
+          resolution.steps[0].bonusEffect = {
+            type: bonusName,
+            originIndex: index,
+          };
+        }
         await this.renderer.animator.playSteps(resolution.steps);
       }
+
+      // Consume the item from inventory now that it has been successfully used
+      const inventoryStore = useInventoryStore();
+      inventoryStore.consumeItem(bonusName);
 
       this.board = resolution.board;
       this.pendingBoardState = null;
@@ -895,6 +1168,13 @@ export const useGameStore = defineStore('game', {
       } catch (error) {
         console.error('Error resolving board after shuffle:', error);
         return false;
+      } finally {
+        this.pendingBoardState = null;
+        this.animationInProgress = false;
+        if (this.sessionActive) {
+          this.scheduleHint();
+        }
+        this._processQueuedBonusSoon();
       }
     },
   },

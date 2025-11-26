@@ -43,6 +43,8 @@ export class BoardAnimator {
     this.tiles = [];
     this.queuedSwapIndices = null;
     this.queuedSwapRects = [];
+    this.queuedBonusIndex = null;
+    this.queuedBonusRect = null;
     this.hintIndices = null;
     this.hintRects = [];
     this.hintTween = null;
@@ -89,7 +91,7 @@ export class BoardAnimator {
     this.tileSprites.forEach((sprite) => sprite.destroy());
     this.tileSprites.clear();
 
-    
+
     if (this.backgroundLayer) {
       this.backgroundLayer.removeAll(true);
     }
@@ -107,6 +109,7 @@ export class BoardAnimator {
     this.clearHintMove();
     this._hideComboText();
     this.clearQueuedSwapHighlight();
+    this.clearQueuedBonusHighlight();
     this.clearBonusPreview();
     this.introCascadeInProgress = null;
   }
@@ -144,6 +147,7 @@ export class BoardAnimator {
     }
 
     this._renderQueuedSwapHighlight();
+    this._renderQueuedBonusHighlight();
     this._refreshHintEffects();
     this._repositionBonusPreviewRects();
   }
@@ -604,6 +608,19 @@ export class BoardAnimator {
     this.queuedSwapIndices = null;
   }
 
+  showQueuedBonus(index) {
+    this.queuedBonusIndex = index;
+    this._renderQueuedBonusHighlight();
+  }
+
+  clearQueuedBonusHighlight() {
+    if (this.queuedBonusRect) {
+      this.queuedBonusRect.destroy();
+    }
+    this.queuedBonusRect = null;
+    this.queuedBonusIndex = null;
+  }
+
   _renderQueuedSwapHighlight() {
     if (!this.queuedSwapIndices || this.queuedSwapIndices.length !== 2 || !this.cellSize) {
       if (this.queuedSwapRects?.length) {
@@ -651,6 +668,38 @@ export class BoardAnimator {
         rect.setFillStyle(0xffffff, 0.08);
       }
     });
+  }
+
+  _renderQueuedBonusHighlight() {
+    if (this.queuedBonusIndex == null || !this.cellSize) {
+      this.clearQueuedBonusHighlight();
+      return;
+    }
+
+    const layer = this.fxLayer ?? this.backgroundLayer ?? this.boardContainer;
+    if (!layer) {
+      return;
+    }
+
+    const { x, y } = this._indexToPosition(this.queuedBonusIndex);
+    const strokeWidth = Math.max(3, Math.round(this.cellSize * 0.08));
+    const targetSize = this.cellSize * 0.94;
+
+    if (!this.queuedBonusRect || !this.queuedBonusRect.scene) {
+      this.queuedBonusRect?.destroy?.();
+      this.queuedBonusRect = this.scene.add.rectangle(x, y, targetSize, targetSize, 0xf97316, 0.16);
+      this.queuedBonusRect.setOrigin(0.5);
+      this.queuedBonusRect.setStrokeStyle(strokeWidth, 0xf97316, 1);
+      this.queuedBonusRect.setDepth(9001);
+      if (typeof layer.add === 'function') {
+        layer.add(this.queuedBonusRect);
+      }
+    } else {
+      this.queuedBonusRect.setPosition(x, y);
+      this.queuedBonusRect.setSize(targetSize, targetSize);
+      this.queuedBonusRect.setStrokeStyle(strokeWidth, 0xf97316, 1);
+      this.queuedBonusRect.setFillStyle(0xf97316, 0.16);
+    }
   }
 
   showHintMove(indices) {
@@ -1140,42 +1189,42 @@ export class BoardAnimator {
     const removalDelays = new Map();
     const customFxIndices = new Set();
 
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'cross')
-      .forEach((entry) => {
-        const indices = this._playCrossFireLine(entry.index, clearedSet, removalDelays);
-        indices.forEach((idx) => customFxIndices.add(idx));
-      });
+    const animations = [];
 
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'rainbow')
-      .forEach((entry) => {
+    entries.forEach((entry) => {
+      const { index, gemType } = entry;
+      if (gemType === 'rainbow') {
         const targets = step.cleared.filter((idx) => idx !== entry.index);
-        const indices = this._playRainbowLaser(entry.index, targets, removalDelays);
+        const indices = this._playRainbowLaser(index, targets, removalDelays);
         indices.forEach((idx) => customFxIndices.add(idx));
-      });
-
-    entries
-      .filter((entry) => entry.sprite && entry.gemType === 'bomb')
-      .forEach((entry) => {
+      } else if (gemType === 'color_wand' || (step.bonusEffect?.type === 'color_wand' && step.bonusEffect?.originIndex === index)) {
+        const targets = step.cleared.filter((idx) => idx !== entry.index);
+        const indices = this._playRainbowLaser(index, targets, removalDelays);
+        indices.forEach((idx) => customFxIndices.add(idx));
+      } else if (gemType === 'cross' || gemType === 'tile_breaker' || (step.bonusEffect?.type === 'tile_breaker' && step.bonusEffect?.originIndex === index)) {
+        const indices = this._playCrossFireLine(index, clearedSet, removalDelays);
+        indices.forEach((idx) => customFxIndices.add(idx));
+      } else if (gemType === 'bomb') {
         if (this.audio?.playBomb) {
           this.audio.playBomb();
         }
         this._emitBonusEffect(entry.gemType, entry.index);
-      });
+      }
+    });
 
-    const animations = entries.map((entry) => {
+    entries.forEach((entry) => {
       const { index, gemId, sprite, gemType } = entry;
 
       if (!gemId || !sprite) {
         this.indexToGemId[index] = null;
         this.gemSprites.delete(gemId);
-        return Promise.resolve();
+        animations.push(Promise.resolve());
+        return;
       }
 
       const delay = removalDelays.get(index) ?? 0;
 
-      return new Promise((resolve) => {
+      animations.push(new Promise((resolve) => {
         const handleRemoval = () => {
           if (sprite.scene) {
             this.scene.tweens.killTweensOf(sprite);
@@ -1201,7 +1250,7 @@ export class BoardAnimator {
         } else {
           setTimeout(handleRemoval, delay);
         }
-      });
+      }));
     });
 
     return animations.length ? Promise.all(animations) : Promise.resolve();

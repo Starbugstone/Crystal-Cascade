@@ -1,30 +1,61 @@
 <template>
-  <section class="powerup-bar">
+  <section class="powerup-bar" :class="{ 'powerup-bar--compact': compact }">
     <button
       v-for="item in quickAccess"
       :key="item.id"
-      :class="['powerup-button', { 'powerup-button--glow': glowingId === item.id, 'powerup-button--disabled': item.disabled }]"
+      :class="['powerup-button', { 
+        'powerup-button--glow': glowingId === item.id || activeBonusId === item.id, 
+        'powerup-button--disabled': item.disabled || !item.quantity,
+        'powerup-button--compact': compact
+      }]"
       :disabled="!item.quantity || item.disabled"
+      :title="item.label"
       @click="handleUse(item.id)"
     >
-      <span class="powerup-name">{{ item.label }}</span>
+      <span v-if="compact" class="powerup-icon">{{ iconMap[item.id] || '⚡' }}</span>
+      <span v-else class="powerup-name">{{ item.label }}</span>
       <span class="powerup-qty">{{ item.quantity }}</span>
     </button>
-    <button class="inventory-button" @click="inventoryStore.openInventory">
-      Inventory
-    </button>
+
   </section>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useGameStore } from '../stores/gameStore';
 import { useInventoryStore } from '../stores/inventoryStore';
 
+const props = defineProps({
+  compact: {
+    type: Boolean,
+    default: false,
+  },
+});
+
 const inventoryStore = useInventoryStore();
+const gameStore = useGameStore();
+const { activeBonusMode } = storeToRefs(gameStore);
 const glowingId = ref(null);
 const glowTimer = ref(null);
 
+const iconMap = {
+  'clear-row': '➖',
+  'hammer': '🔨',
+  'color-wand': '🪄',
+  'shuffle': '🔀',
+  'tile-breaker': '⛏️',
+};
+
 const quickAccess = computed(() => inventoryStore.quickAccessSlots);
+const activeBonusId = computed(() => {
+  const modeToIdMap = {
+    hammer: 'hammer',
+    color_wand: 'color-wand',
+    tile_breaker: 'tile-breaker',
+  };
+  return modeToIdMap[activeBonusMode.value] ?? null;
+});
 
 const triggerGlow = (id) => {
   glowingId.value = id;
@@ -37,8 +68,8 @@ const triggerGlow = (id) => {
   }, 500);
 };
 
-const handleUse = (id) => {
-  const executed = inventoryStore.usePowerUp(id);
+const handleUse = async (id) => {
+  const executed = await inventoryStore.usePowerUp(id);
   if (executed && id === 'swap-extra') {
     triggerGlow(id);
   }
@@ -58,8 +89,7 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
 }
 
-.powerup-button,
-.inventory-button {
+.powerup-button {
   min-width: 120px;
   padding: 0.75rem 1rem;
   border-radius: 999px;
@@ -76,8 +106,7 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.powerup-button:hover:not(:disabled),
-.inventory-button:hover {
+.powerup-button:hover:not(:disabled) {
   transform: translateY(-2px);
   background: rgba(79, 70, 229, 0.7);
 }
@@ -97,9 +126,37 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
-.inventory-button {
-  flex: 1;
-  justify-content: center;
-  border-style: dashed;
+
+
+.powerup-bar--compact {
+  flex-direction: column;
+  gap: 0.5rem;
 }
+
+.powerup-button--compact {
+  min-width: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.powerup-button--compact .powerup-qty {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: var(--color-accent, #3b82f6);
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 2px solid rgba(30, 41, 59, 1);
+}
+
+.powerup-icon {
+  font-size: 1.25rem;
+}
+
+
 </style>

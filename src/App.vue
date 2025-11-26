@@ -28,8 +28,28 @@
     </header>
 
     <main class="app-main">
-      <section class="board-wrapper">
+      <section
+        class="board-wrapper"
+        :class="{
+          'cursor-hammer': gameStore.activeBonusMode === 'hammer',
+      'cursor-color-wand': gameStore.activeBonusMode === 'color_wand',
+      'cursor-tile-breaker': gameStore.activeBonusMode === 'tile_breaker'
+    }"
+  >
+        <transition name="reshuffle-banner">
+          <div
+            v-if="gameStore.reshuffleNotice"
+            class="reshuffle-banner"
+            role="status"
+            aria-live="polite"
+          >
+            {{ gameStore.reshuffleNotice.message }}
+          </div>
+        </transition>
         <BoardCanvas :fullscreen="isBoardFullscreen" />
+        <div v-if="isBoardFullscreen" class="fullscreen-hud">
+          <PowerUpBar :compact="true" class="fullscreen-powerups" />
+        </div>
         <aside class="board-rail">
           <!-- Bonus icons / slide-out trigger area -->
         </aside>
@@ -133,10 +153,23 @@ watch(isBoardFullscreen, (active) => {
   nextTick(() => {
     updateHeaderMetrics();
     updateViewportSize();
-    if (active != null && gameStore.renderer) {
-      setTimeout(() => {
+    
+    // Trigger a real window resize event to ensure all listeners (including Phaser) update
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    if (gameStore.renderer) {
+      // Force multiple refreshes to catch layout settlement
+      const refresh = () => {
+        if (typeof window !== 'undefined') {
+           window.dispatchEvent(new Event('resize'));
+        }
         gameStore.refreshBoardVisuals(true);
-      }, 60);
+      };
+      setTimeout(refresh, 50);
+      setTimeout(refresh, 150);
+      setTimeout(refresh, 300);
     }
   });
 });
@@ -292,6 +325,63 @@ const handleVictoryNext = () => {
   gap: clamp(0.75rem, 1.25vw, 1.75rem);
 }
 
+.reshuffle-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.65rem 1.2rem;
+  background: linear-gradient(120deg, rgba(248, 113, 113, 0.95), rgba(248, 180, 80, 0.95));
+  color: #0f172a;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 30px rgba(248, 113, 113, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  text-align: center;
+  pointer-events: none;
+  animation: banner-pop 220ms ease, banner-pulse 1.2s ease-in-out infinite;
+  z-index: 20;
+}
+
+.reshuffle-banner-enter-active,
+.reshuffle-banner-leave-active {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.reshuffle-banner-enter-from,
+.reshuffle-banner-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+}
+
+@keyframes banner-pop {
+  0% {
+    transform: translateX(-50%) scale(0.95);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@keyframes banner-pulse {
+  0% {
+    box-shadow: 0 10px 30px rgba(248, 113, 113, 0.35);
+  }
+  50% {
+    box-shadow: 0 14px 38px rgba(248, 180, 80, 0.45);
+  }
+  100% {
+    box-shadow: 0 10px 30px rgba(248, 113, 113, 0.35);
+  }
+}
+
+.board-wrapper.cursor-hammer,
+.board-wrapper.cursor-color-wand,
+.board-wrapper.cursor-tile-breaker {
+  cursor: crosshair;
+}
+
 .board-rail {
   flex: 0 0 clamp(2.5rem, 6vw, 4.5rem);
   display: flex;
@@ -315,8 +405,8 @@ const handleVictoryNext = () => {
 .app-shell.board-fullscreen .app-main {
   flex: 1;
   flex-direction: column;
-  gap: clamp(0.75rem, 2vw, 1.5rem);
-  padding: clamp(0.5rem, 2vw, 1.5rem);
+  gap: 0;
+  padding: 0;
   height: calc(100vh - var(--fullscreen-header, 72px));
 }
 
@@ -325,11 +415,12 @@ const handleVictoryNext = () => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  border-radius: clamp(0.75rem, 2vw, 1.5rem);
-  padding: clamp(0.75rem, 2vw, 1.5rem);
-  background: rgba(15, 23, 42, 0.7);
+  border-radius: 0;
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.85);
   display: flex;
-  gap: clamp(0.75rem, 1.25vw, 1.75rem);
+  flex-direction: row; /* Changed to row to put HUD on side */
+  gap: 1rem;
   justify-content: center;
   align-items: center;
 }
@@ -337,6 +428,30 @@ const handleVictoryNext = () => {
 .app-shell.board-fullscreen .board-rail,
 .app-shell.board-fullscreen .hud-wrapper {
   display: none;
+}
+
+.fullscreen-hud {
+  position: static; /* Remove absolute positioning */
+  transform: none;
+  z-index: 10;
+  width: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: none; /* Let clicks pass through container if needed, but children need pointer-events: auto */
+}
+
+.fullscreen-powerups {
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0.75rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column; /* Stack icons vertically */
+  gap: 0.5rem;
 }
 
 @media (max-width: 1200px) {
