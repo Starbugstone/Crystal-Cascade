@@ -144,37 +144,27 @@ const activateClearRowBonus = async () => {
 
 .score-flash {
   color: #f87171;
-  animation: score-flash-pulse 1s ease, score-flash-shake 0.6s ease-in-out;
+  animation: score-flash-combined 0.9s ease;
 }
 
-@keyframes score-flash-pulse {
+@keyframes score-flash-combined {
   0% {
     text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
-    transform: scale(1);
+    transform: scale(1) translateX(0);
+  }
+  25% {
+    transform: scale(1.05) translateX(-3px);
   }
   35% {
     text-shadow: 0 0 18px rgba(248, 113, 113, 0.5);
-    transform: scale(1.06);
+    transform: scale(1.06) translateX(3px);
+  }
+  60% {
+    transform: scale(1.02) translateX(-2px);
   }
   100% {
     text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
-    transform: scale(1);
-  }
-}
-
-@keyframes score-flash-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-3px);
-  }
-  50% {
-    transform: translateX(3px);
-  }
-  75% {
-    transform: translateX(-2px);
+    transform: scale(1) translateX(0);
   }
 }
 </style>

@@ -967,7 +967,7 @@ export const useGameStore = defineStore('game', {
         this.reshuffleNotice = null;
       }, 2000);
     },
-    async ensurePlayableBoard({ attempts = 0 } = {}) {
+    async ensurePlayableBoard({ attempts = 0, penaltyApplied = false } = {}) {
       if (this.animationInProgress || !this.sessionActive || this.levelCleared) {
         return false;
       }
@@ -983,13 +983,18 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const lostScore = Math.floor(this.score * (2 / 3));
-      if (lostScore > 0) {
-        this.score = Math.max(0, this.score - lostScore);
-        this.updateObjectives({ scoreDelta: -lostScore });
+      let lostScore = 0;
+      if (!penaltyApplied) {
+        // Only apply the penalty+notice once per reshuffle chain so recursive retries don't stack
+        lostScore = Math.floor(this.score * (2 / 3));
+        if (lostScore > 0) {
+          this.score = Math.max(0, this.score - lostScore);
+          this.updateObjectives({ scoreDelta: -lostScore });
+        }
+        this._triggerScorePenaltyFlash();
+        this._showReshuffleNotice(lostScore);
+        penaltyApplied = true;
       }
-      this._triggerScorePenaltyFlash();
-      this._showReshuffleNotice(lostScore);
 
       const shuffleResult = await this.shuffleBoard();
       if (!shuffleResult) {
@@ -997,7 +1002,7 @@ export const useGameStore = defineStore('game', {
       }
 
       if (!this._hasPlayableMove() && attempts < 2) {
-        return this.ensurePlayableBoard({ attempts: attempts + 1 });
+        return this.ensurePlayableBoard({ attempts: attempts + 1, penaltyApplied });
       }
 
       return true;
