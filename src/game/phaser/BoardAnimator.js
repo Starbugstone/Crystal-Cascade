@@ -1210,8 +1210,16 @@ export class BoardAnimator {
   _animateBonus({ index, gem, type }) {
     const previousGemId = this.indexToGemId[index];
     let sprite = previousGemId ? this.gemSprites.get(previousGemId) : null;
+    const bonusConfig = this.bonusAnimations[type];
+    const needsAnimation = !!bonusConfig?.animationKey;
 
-    if (sprite && previousGemId !== gem.id) {
+    // Destroy existing sprite if:
+    // 1. gem ID changed, OR
+    // 2. we need animation but current sprite is an Image (doesn't support anims)
+    const spriteCanAnimate = sprite && typeof sprite.anims?.play === 'function';
+    const mustRecreate = sprite && (previousGemId !== gem.id || (needsAnimation && !spriteCanAnimate));
+
+    if (mustRecreate) {
       sprite.destroy();
       this.gemSprites.delete(previousGemId);
       sprite = null;
@@ -1230,6 +1238,8 @@ export class BoardAnimator {
     this.indexToGemId[index] = gem.id;
     this._setTexture(sprite, type);
     sprite.__gemType = type;
+    // Ensure consistent sizing after texture change (fixes size mismatch between swap-created vs cascade-created bonuses)
+    this._applyGemDimensions(sprite);
     this._applyHighlight(sprite, gem);
 
     if (this.audio?.playBonusAppears) {
