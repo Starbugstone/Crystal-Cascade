@@ -43,10 +43,9 @@
             role="status"
             aria-live="polite"
           >
-            {{ gameStore.reshuffleNotice.message }}
+            {{ gameStore.reshuffleNotice?.message }}
           </div>
-        </transition>
-        <BoardCanvas :fullscreen="isBoardFullscreen" />
+        </transition>        <BoardCanvas :fullscreen="isBoardFullscreen" />
         <div v-if="isBoardFullscreen" class="fullscreen-hud">
           <PowerUpBar :compact="true" class="fullscreen-powerups" />
         </div>
