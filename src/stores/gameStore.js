@@ -1072,7 +1072,7 @@ export const useGameStore = defineStore('game', {
           this._processQueuedBonusSoon();
         });
     },
-    async hammerTile(index) {
+    async hammerTile(index, bonusName = 'hammer') {
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
         return;
       }
