@@ -23,3 +23,4 @@ The generator keeps rolling the RNG (seeded per level for determinism) until it 
 
 These constraints guarantee the compact board always spawns full and offers “a few” tactical options at the start of the level, aligning with the latest gameplay feedback.
 
+

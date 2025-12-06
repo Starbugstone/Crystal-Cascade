@@ -74,7 +74,7 @@ const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
 
   SPECIAL_TYPES.forEach((type, typeIndex) => {
     const animationKey = `bonus-${type}`;
-    const frames = [];
+    const baseFrames = [];
 
     for (let frameIdx = 0; frameIdx < BONUS_FRAMES_PER_ANIMATION; frameIdx += 1) {
       const col = frameIdx;
@@ -90,13 +90,19 @@ const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
         canvasTexture.refresh();
       }
 
-      frames.push({ key: frameKey });
+      baseFrames.push({ key: frameKey });
+    }
+
+    // Build ping-pong frame sequence: 0-1-2-1-0-1-2-1... (frames play left-to-right then back)
+    const pingPongFrames = [...baseFrames];
+    for (let i = BONUS_FRAMES_PER_ANIMATION - 2; i > 0; i -= 1) {
+      pingPongFrames.push(baseFrames[i]);
     }
 
     if (!scene.anims.exists(animationKey)) {
       scene.anims.create({
         key: animationKey,
-        frames,
+        frames: pingPongFrames,
         frameRate: BONUS_FRAME_RATE,
         repeat: -1,
       });
@@ -104,13 +110,13 @@ const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
 
     bonusAnimations[type] = {
       animationKey,
-      frameKey: frames[0].key,
+      frameKey: baseFrames[0].key,
       width: frameWidth,
       height: frameHeight,
     };
 
     textures[type] = {
-      key: frames[0].key,
+      key: baseFrames[0].key,
       width: frameWidth,
       height: frameHeight,
     };

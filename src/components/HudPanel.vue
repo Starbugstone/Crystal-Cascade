@@ -2,7 +2,9 @@
   <section class="hud-panel">
     <div class="hud-card">
       <h2>Score</h2>
-      <p>{{ gameStore.score.toLocaleString() }}</p>
+      <p :class="{ 'score-flash': gameStore.scorePenaltyFlash }">
+        {{ gameStore.score.toLocaleString() }}
+      </p>
     </div>
     <div class="hud-card">
       <h2>Cascade</h2>
@@ -138,5 +140,31 @@ const activateClearRowBonus = async () => {
 
 .redraw-btn:active {
   transform: scale(0.95);
+}
+
+.score-flash {
+  color: #f87171;
+  animation: score-flash-combined 0.9s ease;
+}
+
+@keyframes score-flash-combined {
+  0% {
+    text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
+    transform: scale(1) translateX(0);
+  }
+  25% {
+    transform: scale(1.05) translateX(-3px);
+  }
+  35% {
+    text-shadow: 0 0 18px rgba(248, 113, 113, 0.5);
+    transform: scale(1.06) translateX(3px);
+  }
+  60% {
+    transform: scale(1.02) translateX(-2px);
+  }
+  100% {
+    text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
+    transform: scale(1) translateX(0);
+  }
 }
 </style>
