@@ -462,10 +462,16 @@ const handleVictoryNext = () => {
   }
 }
 
-.board-wrapper.cursor-hammer,
-.board-wrapper.cursor-color-wand,
+.board-wrapper.cursor-hammer {
+  cursor: url('/sprite/powers/hammer.png') 16 16, crosshair;
+}
+
+.board-wrapper.cursor-color-wand {
+  cursor: url('/sprite/powers/color-wand.png') 16 16, crosshair;
+}
+
 .board-wrapper.cursor-tile-breaker {
-  cursor: crosshair;
+  cursor: url('/sprite/powers/tile-breaker.png') 16 16, crosshair;
 }
 
 .board-rail {

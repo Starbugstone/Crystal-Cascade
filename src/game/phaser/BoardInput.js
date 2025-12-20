@@ -65,6 +65,17 @@ export class BoardInput {
   }
 
   handlePointerMove(pointer) {
+    // If in active bonus mode (hammer, color_wand, tile_breaker), show preview on hover
+    if (this.gameStore.activeBonusMode) {
+      const currentCell = this.getCellIndexFromPointer(pointer);
+      if (currentCell != null && !this.gameStore.animationInProgress) {
+        this.gameStore.previewPowerEffect(currentCell);
+      } else {
+        this.gameStore.clearBonusPreview();
+      }
+      return;
+    }
+
     if (
       this.startCell == null ||
       !this.gameStore.sessionActive ||

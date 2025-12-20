@@ -119,6 +119,79 @@ export class BonusActivator {
     }
   }
 
+  /**
+   * Preview which tiles would be affected by a power without actually activating it.
+   * Used for hover highlighting on interactive powers.
+   */
+  previewBonus(type, board, cols, rows, index) {
+    if (!board || index == null || index < 0 || index >= board.length) {
+      return [];
+    }
+
+    // Clone the board so we don't modify the original
+    const clonedBoard = board.map((cell) => (cell ? { ...cell } : null));
+
+    switch (type) {
+      case 'hammer':
+        // Hammer acts like a bomb (3x3 area)
+        return this._previewBomb(clonedBoard, cols, rows, index);
+      case 'color_wand':
+        // Color wand clears all gems of the same type
+        return this._previewColorWand(clonedBoard, index);
+      case 'tile_breaker':
+        // Tile breaker acts like a cross (row + column)
+        return this._previewCross(clonedBoard, cols, rows, index);
+      default:
+        return [index];
+    }
+  }
+
+  _previewBomb(board, cols, rows, index) {
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const indices = [];
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const nr = row + dy;
+        const nc = col + dx;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+          indices.push(nr * cols + nc);
+        }
+      }
+    }
+    return indices;
+  }
+
+  _previewColorWand(board, index) {
+    const targetGem = board[index];
+    if (!targetGem) return [index];
+
+    const indices = [];
+    board.forEach((gem, i) => {
+      if (gem && gem.type === targetGem.type) {
+        indices.push(i);
+      }
+    });
+    return indices;
+  }
+
+  _previewCross(board, cols, rows, index) {
+    const row = Math.floor(index / cols);
+    const col = index % cols;
+    const indices = new Set();
+
+    // Entire row
+    for (let c = 0; c < cols; c++) {
+      indices.add(row * cols + c);
+    }
+    // Entire column
+    for (let r = 0; r < rows; r++) {
+      indices.add(r * cols + col);
+    }
+    return [...indices];
+  }
+
   chainContextFor(gem) {
     if (!gem || !this.isBonus(gem.type)) {
       return {};
