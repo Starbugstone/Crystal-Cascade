@@ -462,16 +462,20 @@ const handleVictoryNext = () => {
   }
 }
 
+/* Custom cursors for interactive powers - using inline SVG for browser compatibility */
 .board-wrapper.cursor-hammer {
-  cursor: url('/sprite/powers/hammer.png') 16 16, crosshair;
+  /* Hammer cursor: 32x32 SVG */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='14' height='8' rx='2' fill='%23718096' stroke='%23374151' stroke-width='1'/%3E%3Crect x='9' y='10' width='4' height='16' rx='1' fill='%238B5A2B' stroke='%23654321' stroke-width='1'/%3E%3Crect x='5' y='3' width='12' height='3' fill='%239CA3AF'/%3E%3C/svg%3E") 16 16, crosshair;
 }
 
 .board-wrapper.cursor-color-wand {
-  cursor: url('/sprite/powers/color-wand.png') 16 16, crosshair;
+  /* Magic wand cursor: 32x32 SVG with star and sparkles */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='6' y1='26' x2='22' y2='10' stroke='%238B5CF6' stroke-width='3' stroke-linecap='round'/%3E%3Cpolygon points='24,8 26,4 28,8 32,10 28,12 26,16 24,12 20,10' fill='%23FBBF24'/%3E%3Ccircle cx='10' cy='22' r='2' fill='%23F472B6'/%3E%3Ccircle cx='18' cy='14' r='1.5' fill='%2360A5FA'/%3E%3C/svg%3E") 6 26, crosshair;
 }
 
 .board-wrapper.cursor-tile-breaker {
-  cursor: url('/sprite/powers/tile-breaker.png') 16 16, crosshair;
+  /* Cross/plus cursor: 32x32 SVG */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='12' y='2' width='8' height='28' rx='2' fill='%2306B6D4' stroke='%230E7490' stroke-width='1'/%3E%3Crect x='2' y='12' width='28' height='8' rx='2' fill='%2306B6D4' stroke='%230E7490' stroke-width='1'/%3E%3Crect x='13' y='3' width='6' height='26' fill='%2322D3EE'/%3E%3Crect x='3' y='13' width='26' height='6' fill='%2322D3EE'/%3E%3C/svg%3E") 16 16, crosshair;
 }
 
 .board-rail {
