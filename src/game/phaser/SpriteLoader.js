@@ -16,6 +16,29 @@ const BONUS_GRID_ROWS = 3;
 const BONUS_FRAMES_PER_ANIMATION = 3;
 const BONUS_FRAME_RATE = 8;
 
+// Per-frame crop adjustments (in pixels) to align content consistently across frames.
+// Each bonus type has an array of 3 frame adjustments [frame0, frame1, frame2].
+// Positive X = crop from left (shift content left), Negative X = crop from right (shift content right)
+// Positive Y = crop from top (shift content up), Negative Y = crop from bottom (shift content down)
+// These are applied during canvas slicing to ensure all frames align visually.
+const BONUS_FRAME_ADJUSTMENTS = {
+  bomb: [
+    { x: 15, y: 45 },    // Frame 0
+    { x: 0, y: 45 },    // Frame 1
+    { x: -15, y: 45 },    // Frame 2
+  ],
+  rainbow: [
+    { x: 15, y: 0 },    // Frame 0
+    { x: 0, y: 0 },    // Frame 1
+    { x: -15, y: 0 },    // Frame 2
+  ],
+  cross: [
+    { x: 15, y: -45 },    // Frame 0
+    { x: 0, y: -45 },    // Frame 1
+    { x: -15, y: -45 },    // Frame 2
+  ],
+};
+
 export const preloadSpriteAssets = (scene) => {
   scene.load.image('gem-sheet', SPRITE_PATH);
   scene.load.image('bonus-sheet', BONUS_SPRITE_PATH);
@@ -79,13 +102,20 @@ const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
     for (let frameIdx = 0; frameIdx < BONUS_FRAMES_PER_ANIMATION; frameIdx += 1) {
       const col = frameIdx;
       const row = typeIndex;
-      const sx = col * frameWidth;
-      const sy = row * frameHeight;
+      const baseX = col * frameWidth;
+      const baseY = row * frameHeight;
+
+      // Get per-frame adjustment (in pixels)
+      const adjustment = BONUS_FRAME_ADJUSTMENTS[type]?.[frameIdx] ?? { x: 0, y: 0 };
+      const sx = baseX + adjustment.x;
+      const sy = baseY + adjustment.y;
+
       const frameKey = `${animationKey}-frame-${frameIdx}`;
 
       if (!scene.textures.exists(frameKey)) {
         const canvasTexture = scene.textures.createCanvas(frameKey, frameWidth, frameHeight);
         const ctx = canvasTexture.context;
+        // Apply adjustment by shifting the source crop position
         ctx.drawImage(source, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
         canvasTexture.refresh();
       }

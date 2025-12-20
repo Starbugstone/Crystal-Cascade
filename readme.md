@@ -2,7 +2,7 @@
 
 Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delivering a responsive board, procedural levels, and emergent bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
 
-_Last updated: 2025-11-21_
+_Last updated: 2025-12-20_
 
 ---
 
@@ -25,7 +25,7 @@ _Last updated: 2025-11-21_
 
 ### Prerequisites
 
-- Node.js 18 or newer
+- Node.js 20 or newer
 - npm 9 or newer
 
 ### Installation & Scripts
