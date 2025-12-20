@@ -320,6 +320,51 @@ export const useGameStore = defineStore('game', {
       this.bonusPreview = { indices: [], swap: null, key: null };
       this.renderer?.animator?.clearBonusPreview?.();
     },
+    /**
+     * Preview the effect of an interactive power (hammer, color_wand, tile_breaker) at a given tile index.
+     * Shows which tiles will be affected when the power is activated.
+     */
+    previewPowerEffect(index) {
+      if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const bonusMode = this.activeBonusMode;
+      if (!bonusMode) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const cols = this.boardCols ?? this.boardSize ?? 8;
+      const rows = this.boardRows ?? this.boardSize ?? 8;
+      const board = this.activeBoard;
+
+      if (!Array.isArray(board) || !board.length || index == null || index < 0 || index >= board.length) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      // Get the indices that would be affected
+      const indices = bonusActivator.previewBonus(bonusMode, board, cols, rows, index) ?? [];
+
+      if (!indices.length) {
+        this.clearBonusPreview();
+        return;
+      }
+
+      const cacheKey = `power-${bonusMode}-${index}-${indices.join(',')}`;
+      if (this.bonusPreview?.key === cacheKey) {
+        return; // Already showing this preview
+      }
+
+      this.bonusPreview = {
+        indices,
+        swap: null,
+        key: cacheKey,
+      };
+      this.renderer?.animator?.showBonusPreview?.(indices);
+    },
     _processQueuedBonusSoon() {
       if (!this.queuedBonus) {
         return;

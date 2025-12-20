@@ -55,7 +55,19 @@
       </section>
       <section class="hud-wrapper">
         <HudPanel />
-        <PowerUpBar />
+        <PowerUpBar ref="powerUpBarRef" @button-flash="flashPowerButton" />
+        <!-- Dev Section (temporary for testing) -->
+        <div class="dev-section">
+          <h4>🔧 Dev Tools</h4>
+          <button @click="rollLootbox" class="dev-button">
+            🎁 Obtain Lootbox Power
+          </button>
+          <transition name="loot-result">
+            <p v-if="lastLootResult" class="loot-result" :style="{ color: lastLootResult.color }">
+              +1 {{ lastLootResult.label }} ({{ lastLootResult.rarity }})
+            </p>
+          </transition>
+        </div>
       </section>
     </main>
 
@@ -78,6 +90,17 @@
       :open="settingsStore.isSettingsOpen"
       @close="settingsStore.toggleSettings(false)"
     />
+    
+    <!-- Lootbox Animation Overlay -->
+    <LootboxAnimation
+      :active="lootboxAnimating"
+      :power-id="pendingLootResult?.powerId"
+      :power-label="pendingLootResult?.label"
+      :rarity="pendingLootResult?.rarity"
+      :rarity-color="pendingLootResult?.color"
+      :target-button-rect="targetButtonRect"
+      @complete="onLootboxAnimationComplete"
+    />
   </div>
 </template>
 
@@ -89,15 +112,79 @@ import PowerUpBar from './components/PowerUpBar.vue';
 import LevelSelectModal from './components/LevelSelectModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
+import LootboxAnimation from './components/LootboxAnimation.vue';
 import { useGameStore } from './stores/gameStore';
+import { useInventoryStore } from './stores/inventoryStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useAudio } from './composables/useAudio';
+import { lootboxService } from './game/engine/LootboxService';
 
 const gameStore = useGameStore();
+const inventoryStore = useInventoryStore();
 const settingsStore = useSettingsStore();
 const isBoardFullscreen = ref(false);
 const headerRef = ref(null);
 const headerSize = ref(72);
+
+// Dev lootbox testing
+const lastLootResult = ref(null);
+const lootboxAnimating = ref(false);
+const pendingLootResult = ref(null);
+const targetButtonRect = ref(null);
+const powerUpBarRef = ref(null);
+let lootResultTimer = null;
+
+const rollLootbox = () => {
+  if (lootboxAnimating.value) return; // Prevent double-click
+  
+  const result = lootboxService.roll();
+  
+  pendingLootResult.value = {
+    ...result,
+    label: lootboxService.getPowerLabel(result.powerId),
+    color: lootboxService.getRarityColor(result.rarity),
+  };
+  
+  // Get target button position for flight animation
+  const buttonEl = document.querySelector(`[data-power-id="${result.powerId}"]`);
+  if (buttonEl) {
+    targetButtonRect.value = buttonEl.getBoundingClientRect();
+  }
+  
+  // Start animation
+  lootboxAnimating.value = true;
+};
+
+const onLootboxAnimationComplete = () => {
+  lootboxAnimating.value = false;
+  
+  if (pendingLootResult.value) {
+    // Award the power
+    inventoryStore.awardPower(pendingLootResult.value.powerId);
+    
+    // Show result text
+    lastLootResult.value = pendingLootResult.value;
+    
+    // Flash the target button
+    flashPowerButton(pendingLootResult.value.powerId);
+    
+    // Clear after 2 seconds
+    if (lootResultTimer) clearTimeout(lootResultTimer);
+    lootResultTimer = setTimeout(() => {
+      lastLootResult.value = null;
+    }, 2000);
+    
+    pendingLootResult.value = null;
+  }
+};
+
+const flashPowerButton = (powerId) => {
+  const buttonEl = document.querySelector(`[data-power-id="${powerId}"]`);
+  if (buttonEl) {
+    buttonEl.classList.add('flash-effect');
+    setTimeout(() => buttonEl.classList.remove('flash-effect'), 500);
+  }
+};
 const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
 const audio = useAudio();
 const { playAmbientLoop, stopAmbientLoop } = audio;
@@ -375,10 +462,20 @@ const handleVictoryNext = () => {
   }
 }
 
-.board-wrapper.cursor-hammer,
-.board-wrapper.cursor-color-wand,
+/* Custom cursors for interactive powers - using inline SVG for browser compatibility */
+.board-wrapper.cursor-hammer {
+  /* Hammer cursor: 32x32 SVG */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='14' height='8' rx='2' fill='%23718096' stroke='%23374151' stroke-width='1'/%3E%3Crect x='9' y='10' width='4' height='16' rx='1' fill='%238B5A2B' stroke='%23654321' stroke-width='1'/%3E%3Crect x='5' y='3' width='12' height='3' fill='%239CA3AF'/%3E%3C/svg%3E") 16 16, crosshair;
+}
+
+.board-wrapper.cursor-color-wand {
+  /* Magic wand cursor: 32x32 SVG with star and sparkles */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='6' y1='26' x2='22' y2='10' stroke='%238B5CF6' stroke-width='3' stroke-linecap='round'/%3E%3Cpolygon points='24,8 26,4 28,8 32,10 28,12 26,16 24,12 20,10' fill='%23FBBF24'/%3E%3Ccircle cx='10' cy='22' r='2' fill='%23F472B6'/%3E%3Ccircle cx='18' cy='14' r='1.5' fill='%2360A5FA'/%3E%3C/svg%3E") 6 26, crosshair;
+}
+
 .board-wrapper.cursor-tile-breaker {
-  cursor: crosshair;
+  /* Cross/plus cursor: 32x32 SVG */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='12' y='2' width='8' height='28' rx='2' fill='%2306B6D4' stroke='%230E7490' stroke-width='1'/%3E%3Crect x='2' y='12' width='28' height='8' rx='2' fill='%2306B6D4' stroke='%230E7490' stroke-width='1'/%3E%3Crect x='13' y='3' width='6' height='26' fill='%2322D3EE'/%3E%3Crect x='3' y='13' width='26' height='6' fill='%2322D3EE'/%3E%3C/svg%3E") 16 16, crosshair;
 }
 
 .board-rail {
@@ -501,6 +598,83 @@ const handleVictoryNext = () => {
     border-radius: 12px;
     padding: 0.75rem;
     min-height: auto;
+  }
+}
+
+/* Dev Section Styles */
+.dev-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.dev-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.dev-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(236, 72, 153, 0.8));
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.dev-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}
+
+.dev-button:active {
+  transform: scale(0.98);
+}
+
+.loot-result {
+  margin: 0.75rem 0 0 0;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 6px;
+}
+
+.loot-result-enter-active,
+.loot-result-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.loot-result-enter-from,
+.loot-result-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Flash effect for power buttons when receiving lootbox reward */
+:deep(.powerup-button.flash-effect) {
+  animation: button-flash 500ms ease-out;
+}
+
+@keyframes button-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px 15px rgba(168, 85, 247, 0.6), 0 0 60px 30px rgba(59, 130, 246, 0.3);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background: rgba(30, 41, 59, 0.8);
   }
 }
 </style>
