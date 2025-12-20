@@ -55,7 +55,7 @@
       </section>
       <section class="hud-wrapper">
         <HudPanel />
-        <PowerUpBar />
+        <PowerUpBar ref="powerUpBarRef" @button-flash="flashPowerButton" />
         <!-- Dev Section (temporary for testing) -->
         <div class="dev-section">
           <h4>🔧 Dev Tools</h4>
@@ -90,6 +90,17 @@
       :open="settingsStore.isSettingsOpen"
       @close="settingsStore.toggleSettings(false)"
     />
+    
+    <!-- Lootbox Animation Overlay -->
+    <LootboxAnimation
+      :active="lootboxAnimating"
+      :power-id="pendingLootResult?.powerId"
+      :power-label="pendingLootResult?.label"
+      :rarity="pendingLootResult?.rarity"
+      :rarity-color="pendingLootResult?.color"
+      :target-button-rect="targetButtonRect"
+      @complete="onLootboxAnimationComplete"
+    />
   </div>
 </template>
 
@@ -101,6 +112,7 @@ import PowerUpBar from './components/PowerUpBar.vue';
 import LevelSelectModal from './components/LevelSelectModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
+import LootboxAnimation from './components/LootboxAnimation.vue';
 import { useGameStore } from './stores/gameStore';
 import { useInventoryStore } from './stores/inventoryStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -116,23 +128,62 @@ const headerSize = ref(72);
 
 // Dev lootbox testing
 const lastLootResult = ref(null);
+const lootboxAnimating = ref(false);
+const pendingLootResult = ref(null);
+const targetButtonRect = ref(null);
+const powerUpBarRef = ref(null);
 let lootResultTimer = null;
 
 const rollLootbox = () => {
-  const result = lootboxService.roll();
-  inventoryStore.awardPower(result.powerId);
+  if (lootboxAnimating.value) return; // Prevent double-click
   
-  lastLootResult.value = {
+  const result = lootboxService.roll();
+  
+  pendingLootResult.value = {
     ...result,
     label: lootboxService.getPowerLabel(result.powerId),
     color: lootboxService.getRarityColor(result.rarity),
   };
   
-  // Clear after 2 seconds
-  if (lootResultTimer) clearTimeout(lootResultTimer);
-  lootResultTimer = setTimeout(() => {
-    lastLootResult.value = null;
-  }, 2000);
+  // Get target button position for flight animation
+  const buttonEl = document.querySelector(`[data-power-id="${result.powerId}"]`);
+  if (buttonEl) {
+    targetButtonRect.value = buttonEl.getBoundingClientRect();
+  }
+  
+  // Start animation
+  lootboxAnimating.value = true;
+};
+
+const onLootboxAnimationComplete = () => {
+  lootboxAnimating.value = false;
+  
+  if (pendingLootResult.value) {
+    // Award the power
+    inventoryStore.awardPower(pendingLootResult.value.powerId);
+    
+    // Show result text
+    lastLootResult.value = pendingLootResult.value;
+    
+    // Flash the target button
+    flashPowerButton(pendingLootResult.value.powerId);
+    
+    // Clear after 2 seconds
+    if (lootResultTimer) clearTimeout(lootResultTimer);
+    lootResultTimer = setTimeout(() => {
+      lastLootResult.value = null;
+    }, 2000);
+    
+    pendingLootResult.value = null;
+  }
+};
+
+const flashPowerButton = (powerId) => {
+  const buttonEl = document.querySelector(`[data-power-id="${powerId}"]`);
+  if (buttonEl) {
+    buttonEl.classList.add('flash-effect');
+    setTimeout(() => buttonEl.classList.remove('flash-effect'), 500);
+  }
 };
 const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
 const audio = useAudio();
@@ -595,5 +646,25 @@ const handleVictoryNext = () => {
 .loot-result-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* Flash effect for power buttons when receiving lootbox reward */
+:deep(.powerup-button.flash-effect) {
+  animation: button-flash 500ms ease-out;
+}
+
+@keyframes button-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px 15px rgba(168, 85, 247, 0.6), 0 0 60px 30px rgba(59, 130, 246, 0.3);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(59, 130, 246, 0.8));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background: rgba(30, 41, 59, 0.8);
+  }
 }
 </style>

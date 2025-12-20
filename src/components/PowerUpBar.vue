@@ -3,6 +3,7 @@
     <button
       v-for="item in quickAccess"
       :key="item.id"
+      :data-power-id="item.id"
       :class="['powerup-button', { 
         'powerup-button--glow': glowingId === item.id || activeBonusId === item.id, 
         'powerup-button--disabled': item.disabled || !item.quantity,
