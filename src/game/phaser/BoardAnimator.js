@@ -1599,6 +1599,7 @@ export class BoardAnimator {
     if (bonusConfig?.animationKey) {
       if (!sprite.anims || sprite.texture.key !== bonusConfig.frameKey) {
         sprite.setTexture(bonusConfig.frameKey);
+        this._applyGemDimensions(sprite);
       }
       sprite.anims?.play(bonusConfig.animationKey, true);
       return;
@@ -1607,6 +1608,7 @@ export class BoardAnimator {
     const textureInfo = this.textures[type];
     if (textureInfo) {
       sprite.setTexture(textureInfo.key);
+      this._applyGemDimensions(sprite);
       sprite.anims?.stop();
     }
   }
@@ -1617,16 +1619,18 @@ export class BoardAnimator {
 
     if (bonusConfig?.animationKey) {
       sprite = this.scene.add.sprite(0, 0, bonusConfig.frameKey);
+      sprite.setOrigin(0.5);
+      this._applyGemDimensions(sprite);
       sprite.play(bonusConfig.animationKey);
     } else {
       const textureInfo = this.textures[gem.type];
       const textureKey = textureInfo?.key ?? this.textures.ruby?.key;
       sprite = this.scene.add.image(0, 0, textureKey);
+      sprite.setOrigin(0.5);
+      this._applyGemDimensions(sprite);
     }
 
-    sprite.setOrigin(0.5);
     sprite.__gemType = gem.type;
-    this._applyGemDimensions(sprite);
     this._applyHighlight(sprite, gem);
     return sprite;
   }

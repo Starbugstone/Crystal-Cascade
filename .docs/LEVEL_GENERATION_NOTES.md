@@ -1,6 +1,6 @@
 # Level Generation Notes
 
-_Last updated: 2025-11-23_
+_Last updated: 2025-12-20_
 
 Crystal Cascade now enforces deterministic-yet-playable starting layouts for generated levels, with special constraints for the compact third level.
 
@@ -22,5 +22,9 @@ The generator keeps rolling the RNG (seeded per level for determinism) until it 
   4. Retries (up to 60 passes) before logging a warning and returning the last board.
 
 These constraints guarantee the compact board always spawns full and offers “a few” tactical options at the start of the level, aligning with the latest gameplay feedback.
+
+
+
+
 
 

@@ -1,6 +1,6 @@
 # Crystal Cascade - Sprite System Technical Guide
 
-_Last updated: 2025-10-28_
+_Last updated: 2025-12-20_
 
 This document provides detailed technical specifications for the sprite system in Crystal Cascade, including how sprite sheets are structured, how they're processed, and how to modify them.
 
@@ -297,51 +297,44 @@ The system uses `Math.floor()` for cell dimension calculations. This means:
 ```
 1. Application Startup
    ↓
-2. BoardCanvas.vue calls loadSpriteAtlas(app)
+2. BoardCanvas.vue boots Phaser Game instance
    ↓
-3. SpriteLoader.js loads PNG files via PixiJS Assets
+3. BoardScene.js preloads sprite sheets and calls loadSpriteAtlas()
    ↓
-4. Grid cutting algorithm extracts individual textures/frames
+4. SpriteLoader.js slices PNGs into canvas textures via Phaser
    ↓
-5. Returns { textures, bonusAnimations } to BoardCanvas
+5. Returns { textures, bonusAnimations, tileTextures } to BoardScene
    ↓
-6. Passed to gameStore.attachRenderer()
+6. BoardAnimator receives textures and manages sprite rendering
    ↓
-7. gameStore.refreshBoardVisuals() renders sprites
+7. gameStore.attachRenderer() connects the store to the animator
 ```
 
 > **Tile overlays** follow the same path: `loadSpriteAtlas` now injects a `tileTextures` payload, the Phaser board scene forwards a dedicated `tileLayer`, and `BoardAnimator` keeps each overlay sprite in sync with the tile health.
 
-### Rendering Logic (gameStore.js)
+### Rendering Logic (BoardAnimator.js)
 
 ```javascript
-// For each board cell:
-if (bonusTypes.includes(cell.type) && bonusAnimations?.[cell.type]) {
-  // Create animated sprite from frame array
-  gemSprite = new AnimatedSprite(bonusAnimations[cell.type]);
-  gemSprite.animationSpeed = 0.1; // Animation speed
-  gemSprite.loop = true;          // Loop continuously
-  gemSprite.play();               // Start playing
+// For bonus gems (animated):
+if (bonusConfig?.animationKey) {
+  sprite = this.scene.add.sprite(0, 0, bonusConfig.frameKey);
+  sprite.setOrigin(0.5);
+  sprite.setDisplaySize(targetSize, targetSize);
+  sprite.play(bonusConfig.animationKey);  // Phaser animation
 } else {
-  // Create static sprite from texture
-  gemSprite = new Sprite(sprites[cell.type]);
+  // Static gem sprite
+  sprite = this.scene.add.image(0, 0, textureKey);
+  sprite.setOrigin(0.5);
+  sprite.setDisplaySize(targetSize, targetSize);
 }
-
-// Size the sprite to 85% of cell size (with 7.5% margin on all sides)
-const spriteSize = cellSize * 0.85;
-gemSprite.width = spriteSize;
-gemSprite.height = spriteSize;
-gemSprite.anchor.set(0.5); // Center the sprite's anchor point
 ```
 
 ### Animation Parameters
 
-- **animationSpeed**: `0.1` = Play 0.1 frames per tick at 60 FPS = ~6 FPS effective
-  - Lower values = slower animation
-  - Higher values = faster animation
-  - Formula: `Effective FPS = animationSpeed × Game FPS`
-- **loop**: `true` = Animation repeats indefinitely
+- **frameRate**: `8` FPS (configured in `SpriteLoader.js` via `BONUS_FRAME_RATE`)
+- **repeat**: `-1` = Animation loops indefinitely
 - **play()**: Starts animation immediately upon creation
+- Animations use ping-pong sequencing (0→1→2→1→0...) for smooth looping
 
 ---
 
@@ -366,7 +359,7 @@ New cell size: 2048 / 3 = 682px  ← Automatically calculated
 
 ### Scenario 2: Change Grid Dimensions
 
-**File to modify**: `src/game/pixi/SpriteLoader.js`
+**File to modify**: `src/game/phaser/SpriteLoader.js`
 
 #### Example: Change gem grid from 3×3 to 4×4 (16 cells)
 
@@ -402,7 +395,7 @@ const USED_SPRITES = 6; // Still using only 6 gems
 ### Scenario 3: Add More Gem Types
 
 **Files to modify**:
-1. `src/game/pixi/SpriteLoader.js`
+1. `src/game/phaser/SpriteLoader.js`
 2. `src/game/engine/LevelGenerator.js` (if gems should appear in levels)
 3. `src/game/engine/GemFactory.js` (if it exists)
 
@@ -443,7 +436,7 @@ Make sure new gem types can spawn in levels (check `generateRandomGem()` or simi
 
 ### Scenario 4: Change Animation Frame Count
 
-**File to modify**: `src/game/pixi/SpriteLoader.js`
+**File to modify**: `src/game/phaser/SpriteLoader.js`
 
 #### Example: Increase from 3 frames to 5 frames per animation
 
@@ -479,7 +472,7 @@ const BONUS_FRAMES_PER_ANIMATION = 5;
 ### Scenario 5: Add More Bonus Types
 
 **Files to modify**:
-1. `src/game/pixi/SpriteLoader.js`
+1. `src/game/phaser/SpriteLoader.js`
 2. `src/stores/gameStore.js`
 3. `src/game/engine/BonusResolver.js`
 4. `src/game/engine/BonusActivator.js`
@@ -631,15 +624,15 @@ if (bonusTypes.includes(cell.type) && bonusAnimations?.[cell.type]) {
 
 | File | Purpose | Modify To... |
 |------|---------|--------------|
-| `src/game/pixi/SpriteLoader.js` | Loads and slices sprite sheets | Change grid size, add/remove sprite types, change paths |
-| `src/components/BoardCanvas.vue` | Initializes renderer and loads sprites | Change renderer initialization (rarely needed) |
-| `src/stores/gameStore.js` | Renders sprites to board | Change animation speed, modify rendering behavior |
+| `src/game/phaser/SpriteLoader.js` | Loads and slices sprite sheets | Change grid size, add/remove sprite types, change paths |
+| `src/game/phaser/BoardAnimator.js` | Renders sprites and handles animations | Change animation behavior, sprite sizing |
+| `src/components/BoardCanvas.vue` | Initializes Phaser game and loads sprites | Change renderer initialization (rarely needed) |
 | `public/sprite/gem-sprite-1.png` | Gem sprite sheet image | Replace with new artwork |
 | `public/sprite/bonus-sprite-1.png` | Bonus animation sprite sheet | Replace with new artwork |
 
 ### Configuration Constants Location
 
-All in `src/game/pixi/SpriteLoader.js`:
+All in `src/game/phaser/SpriteLoader.js`:
 
 ```javascript
 // Gem Sprite Configuration
@@ -659,11 +652,16 @@ const BONUS_FRAMES_PER_ANIMATION = 3; // Line 23
 
 ### Animation Configuration Location
 
-In `src/stores/gameStore.js`, within `refreshBoardVisuals()`:
+In `src/game/phaser/SpriteLoader.js`:
 
 ```javascript
-gemSprite.animationSpeed = 0.1;  // Line ~121
-gemSprite.loop = true;           // Line ~122
+const BONUS_FRAME_RATE = 8;  // Line 17 - frames per second
+```
+
+In `src/game/phaser/BoardAnimator.js` `_createGemSprite()`:
+
+```javascript
+sprite.play(bonusConfig.animationKey);  // Starts animation
 ```
 
 ---
@@ -691,8 +689,8 @@ gemSprite.loop = true;           // Line ~122
 
 ## Further Reading
 
-- [PixiJS v8 Texture Documentation](https://pixijs.com/8.x/guides/components/textures)
-- [PixiJS AnimatedSprite Documentation](https://pixijs.com/8.x/examples/sprite/animated-sprite)
+- [Phaser 3 Sprite Documentation](https://newdocs.phaser.io/docs/3.80.0/Phaser.GameObjects.Sprite)
+- [Phaser 3 Animation Manager](https://newdocs.phaser.io/docs/3.80.0/Phaser.Animations.AnimationManager)
 - [Sprite Sheet Best Practices](https://www.codeandweb.com/texturepacker/tutorials/texture-settings)
 
 ---

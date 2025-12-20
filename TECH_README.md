@@ -1,6 +1,6 @@
 # Crystal Cascade – Technical Reference
 
-_Last updated: 2025-11-21_
+_Last updated: 2025-12-20_
 
 This document captures the current technical makeup of Crystal Cascade, a Vue 3 + Phaser 3 match-3 prototype. Use it alongside `readme.md`: the README explains the product snapshot, while this reference focuses on frameworks, architecture, and module responsibilities.
 
@@ -192,6 +192,15 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 ### `game/engine/GameLoop.js`
 - Thin wrapper around `requestAnimationFrame`; not yet wired into gameplay.
 
+### `game/engine/HintEngine.js`
+- Provides AI-driven move suggestions based on heuristic scoring.
+- Evaluates all possible swaps and ranks them by bonus usage, cascade potential, and center proximity.
+- `findBestMove()` returns the highest-scoring swap for the current board state; used by the game store to suggest moves after inactivity.
+
+### `game/engine/MatchPatterns.js`
+- Detects bonus creation opportunities from match results.
+- `detectBonusFromMatches()` returns bonus placements for cross (L/T shapes ≥5), rainbow (lines ≥5), and bomb (lines of 4) patterns.
+
 ---
 
 ## Phaser Utilities
@@ -239,7 +248,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 - **Capacitor**: Configured via `capacitor.config.json`. Native platforms are synced through npm scripts but no platform-specific plugins are in use yet.
 - **Howler**: Ambient loop and discrete SFX play through shared Howl instances managed by `useAudio`; library coverage is limited to the current asset set.
 - **Keyboard/Accessibility**: No keyboard bindings, focus management, or ARIA labeling implemented; needs attention before broader releases.
-- **Testing**: No automated tests or lint configuration shipped. Introduce Unit/E2E tooling (Vitest, Playwright, etc.) as the project matures.
+- **Testing**: Unit tests run via Vitest (see `testing/` directory); Playwright is configured for end-to-end tests in `playwright.config.js`. Run `npm test` to execute unit tests.
 
 ---
 
@@ -250,7 +259,7 @@ Additional display logic is limited; there is no dedicated inventory modal, resu
 3. Implement persistent storage for player inventory and settings.
 4. Broaden the audio system with layered ambience, responsive SFX variations, and persisted volume preferences; explore haptics and richer screen effects alongside audio cues.
 5. Extend input handling with keyboard bindings, haptics, and accessibility affordances.
-6. Add automated testing, linting, and continuous integration configuration.
+6. Expand end-to-end test coverage and add continuous integration configuration.
 
 ---
 
