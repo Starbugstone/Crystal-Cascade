@@ -92,6 +92,21 @@ export const useInventoryStore = defineStore('inventory', {
       }
       return false;
     },
+    /**
+     * Award a power to the inventory (e.g., from lootbox)
+     * @param {string} powerId - The power ID to award
+     * @param {number} quantity - How many to award (default: 1)
+     * @returns {boolean} True if power was found and awarded
+     */
+    awardPower(powerId, quantity = 1) {
+      const slot = this.quickAccessSlots.find((entry) => entry.id === powerId);
+      if (slot) {
+        slot.quantity += quantity;
+        return true;
+      }
+      console.warn(`Cannot award unknown power: ${powerId}`);
+      return false;
+    },
     openInventory() {
       this.inventoryOpen = true;
     },

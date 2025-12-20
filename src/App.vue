@@ -56,6 +56,18 @@
       <section class="hud-wrapper">
         <HudPanel />
         <PowerUpBar />
+        <!-- Dev Section (temporary for testing) -->
+        <div class="dev-section">
+          <h4>🔧 Dev Tools</h4>
+          <button @click="rollLootbox" class="dev-button">
+            🎁 Obtain Lootbox Power
+          </button>
+          <transition name="loot-result">
+            <p v-if="lastLootResult" class="loot-result" :style="{ color: lastLootResult.color }">
+              +1 {{ lastLootResult.label }} ({{ lastLootResult.rarity }})
+            </p>
+          </transition>
+        </div>
       </section>
     </main>
 
@@ -90,14 +102,38 @@ import LevelSelectModal from './components/LevelSelectModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import { useGameStore } from './stores/gameStore';
+import { useInventoryStore } from './stores/inventoryStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useAudio } from './composables/useAudio';
+import { lootboxService } from './game/engine/LootboxService';
 
 const gameStore = useGameStore();
+const inventoryStore = useInventoryStore();
 const settingsStore = useSettingsStore();
 const isBoardFullscreen = ref(false);
 const headerRef = ref(null);
 const headerSize = ref(72);
+
+// Dev lootbox testing
+const lastLootResult = ref(null);
+let lootResultTimer = null;
+
+const rollLootbox = () => {
+  const result = lootboxService.roll();
+  inventoryStore.awardPower(result.powerId);
+  
+  lastLootResult.value = {
+    ...result,
+    label: lootboxService.getPowerLabel(result.powerId),
+    color: lootboxService.getRarityColor(result.rarity),
+  };
+  
+  // Clear after 2 seconds
+  if (lootResultTimer) clearTimeout(lootResultTimer);
+  lootResultTimer = setTimeout(() => {
+    lastLootResult.value = null;
+  }, 2000);
+};
 const viewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
 const audio = useAudio();
 const { playAmbientLoop, stopAmbientLoop } = audio;
@@ -502,5 +538,62 @@ const handleVictoryNext = () => {
     padding: 0.75rem;
     min-height: auto;
   }
+}
+
+/* Dev Section Styles */
+.dev-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.dev-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+.dev-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(236, 72, 153, 0.8));
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.dev-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}
+
+.dev-button:active {
+  transform: scale(0.98);
+}
+
+.loot-result {
+  margin: 0.75rem 0 0 0;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 6px;
+}
+
+.loot-result-enter-active,
+.loot-result-leave-active {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.loot-result-enter-from,
+.loot-result-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>

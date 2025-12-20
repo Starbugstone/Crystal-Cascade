@@ -1,14 +1,29 @@
 {
-  "bronze": {
-    "hammer": 0.5,
-    "color-wand": 0.3,
-    "shuffle": 0.15,
-    "tile-breaker": 0.05
+  "rarityWeights": {
+    "common": 60,
+    "rare": 25,
+    "epic": 12,
+    "legendary": 3
   },
-  "silver": {
-    "hammer": 0.35,
-    "color-wand": 0.35,
-    "shuffle": 0.2,
-    "tile-breaker": 0.1
+  "powerRarities": {
+    "clear-row": "common",
+    "shuffle": "common",
+    "hammer": "rare",
+    "color-wand": "epic",
+    "tile-breaker": "legendary"
+  },
+  "legacy": {
+    "bronze": {
+      "hammer": 0.5,
+      "color-wand": 0.3,
+      "shuffle": 0.15,
+      "tile-breaker": 0.05
+    },
+    "silver": {
+      "hammer": 0.35,
+      "color-wand": 0.35,
+      "shuffle": 0.2,
+      "tile-breaker": 0.1
+    }
   }
 }

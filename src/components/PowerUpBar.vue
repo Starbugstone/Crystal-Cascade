@@ -12,8 +12,16 @@
       :title="item.label"
       @click="handleUse(item.id)"
     >
-      <span v-if="compact" class="powerup-icon">{{ iconMap[item.id] || '⚡' }}</span>
-      <span v-else class="powerup-name">{{ item.label }}</span>
+      <img 
+        v-if="compact" 
+        :src="iconMap[item.id]" 
+        :alt="item.label" 
+        class="powerup-icon"
+      />
+      <template v-else>
+        <img :src="iconMap[item.id]" :alt="item.label" class="powerup-icon-inline" />
+        <span class="powerup-name">{{ item.label }}</span>
+      </template>
       <span class="powerup-qty">{{ item.quantity }}</span>
     </button>
 
@@ -40,11 +48,11 @@ const glowingId = ref(null);
 const glowTimer = ref(null);
 
 const iconMap = {
-  'clear-row': '➖',
-  'hammer': '🔨',
-  'color-wand': '🪄',
-  'shuffle': '🔀',
-  'tile-breaker': '⛏️',
+  'clear-row': '/sprite/powers/clear-row.png',
+  'hammer': '/sprite/powers/hammer.png',
+  'color-wand': '/sprite/powers/color-wand.png',
+  'shuffle': '/sprite/powers/shuffle.png',
+  'tile-breaker': '/sprite/powers/tile-breaker.png',
 };
 
 const quickAccess = computed(() => inventoryStore.quickAccessSlots);
@@ -155,7 +163,16 @@ onBeforeUnmount(() => {
 }
 
 .powerup-icon {
-  font-size: 1.25rem;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.powerup-icon-inline {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 
