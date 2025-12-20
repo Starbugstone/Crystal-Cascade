@@ -23,8 +23,12 @@
         </div>
       </div>
       
-      <!-- Pickaxe -->
-      <div class="pickaxe-container" :class="{ swing: phase >= 1, hidden: phase >= 3 }">
+      <!-- Pickaxe - position controlled by PICKAXE_OFFSET constants in script -->
+      <div 
+        class="pickaxe-container" 
+        :class="{ swing: phase >= 1, hidden: phase >= 3 }"
+        :style="pickaxeStyle"
+      >
         <img src="/sprite/lootbox/pickaxe.png" alt="Pickaxe" class="pickaxe" />
       </div>
       
@@ -50,6 +54,65 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 
+// =============================================================================
+// PICKAXE POSITION OFFSET - Adjust these values to fine-tune pickaxe position
+// =============================================================================
+const PICKAXE_OFFSET = {
+  // Starting position (before swing) - positioned to the LEFT of the gem
+  // Sprite is 240px, so offset by 1 width left (-240) and 1/2 height up (-120)
+  startX: -420,    // Horizontal offset: -180 - 240 (1 sprite width left)
+  startY: -320,    // Vertical offset: -200 - 120 (1/2 sprite height up)
+  startRotation: -60, // Starting rotation in degrees (raised higher for bigger swing)
+  
+  // End position (after swing, at impact)
+  endX: -20,       // Horizontal offset at impact (swing toward center)
+  endY: 0,         // Vertical offset at impact
+  endRotation: 30, // Rotation at impact
+};
+
+// =============================================================================
+// SOUND EFFECTS - Replace these placeholder functions with actual audio
+// =============================================================================
+
+/**
+ * Play the anticipation sound when lootbox starts (mmMMMMM rising sound)
+ * To use actual sound: import { Howl } from 'howler'; and create a Howl instance
+ * Example:
+ *   const anticipationSound = new Howl({ src: ['/sound/lootbox/anticipation.mp3'] });
+ *   anticipationSound.play();
+ */
+const playAnticipationSound = () => {
+  // TODO: Replace with actual sound file
+  // File should be placed at: /public/sound/lootbox/anticipation.mp3
+  console.log('[SOUND] Playing anticipation sound (mmMMMMM)');
+};
+
+/**
+ * Play the shatter/smash sound when gem breaks
+ * To use actual sound:
+ *   const shatterSound = new Howl({ src: ['/sound/lootbox/shatter.mp3'] });
+ *   shatterSound.play();
+ */
+const playShatterSound = () => {
+  // TODO: Replace with actual sound file
+  // File should be placed at: /public/sound/lootbox/shatter.mp3
+  console.log('[SOUND] Playing shatter sound (CRASH!)');
+};
+
+/**
+ * Play the reward/woop sound when power is revealed
+ * To use actual sound:
+ *   const woopSound = new Howl({ src: ['/sound/lootbox/woop.mp3'] });
+ *   woopSound.play();
+ */
+const playWoopSound = () => {
+  // TODO: Replace with actual sound file
+  // File should be placed at: /public/sound/lootbox/woop.mp3
+  console.log('[SOUND] Playing woop sound (WOOP!)');
+};
+
+// =============================================================================
+
 const props = defineProps({
   active: { type: Boolean, default: false },
   powerId: { type: String, default: '' },
@@ -66,6 +129,16 @@ const phase = ref(0);
 const flyingStyle = ref({});
 
 const powerIconSrc = computed(() => `/sprite/powers/${props.powerId}.png`);
+
+// Computed style for pickaxe position (uses PICKAXE_OFFSET constants)
+const pickaxeStyle = computed(() => ({
+  '--pickaxe-start-x': `${PICKAXE_OFFSET.startX}px`,
+  '--pickaxe-start-y': `${PICKAXE_OFFSET.startY}px`,
+  '--pickaxe-start-rot': `${PICKAXE_OFFSET.startRotation}deg`,
+  '--pickaxe-end-x': `${PICKAXE_OFFSET.endX}px`,
+  '--pickaxe-end-y': `${PICKAXE_OFFSET.endY}px`,
+  '--pickaxe-end-rot': `${PICKAXE_OFFSET.endRotation}deg`,
+}));
 
 const getParticleStyle = (index) => {
   const angle = (index / 20) * 360;
@@ -98,19 +171,27 @@ const playAnimation = async () => {
   isPlaying.value = true;
   phase.value = 0;
   
+  // Play anticipation sound (mmMMMMM)
+  playAnticipationSound();
+  
   // Phase 0: Gem appears and pulses (0-300ms)
   await delay(300);
   
-  // Phase 1: Pickaxe swings (300-500ms)
+  // === PAUSE: Build anticipation before swing (500ms) ===
+  await delay(500);
+  
+  // Phase 1: Pickaxe swings (after pause)
   phase.value = 1;
   await delay(200);
   
-  // Phase 2: Impact! Gem shatters, particles explode (500-800ms)
+  // Phase 2: Impact! Gem shatters, particles explode
   phase.value = 2;
+  playShatterSound(); // Play shatter sound on impact
   await delay(300);
   
-  // Phase 3: Power icon reveals (800-1100ms)
+  // Phase 3: Power icon reveals
   phase.value = 3;
+  playWoopSound(); // Play woop sound when power appears
   await delay(300);
   
   // Phase 4: Icon flies to button (1100-1400ms)
@@ -247,13 +328,14 @@ watch(() => props.active, (newVal) => {
   }
 }
 
-/* Pickaxe */
+/* Pickaxe - uses CSS variables for easy position adjustment */
 .pickaxe-container {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(80px, -180px) rotate(-45deg);
-  transform-origin: bottom center;
+  /* Default position uses CSS vars, see PICKAXE_OFFSET in script */
+  transform: translate(var(--pickaxe-start-x), var(--pickaxe-start-y)) rotate(var(--pickaxe-start-rot));
+  transform-origin: bottom left; /* Rotate around the handle end (bottom left of sprite) */
   z-index: 20;
   transition: opacity 200ms;
 }
@@ -263,10 +345,10 @@ watch(() => props.active, (newVal) => {
 }
 
 .pickaxe {
-  width: 120px;
-  height: 120px;
+  width: 240px;
+  height: 240px;
   object-fit: contain;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
 }
 
 .pickaxe-container.swing {
@@ -274,8 +356,8 @@ watch(() => props.active, (newVal) => {
 }
 
 @keyframes pickaxe-swing {
-  0% { transform: translate(80px, -180px) rotate(-45deg); }
-  100% { transform: translate(20px, -20px) rotate(25deg); }
+  0% { transform: translate(var(--pickaxe-start-x), var(--pickaxe-start-y)) rotate(var(--pickaxe-start-rot)); }
+  100% { transform: translate(var(--pickaxe-end-x), var(--pickaxe-end-y)) rotate(var(--pickaxe-end-rot)); }
 }
 
 /* Particles */
