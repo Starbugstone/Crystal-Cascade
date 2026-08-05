@@ -4,6 +4,8 @@ Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delive
 
 _Last updated: 2025-12-20_
 
+https://crystal-cascade.vercel.app/
+
 ---
 
 ## Current Snapshot
