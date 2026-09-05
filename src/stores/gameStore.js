@@ -1,4 +1,5 @@
 import { markRaw } from 'vue';
+import { miningPayout } from '../game/town/TownRules';
 import { PlayClock } from '../game/engine/PlayClock';
 import { useCampaignStore } from './campaignStore';
 import { useSettingsStore } from './settingsStore';
@@ -99,6 +100,9 @@ export const useGameStore = defineStore('game', {
     totalRelics: 0,
     levelCleared: false,
     levelRewards: [],
+    collectedJewels: 0,
+    runId: null,
+    coinReward: 0,
     arcadeImpact: null,
     arcadeBanner: null,
     playClock: markRaw(new PlayClock()),
@@ -606,6 +610,7 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
+      this.runId = useCampaignStore().beginRun();
       this.sessionVersion += 1;
       const session = this.sessionVersion;
       this.renderer?.animator?.clear();
@@ -628,6 +633,8 @@ export const useGameStore = defineStore('game', {
       this.sessionActive = true;
       this.levelCleared = false;
       this.levelRewards = [];
+      this.collectedJewels = 0;
+      this.coinReward = 0;
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
       clearTimeout(arcadeBannerTimeout);
@@ -985,6 +992,8 @@ export const useGameStore = defineStore('game', {
       this.totalRelics = 0;
       this.levelCleared = false;
       this.levelRewards = [];
+      this.collectedJewels = 0;
+      this.coinReward = 0;
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
       clearTimeout(arcadeBannerTimeout);
@@ -1011,7 +1020,10 @@ export const useGameStore = defineStore('game', {
       )
         return;
       this.syncRunClock(false);
+      this.coinReward = miningPayout(this.collectedJewels);
       this.levelRewards = useCampaignStore().recordVictory({
+        runId: this.runId,
+        jewels: this.collectedJewels,
         elapsedMs: this.playClock.started ? this.elapsedMs : null,
         speedTargetMs: this.speedTargetMs,
         id: this.currentLevelId,
@@ -1167,6 +1179,7 @@ export const useGameStore = defineStore('game', {
       let deepestCascade = 1;
 
       steps.forEach((step, index) => {
+        this.collectedJewels += step.collectedJewels?.length ?? 0;
         const clearedCount = Array.isArray(step?.cleared) ? step.cleared.length : 0;
         if (!clearedCount) {
           return;

@@ -3,6 +3,7 @@
     class="app-shell"
     :class="{
       'is-playing': game.sessionActive,
+      'is-town': view === 'town' && !game.sessionActive,
       'focus-mode': focusMode,
       'reduced-motion': settings.reducedMotion,
       'high-contrast': settings.highContrastMode,
@@ -21,10 +22,16 @@
     </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
-      <button class="brand" aria-label="Crystal Cascade home" @click="game.exitLevel()">
+      <button class="brand" aria-label="Crystal Cascade home" @click="showTown">
         <img src="/art/amethyst.svg" alt="" />
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
+      <nav v-if="!game.sessionActive" class="world-nav" aria-label="Choose your adventure">
+        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">Town</button>
+        <button :aria-current="view === 'mine' ? 'page' : undefined" @click="view = 'mine'">
+          Mine
+        </button>
+      </nav>
       <div class="header-actions">
         <span class="edition">BIG MATCHES. BIGGER REWARDS.</span>
         <button
@@ -48,7 +55,11 @@
       @toggle-mute="toggleMute"
     />
 
-    <main v-if="!game.sessionActive" class="welcome">
+    <TownView
+      v-if="!game.sessionActive && view === 'town'"
+      @mine="startLevel(campaign.nextLevel)"
+    />
+    <main v-else-if="!game.sessionActive" class="welcome">
       <section class="hero">
         <span class="eyebrow"><i></i> THE CRYSTAL ARCADE</span>
         <h1>MATCH.<br /><em>GO MEGA.</em></h1>
@@ -167,6 +178,8 @@
     <VictoryModal
       v-if="game.levelCleared"
       :rewards="game.levelRewards"
+      :coins="game.coinReward"
+      :jewels="game.collectedJewels"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
       :score="game.score"
@@ -174,7 +187,8 @@
       :max-combo="game.maxCascade"
       :score-target="scoreTarget"
       :has-next-level="hasNextLevel"
-      @menu="game.exitLevel()"
+      @menu="showCollection"
+      @town="showTown"
       @replay="startLevel(game.currentLevelId)"
       @next="startLevel(game.currentLevelId + 1)"
     />
@@ -184,6 +198,7 @@
 
 <script setup>
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
 import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
@@ -194,11 +209,22 @@ import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import GameIcon from './components/GameIcon.vue';
 import { useGameStore } from './stores/gameStore';
+import { useCampaignStore } from './stores/campaignStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useAudio } from './composables/useAudio';
 import { LEVEL_NAMES } from './data/levelNames';
 
 const game = useGameStore();
+const campaign = useCampaignStore();
+const view = ref('town');
+const showTown = () => {
+  game.exitLevel();
+  view.value = 'town';
+};
+const showCollection = () => {
+  game.exitLevel();
+  view.value = 'mine';
+};
 const settings = useSettingsStore();
 const audio = useAudio();
 const focusMode = ref(false);
@@ -226,6 +252,7 @@ const hasNextLevel = computed(() =>
   game.availableLevels.some((level) => level.id === game.currentLevelId + 1),
 );
 const startLevel = (id) => {
+  view.value = 'mine';
   mobileDetailsOpen.value = false;
   game.startLevel(id);
   audio.playAmbientLoop();

@@ -29,6 +29,14 @@
       </div>
       <h2 id="victory-title">LEVEL CLEAR!</h2>
       <div class="result-score">{{ score.toLocaleString() }}<small>POINTS</small></div>
+      <div v-if="coins" class="town-run-reward" role="status">
+        <span>✦</span>
+        <div>
+          <strong>+{{ coins }} town coins</strong
+          ><small>{{ jewels }} jewels sold · 50 completion + {{ coins - 50 }} jewel value</small>
+        </div>
+        <button @click="$emit('town')">Visit town <GameIcon name="arrow" /></button>
+      </div>
       <div class="result-stats">
         <div>
           <span>ACTIVE TIME</span><strong>{{ formatTime(elapsedMs) }}</strong>
@@ -84,10 +92,12 @@ const props = defineProps({
   scoreTarget: { type: Number, default: 0 },
   elapsedMs: { type: Number, default: 0 },
   speedTargetMs: { type: Number, default: 0 },
+  coins: { type: Number, default: 0 },
+  jewels: { type: Number, default: 0 },
   hasNextLevel: Boolean,
   rewards: { type: Array, default: () => [] },
 });
-defineEmits(['menu', 'replay', 'next']);
+defineEmits(['menu', 'replay', 'next', 'town']);
 const dialog = ref(null),
   chestIndex = ref(0),
   showingChest = ref(props.rewards.length > 0);
@@ -119,6 +129,58 @@ const goalText = (source) => {
 };
 </script>
 <style scoped>
+.town-run-reward {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 18px;
+  border: 1px solid #bb99595c;
+  background: #d6b56810;
+  border-radius: 10px;
+  text-align: left;
+}
+.town-run-reward > span {
+  font-size: 26px;
+  color: #ebcd8d;
+}
+.town-run-reward strong {
+  display: block;
+  font-size: 14px;
+  color: #f4d99b;
+}
+.town-run-reward small {
+  display: block;
+  font-size: 9px;
+  color: #baa9c0;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.town-run-reward button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 10px;
+  border: 1px solid #b99963;
+  border-radius: 6px;
+  background: #8e693840;
+  color: #f4d99b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.town-run-reward button svg {
+  width: 14px;
+}
+@media (max-width: 360px) {
+  .town-run-reward {
+    flex-wrap: wrap;
+  }
+  .town-run-reward button {
+    margin-left: 36px;
+  }
+}
+
 .arcade-victory {
   position: fixed;
   inset: 0;

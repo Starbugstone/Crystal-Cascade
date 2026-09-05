@@ -8,15 +8,36 @@ import {
   rollChestPower,
 } from '../data/campaign';
 
-export const SAVE_KEY = 'crystal-cascade-campaign-v1';
+import { localProfile, SAVE_KEY } from '../services/localProfile';
+import { createTown } from '../data/town';
+import { normalizeTown, miningPayout, purchase, banditEncounter } from '../game/town/TownRules';
+export { SAVE_KEY };
+
 const defaults = () => ({
   records: {},
+  town: createTown(),
+  issuedRun: 0,
+  settledRun: 0,
+  saveWarning: '',
+  readOnly: false,
   powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
 });
 const load = () => {
   const state = defaults();
   try {
-    const saved = JSON.parse(globalThis.localStorage?.getItem(SAVE_KEY) ?? 'null');
+    const loaded = localProfile.load();
+    const saved = loaded.data;
+    state.saveWarning = loaded.warning ?? '';
+    state.readOnly = !!loaded.readOnly;
+    state.town = normalizeTown(saved?.town);
+    if (Number.isSafeInteger(saved?.issuedRun) && saved.issuedRun >= 0)
+      state.issuedRun = saved.issuedRun;
+    if (
+      Number.isSafeInteger(saved?.settledRun) &&
+      saved.settledRun >= 0 &&
+      saved.settledRun <= state.issuedRun
+    )
+      state.settledRun = saved.settledRun;
     for (let id = 1; id <= LEVEL_COUNT; id++) {
       const record = saved?.records?.[id];
       if (
@@ -59,14 +80,44 @@ export const useCampaignStore = defineStore('campaign', {
       return Number.isInteger(id) && id >= 1 && id <= this.nextLevel;
     },
     save() {
-      try {
-        globalThis.localStorage?.setItem(SAVE_KEY, JSON.stringify(this.$state));
-      } catch {
-        /* Gameplay remains available when storage is full or disabled. */
-      }
+      if (this.readOnly) return false;
+      const saved = localProfile.save({
+        schemaVersion: 2,
+        records: this.records,
+        powers: this.powers,
+        town: this.town,
+        issuedRun: this.issuedRun,
+        settledRun: this.settledRun,
+      });
+      this.saveWarning = saved
+        ? ''
+        : 'Your progress is not saving. Keep this page open to continue.';
+      return saved;
     },
-    recordVictory({ id, score, target, combo, elapsedMs, speedTargetMs }) {
+    beginRun() {
+      this.issuedRun += 1;
+      this.save();
+      return this.issuedRun;
+    },
+    upgradeBuilding(id, expectedStage) {
+      const next = purchase(this.town, id, expectedStage);
+      if (!next) return false;
+      this.town = next;
+      this.save();
+      return true;
+    },
+    resolveBandits() {
+      const next = banditEncounter(this.town);
+      if (!next) return false;
+      this.town = next;
+      this.save();
+      return true;
+    },
+    recordVictory({ id, score, target, combo, elapsedMs, speedTargetMs, runId, jewels = 0 }) {
       if (!this.isUnlocked(id)) return [];
+      // Older callers can settle a fresh run; the game always supplies its issued identity.
+      if (runId == null) runId = ++this.issuedRun;
+      if (runId !== this.issuedRun || runId <= this.settledRun) return [];
       const previous = this.records[id];
       this.records[id] = {
         score: Math.max(previous?.score ?? 0, score),
@@ -88,7 +139,9 @@ export const useCampaignStore = defineStore('campaign', {
         this.powers.find((power) => power.id === drop.id).quantity++;
         rewards.push({ ...tier, count: 1, source, items: [{ id: drop.id, label: drop.label }] });
       }
-      // Progress and earned powers are saved together before the chest reveal.
+      this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
+      this.settledRun = runId;
+      // Campaign, chest rewards, and town income move together before any reveal.
       this.save();
       return rewards;
     },

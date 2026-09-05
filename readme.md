@@ -1,6 +1,6 @@
 # Crystal Cascade
 
-A jewel match-3 game built with Vue, Pinia and Phaser. 36 levels across six chapters, faceted crystal artwork, breakable stone barriers, cascading matches and earned power-up chests.
+A jewel match-3 game built with Vue, Pinia and Phaser. 60 levels across ten chapters, faceted crystal artwork, breakable stone barriers, cascading matches, earned power-up chests, and a small Old West town to restore.
 
 ## Run locally
 
@@ -11,7 +11,9 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Start at level 1. Clearing each level unlocks the next; completed levels remain available for replay.
+Open http://localhost:5173. Prospect Hollow is your new home: choose **Go mining** to start the next puzzle, or **Mine** to browse levels. Finish a run, earn town coins, and **Visit town** to repair its well, farm, homes, saloon, stables, and sheriff’s office. Clearing each level unlocks the next; completed levels remain available for replay and more town earnings.
+
+See the [town demo guide](docs/town-demo.md) for the story, local-save migration, optional bandit encounter, and implementation details.
 
 ```sh
 npm test              # Game logic and input regression tests
@@ -31,7 +33,7 @@ Swipe a gem, or tap two neighboring gems. Match at least three to break the ice 
 - **Shuffle:** mixes the board.
 - **Tile Breaker:** clears the selected row and column.
 
-Power-ups start with three uses each. Completed levels, best scores, stars and inventory save together in local storage (`crystal-cascade-campaign-v1`). No-move boards reshuffle automatically without a score penalty.
+Power-ups start with three uses each. Completed levels, best scores, stars, inventory and town progress save together in local storage (`crystal-cascade-profile-v2`). Existing `crystal-cascade-campaign-v1` progress migrates automatically and its original copy is retained. Saves stay on this device; clearing browser storage can erase them. No-move boards reshuffle automatically without a score penalty.
 
 Stone starts at level 7. Match directly beside a block, or hit it with a bonus, to deal one damage per cascade step. Diagonal matches do not count. Blocks occupy cells and divide the falling column: gems below them can fall, but no new gems enter that section until the stone breaks. Gold-banded stone, introduced at level 19, needs two hits. Double ice starts at level 13. Objectives increase gradually while the number of gem colors stays at five.
 
