@@ -134,6 +134,7 @@ export const useGameStore = defineStore('game', {
   actions: {
     showArcadeBanner(banner) {
       if (!this.sessionActive || this.levelCleared) return;
+      if (this.arcadeBanner?.kind === 'fusion' && banner.kind !== 'fusion') return;
       clearTimeout(arcadeBannerTimeout);
       this.arcadeBanner = { ...banner, id: (this.arcadeBanner?.id ?? 0) + 1 };
       arcadeBannerTimeout = setTimeout(() => (this.arcadeBanner = null), 2000);
@@ -872,6 +873,9 @@ export const useGameStore = defineStore('game', {
           bonusesCreated: evaluation.bonusesCreated,
           bonusIndices: evaluation.bonusIndices,
         });
+        if (resolution.steps.length && evaluation.bonusSwap) {
+          resolution.steps[0].bonusSwap = evaluation.bonusSwap;
+        }
         const layersCleared = resolution.layersCleared ?? 0;
         this._applyScoring(resolution.steps);
 

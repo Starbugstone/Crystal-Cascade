@@ -4,6 +4,7 @@
       v-if="banner"
       :key="banner.id"
       class="arcade-banner-art"
+      :class="{ 'fusion-banner': banner.kind === 'fusion' }"
       viewBox="0 0 520 72"
       role="img"
       :aria-label="t(banner.label)"
@@ -28,9 +29,28 @@
           opacity=".65"
         />
         <g transform="rotate(-2 260 36)" aria-hidden="true">
+          <template v-if="banner.kind === 'fusion'">
+            <image
+              :href="`/art/bonuses/${banner.types[0]}.svg`"
+              x="79"
+              y="13"
+              width="43"
+              height="43"
+            />
+            <image
+              :href="`/art/bonuses/${banner.types[1]}.svg`"
+              x="399"
+              y="5"
+              width="43"
+              height="43"
+            />
+            <text class="fusion-kicker" x="260" y="55" fill="var(--banner-color)">
+              ✦ {{ t('BONUS FUSION') }} ✦
+            </text>
+          </template>
           <text
             x="263"
-            y="53"
+            :y="banner.kind === 'fusion' ? 40 : 53"
             :font-size="fontSize"
             :textLength="textLength"
             lengthAdjust="spacingAndGlyphs"
@@ -42,7 +62,7 @@
           </text>
           <text
             x="260"
-            y="49"
+            :y="banner.kind === 'fusion' ? 37 : 49"
             :font-size="fontSize"
             :textLength="textLength"
             lengthAdjust="spacingAndGlyphs"
@@ -65,8 +85,12 @@
 import { t } from '../i18n';
 import { computed } from 'vue';
 const props = defineProps({ banner: Object });
-const fontSize = computed(() => (t(props.banner?.label)?.length > 15 ? 32 : 38));
-const textLength = computed(() => (t(props.banner?.label)?.length > 15 ? 358 : undefined));
+const fontSize = computed(() =>
+  props.banner?.kind === 'fusion' ? 30 : t(props.banner?.label)?.length > 15 ? 32 : 38,
+);
+const textLength = computed(() =>
+  props.banner?.kind === 'fusion' ? 270 : t(props.banner?.label)?.length > 15 ? 358 : undefined,
+);
 </script>
 <style scoped>
 .arcade-announcer {
@@ -93,6 +117,18 @@ const textLength = computed(() => (t(props.banner?.label)?.length > 15 ? 358 : u
 .banner-punch {
   transform-origin: center;
   animation: banner-punch 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.arcade-banner-art .fusion-kicker {
+  font-family: 'Arial Black', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 3px;
+}
+.fusion-banner .banner-punch {
+  animation-duration: 550ms;
+}
+.fusion-banner image {
+  filter: drop-shadow(0 0 5px var(--banner-color));
 }
 .banner-streaks {
   animation: banner-streak 450ms ease-out both;

@@ -163,6 +163,57 @@
   transform: rotate(13deg);
   animation-direction: reverse;
 }
+.arcade-screen-impact.is-fusion {
+  box-shadow: inset 0 0 140px color-mix(in srgb, var(--impact-color) 55%, transparent);
+}
+.arcade-screen-impact.is-fusion::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: repeating-conic-gradient(
+    from 12deg,
+    transparent 0deg 11deg,
+    color-mix(in srgb, var(--impact-color) 65%, transparent) 11deg 11.5deg,
+    transparent 11.5deg 20deg
+  );
+  mask-image: radial-gradient(ellipse, transparent 22%, #000 65%);
+  animation: fusion-speed-lines 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.board-frame.fusion-impact {
+  animation: fusion-cabinet 850ms ease-out both;
+}
+.match-guide .fusion-tip {
+  color: #f4c5ff;
+}
+@keyframes fusion-speed-lines {
+  from {
+    transform: scale(0.65) rotate(-5deg);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.25) rotate(3deg);
+    opacity: 0;
+  }
+}
+@keyframes fusion-cabinet {
+  0% {
+    border-color: #fff4db;
+    box-shadow:
+      0 0 0 3px var(--fusion-color),
+      0 0 48px var(--fusion-color),
+      0 0 100px color-mix(in srgb, var(--fusion-color) 50%, transparent),
+      inset 0 0 0 3px #171020;
+  }
+  100% {
+    border-color: #bf83db;
+    box-shadow:
+      0 0 0 2px #1a1029,
+      0 0 22px #cc61e627,
+      0 0 46px #66d6ed18,
+      0 18px 50px #07021099,
+      inset 0 0 0 3px #171020;
+  }
+}
 @keyframes arcade-impact {
   0% {
     opacity: 0.9;
