@@ -1,3 +1,4 @@
+import * as chestRewards from '../src/data/rewards';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { generateLevelConfigs } from '../src/game/engine/LevelGenerator';
@@ -14,6 +15,12 @@ beforeEach(() => {
     setItem: (key, value) => saved.set(key, value),
   });
   setActivePinia(createPinia());
+  vi.spyOn(chestRewards, 'rollChestReward').mockReturnValue({
+    id: 'coins',
+    kind: 'coins',
+    label: 'Coins',
+    quantity: 25,
+  });
 });
 afterEach(() => {
   useGameStore().cancelHint();
@@ -70,7 +77,8 @@ it.each([
   const campaign = useCampaignStore();
   const reward = campaign.recordVictory({ id: 1, score, target: 6000, combo: 1 });
   expect(reward[0]?.items.length ?? 0).toBe(count);
-  expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15 + count);
+  expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15);
+  expect(campaign.town.coins).toBe(50 + count * 25);
   expect(getChestTier(score, 0)).toBeNull();
 });
 it('keeps the best score and stars on replay, and saves used powers', () => {
@@ -120,6 +128,7 @@ it('gives Clear Row and Shuffle 35% each, and each other power 10%', () => {
   expect(rollChestPower(() => 0.999999).id).toBe('tile-breaker');
 });
 it('makes one weighted roll per earned chest and saves exactly those awards', () => {
+  chestRewards.rollChestReward.mockRestore();
   const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValueOnce(0.7);
   const campaign = useCampaignStore();
   const rewards = campaign.recordVictory({
@@ -132,10 +141,10 @@ it('makes one weighted roll per earned chest and saves exactly those awards', ()
   });
   expect(random).toHaveBeenCalledTimes(2);
   expect(rewards.map((reward) => reward.items)).toEqual([
-    [{ id: 'clear-row', label: 'Clear Row' }],
-    [{ id: 'shuffle', label: 'Shuffle' }],
+    [{ id: 'coins', kind: 'coins', label: 'Coins', quantity: 10, convertedFrom: 'Clear Row' }],
+    [{ id: 'coins', kind: 'coins', label: 'Coins', quantity: 25, overflowCoins: 0 }],
   ]);
   expect(rewards.every((reward) => reward.count === 1)).toBe(true);
   setActivePinia(createPinia());
-  expect(useCampaignStore().powers.map((power) => power.quantity)).toEqual([4, 3, 3, 4, 3]);
+  expect(useCampaignStore().powers.map((power) => power.quantity)).toEqual([3, 3, 3, 3, 3]);
 });

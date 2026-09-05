@@ -103,6 +103,7 @@ export const useGameStore = defineStore('game', {
     collectedJewels: 0,
     runId: null,
     coinReward: 0,
+    playMode: 'normal',
     constructionReward: [],
     arcadeImpact: null,
     arcadeBanner: null,
@@ -607,15 +608,17 @@ export const useGameStore = defineStore('game', {
         initialTilePlacements: [],
       };
     },
-    startLevel(levelId) {
-      if (!useCampaignStore().isUnlocked(levelId)) return false;
+    startLevel(levelId, mode = 'normal') {
+      if (!['normal', 'continuous'].includes(mode) || !useCampaignStore().canPlay(levelId, mode))
+        return false;
       const selected = this.availableLevels.find((entry) => entry.id === levelId);
       if (!selected) {
         console.warn('No level config found for id', levelId);
         return;
       }
 
-      this.runId = useCampaignStore().beginRun();
+      this.playMode = mode;
+      this.runId = useCampaignStore().beginRun(mode, levelId);
       this.sessionVersion += 1;
       const session = this.sessionVersion;
       this.renderer?.animator?.clear();
@@ -969,6 +972,8 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      this.syncContinuous();
+      this.playMode = 'normal';
       this.syncRunClock(false);
       this.sessionVersion += 1;
       this.cancelHint(true);
@@ -1021,7 +1026,17 @@ export const useGameStore = defineStore('game', {
       this.currentLevelId = null;
     },
 
+    syncContinuous() {
+      if (!this.sessionActive || this.playMode !== 'continuous') return;
+      useCampaignStore().recordContinuous({
+        id: this.currentLevelId,
+        runId: this.runId,
+        jewels: this.collectedJewels,
+        score: this.score,
+      });
+    },
     completeLevel() {
+      if (this.playMode === 'continuous') return;
       if (
         this.levelCleared ||
         !this.sessionActive ||
@@ -1208,6 +1223,7 @@ export const useGameStore = defineStore('game', {
         this.updateObjectives({ scoreDelta: total });
       }
 
+      this.syncContinuous();
       return total;
     },
     shuffleBoard() {

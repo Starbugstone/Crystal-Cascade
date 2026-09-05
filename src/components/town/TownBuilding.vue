@@ -100,7 +100,9 @@
           font-family="Georgia, serif"
           :font-size="id === 'saloon' ? 11 : 13"
           font-weight="bold"
-          >{{ t(id === 'saloon' ? 'GOLDEN HOUR' : 'SHERIFF') }}</text
+          >{{
+            t({ saloon: 'GOLDEN HOUR', sheriff: 'SHERIFF', museum: 'Museum', armory: 'Armory' }[id])
+          }}</text
         >
       </template>
       <template v-if="id === 'stable' || id === 'farm'">
@@ -221,6 +223,21 @@
           fill="#e7c177"
         />
       </g>
+      <g v-if="built && id === 'museum'" transform="translate(-63 -10)"
+        ><path d="m-13 0 25 6v-28l-25-5Z" fill="#b7a17d" /><path
+          d="m-5-29-7-13 12-14 12 18-7 14Z"
+          fill="#a08ab9" /><path d="m0-56 2 21 10-3Z" fill="#cabce0"
+      /></g>
+      <g v-if="built && id === 'armory'" transform="translate(-55 4)"
+        ><path
+          v-for="n in stage"
+          :key="n"
+          :transform="`translate(${(n - 1) * 30} ${(n - 1) * 5})`"
+          d="m-12-3 25 6v-25l-25-5Z"
+          fill="#bfa06d"
+          stroke="#7f836e"
+          stroke-width="3"
+      /></g>
       <g v-if="built" fill="#879d62"
         ><ellipse cx="-82" cy="2" rx="13" ry="8" /><ellipse cx="88" cy="-9" rx="12" ry="7"
       /></g>
@@ -244,6 +261,8 @@ const frontColor = computed(
       stable: '#c09a70',
       saloon: '#d7b46c',
       sheriff: '#93aaa7',
+      museum: '#c9b18a',
+      armory: '#8c9e91',
     })[props.id],
 );
 const sideColor = computed(
@@ -254,6 +273,8 @@ const sideColor = computed(
       stable: '#967650',
       saloon: '#b39455',
       sheriff: '#6f8887',
+      museum: '#a58c66',
+      armory: '#69877c',
     })[props.id],
 );
 const roofColor = computed(() => (props.id === 'home' ? '#869b90' : '#96764f'));

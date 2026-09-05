@@ -43,7 +43,7 @@
         <small v-if="anchor.id === 'mine'">{{ t('Level {level}', { level: nextLevel }) }} →</small>
         <small v-else-if="town.projects[anchor.id]"
           >{{ town.projects[anchor.id].wins }}/{{
-            projectRuns(town.projects[anchor.id].stage)
+            constructionRuns(town.projects[anchor.id])
           }}</small
         >
         <span v-else-if="town.buildings[anchor.id]" aria-hidden="true">✓</span>
@@ -89,7 +89,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
-import { projectRuns } from '../../game/town/TownRules';
+import { constructionRuns } from '../../game/town/TownRules';
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({

@@ -11,6 +11,7 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 50,
+        runs: 2,
         title: 'Let the water flow',
         benefit: 'Fresh drinking water for the town.',
         story: 'Hear that? Fresh water. This old place has a little life in it yet.',
@@ -30,6 +31,7 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 50,
+        runs: 3,
         title: 'Plant the first seeds',
         benefit: 'A little harvest to feed our future neighbors.',
         story:
@@ -50,6 +52,7 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 50,
+        runs: 3,
         title: 'Make a home for a family',
         benefit: 'Two new neighbors, once food and water are ready.',
         story:
@@ -58,6 +61,7 @@ export const BUILDINGS = [
       },
       {
         cost: 150,
+        runs: 4,
         title: 'Make a little more room',
         benefit:
           'A new wing and a garden make room for two more neighbors, once food and water are ready.',
@@ -79,6 +83,7 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 100,
+        runs: 4,
         title: 'Bring back the good times',
         benefit: 'Music, warm lamps, and a place for neighbors to meet.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
@@ -98,6 +103,7 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 100,
+        runs: 4,
         title: 'Welcome weary travelers',
         benefit: 'Horses and a wagon bring life to the edge of town.',
         story: 'A dry stall and some good hay. Word of this place will travel faster than we do.',
@@ -117,10 +123,75 @@ export const BUILDINGS = [
     upgrades: [
       {
         cost: 100,
+        runs: 5,
         title: 'Pin up the badge',
         benefit: 'A sheriff to keep an eye on town and turn bandits away.',
         story: 'No need to worry, folks. I’ll take the evening walk from here.',
         speaker: 'Sam · the sheriff',
+      },
+    ],
+  },
+  {
+    id: 'museum',
+    name: 'The Frontier Museum',
+    shortName: 'Museum',
+    purpose: 'Every gem has a story',
+    x: 170,
+    y: 595,
+    color: '#b59b6b',
+    stages: ['Empty plot', 'Your adventures on display'],
+    upgrades: [
+      {
+        cost: 120,
+        runs: 4,
+        title: 'Open the museum',
+        benefit: 'Replay completed levels to improve your score, stars, and best time.',
+        story:
+          'Your first discoveries belong here. Come back to an old adventure and see how far you’ve come.',
+        speaker: 'Ellis · the curator',
+      },
+    ],
+  },
+  {
+    id: 'armory',
+    name: 'Frontier armory',
+    shortName: 'Armory',
+    purpose: 'Ready for the next adventure',
+    x: 785,
+    y: 600,
+    color: '#718c89',
+    stages: [
+      'Empty plot',
+      'Shelves for your supplies',
+      'A bigger storeroom',
+      'Room for every adventure',
+    ],
+    upgrades: [
+      {
+        cost: 120,
+        runs: 4,
+        title: 'Build the armory',
+        benefit: 'Carry up to 5 of each puzzle bonus.',
+        story:
+          'A place for every tool. You can now keep five of each puzzle bonus ready for the mine.',
+        speaker: 'Kit · the quartermaster',
+      },
+      {
+        cost: 220,
+        runs: 5,
+        title: 'Expand the storeroom',
+        benefit: 'Carry up to 8 of each puzzle bonus.',
+        story: 'New shelves, more supplies. There’s room for eight of each puzzle bonus now.',
+        speaker: 'Kit · the quartermaster',
+      },
+      {
+        cost: 350,
+        runs: 6,
+        title: 'Complete the supply depot',
+        benefit: 'Carry up to 12 of each puzzle bonus.',
+        story:
+          'The depot is ready. Twelve of each puzzle bonus will see you through a long adventure.',
+        speaker: 'Kit · the quartermaster',
       },
     ],
   },
@@ -134,7 +205,7 @@ export const BANDIT_EVENT = 'dusty-trail-visitors';
 export const INITIAL_STORY = {
   speaker: 'Ada · the caretaker',
   title: 'A town starts with your first choice.',
-  text: 'Choose any empty plot. The first building’s materials are on us. Complete three puzzles to bring it to life, one part at a time.',
+  text: 'Choose any empty plot. The first building’s materials are on us. Complete puzzles to bring it to life, one part at a time. Smaller buildings open sooner.',
 };
 
 export const createTown = () => ({

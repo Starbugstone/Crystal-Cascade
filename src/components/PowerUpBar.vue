@@ -2,7 +2,7 @@
   <section class="powerup-section" :aria-label="t('Power-ups')">
     <div class="powerup-heading">
       <span class="eyebrow"> {{ t('A LITTLE EXTRA MAGIC') }} </span
-      ><span> {{ t('POWER-UPS') }} </span>
+      ><span>{{ t('Limit: {count} each', { count: campaign.bonusLimit }) }}</span>
     </div>
     <div class="powerup-bar">
       <button
@@ -44,7 +44,9 @@
 import { t } from '../i18n';
 import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
+import { useCampaignStore } from '../stores/campaignStore';
 import { useInventoryStore } from '../stores/inventoryStore';
+const campaign = useCampaignStore();
 const inventory = useInventoryStore();
 const game = useGameStore();
 const activeId = computed(() => game.activeBonusMode?.replaceAll('_', '-'));

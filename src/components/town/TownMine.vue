@@ -1,8 +1,8 @@
 <template>
   <g
     class="town-mine-entrance"
-    role="button"
-    tabindex="0"
+    :role="decorative ? undefined : 'button'"
+    :tabindex="decorative ? undefined : 0"
     :aria-label="t('Enter the mine: play level {value0}', { value0: level })"
     @click="$emit('enter')"
     @keydown.enter.prevent="$emit('enter')"
@@ -57,7 +57,7 @@
         <path d="M-6-4H6V12H-6Z" fill="#efc575" stroke="#69593b" stroke-width="3" />
         <path d="M-4-5v-6h8v6" fill="none" stroke="#69593b" stroke-width="2" />
       </g>
-      <g class="mine-label" transform="translate(0 103)">
+      <g v-if="!decorative" class="mine-label" transform="translate(0 103)">
         <rect
           x="-93"
           y="-17"
@@ -77,6 +77,6 @@
 </template>
 <script setup>
 import { t } from '../../i18n';
-defineProps({ level: { type: Number, required: true } });
+defineProps({ level: { type: Number, default: 1 }, decorative: Boolean });
 defineEmits(['enter']);
 </script>

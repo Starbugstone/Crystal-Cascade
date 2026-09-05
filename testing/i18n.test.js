@@ -3,6 +3,8 @@ import { browserLocale, locale, setLocale, t, number } from '../src/i18n';
 import fr from '../src/i18n/fr.json';
 import { LEVEL_NAMES } from '../src/data/levelNames';
 import { CHAPTERS, POWERS, CHEST_TIERS } from '../src/data/campaign';
+import { CHEST_DROPS } from '../src/data/rewards';
+import { FUSION_STYLES } from '../src/game/engine/BonusFusion';
 import { BUILDINGS, INITIAL_STORY } from '../src/data/town';
 
 afterEach(() => setLocale('en'));
@@ -37,6 +39,8 @@ describe('One browser language across the game and town', () => {
       ...POWERS.map((p) => p.label),
       ...CHEST_TIERS.map((c) => c.label),
       ...Object.values(INITIAL_STORY),
+      ...CHEST_DROPS.map((drop) => drop.label),
+      ...Object.values(FUSION_STYLES).flatMap((style) => [style.label, style.detail]),
     ];
     for (const building of BUILDINGS)
       messages.push(

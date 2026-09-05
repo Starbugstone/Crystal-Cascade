@@ -3,7 +3,7 @@
     class="app-shell"
     :class="{
       'is-playing': game.sessionActive,
-      'is-town': view === 'town' && !game.sessionActive,
+      'is-town': !game.sessionActive,
       'focus-mode': focusMode,
       'reduced-motion': settings.reducedMotion,
       'high-contrast': settings.highContrastMode,
@@ -23,16 +23,16 @@
     </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
-      <button class="brand" :aria-label="t('Crystal Cascade home')" @click="showTown">
+      <button class="brand" :aria-label="t('Crystal Cascade home')" @click="showHome">
         <img src="/art/amethyst.svg" alt="" />
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
       <nav v-if="!game.sessionActive" class="world-nav" :aria-label="t('Choose your adventure')">
-        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">
-          {{ t('Town') }}
+        <button :aria-current="view === 'landing' ? 'page' : undefined" @click="showHome">
+          {{ t('Welcome') }}
         </button>
-        <button :aria-current="view === 'mine' ? 'page' : undefined" @click="view = 'mine'">
-          {{ t('Mine') }}
+        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">
+          {{ t('Village') }}
         </button>
       </nav>
       <div class="header-actions">
@@ -60,44 +60,23 @@
       :muted="muted"
       :level-name="levelName"
       @toggle-mute="toggleMute"
+      @town="showTown"
     />
 
+    <LandingView v-if="!game.sessionActive && view === 'landing'" @enter="showTown" />
     <TownView
-      v-if="!game.sessionActive && view === 'town'"
+      v-else-if="!game.sessionActive"
+      :key="townVisit"
+      :open-museum="returnToMuseum"
       @mine="startLevel(campaign.nextLevel)"
+      @replay="startLevel"
+      @continuous="startLevel($event, 'continuous')"
     />
-    <main v-else-if="!game.sessionActive" class="welcome">
-      <section class="hero">
-        <span class="eyebrow"><i></i> {{ t('THE CRYSTAL ARCADE') }} </span>
-        <h1>
-          {{ t('MATCH.') }} <br /><em> {{ t('GO MEGA.') }} </em>
-        </h1>
-        <p>
-          {{ t('Chase the combo. Beat the clock.') }} <br />
-          {{ t('Two chests. One brilliant run.') }}
-        </p>
-        <div class="crystal-orbit" aria-hidden="true">
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <img class="hero-gem" src="/art/amethyst.svg" alt="" />
-          <img class="satellite satellite-one" src="/art/emerald.svg" alt="" />
-          <img class="satellite satellite-two" src="/art/topaz.svg" alt="" />
-          <img class="satellite satellite-three" src="/art/ruby.svg" alt="" />
-          <span class="orbit-spark">✦</span>
-        </div>
-        <div class="hero-note">
-          <GameIcon name="spark" /><span>
-            {{ t('Match. Blast.') }} <b> {{ t('Hit the jackpot.') }} </b></span
-          >
-        </div>
-      </section>
-      <LevelSelectModal @start-level="startLevel" />
-    </main>
 
     <main v-else class="game-layout">
       <aside class="game-sidebar">
-        <button class="text-button back-button" @click="game.exitLevel()">
-          <GameIcon name="back" /> {{ t('The collection') }}
+        <button class="text-button back-button" @click="showTown">
+          <GameIcon name="back" /> {{ t('Back to village') }}
         </button>
         <div class="level-heading">
           <span class="eyebrow">
@@ -144,7 +123,7 @@
             }}
           </p>
           <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
-          <span class="guide-footnote">{{
+          <span v-if="game.playMode !== 'continuous'" class="guide-footnote">{{
             t('Beat the score. Beat the clock. Win both chests.')
           }}</span>
         </div>
@@ -157,6 +136,20 @@
           '--fusion-color': game.arcadeImpact?.color,
         }"
       >
+        <div v-if="game.playMode === 'continuous'" class="continuous-banner" role="status">
+          <div>
+            <strong>∞ {{ t('Continuous play') }}</strong
+            ><span>{{
+              t('Keep matching after the objectives. No chests or construction steps.')
+            }}</span>
+          </div>
+          <span>{{
+            t('{earned}/{cap} coins saved for this level', {
+              earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
+              cap: CONTINUOUS_COIN_CAP,
+            })
+          }}</span>
+        </div>
         <ArcadeBanner :banner="game.arcadeBanner" />
         <div class="board-topline">
           <span
@@ -236,11 +229,10 @@
       :moves="game.moves"
       :max-combo="game.maxCascade"
       :score-target="scoreTarget"
-      :has-next-level="hasNextLevel"
-      @menu="showCollection"
+      :can-replay="campaign.canReplay"
+      @menu="showTown"
       @town="showTown"
       @replay="startLevel(game.currentLevelId)"
-      @next="startLevel(game.currentLevelId + 1)"
     />
     <SettingsDrawer
       :open="settings.isSettingsOpen"
@@ -259,7 +251,9 @@ import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
 import MobileGameHeader from './components/MobileGameHeader.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
-import LevelSelectModal from './components/LevelSelectModal.vue';
+import LandingView from './components/LandingView.vue';
+import './styles/town.css';
+import { CONTINUOUS_COIN_CAP } from './data/rewards';
 import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import GameIcon from './components/GameIcon.vue';
@@ -271,18 +265,24 @@ import { LEVEL_NAMES } from './data/levelNames';
 
 const game = useGameStore();
 const campaign = useCampaignStore();
-const view = ref('town');
+const view = ref('landing');
+const townVisit = ref(0);
+const returnToMuseum = ref(false);
 const showTown = () => {
+  returnToMuseum.value = game.playMode === 'continuous';
   game.exitLevel();
   view.value = 'town';
+  townVisit.value++;
 };
-const showCollection = () => {
+const showHome = () => {
   game.exitLevel();
-  view.value = 'mine';
+  view.value = 'landing';
 };
 const resetProgress = () => {
   game.exitLevel();
   campaign.resetProgress();
+  returnToMuseum.value = false;
+  townVisit.value++;
   view.value = 'town';
 };
 const settings = useSettingsStore();
@@ -308,13 +308,12 @@ const currentConfig = computed(
 const levelName = computed(() => LEVEL_NAMES[game.currentLevelId - 1]);
 const powerName = computed(() => game.activeBonusMode?.replaceAll('_', ' '));
 const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 0);
-const hasNextLevel = computed(() =>
-  game.availableLevels.some((level) => level.id === game.currentLevelId + 1),
-);
-const startLevel = (id) => {
-  view.value = 'mine';
+const startLevel = (id, mode = 'normal') => {
+  if (!campaign.canPlay(id, mode)) return;
+  view.value = 'town';
   mobileDetailsOpen.value = false;
-  game.startLevel(id);
+  game.startLevel(id, mode);
+  window.scrollTo({ top: 0, behavior: 'instant' });
   audio.playAmbientLoop();
 };
 watch(

@@ -1,14 +1,15 @@
 import { defineStore } from 'pinia';
-import {
-  LEVEL_COUNT,
-  POWERS,
-  getChestTier,
-  getSpeedChestTier,
-  getStars,
-  rollChestPower,
-} from '../data/campaign';
+import { LEVEL_COUNT, POWERS, getChestTier, getSpeedChestTier, getStars } from '../data/campaign';
 
 import { localProfile, SAVE_KEY } from '../services/localProfile';
+import {
+  bonusCapacity,
+  CONTINUOUS_COIN_CAP,
+  HAMMER_CAPACITY,
+  OVERFLOW_COINS,
+  grantReward,
+  rollChestReward,
+} from '../data/rewards';
 import { createTown } from '../data/town';
 import {
   normalizeTown,
@@ -16,18 +17,23 @@ import {
   purchase,
   banditEncounter,
   advanceConstruction,
-  projectRuns,
+  constructionRuns,
+  accelerateConstruction,
 } from '../game/town/TownRules';
 export { SAVE_KEY };
 
 const defaults = () => ({
   records: {},
+  continuousRecords: {},
+  continuousRun: null,
   town: createTown(),
   issuedRun: 0,
   settledRun: 0,
   saveWarning: '',
   readOnly: false,
   lastConstruction: [],
+  builderHammers: 0,
+  inventoryNotice: '',
   powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
 });
 const load = () => {
@@ -47,6 +53,18 @@ const load = () => {
     )
       state.settledRun = saved.settledRun;
     for (let id = 1; id <= LEVEL_COUNT; id++) {
+      const continuous = saved?.continuousRecords?.[id];
+      if (
+        continuous &&
+        Number.isSafeInteger(continuous.coins) &&
+        continuous.coins >= 0 &&
+        Number.isFinite(continuous.score) &&
+        continuous.score >= 0
+      )
+        state.continuousRecords[id] = {
+          coins: Math.min(CONTINUOUS_COIN_CAP, continuous.coins),
+          score: continuous.score,
+        };
       const record = saved?.records?.[id];
       if (
         record &&
@@ -61,11 +79,27 @@ const load = () => {
         }
       }
     }
+    if (Number.isSafeInteger(saved?.builderHammers) && saved.builderHammers >= 0)
+      state.builderHammers = Math.min(HAMMER_CAPACITY, saved.builderHammers);
+    let overflow = Math.max(
+      0,
+      (Number.isSafeInteger(saved?.builderHammers) ? saved.builderHammers : 0) - HAMMER_CAPACITY,
+    );
     state.powers.forEach((power) => {
       const savedPower = saved?.powers?.find?.((entry) => entry.id === power.id);
-      if (Number.isSafeInteger(savedPower?.quantity) && savedPower.quantity >= 0)
-        power.quantity = savedPower.quantity;
+      if (Number.isSafeInteger(savedPower?.quantity) && savedPower.quantity >= 0) {
+        power.quantity = Math.min(bonusCapacity(state.town), savedPower.quantity);
+        overflow += savedPower.quantity - power.quantity;
+      }
     });
+    if (overflow) {
+      state.town.coins = Math.min(
+        Number.MAX_SAFE_INTEGER,
+        state.town.coins + overflow * OVERFLOW_COINS,
+      );
+      state.inventoryNotice =
+        'Bonus storage now has a limit. Extra saved bonuses were exchanged for 10 coins each.';
+    }
   } catch {
     /* Unavailable or invalid storage starts a fresh in-memory journey. */
   }
@@ -75,6 +109,8 @@ const load = () => {
 export const useCampaignStore = defineStore('campaign', {
   state: load,
   getters: {
+    bonusLimit: (state) => bonusCapacity(state.town),
+    canReplay: (state) => state.town.buildings.museum > 0,
     nextLevel(state) {
       for (let id = 1; id <= LEVEL_COUNT; id++) if (!state.records[id]) return id;
       return LEVEL_COUNT;
@@ -84,6 +120,12 @@ export const useCampaignStore = defineStore('campaign', {
       Object.values(state.records).reduce((sum, record) => sum + record.stars, 0),
   },
   actions: {
+    canPlay(id, mode = 'normal') {
+      return (
+        this.isUnlocked(id) &&
+        (mode === 'continuous' ? this.canReplay : !this.records[id] || this.canReplay)
+      );
+    },
     isUnlocked(id) {
       return Number.isInteger(id) && id >= 1 && id <= this.nextLevel;
     },
@@ -92,7 +134,9 @@ export const useCampaignStore = defineStore('campaign', {
       const saved = localProfile.save({
         schemaVersion: 2,
         records: this.records,
+        continuousRecords: this.continuousRecords,
         powers: this.powers,
+        builderHammers: this.builderHammers,
         town: this.town,
         issuedRun: this.issuedRun,
         settledRun: this.settledRun,
@@ -102,10 +146,40 @@ export const useCampaignStore = defineStore('campaign', {
         : 'Your progress is not saving. Keep this page open to continue.';
       return saved;
     },
-    beginRun() {
+    beginRun(mode = 'normal', id = null) {
       this.issuedRun += 1;
+      this.continuousRun =
+        mode === 'continuous' ? { runId: this.issuedRun, id, credited: 0 } : null;
       this.save();
       return this.issuedRun;
+    },
+    recordContinuous({ id, runId, jewels, score }) {
+      const run = this.continuousRun;
+      if (
+        !this.canReplay ||
+        !this.isUnlocked(id) ||
+        !run ||
+        run.runId !== runId ||
+        run.id !== id ||
+        runId !== this.issuedRun ||
+        runId <= this.settledRun
+      )
+        return false;
+      if (!Number.isSafeInteger(jewels) || jewels < 0 || !Number.isFinite(score) || score < 0)
+        return false;
+      const previous = this.continuousRecords[id] ?? { coins: 0, score: 0 };
+      const earned = Math.min(CONTINUOUS_COIN_CAP, Math.floor(jewels / 10));
+      const delta = Math.min(
+        CONTINUOUS_COIN_CAP - previous.coins,
+        Math.max(0, earned - run.credited),
+      );
+      run.credited = Math.max(run.credited, earned);
+      const best = Math.max(previous.score, score);
+      if (!delta && previous.score === best && this.continuousRecords[id]) return true;
+      this.continuousRecords[id] = { coins: previous.coins + delta, score: best };
+      this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + delta);
+      this.save();
+      return true;
     },
     resetProgress() {
       this.$patch((state) => Object.assign(state, defaults()));
@@ -118,6 +192,20 @@ export const useCampaignStore = defineStore('campaign', {
       this.save();
       return true;
     },
+    useBuilderHammer(id, expectedStage, expectedWins) {
+      if (this.builderHammers < 1) return false;
+      const next = accelerateConstruction(this.town, id, expectedStage, expectedWins);
+      if (!next) return false;
+      this.builderHammers--;
+      this.town = next;
+      this.save();
+      return true;
+    },
+    awardReward(reward) {
+      const granted = grantReward(this, reward);
+      if (granted) this.save();
+      return granted;
+    },
     resolveBandits() {
       const next = banditEncounter(this.town);
       if (!next) return false;
@@ -126,7 +214,11 @@ export const useCampaignStore = defineStore('campaign', {
       return true;
     },
     recordVictory({ id, score, target, combo, elapsedMs, speedTargetMs, runId, jewels = 0 }) {
-      if (!this.isUnlocked(id)) return [];
+      if (
+        !this.isUnlocked(id) ||
+        (this.continuousRun && (runId == null || this.continuousRun.runId === runId))
+      )
+        return [];
       // Older callers can settle a fresh run; the game always supplies its issued identity.
       if (runId == null) runId = ++this.issuedRun;
       if (runId !== this.issuedRun || runId <= this.settledRun) return [];
@@ -141,26 +233,25 @@ export const useCampaignStore = defineStore('campaign', {
         validTime ? elapsedMs : Infinity,
       );
       if (Number.isFinite(bestTimeMs)) this.records[id].bestTimeMs = bestTimeMs;
-      const rewards = [];
-      for (const [source, tier] of [
-        ['score', getChestTier(score, target)],
-        ['speed', getSpeedChestTier(elapsedMs, speedTargetMs)],
-      ]) {
-        if (!tier) continue;
-        const drop = rollChestPower();
-        this.powers.find((power) => power.id === drop.id).quantity++;
-        rewards.push({ ...tier, count: 1, source, items: [{ id: drop.id, label: drop.label }] });
-      }
-      this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
       const projects = Object.values(this.town.projects);
       this.town = advanceConstruction(this.town);
       this.lastConstruction = projects.map((project) => ({
         id: project.id,
         stage: project.stage,
         wins: project.wins + 1,
-        required: projectRuns(project.stage),
+        required: constructionRuns(project),
         complete: !this.town.projects[project.id],
       }));
+      const rewards = [];
+      for (const [source, tier] of [
+        ['score', getChestTier(score, target)],
+        ['speed', getSpeedChestTier(elapsedMs, speedTargetMs)],
+      ]) {
+        if (!tier) continue;
+        const drop = grantReward(this, rollChestReward());
+        rewards.push({ ...tier, count: 1, source, items: [drop] });
+      }
+      this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.
       this.save();

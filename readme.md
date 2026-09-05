@@ -11,7 +11,9 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Choose an empty plot in Prospect Hollow and start building; the first project's materials are free. Explore the rolling prairie by dragging to rotate and scrolling or pinching to zoom; Reset view returns to town. Click the mine entrance to play the next level. Start additional buildings whenever you can afford their materials. Each completed puzzle adds one step to every active construction. Three wins finish a building; four finish the home's extra wing. Food, water, housing, and protection become available only after construction finishes. Any building can be chosen first. The Mine tab retains the level collection and completed levels can be replayed.
+Open http://localhost:5173 for the introduction, then enter Prospect Hollow. Choose a plot and start building; the first materials are free. Drag to rotate the prairie and scroll or pinch to zoom. Click the mine to play the next unfinished puzzle. Each normal completion advances every active construction; buildings take two to six puzzles depending on their complexity. Fund multiple projects when you have the coins.
+
+Build the museum to replay completed levels or enter continuous play on any unlocked level. Continuous play keeps going beyond the objectives, saves its own scores, and grants no chests or construction progress; its coin allowance is capped at 25 per level across all visits. Build and upgrade the armory to raise each puzzle bonus limit from 3 to 5, 8, then 12. Chests can also contain coins or a builder hammer; use a hammer in the village to advance one chosen construction by one step.
 
 The full site follows the browser's English or French language preference. Settings includes a confirmed **Reset progress for testing** action to restart the town, campaign, and power inventory on this device.
 

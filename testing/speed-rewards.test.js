@@ -1,3 +1,4 @@
+import * as chestRewards from '../src/data/rewards';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { markRaw } from 'vue';
@@ -6,7 +7,15 @@ import { getSpeedChestTier } from '../src/data/campaign';
 import { useCampaignStore, SAVE_KEY } from '../src/stores/campaignStore';
 import { useGameStore } from '../src/stores/gameStore';
 
-beforeEach(() => setActivePinia(createPinia()));
+beforeEach(() => {
+  setActivePinia(createPinia());
+  vi.spyOn(chestRewards, 'rollChestReward').mockReturnValue({
+    id: 'coins',
+    kind: 'coins',
+    label: 'Coins',
+    quantity: 25,
+  });
+});
 afterEach(() => {
   useGameStore().cancelHint();
   vi.unstubAllGlobals();
@@ -66,9 +75,10 @@ it.each([
     elapsedMs,
     speedTargetMs: 60000,
   });
+  expect(campaign.town.coins).toBe(50 + count * 25);
   expect(rewards.map((reward) => reward.source)).toEqual(sources);
   rewards.forEach((reward) => expect(reward.items).toHaveLength(1));
-  expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15 + count);
+  expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15);
 });
 
 it('saves both chests and the fastest run together, preserving old saves', () => {
@@ -99,7 +109,7 @@ it('saves both chests and the fastest run together, preserving old saves', () =>
   });
   setActivePinia(createPinia());
   expect(useCampaignStore().records[1]).toEqual({ score: 12000, stars: 3, bestTimeMs: 22000 });
-  expect(useCampaignStore().powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(17);
+  expect(useCampaignStore().powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15);
 });
 
 it('freezes elapsed time on victory, grants both rewards only once and resets on replay', () => {
@@ -119,7 +129,8 @@ it('freezes elapsed time on victory, grants both rewards only once and resets on
   game.completeLevel();
   game.syncRunClock();
   expect(game.elapsedMs).toBe(20000);
-  expect(useCampaignStore().powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(17);
+  expect(useCampaignStore().powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15);
+  useCampaignStore().town.buildings.museum = 1;
   game.startLevel(1);
   expect(game.elapsedMs).toBe(0);
   expect(game.levelRewards).toEqual([]);

@@ -63,8 +63,8 @@
         <span> {{ t('PAUSED') }} </span>
       </div>
       <div class="mobile-panel-actions">
-        <button class="text-button" @click="game.exitLevel()">
-          <GameIcon name="back" /> {{ t('The collection') }}
+        <button class="text-button" @click="$emit('town')">
+          <GameIcon name="back" /> {{ t('Back to village') }}
         </button>
         <button
           class="icon-button"
@@ -115,7 +115,7 @@ import { formatTime } from '../data/campaign';
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
 defineProps({ open: Boolean, muted: Boolean, levelName: String });
-const emit = defineEmits(['update:open', 'toggle-mute']);
+const emit = defineEmits(['update:open', 'toggle-mute', 'town']);
 const game = useGameStore();
 const settings = useSettingsStore();
 const drawer = ref(null),

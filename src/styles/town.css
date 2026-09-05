@@ -1498,3 +1498,267 @@
     display: inline;
   }
 }
+
+.town-supplies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  margin: -8px 0 25px;
+  font-size: 12px;
+  color: #77836a;
+}
+.town-supplies > span,
+.town-supplies button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.town-supplies img {
+  width: 32px;
+  height: 32px;
+}
+.town-supplies button {
+  background: transparent;
+  border: 0;
+  color: #617b68;
+  min-height: 36px;
+  padding: 4px 0;
+}
+.town-supplies svg {
+  width: 15px;
+  height: 15px;
+}
+.town-service {
+  padding-block: 20px;
+  border-top: 1px solid #dcd8c6;
+}
+.town-service h3 {
+  font:
+    400 21px Georgia,
+    serif;
+  color: #536d57;
+}
+.town-service p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #7f826c;
+  margin: 12px 0;
+}
+.armory-inventory {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  gap: 6px;
+}
+.armory-inventory li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid #e3dfd0;
+}
+.armory-inventory img {
+  width: 36px;
+  height: 36px;
+}
+.armory-inventory strong {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: #5c7359;
+}
+.builder-hammer-action {
+  font-size: 12px;
+  text-align: left;
+}
+.builder-hammer-action img {
+  width: 36px;
+  height: 36px;
+}
+.town-primary:disabled,
+.town-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.town-museum {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(920px, calc(100% - 32px));
+  max-height: calc(100dvh - 40px);
+  padding: 30px;
+  border: 1px solid #d5ccb4;
+  border-radius: 18px;
+  color: #465b4a;
+  background: #faf7ed;
+  box-shadow: 0 25px 100px #273d3560;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.town-museum::backdrop {
+  background: #26372bd9;
+  backdrop-filter: blur(6px);
+}
+.museum-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.museum-heading h2 {
+  font:
+    400 36px/1.1 Georgia,
+    serif;
+  margin: 10px 0;
+}
+.museum-heading p:not(.town-kicker) {
+  color: #81816c;
+  font-size: 13px;
+}
+.museum-heading > button {
+  width: 44px;
+  min-width: 44px;
+  margin: 0;
+  padding: 8px;
+  justify-content: center;
+  font:
+    26px Georgia,
+    serif;
+}
+.museum-modes {
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  margin: 24px 0 12px;
+  background: #e8e9dc;
+  border-radius: 10px;
+}
+.museum-modes button {
+  flex: 1;
+  padding: 13px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #78836c;
+  font-size: 13px;
+}
+.museum-modes button[aria-pressed='true'] {
+  color: #465f4d;
+  background: #fffdf6;
+  box-shadow: 0 2px 6px #4b503c10;
+}
+.museum-mode-note,
+.museum-empty {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #7a8068;
+  padding: 8px 0 20px;
+}
+.museum-chapter h3 {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font:
+    400 23px Georgia,
+    serif;
+  margin: 12px 0 18px;
+}
+.museum-chapter h3 span {
+  font:
+    12px 'Segoe UI',
+    sans-serif;
+  color: #a28c56;
+}
+.museum-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 30px;
+}
+.museum-grid > button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid #ded9c8;
+  border-radius: 12px;
+  padding: 20px 12px 14px;
+  background: #f3f1e3;
+  color: #536c56;
+  min-height: 215px;
+}
+.museum-grid > button:hover {
+  background: #e9eddd;
+  border-color: #7e9778;
+}
+.museum-grid img {
+  width: 48px;
+  height: 52px;
+  margin-bottom: 12px;
+}
+.museum-grid strong {
+  font:
+    400 19px/1.3 Georgia,
+    serif;
+  margin-bottom: 8px;
+}
+.museum-grid small {
+  font-size: 10px;
+  margin-top: 6px;
+  color: #85856b;
+}
+.museum-level-number {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 10px;
+  color: #a79a77;
+}
+.museum-stars {
+  color: #b99549;
+  letter-spacing: 3px;
+  font-size: 18px;
+}
+.museum-play {
+  font-size: 11px;
+  color: #688362;
+  margin-top: auto;
+  padding-top: 18px;
+}
+@media (max-width: 600px) {
+  .town-museum {
+    width: calc(100% - 20px);
+    padding: 22px 16px;
+    max-height: calc(100dvh - 20px);
+  }
+  .museum-heading h2 {
+    font-size: 29px;
+  }
+  .museum-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .museum-grid strong {
+    font-size: 17px;
+  }
+  .museum-modes button {
+    font-size: 12px;
+    padding: 12px 8px;
+  }
+  .town-supplies {
+    gap: 6px 16px;
+    margin-bottom: 18px;
+  }
+}
+
+@media (max-width: 850px) {
+  .town-building-preview {
+    grid-row: 2 / 5;
+  }
+  .town-project-progress,
+  .town-service {
+    grid-column: 1 / -1;
+  }
+}

@@ -100,9 +100,12 @@ export const useInventoryStore = defineStore('inventory', {
       if (!Number.isSafeInteger(quantity) || quantity <= 0) return false;
       const slot = this.quickAccessSlots.find((entry) => entry.id === powerId);
       if (slot) {
-        slot.quantity += quantity;
-        useCampaignStore().save();
-        return true;
+        return !!useCampaignStore().awardReward({
+          id: slot.id,
+          label: slot.label,
+          kind: 'power',
+          quantity,
+        });
       }
       console.warn(`Cannot award unknown power: ${powerId}`);
       return false;

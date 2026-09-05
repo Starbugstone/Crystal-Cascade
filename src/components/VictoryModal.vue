@@ -92,17 +92,16 @@
         {{
           t(
             rewards.length
-              ? 'Your powers are saved. Take them into the next round.'
-              : 'Replay to beat either target and earn a chest.',
+              ? 'Your rewards are saved. Return to the village to see what’s new.'
+              : 'Visit the museum to replay completed levels and improve your score.',
           )
         }}
       </p>
-      <button v-if="hasNextLevel" class="result-next" @click="$emit('next')">
-        {{ t('NEXT LEVEL') }} <GameIcon name="arrow" />
+      <button class="result-next" @click="$emit('town')">
+        {{ t('Back to village') }} <GameIcon name="arrow" />
       </button>
       <div class="victory-actions">
-        <button @click="$emit('menu')">{{ t('The collection') }}</button
-        ><button @click="$emit('replay')">{{ t('Play again') }}</button>
+        <button v-if="canReplay" @click="$emit('replay')">{{ t('Play again') }}</button>
       </div>
     </section>
   </dialog>
@@ -124,7 +123,7 @@ const props = defineProps({
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   construction: { type: Array, default: () => [] },
-  hasNextLevel: Boolean,
+  canReplay: Boolean,
   rewards: { type: Array, default: () => [] },
 });
 defineEmits(['menu', 'replay', 'next', 'town']);
@@ -152,7 +151,12 @@ const nextChest = () => {
 const earnedStars = computed(() => getStars(props.score, props.scoreTarget, props.maxCombo));
 const goalText = (source) => {
   const reward = props.rewards.find((r) => r.source === source);
-  if (reward) return t('{value0} · +1 bonus', { value0: t(reward.label) });
+  if (reward)
+    return t('{chest} · +{quantity} {item}', {
+      chest: t(reward.label),
+      quantity: reward.items[0].quantity,
+      item: t(reward.items[0].label),
+    });
   return source === 'score'
     ? t('Target: {value0} points', { value0: number(props.scoreTarget) })
     : t('Target: {value0} active play', { value0: formatTime(props.speedTargetMs) });

@@ -1,9 +1,11 @@
+import * as chestRewards from '../src/data/rewards';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { BUILDINGS, BANDIT_EVENT, createTown } from '../src/data/town';
 import {
   advanceConstruction,
   projectRuns,
+  constructionRuns,
   banditEncounter,
   miningPayout,
   nextGoal,
@@ -27,6 +29,12 @@ beforeEach(() => {
     setItem: (key, value) => saved.set(key, value),
   });
   setActivePinia(createPinia());
+  vi.spyOn(chestRewards, 'rollChestReward').mockReturnValue({
+    id: 'coins',
+    kind: 'coins',
+    label: 'Coins',
+    quantity: 25,
+  });
 });
 afterEach(() => {
   useGameStore().cancelHint();
@@ -65,7 +73,7 @@ describe('A small, reachable town', () => {
   it('starts from bare plots and grants a building only after three completed puzzles', () => {
     let town = purchase(createTown(), 'home', 0);
     expect(town.coins).toBe(0);
-    expect(town.projects.home).toEqual({ id: 'home', stage: 1, wins: 0 });
+    expect(town.projects.home).toEqual({ id: 'home', stage: 1, wins: 0, required: 3 });
     for (let win = 1; win <= 3; win++) {
       town = advanceConstruction(town);
       expect(town.buildings.home).toBe(win === 3 ? 1 : 0);
@@ -91,16 +99,16 @@ describe('A small, reachable town', () => {
       const goal = nextGoal(town);
       town = purchase(town, goal.id, town.buildings[goal.id]);
       expect(town).not.toBeNull();
-      const required = projectRuns(town.projects[goal.id].stage);
+      const required = constructionRuns(town.projects[goal.id]);
       for (let i = 0; i < required; i++) {
         town.coins += miningPayout(0);
         town = advanceConstruction(town);
         runs++;
       }
     }
-    expect(runs).toBe(22);
+    expect(runs).toBe(44);
     expect(population(town)).toBe(4);
-    expect(town.coins).toBe(550);
+    expect(town.coins).toBe(840);
     expect(purchase(town, 'well', 1)).toBeNull();
     const broke = { ...settledTown(0) };
     expect(purchase(broke, 'saloon', 0)).toBeNull();
@@ -118,8 +126,9 @@ describe('A small, reachable town', () => {
       town = advanceConstruction(town);
       expect(population(town)).toBe(win === 3 ? 2 : 0);
       for (const id of ['home', 'farm', 'well']) {
-        expect(town.buildings[id]).toBe(win === 3 ? 1 : 0);
-        expect(town.projects[id]?.wins ?? 3).toBe(win);
+        const required = projectRuns(id, 1);
+        expect(town.buildings[id]).toBe(win >= required ? 1 : 0);
+        expect(town.projects[id]?.wins ?? required).toBe(Math.min(win, required));
       }
     }
     expect(town.projects).toEqual({});
@@ -135,9 +144,9 @@ describe('A small, reachable town', () => {
     expect(town.projects).toMatchObject({ farm: { wins: 2 }, well: { wins: 1 } });
     expect(town.projects.home).toBeUndefined();
     town = advanceConstruction(town);
-    expect(town.buildings).toMatchObject({ home: 1, farm: 1, well: 0 });
-    expect(town.projects.well.wins).toBe(2);
-    expect(population(town)).toBe(0);
+    expect(town.buildings).toMatchObject({ home: 1, farm: 1, well: 1 });
+    expect(town.projects.well).toBeUndefined();
+    expect(population(town)).toBe(2);
     expect(population(advanceConstruction(town))).toBe(2);
   });
   it('builds a sheriff alongside a four-win home extension without granting benefits early', () => {
@@ -147,11 +156,14 @@ describe('A small, reachable town', () => {
     for (let win = 1; win <= 3; win++) {
       town = advanceConstruction(town);
       expect(population(town)).toBe(2);
-      expect(town.buildings.sheriff).toBe(win === 3 ? 1 : 0);
+      expect(town.buildings.sheriff).toBe(0);
     }
     expect(town.projects.home.wins).toBe(3);
-    expect(town.projects.sheriff).toBeUndefined();
-    expect(population(advanceConstruction(town))).toBe(4);
+    expect(town.projects.sheriff.wins).toBe(3);
+    town = advanceConstruction(town);
+    expect(population(town)).toBe(4);
+    expect(town.buildings.sheriff).toBe(0);
+    expect(advanceConstruction(town).buildings.sheriff).toBe(1);
   });
   it('welcomes households after the last essential building finishes, in any chosen order', () => {
     for (const order of [
@@ -162,9 +174,9 @@ describe('A small, reachable town', () => {
       let town = { ...createTown(), coins: 500 };
       order.forEach((id, index) => {
         town = purchase(town, id, 0);
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < projectRuns(id, 1); i++) {
           town = advanceConstruction(town);
-          expect(population(town)).toBe(index === 2 && i === 2 ? 2 : 0);
+          expect(population(town)).toBe(index === 2 && i === projectRuns(id, 1) - 1 ? 2 : 0);
         }
       });
     }
@@ -183,7 +195,7 @@ describe('A small, reachable town', () => {
     const legacy = { ...createTown(), coins: 50, project: { id: 'home', stage: 1, wins: 2 } };
     delete legacy.projects;
     const migrated = normalizeTown(legacy);
-    expect(migrated.projects.home).toEqual(legacy.project);
+    expect(migrated.projects.home).toEqual({ ...legacy.project, required: 3 });
     expect(purchase(migrated, 'farm', 0).coins).toBe(0);
     expect(advanceConstruction(migrated).buildings.home).toBe(1);
     expect(normalizeTown({ ...legacy, projects: {} }).projects).toEqual({});
@@ -197,8 +209,8 @@ describe('A small, reachable town', () => {
       copy: { id: 'home', stage: 1, wins: 2 },
     };
     expect(normalizeTown({ ...createTown(), projects }).projects).toEqual({
-      home: projects.home,
-      farm: projects.farm,
+      home: { ...projects.home, required: 3 },
+      farm: { ...projects.farm, required: 3 },
     });
   });
   it('warns through an optional event only after onboarding, caps loss, and preserves savings', () => {
@@ -235,22 +247,22 @@ describe('Profile and reward integrity', () => {
     saved.set(LEGACY_SAVE_KEY, legacy);
     const campaign = useCampaignStore();
     expect(campaign.records[1]).toEqual({ score: 15000, stars: 3, bestTimeMs: 4321 });
-    expect(campaign.powers.find((power) => power.id === 'hammer').quantity).toBe(17);
+    expect(campaign.powers.find((power) => power.id === 'hammer').quantity).toBe(3);
     campaign.save();
     expect(saved.get(LEGACY_SAVE_KEY)).toBe(legacy);
     expect(JSON.parse(saved.get(SAVE_KEY)).schemaVersion).toBe(2);
     setActivePinia(createPinia());
     expect(useCampaignStore().nextLevel).toBe(2);
-    expect(useCampaignStore().town.coins).toBe(0);
+    expect(useCampaignStore().town.coins).toBe(140);
   });
   it('saves coins, chests, progress and settlement together; duplicate calls and reloads never pay twice', () => {
     const campaign = useCampaignStore();
     const id = campaign.beginRun();
     const rewards = campaign.recordVictory(victory(id));
     const checkpoint = JSON.parse(saved.get(SAVE_KEY));
-    expect(checkpoint.town.coins).toBe(95);
+    expect(checkpoint.town.coins).toBe(145);
     expect(checkpoint.settledRun).toBe(id);
-    expect(checkpoint.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(17);
+    expect(checkpoint.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(15);
     expect(rewards).toHaveLength(2);
     expect(campaign.recordVictory(victory(id))).toEqual([]);
     expect(JSON.parse(saved.get(SAVE_KEY))).toEqual(checkpoint);
@@ -258,7 +270,7 @@ describe('Profile and reward integrity', () => {
     const reloaded = useCampaignStore();
     expect(reloaded.recordVictory(victory(id))).toEqual([]);
     reloaded.recordVictory(victory(reloaded.beginRun()));
-    expect(reloaded.town.coins).toBe(190);
+    expect(reloaded.town.coins).toBe(290);
   });
   it('rejects a replaced run and leaves power spending consistent with town purchases', () => {
     const campaign = useCampaignStore();
@@ -273,7 +285,7 @@ describe('Profile and reward integrity', () => {
     useInventoryStore().consumeItem('hammer');
     setActivePinia(createPinia());
     expect(useCampaignStore().town).toMatchObject({
-      coins: 95,
+      coins: 145,
       buildings: { well: 0 },
       projects: { well: { id: 'well', wins: 0 } },
     });
@@ -284,16 +296,16 @@ describe('Profile and reward integrity', () => {
   it('advances construction with settlement once, survives reload, and unlocks the benefit only at completion', () => {
     let campaign = useCampaignStore();
     campaign.upgradeBuilding('well', 0);
-    for (let win = 1; win <= 3; win++) {
+    for (let win = 1; win <= 2; win++) {
       const id = campaign.beginRun();
       campaign.recordVictory(victory(id));
       campaign.recordVictory(victory(id));
-      expect(campaign.lastConstruction).toMatchObject([{ wins: win, complete: win === 3 }]);
+      expect(campaign.lastConstruction).toMatchObject([{ wins: win, complete: win === 2 }]);
       setActivePinia(createPinia());
       campaign = useCampaignStore();
-      expect(campaign.town.buildings.well).toBe(win === 3 ? 1 : 0);
-      expect(campaign.town.projects.well?.wins ?? 3).toBe(win);
-      expect(campaign.town.coins).toBe(win * 95);
+      expect(campaign.town.buildings.well).toBe(win === 2 ? 1 : 0);
+      expect(campaign.town.projects.well?.wins ?? 2).toBe(win);
+      expect(campaign.town.coins).toBe(win * 145);
     }
   });
   it('settles all construction and one payout atomically, including retries after reload', () => {
@@ -303,18 +315,18 @@ describe('Profile and reward integrity', () => {
     for (let win = 1; win <= 3; win++) {
       const run = campaign.beginRun();
       campaign.recordVictory(victory(run));
-      expect(campaign.lastConstruction).toHaveLength(3);
+      expect(campaign.lastConstruction).toHaveLength(win <= 2 ? 3 : 2);
       expect(
-        campaign.lastConstruction.every((p) => p.wins === win && p.complete === (win === 3)),
+        campaign.lastConstruction.every((p) => p.wins === win && p.complete === win >= p.required),
       ).toBe(true);
       const checkpoint = saved.get(SAVE_KEY);
       setActivePinia(createPinia());
       campaign = useCampaignStore();
       expect(campaign.recordVictory(victory(run))).toEqual([]);
       expect(saved.get(SAVE_KEY)).toBe(checkpoint);
-      expect(campaign.town.coins).toBe(win * 95);
+      expect(campaign.town.coins).toBe(win * 145);
       expect(population(campaign.town)).toBe(win === 3 ? 2 : 0);
-      expect(Object.keys(campaign.town.projects)).toHaveLength(win === 3 ? 0 : 3);
+      expect(Object.keys(campaign.town.projects)).toHaveLength(win === 3 ? 0 : win === 2 ? 2 : 3);
     }
   });
   it('resets town, campaign and powers durably without changing language or settings', () => {
@@ -366,7 +378,7 @@ describe('Profile and reward integrity', () => {
     });
     const campaign = useCampaignStore();
     campaign.recordVictory(victory(campaign.beginRun()));
-    expect(campaign.town.coins).toBe(95);
+    expect(campaign.town.coins).toBe(145);
     expect(campaign.saveWarning).toContain('not saving');
     expect(campaign.upgradeBuilding('well', 0)).toBe(true);
   });
@@ -454,12 +466,18 @@ describe('Jewels come from real removals', () => {
     game.remainingLayers = 0;
     game.completeLevel();
     expect(game.coinReward).toBe(payout);
-    expect(campaign.town.coins).toBe(payout);
+    expect(campaign.town.coins).toBe(
+      payout + game.levelRewards.reduce((sum, r) => sum + r.items[0].quantity, 0),
+    );
     game.completeLevel();
-    expect(campaign.town.coins).toBe(payout);
+    expect(campaign.town.coins).toBe(
+      payout + game.levelRewards.reduce((sum, r) => sum + r.items[0].quantity, 0),
+    );
+    const savedCoins = campaign.town.coins;
+    campaign.town.buildings.museum = 1;
     game.startLevel(1);
     expect(game.collectedJewels).toBe(0);
     game.exitLevel();
-    expect(campaign.town.coins).toBe(payout);
+    expect(campaign.town.coins).toBe(savedCoins);
   });
 });

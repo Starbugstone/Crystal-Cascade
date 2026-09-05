@@ -16,23 +16,43 @@
       </div>
     </div>
 
+    <div class="town-supplies">
+      <span
+        ><img src="/art/rewards/builder-hammer.svg" alt="" />{{
+          t('Builder hammers: {count}/{cap}', {
+            count: campaign.builderHammers,
+            cap: HAMMER_CAPACITY,
+          })
+        }}</span
+      >
+      <button @click="selectBuilding('armory')">
+        {{ t('Bonus capacity: {count} each', { count: campaign.bonusLimit }) }}
+        <TownIcon name="arrow" />
+      </button>
+      <button @click="selectBuilding('museum')">{{ t('Museum') }} <TownIcon name="arrow" /></button>
+    </div>
+    <p v-if="campaign.inventoryNotice" class="town-save-warning" role="status">
+      {{ t(campaign.inventoryNotice) }}
+    </p>
     <div class="town-layout">
       <section class="town-world" :aria-label="t('Your town')">
         <div class="town-map-frame">
           <div class="town-map-caption">
             <span><TownIcon name="sun" /> {{ t('A LITTLE HOPE ON THE HORIZON') }} </span
-            ><span>{{ repaired }} {{ t('/ 6 built') }} </span>
+            ><span
+              >{{ t('{built}/{total} built', { built: repaired, total: BUILDINGS.length }) }}
+            </span>
           </div>
           <TownScene
             :town="town"
             :selected="selected"
             :population="residents"
             :reduced-motion="settings.reducedMotion"
-            :paused="paused || settings.isSettingsOpen"
+            :paused="paused || settings.isSettingsOpen || museumOpen"
             :revealing="revealing"
             :next-level="campaign.nextLevel"
             @select="selectBuilding"
-            @mine="$emit('mine')"
+            @mine="goMining"
           />
           <div class="town-map-footnote">
             <span><i></i> {{ t(townStatus) }}</span
@@ -121,7 +141,7 @@
             <TownSite
               :id="selected"
               :stage="town.buildings[selected]"
-              :wins="selectedProject?.wins ?? null"
+              :wins="constructionVisual(selectedProject)"
             />
           </svg>
         </div>
@@ -139,12 +159,12 @@
         <div v-if="selectedProject" class="town-project-progress">
           <h3>{{ t('Your building is taking shape') }}</h3>
           <p>
-            {{ selectedProject.wins }} / {{ t(projectRuns(selectedProject.stage)) }}
+            {{ selectedProject.wins }} / {{ t(constructionRuns(selectedProject)) }}
             {{ t('puzzles completed') }}
           </p>
           <progress
             :value="selectedProject.wins"
-            :max="projectRuns(selectedProject.stage)"
+            :max="constructionRuns(selectedProject)"
             :aria-label="t('Construction progress')"
           ></progress>
           <p>
@@ -154,6 +174,16 @@
               )
             }}
           </p>
+          <button
+            class="town-secondary builder-hammer-action"
+            :disabled="!campaign.builderHammers"
+            @click="useHammer"
+          >
+            <img src="/art/rewards/builder-hammer.svg" alt="" />{{
+              t('Use a builder hammer · +1 step')
+            }}
+          </button>
+          <p>{{ t('{count} builder hammers available', { count: campaign.builderHammers }) }}</p>
         </div>
         <template v-else-if="offer">
           <div class="town-upgrade-description">
@@ -200,8 +230,42 @@
             }}
           </p>
         </template>
+        <section v-if="selected === 'museum'" class="town-service">
+          <h3>{{ t('Your adventures, collected') }}</h3>
+          <p>
+            {{
+              t(
+                'Replay for a better score, or keep matching in continuous play. Build the museum to open the collection.',
+              )
+            }}
+          </p>
+          <button
+            class="town-primary"
+            :disabled="!town.buildings.museum"
+            @click="museumOpen = true"
+          >
+            {{ t('Visit the museum') }} <TownIcon name="arrow" />
+          </button>
+        </section>
+        <section v-if="selected === 'armory'" class="town-service">
+          <h3>{{ t('Your puzzle supplies') }}</h3>
+          <p>{{ t('Capacity: {count} of each puzzle bonus', { count: campaign.bonusLimit }) }}</p>
+          <ul class="armory-inventory">
+            <li v-for="power in campaign.powers" :key="power.id">
+              <img :src="`/art/powers/${power.id}.svg`" alt="" /><span>{{ t(power.label) }}</span
+              ><strong>{{ power.quantity }}/{{ campaign.bonusLimit }}</strong>
+            </li>
+          </ul>
+          <p>
+            {{
+              t(
+                'A full bonus slot turns chest rewards into 10 coins. Extra capacity arrives when construction finishes.',
+              )
+            }}
+          </p>
+        </section>
         <div class="town-mine-action">
-          <button class="town-primary" @click="$emit('mine')">
+          <button class="town-primary" @click="goMining">
             <TownIcon name="mine" /> {{ t('Go mining') }} <TownIcon name="arrow" /></button
           ><small> {{ t('A few jewels can change a whole town.') }} </small>
         </div>
@@ -223,7 +287,7 @@
               town.projects[place.id]
                 ? t('Under construction · {wins}/{required}', {
                     wins: town.projects[place.id].wins,
-                    required: projectRuns(town.projects[place.id].stage),
+                    required: constructionRuns(town.projects[place.id]),
                   })
                 : town.buildings[place.id]
                   ? place.stages[town.buildings[place.id]]
@@ -275,10 +339,16 @@
         <span class="town-kicker"> {{ t('A FEW JEWELS. A FRESH START.') }} </span
         ><span>{{ t(goal ? goal.title : 'The hills are full of possibility.') }}</span>
       </div>
-      <button class="town-primary" @click="$emit('mine')">
+      <button class="town-primary" @click="goMining">
         <TownIcon name="mine" /> {{ t('Go mining') }}
       </button>
     </div>
+    <TownMuseum
+      v-if="museumOpen && town.buildings.museum"
+      @close="museumOpen = false"
+      @replay="$emit('replay', $event)"
+      @continuous="$emit('continuous', $event)"
+    />
     <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
   </main>
 </template>
@@ -286,16 +356,32 @@
 import { t, number } from '../../i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
-import { population, nextGoal, upgradeOffer, projectRuns } from '../../game/town/TownRules';
+import {
+  population,
+  nextGoal,
+  upgradeOffer,
+  constructionRuns,
+  constructionVisual,
+} from '../../game/town/TownRules';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { HAMMER_CAPACITY } from '../../data/rewards';
+import { LEVEL_COUNT } from '../../data/campaign';
+import TownMuseum from './TownMuseum.vue';
 import TownScene from './TownScene.vue';
 import TownBuilding from './TownBuilding.vue';
 import TownSite from './TownSite.vue';
 import TownIcon from './TownIcon.vue';
 import '../../styles/town.css';
 
-defineEmits(['mine']);
+const props = defineProps({ openMuseum: Boolean });
+const emit = defineEmits(['mine', 'replay', 'continuous']);
+const museumOpen = ref(props.openMuseum);
+function goMining() {
+  if (campaign.completedCount < LEVEL_COUNT) emit('mine');
+  else if (campaign.canReplay) museumOpen.value = true;
+  else selectBuilding('museum');
+}
 const campaign = useCampaignStore(),
   settings = useSettingsStore();
 const town = computed(() => campaign.town);
@@ -312,7 +398,7 @@ const building = computed(() => BUILDING_BY_ID[selected.value]);
 const offer = computed(() => upgradeOffer(town.value, selected.value));
 const repaired = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
 const townStatus = computed(() =>
-  repaired.value === 6
+  repaired.value === BUILDINGS.length
     ? 'A town full of possibilities'
     : residents.value
       ? 'Our little town is coming to life'
@@ -332,7 +418,7 @@ const moment = computed(
         ? {
             speaker: 'Ada · the caretaker',
             title:
-              repaired.value === 6
+              repaired.value === BUILDINGS.length
                 ? 'Look what we built together.'
                 : 'It’s good to have neighbors again.',
             text: goal.value
@@ -402,6 +488,18 @@ async function selectBuilding(id) {
       behavior: settings.reducedMotion ? 'instant' : 'smooth',
       block: 'nearest',
     });
+}
+function useHammer() {
+  const project = selectedProject.value;
+  if (!project || !campaign.useBuilderHammer(selected.value, project.stage, project.wins)) return;
+  const completed = !town.value.projects[selected.value];
+  const upgrade = building.value.upgrades[project.stage - 1];
+  latestMoment.value = {
+    speaker: upgrade.speaker,
+    title: completed ? 'Building complete!' : 'A helping hand.',
+    text: completed ? upgrade.story : 'One builder hammer, one step closer to opening day.',
+  };
+  announcement.value = latestMoment.value.title;
 }
 function repair() {
   if (revealing.value) return;

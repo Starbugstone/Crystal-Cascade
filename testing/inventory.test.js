@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useInventoryStore } from '../src/stores/inventoryStore';
+import { useCampaignStore } from '../src/stores/campaignStore';
 import { createPinia, setActivePinia } from 'pinia';
 
 describe('InventoryStore awardPower', () => {
@@ -7,6 +8,7 @@ describe('InventoryStore awardPower', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia());
+    useCampaignStore().town.buildings.armory = 3;
     inventoryStore = useInventoryStore();
   });
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { constructionVisual } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
 export const PLOTS = {
@@ -11,6 +12,8 @@ export const PLOTS = {
   saloon: [-4.15, 2.2],
   stable: [4.15, 2.2],
   sheriff: [0, 4.6],
+  museum: [-4.15, 6.2],
+  armory: [4.15, 6.2],
   mine: [0, -6.2],
 };
 const colors = {
@@ -243,11 +246,12 @@ export class TownDiorama {
       else {
         const stage = town.buildings[id],
           project = town.projects[id];
-        if (!stage) this.plot(group, id, project?.wins ?? -1, labels[id]);
+        if (!stage) this.plot(group, id, constructionVisual(project) ?? -1, labels[id]);
         else if (id === 'well') this.well(group);
         else {
           this.building(group, id, stage, labels[id]);
-          if (id === 'home' && project?.stage === 2) this.homeWing(group, project.wins);
+          if (id === 'home' && project?.stage === 2)
+            this.homeWing(group, constructionVisual(project));
         }
       }
       this.batch(group);
@@ -419,6 +423,8 @@ export class TownDiorama {
       stable: '#b49466',
       saloon: '#ceb274',
       sheriff: '#7e9b9b',
+      museum: '#c9b18a',
+      armory: '#8c9e91',
     };
     const w = 2.65,
       d = 2.4,
@@ -475,11 +481,27 @@ export class TownDiorama {
     const sidewindow = this.group(parent, 1.38, 0, 0);
     sidewindow.rotation.y = Math.PI / 2;
     this.window(sidewindow, 0, 1.25, 0);
-    if (id === 'saloon' || id === 'sheriff') {
+    if (['saloon', 'sheriff', 'museum', 'armory'].includes(id)) {
       this.box(parent, w + 0.1, 0.88, 0.15, 0, 2.45, 1.28, timber);
       this.box(parent, w + 0.3, 0.12, 0.2, 0, 2.91, 1.3, colors.trim);
       this.sign(parent, label, 2.05, 0, 2.45, 1.39);
     } else this.sign(parent, label, 1.4, 0, 1.98, 1.3);
+    if (id === 'museum') {
+      for (const x of [-1.1, 1.1]) {
+        this.box(parent, 0.18, 1.8, 0.18, x, 1.05, 1.8, colors.trim);
+        this.box(parent, 0.65, 0.55, 0.55, x, 0.4, 2.05, '#aa9877');
+        this.ball(parent, x, 0.96, 2.05, [0.24, 0.4, 0.24], x < 0 ? '#9b80af' : '#79ab98', 'rock');
+      }
+      this.box(parent, 3.2, 0.16, 0.95, 0, 1.95, 1.8, '#8b9d91');
+    }
+    if (id === 'armory') {
+      for (let n = 0; n < stage; n++) {
+        this.box(parent, 0.44, 0.6, 0.6, -1 + n * 0.68, 0.5, 1.9, '#b79869', true);
+        this.box(parent, 0.06, 0.64, 0.64, -1 + n * 0.68, 0.5, 1.9, '#7c8172');
+      }
+      if (stage >= 2) this.box(parent, 0.55, 1.1, 1.5, 1.5, 0.74, 0, '#8c9e91');
+      if (stage >= 3) this.box(parent, 0.55, 1.7, 1.5, -1.5, 1.02, 0, '#8c9e91');
+    }
     if (id === 'saloon') {
       this.box(parent, 3.1, 0.15, 0.9, 0, 0.14, 1.75, '#bca06d');
       for (const x of [-1.4, 1.4]) this.box(parent, 0.1, 1.5, 0.1, x, 0.92, 2.13, colors.trim);

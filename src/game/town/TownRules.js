@@ -30,21 +30,30 @@ export function normalizeTown(saved) {
           ? saved.project
           : null
         : saved.projects?.[id];
+    // Preserve the promised duration of projects already funded in the earlier demo.
+    const required = project?.required ?? (project?.stage === 1 ? 3 : 4);
     if (
+      Number.isInteger(required) &&
+      required >= 2 &&
+      required <= 12 &&
       project?.id === id &&
       project.stage === town.buildings[id] + 1 &&
       project.stage <= upgrades.length &&
       Number.isInteger(project.wins) &&
       project.wins >= 0 &&
-      project.wins < projectRuns(project.stage)
+      project.wins < required
     ) {
-      town.projects[id] = { id, stage: project.stage, wins: project.wins };
+      town.projects[id] = { id, stage: project.stage, wins: project.wins, required };
     }
   }
   return town;
 }
 
-export const projectRuns = (stage) => (stage === 1 ? 3 : 4);
+export const projectRuns = (id, stage) => BUILDING_BY_ID[id]?.upgrades[stage - 1]?.runs ?? 3;
+export const constructionRuns = (project) =>
+  project.required ?? projectRuns(project.id, project.stage);
+export const constructionVisual = (project) =>
+  project ? Math.min(2, Math.ceil((project.wins / constructionRuns(project)) * 3)) : null;
 
 export function advanceConstruction(town) {
   if (!Object.keys(town.projects).length) return town;
@@ -52,7 +61,7 @@ export function advanceConstruction(town) {
     projects = {};
   for (const current of Object.values(town.projects)) {
     const project = { ...current, wins: current.wins + 1 };
-    if (project.wins < projectRuns(project.stage)) projects[project.id] = project;
+    if (project.wins < constructionRuns(project)) projects[project.id] = project;
     else buildings[project.id] = project.stage;
   }
   return { ...town, buildings, projects };
@@ -74,7 +83,7 @@ export function upgradeOffer(town, id) {
     ...upgrade,
     cost,
     stage,
-    runs: projectRuns(stage + 1),
+    runs: projectRuns(id, stage + 1),
     reason: town.projects[id]
       ? 'This building is already under construction.'
       : town.coins < cost
@@ -86,8 +95,8 @@ export function upgradeOffer(town, id) {
 export function nextGoal(town) {
   const id =
     INTRO_ORDER.find((key) => !town.buildings[key]) ??
-    ['saloon', 'stable', 'sheriff'].find((key) => !town.buildings[key]) ??
-    (town.buildings.home < 2 ? 'home' : null);
+    ['museum', 'armory', 'saloon', 'stable', 'sheriff'].find((key) => !town.buildings[key]) ??
+    (town.buildings.home < 2 ? 'home' : town.buildings.armory < 3 ? 'armory' : null);
   return id ? { id, ...upgradeOffer(town, id) } : null;
 }
 
@@ -98,7 +107,10 @@ export function purchase(town, id, expectedStage) {
   return {
     ...town,
     coins: town.coins - offer.cost,
-    projects: { ...town.projects, [id]: { id, stage: expectedStage + 1, wins: 0 } },
+    projects: {
+      ...town.projects,
+      [id]: { id, stage: expectedStage + 1, wins: 0, required: offer.runs },
+    },
   };
 }
 
@@ -116,4 +128,15 @@ export function banditEncounter(town) {
     loss,
   };
   return { ...town, coins: town.coins - loss, events: { ...town.events, [BANDIT_EVENT]: event } };
+}
+
+// A hammer advances exactly the work shown when clicked; stale/double clicks cannot spend twice.
+export function accelerateConstruction(town, id, expectedStage, expectedWins) {
+  const project = town.projects[id];
+  if (!project || project.stage !== expectedStage || project.wins !== expectedWins) return null;
+  const advanced = advanceConstruction({ ...town, projects: { [id]: project } });
+  const projects = { ...town.projects };
+  if (advanced.projects[id]) projects[id] = advanced.projects[id];
+  else delete projects[id];
+  return { ...town, buildings: advanced.buildings, projects };
 }

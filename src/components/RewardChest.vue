@@ -143,7 +143,7 @@
         <div class="chest-value">
           <b>1</b
           ><span>
-            {{ t('POWER-UP') }}
+            {{ t('SURPRISE') }}
             <small>{{ t(reward.source.toUpperCase()) }} {{ t('REWARD') }} </small></span
           >
         </div>
@@ -173,7 +173,7 @@
                 class="slot-symbol"
                 :class="{ 'winning-symbol': index === stopIndex }"
               >
-                <img :src="`/art/powers/${power.id}.svg`" alt="" />
+                <img :src="rewardArt(power)" alt="" />
                 <span>{{ t(power.label) }}</span>
               </div>
             </div>
@@ -183,12 +183,25 @@
         </div>
         <div class="slot-result" role="status" aria-live="polite" aria-atomic="true">
           <template v-if="phase === 'opened'"
-            ><b>+1</b><strong>{{ t(prize.label) }}</strong
-            ><span> {{ t('ADDED TO YOUR COLLECTION') }} </span></template
+            ><b>+{{ prize.quantity ?? 1 }}</b
+            ><strong>{{ t(prize.label) }}</strong
+            ><span>
+              {{
+                t(
+                  prize.convertedFrom
+                    ? 'STORAGE FULL · EXCHANGED FOR COINS'
+                    : prize.kind === 'coins'
+                      ? 'ADDED TO YOUR VILLAGE SAVINGS'
+                      : prize.kind === 'builder-hammer'
+                        ? 'USE ON A CONSTRUCTION IN THE VILLAGE'
+                        : 'ADDED TO YOUR ARMORY',
+                )
+              }}
+            </span></template
           >
           <template v-else
             ><strong> {{ t('LET IT ROLL!') }} </strong
-            ><span> {{ t('ONE SPIN. ONE BONUS.') }} </span></template
+            ><span> {{ t('ONE SPIN. ONE SURPRISE.') }} </span></template
           >
         </div>
         <button
@@ -207,7 +220,7 @@
     </div>
     <footer class="chest-controls">
       <p v-if="phase === 'closed'" class="chest-open-hint">
-        {{ t('Your next power-up is inside.') }}
+        {{ t('Puzzle bonuses, coins, or a builder hammer await.') }}
       </p>
       <button
         v-else-if="phase === 'charging' || phase === 'opening'"
@@ -231,7 +244,7 @@
 <script setup>
 import { t } from '../i18n';
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { POWERS as powers } from '../data/campaign';
+import { CHEST_DROPS as powers, rewardArt } from '../data/rewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 const props = defineProps({

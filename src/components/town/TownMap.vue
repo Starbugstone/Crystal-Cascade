@@ -200,7 +200,7 @@
           <TownSite
             :id="building.id"
             :stage="town.buildings[building.id]"
-            :wins="town.projects[building.id]?.wins ?? null"
+            :wins="constructionVisual(town.projects[building.id])"
           />
         </g>
         <g class="map-label" transform="translate(0 55)" aria-hidden="true">
@@ -291,6 +291,7 @@
 <script setup>
 import { t } from '../../i18n';
 import { ref, useId, watch } from 'vue';
+import { constructionVisual } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';

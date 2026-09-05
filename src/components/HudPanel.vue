@@ -5,14 +5,22 @@
       <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
         {{ number(game.score) }}<span> {{ t('pts') }} </span>
       </div>
-      <div class="score-stars" :aria-label="t('Chest score progress')">
+      <div
+        v-if="game.playMode !== 'continuous'"
+        class="score-stars"
+        :aria-label="t('Chest score progress')"
+      >
         <span>✧</span>
         <div class="score-track">
           <i :style="{ width: `${Math.min(100, (game.score / target) * 100)}%` }"></i>
         </div>
         <span>✦</span><small>{{ number(target) }}</small>
       </div>
-      <div class="chest-progress" :class="{ qualified: tier }">
+      <div
+        v-if="game.playMode !== 'continuous'"
+        class="chest-progress"
+        :class="{ qualified: tier }"
+      >
         <span>{{ t(tier ? 'Score chest earned' : 'Score chest') }}</span>
         <small>{{
           t(
@@ -25,11 +33,12 @@
     </div>
     <div class="stats-row">
       <div>
-        <span class="eyebrow"> {{ t('SPEED RUN') }} </span
+        <span class="eyebrow">
+          {{ t(game.playMode === 'continuous' ? 'PLAY TIME' : 'SPEED RUN') }} </span
         ><strong class="run-time" :class="{ expired: game.elapsedMs > game.speedTargetMs }">{{
           formatTime(game.elapsedMs)
         }}</strong
-        ><small class="speed-target">{{
+        ><small v-if="game.playMode !== 'continuous'" class="speed-target">{{
           t(
             speedTier
               ? t('≤ {value0} · 1 bonus', { value0: formatTime(game.speedTargetMs) })
@@ -67,7 +76,15 @@
           }}<small> / {{ game.totalRelics }}</small></strong
         >
       </div>
-      <p>{{ t('Two ways to win: score high and finish fast. Speed pauses during cascades.') }}</p>
+      <p>
+        {{
+          t(
+            game.playMode === 'continuous'
+              ? 'The objectives are just a starting point. Keep matching for as long as you like.'
+              : 'Two ways to win: score high and finish fast. Speed pauses during cascades.',
+          )
+        }}
+      </p>
     </div>
   </section>
 </template>
