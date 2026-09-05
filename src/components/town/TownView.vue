@@ -65,6 +65,11 @@
             >
           </div>
         </div>
+        <p v-if="activeProjects.length" class="town-construction-summary">
+          {{ t('Active construction: {count}', { count: activeProjects.length }) }} ·
+          {{ t('Each completed puzzle advances every building in progress.') }}
+          {{ t('Choose another plot whenever you have the coins.') }}
+        </p>
         <section
           class="town-story"
           :aria-label="t('A word from your neighbors')"
@@ -215,9 +220,14 @@
           >{{ t(place.shortName)
           }}<small>{{
             t(
-              town.buildings[place.id]
-                ? place.stages[town.buildings[place.id]]
-                : 'Ready for a new beginning',
+              town.projects[place.id]
+                ? t('Under construction · {wins}/{required}', {
+                    wins: town.projects[place.id].wins,
+                    required: projectRuns(town.projects[place.id].stage),
+                  })
+                : town.buildings[place.id]
+                  ? place.stages[town.buildings[place.id]]
+                  : 'Ready for a new beginning',
             )
           }}</small></span
         ><TownIcon :name="town.buildings[place.id] ? 'check' : 'arrow'" />
@@ -290,15 +300,14 @@ const campaign = useCampaignStore(),
   settings = useSettingsStore();
 const town = computed(() => campaign.town);
 const residents = computed(() => population(town.value));
+const activeProjects = computed(() => Object.values(town.value.projects));
 const goal = computed(() =>
-  town.value.project
-    ? { id: town.value.project.id, title: 'Continue the work' }
+  activeProjects.value.length
+    ? { id: activeProjects.value[0].id, title: 'Continue the work' }
     : nextGoal(town.value),
 );
-const selected = ref(town.value.project?.id ?? goal.value?.id ?? 'home');
-const selectedProject = computed(() =>
-  town.value.project?.id === selected.value ? town.value.project : null,
-);
+const selected = ref(goal.value?.id ?? 'home');
+const selectedProject = computed(() => town.value.projects[selected.value]);
 const building = computed(() => BUILDING_BY_ID[selected.value]);
 const offer = computed(() => upgradeOffer(town.value, selected.value));
 const repaired = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
@@ -313,11 +322,11 @@ const latestMoment = ref(null);
 const moment = computed(
   () =>
     latestMoment.value ??
-    (town.value.project
+    (activeProjects.value.length
       ? {
           speaker: 'Ada · the caretaker',
           title: 'A little more with every puzzle.',
-          text: 'The next completed puzzle adds another part to your building. Opening day is getting closer.',
+          text: 'Each completed puzzle advances every building in progress. Opening day is getting closer.',
         }
       : residents.value
         ? {
@@ -354,18 +363,31 @@ const visibilityChanged = () => {
 onMounted(() => {
   visibilityChanged();
   document.addEventListener('visibilitychange', visibilityChanged);
-  const completed = campaign.lastConstruction;
-  if (completed?.complete) {
-    const upgrade = BUILDING_BY_ID[completed.id].upgrades[completed.stage - 1];
+  const completed = campaign.lastConstruction.filter((project) => project.complete);
+  if (completed.length) {
+    const upgrade = BUILDING_BY_ID[completed[0].id].upgrades[completed[0].stage - 1];
     latestMoment.value = { speaker: upgrade.speaker, title: upgrade.title, text: upgrade.story };
-    if (residents.value && completed.stage === 1 && ['well', 'farm', 'home'].includes(completed.id))
+    if (completed.length > 1)
+      latestMoment.value = {
+        speaker: 'Ada · the caretaker',
+        title: 'Several doors are opening!',
+        text: t('Completed buildings: {buildings}.', {
+          buildings: completed.map((project) => t(BUILDING_BY_ID[project.id].shortName)).join(', '),
+        }),
+      };
+    if (
+      residents.value &&
+      completed.some(
+        (project) => project.stage === 1 && ['well', 'farm', 'home'].includes(project.id),
+      )
+    )
       latestMoment.value = {
         speaker: 'Ada · the caretaker',
         title: 'Welcome home.',
         text: 'Fresh water, food, and a home. The Bell family has decided to stay!',
       };
-    campaign.lastConstruction = null;
   }
+  campaign.lastConstruction = [];
 });
 onBeforeUnmount(() => {
   clearTimeout(revealTimer);

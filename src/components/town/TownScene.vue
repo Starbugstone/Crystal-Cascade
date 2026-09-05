@@ -25,8 +25,10 @@
       >
         {{ t(anchor.id === 'mine' ? t('Mine') : t(BUILDING_BY_ID[anchor.id].shortName)) }}
         <small v-if="anchor.id === 'mine'">{{ t('Level {level}', { level: nextLevel }) }} →</small>
-        <small v-else-if="town.project?.id === anchor.id"
-          >{{ town.project.wins }}/{{ t(projectRuns(town.project.stage)) }}</small
+        <small v-else-if="town.projects[anchor.id]"
+          >{{ town.projects[anchor.id].wins }}/{{
+            projectRuns(town.projects[anchor.id].stage)
+          }}</small
         >
         <span v-else-if="town.buildings[anchor.id]" aria-hidden="true">✓</span>
         <span v-else aria-hidden="true">+</span>
@@ -90,7 +92,7 @@ onMounted(async () => {
   }
 });
 watch(
-  () => [JSON.stringify(props.town.buildings), JSON.stringify(props.town.project), locale.value],
+  () => [JSON.stringify(props.town.buildings), JSON.stringify(props.town.projects), locale.value],
   update,
 );
 watch(

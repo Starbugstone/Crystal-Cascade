@@ -231,7 +231,6 @@
   "· More chapters to come": "· D’autres chapitres à venir",
   "A FEW JEWELS. A FRESH START.": "QUELQUES GEMMES. UN NOUVEAU DÉPART.",
   "The hills are full of possibility.": "Les collines regorgent de possibilités.",
-  "Finish your current building first.": "Terminez d’abord le chantier en cours.",
   "Progress can only be kept until this page closes.": "La progression ne peut être conservée que tant que cette page reste ouverte.",
   "This save needs a newer version of the game. Your saved copy is safe.": "Cette sauvegarde nécessite une version plus récente du jeu. Votre copie enregistrée est préservée.",
   "Your save could not be read. Progress will stay in this session.": "Votre sauvegarde est illisible. La progression restera dans cette session.",
@@ -465,5 +464,13 @@
   "PRISM BOMB!": "BOMBE PRISMATIQUE !",
   "HYPER CROSS!": "HYPER CROIX !",
   "SPECTRUM STORM!": "TEMPÊTE SPECTRALE !",
-  "SUPERNOVA!": "SUPERNOVA !"
+  "SUPERNOVA!": "SUPERNOVA !",
+  "This building is already under construction.": "Ce bâtiment est déjà en construction.",
+  "Active construction: {count}": "Chantiers en cours : {count}",
+  "Each completed puzzle advances every building in progress.": "Chaque puzzle terminé fait avancer tous les chantiers.",
+  "Choose another plot whenever you have the coins.": "Choisissez une autre parcelle dès que vous avez les pièces nécessaires.",
+  "Under construction · {wins}/{required}": "En construction · {wins}/{required}",
+  "Each completed puzzle advances every building in progress. Opening day is getting closer.": "Chaque puzzle terminé fait avancer tous les chantiers. Le jour de l’inauguration approche.",
+  "Several doors are opening!": "Plusieurs portes s’ouvrent !",
+  "Completed buildings: {buildings}.": "Bâtiments terminés : {buildings}."
 }

@@ -200,7 +200,7 @@
           <TownSite
             :id="building.id"
             :stage="town.buildings[building.id]"
-            :wins="town.project?.id === building.id ? town.project.wins : null"
+            :wins="town.projects[building.id]?.wins ?? null"
           />
         </g>
         <g class="map-label" transform="translate(0 55)" aria-hidden="true">

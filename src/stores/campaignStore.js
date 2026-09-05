@@ -27,7 +27,7 @@ const defaults = () => ({
   settledRun: 0,
   saveWarning: '',
   readOnly: false,
-  lastConstruction: null,
+  lastConstruction: [],
   powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
 });
 const load = () => {
@@ -152,17 +152,15 @@ export const useCampaignStore = defineStore('campaign', {
         rewards.push({ ...tier, count: 1, source, items: [{ id: drop.id, label: drop.label }] });
       }
       this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
-      const project = this.town.project;
+      const projects = Object.values(this.town.projects);
       this.town = advanceConstruction(this.town);
-      this.lastConstruction = project
-        ? {
-            id: project.id,
-            stage: project.stage,
-            wins: project.wins + 1,
-            required: projectRuns(project.stage),
-            complete: !this.town.project,
-          }
-        : null;
+      this.lastConstruction = projects.map((project) => ({
+        id: project.id,
+        stage: project.stage,
+        wins: project.wins + 1,
+        required: projectRuns(project.stage),
+        complete: !this.town.projects[project.id],
+      }));
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.
       this.save();

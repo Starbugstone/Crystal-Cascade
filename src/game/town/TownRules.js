@@ -22,17 +22,24 @@ export function normalizeTown(saved) {
   ) {
     town.events[BANDIT_EVENT] = { outcome: event.outcome, loss: event.loss };
   }
-  const project = saved?.project;
-  if (
-    project &&
-    Object.hasOwn(BUILDING_BY_ID, project.id) &&
-    project.stage === town.buildings[project.id] + 1 &&
-    project.stage <= BUILDING_BY_ID[project.id].upgrades.length &&
-    Number.isInteger(project.wins) &&
-    project.wins >= 0 &&
-    project.wins < projectRuns(project.stage)
-  ) {
-    town.project = { id: project.id, stage: project.stage, wins: project.wins };
+  for (const { id, upgrades } of BUILDINGS) {
+    // Keep work from the earlier single-project demo when loading its save.
+    const project =
+      saved?.projects === undefined
+        ? saved?.project?.id === id
+          ? saved.project
+          : null
+        : saved.projects?.[id];
+    if (
+      project?.id === id &&
+      project.stage === town.buildings[id] + 1 &&
+      project.stage <= upgrades.length &&
+      Number.isInteger(project.wins) &&
+      project.wins >= 0 &&
+      project.wins < projectRuns(project.stage)
+    ) {
+      town.projects[id] = { id, stage: project.stage, wins: project.wins };
+    }
   }
   return town;
 }
@@ -40,10 +47,15 @@ export function normalizeTown(saved) {
 export const projectRuns = (stage) => (stage === 1 ? 3 : 4);
 
 export function advanceConstruction(town) {
-  if (!town.project) return town;
-  const project = { ...town.project, wins: town.project.wins + 1 };
-  if (project.wins < projectRuns(project.stage)) return { ...town, project };
-  return { ...town, buildings: { ...town.buildings, [project.id]: project.stage }, project: null };
+  if (!Object.keys(town.projects).length) return town;
+  const buildings = { ...town.buildings },
+    projects = {};
+  for (const current of Object.values(town.projects)) {
+    const project = { ...current, wins: current.wins + 1 };
+    if (project.wins < projectRuns(project.stage)) projects[project.id] = project;
+    else buildings[project.id] = project.stage;
+  }
+  return { ...town, buildings, projects };
 }
 
 export const population = (town) =>
@@ -55,15 +67,16 @@ export function upgradeOffer(town, id) {
   const stage = town.buildings[id];
   const upgrade = building.upgrades[stage];
   if (!upgrade) return null;
-  const firstProject = BUILDINGS.every(({ id }) => !town.buildings[id]);
+  const firstProject =
+    !Object.keys(town.projects).length && BUILDINGS.every(({ id }) => !town.buildings[id]);
   const cost = firstProject ? 0 : upgrade.cost;
   return {
     ...upgrade,
     cost,
     stage,
     runs: projectRuns(stage + 1),
-    reason: town.project
-      ? 'Finish your current building first.'
+    reason: town.projects[id]
+      ? 'This building is already under construction.'
       : town.coins < cost
         ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
         : '',
@@ -85,7 +98,7 @@ export function purchase(town, id, expectedStage) {
   return {
     ...town,
     coins: town.coins - offer.cost,
-    project: { id, stage: expectedStage + 1, wins: 0 },
+    projects: { ...town.projects, [id]: { id, stage: expectedStage + 1, wins: 0 } },
   };
 }
 

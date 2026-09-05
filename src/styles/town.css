@@ -1405,3 +1405,10 @@
   margin-top: 14px;
   accent-color: #688b70;
 }
+
+.town-construction-summary {
+  color: #617b70;
+  font-size: 12px;
+  line-height: 1.8;
+  padding: 0 4px 12px;
+}

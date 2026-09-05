@@ -242,7 +242,7 @@ export class TownDiorama {
       if (id === 'mine') this.mine(group, labels.mine);
       else {
         const stage = town.buildings[id],
-          project = town.project?.id === id ? town.project : null;
+          project = town.projects[id];
         if (!stage) this.plot(group, id, project?.wins ?? -1, labels[id]);
         else if (id === 'well') this.well(group);
         else {

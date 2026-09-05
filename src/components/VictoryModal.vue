@@ -47,13 +47,18 @@
         </div>
         <button @click="$emit('town')">{{ t('Visit town') }} <GameIcon name="arrow" /></button>
       </div>
-      <div v-if="construction" class="town-construction-reward" role="status">
+      <div
+        v-for="project in construction"
+        :key="project.id"
+        class="town-construction-reward"
+        role="status"
+      >
         <strong>{{
-          t(construction.complete ? 'Building complete!' : 'Your building is taking shape')
+          t(project.complete ? 'Building complete!' : 'Your building is taking shape')
         }}</strong>
         <span
-          >{{ t(BUILDING_BY_ID[construction.id].shortName) }} · {{ construction.wins }}/{{
-            construction.required
+          >{{ t(BUILDING_BY_ID[project.id].shortName) }} · {{ project.wins }}/{{
+            project.required
           }}</span
         >
       </div>
@@ -118,7 +123,7 @@ const props = defineProps({
   speedTargetMs: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
-  construction: { type: Object, default: null },
+  construction: { type: Array, default: () => [] },
   hasNextLevel: Boolean,
   rewards: { type: Array, default: () => [] },
 });

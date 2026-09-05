@@ -141,5 +141,5 @@ export const createTown = () => ({
   coins: 0,
   buildings: Object.fromEntries(BUILDINGS.map(({ id }) => [id, 0])),
   events: {},
-  project: null,
+  projects: {},
 });
