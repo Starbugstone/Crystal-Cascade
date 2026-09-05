@@ -45,7 +45,11 @@
               height="43"
             />
             <text class="fusion-kicker" x="260" y="55" fill="var(--banner-color)">
-              ✦ {{ t('BONUS FUSION') }} ✦
+              {{
+                banner.clearedCount != null
+                  ? t('{count} GEMS · 2× DAMAGE', { count: banner.clearedCount })
+                  : `✦ ${t('BONUS FUSION')} ✦`
+              }}
             </text>
           </template>
           <text

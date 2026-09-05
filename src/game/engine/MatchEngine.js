@@ -1,6 +1,7 @@
 import { BonusActivator } from './BonusActivator.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
 import { canSwapGem } from './TileRules.js';
+import { getBonusFusion } from './BonusFusion.js';
 
 const bonusActivator = new BonusActivator();
 export class MatchEngine {
@@ -28,10 +29,11 @@ export class MatchEngine {
 
     const swap = { aIndex, bIndex };
 
-    const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap);
+    const fusion = getBonusFusion(nextBoard, cols, rows, swap);
+    const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap, fusion);
     if (bonusClear.length > 0) {
       return {
-        matches: [{ type: 'bonus-activation', indices: bonusClear }],
+        matches: [{ type: 'bonus-activation', indices: bonusClear, ...(fusion ? { fusion } : {}) }],
         board: nextBoard,
         cols,
         rows,

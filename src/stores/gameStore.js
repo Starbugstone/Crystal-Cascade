@@ -137,7 +137,10 @@ export const useGameStore = defineStore('game', {
       if (this.arcadeBanner?.kind === 'fusion' && banner.kind !== 'fusion') return;
       clearTimeout(arcadeBannerTimeout);
       this.arcadeBanner = { ...banner, id: (this.arcadeBanner?.id ?? 0) + 1 };
-      arcadeBannerTimeout = setTimeout(() => (this.arcadeBanner = null), 2000);
+      arcadeBannerTimeout = setTimeout(
+        () => (this.arcadeBanner = null),
+        banner.kind === 'fusion' ? 3200 : 2000,
+      );
     },
     showArcadeImpact(effect) {
       if (useSettingsStore().reducedMotion || !this.sessionActive || this.levelCleared) return;

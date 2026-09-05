@@ -36,6 +36,7 @@ export class TileManager {
       type: match.type,
       indices: [...match.indices],
       orientation: match.orientation,
+      fusion: match.fusion,
     }));
     let totalLayersCleared = 0;
     let relicsCollected = 0;
@@ -46,11 +47,13 @@ export class TileManager {
       const impacted = new Set();
       const protectedIndices = new Set();
       const cascadeBonuses = [];
+      const fusion = pendingMatches.find((match) => match.fusion)?.fusion;
+      const fusionTargets = new Set(fusion?.targets ?? []);
 
       pendingMatches.forEach((match) => {
         match.indices.forEach((index) => {
           const tile = tiles[index];
-          if (!tile || tile.state !== 'FROZEN') {
+          if (!tile || tile.state !== 'FROZEN' || fusionTargets.has(index)) {
             if (index < 0 || index >= workingBoard.length) return;
             impacted.add(index);
             if (workingBoard[index] && workingBoard[index].type !== 'relic' && !isAnchored(tile))
@@ -132,9 +135,21 @@ export class TileManager {
         })),
         tileUpdates: [],
         collectedJewels: [],
+        ...(fusion ? { bonusFusion: { ...fusion, targets: [...impacted] } } : {}),
       };
 
       damageTargets.forEach((index) => {
+        if (fusionTargets.has(index)) {
+          totalLayersCleared += this.applyFusionHit(
+            workingBoard,
+            tiles,
+            index,
+            step,
+            cleared,
+            protectedIndices,
+          );
+          return;
+        }
         const tile = tiles[index];
         // A chain absorbs the hit and releases its gem. Ice beneath it survives
         // until a later match, and adjacent hits never destroy the released gem.
@@ -172,6 +187,8 @@ export class TileManager {
           workingBoard[index] = null;
         }
       });
+      // A fusion can break through an anchor and remove its gem in the same step.
+      step.cleared = [...cleared].sort((a, b) => a - b);
 
       // Unfreeze adjacent tiles
       cleared.forEach((index) => {
@@ -248,6 +265,49 @@ export class TileManager {
       layersCleared: totalLayersCleared,
       relicsCollected,
     };
+  }
+
+  applyFusionHit(board, tiles, index, step, cleared, protectedIndices) {
+    const tile = tiles[index];
+    let hits = 2,
+      removed = 0;
+    if (tile?.state === 'FROZEN') {
+      tile.state = 'PLAYABLE';
+      step.tileUpdates.push({ index, state: 'PLAYABLE' });
+    }
+    // Chains absorb hits first. A second hit can reach the ice and gem beneath.
+    if (tile?.chainHealth > 0) {
+      const damage = Math.min(hits, tile.chainHealth);
+      tile.chainHealth -= damage;
+      hits -= damage;
+      removed += damage;
+      step.tileUpdates.push({ index, chainHealth: tile.chainHealth });
+    }
+    if (!hits) return removed;
+    if (tile?.health > 0) {
+      const before = tile.health;
+      tile.maxHealth ??= before;
+      tile.health = Math.max(0, before - hits);
+      tile.cleared = tile.health === 0;
+      removed += before - tile.health;
+      if (tile.type === 'blocker' && tile.cleared) tile.type = 'standard';
+      step.tileUpdates.push({
+        index,
+        health: tile.health,
+        maxHealth: tile.maxHealth,
+        type: tile.type,
+      });
+    }
+    if (
+      board[index] &&
+      board[index].type !== 'relic' &&
+      !isAnchored(tile) &&
+      !protectedIndices.has(index)
+    ) {
+      cleared.add(index);
+      board[index] = null;
+    }
+    return removed;
   }
 
   applyGravity(workingBoard, tiles, totalCols, totalRows, gemTypes, iteration, step) {

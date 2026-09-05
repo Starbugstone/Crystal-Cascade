@@ -1,12 +1,7 @@
+import { FUSION_STYLES } from '../engine/BonusFusion';
+import { emitFusionDebris, playFusionPayload } from './FusionPayloadEffects';
+
 const SPECTRUM = [0xff718f, 0xffc75b, 0x9bffbe, 0x72edff, 0xb39aff, 0xff8ae9];
-const COMBOS = {
-  'bomb+bomb': { label: 'MEGA DETONATION!', color: 0xffbd60, accent: 0xff627e },
-  'bomb+cross': { label: 'ATOMIC CROSS!', color: 0xffd77a, accent: 0x79f3ff },
-  'bomb+rainbow': { label: 'PRISM BOMB!', color: 0xff9fe9, accent: 0xffd679 },
-  'cross+cross': { label: 'HYPER CROSS!', color: 0x79f3ff, accent: 0xa998ff },
-  'cross+rainbow': { label: 'SPECTRUM STORM!', color: 0xa8b0ff, accent: 0x80fff0 },
-  'rainbow+rainbow': { label: 'SUPERNOVA!', color: 0xffc5ff, accent: 0x8cffff },
-};
 
 export function describeBonusCombo(step, effects) {
   const pair = step.bonusSwap;
@@ -22,7 +17,17 @@ export function describeBonusCombo(step, effects) {
     .map(({ type }) => type)
     .sort()
     .join('+');
-  return COMBOS[key] ? { ...COMBOS[key], key, pair, targets: step.cleared } : null;
+  const payload = step.bonusFusion ?? step.matches?.find((match) => match.fusion)?.fusion;
+  return FUSION_STYLES[key]
+    ? {
+        ...FUSION_STYLES[key],
+        ...payload,
+        key,
+        pair,
+        targets: payload?.targets ?? step.cleared,
+        clearedCount: step.cleared.length,
+      }
+    : null;
 }
 
 // A real two-special swap gets its own anticipation, collision and release.
@@ -42,6 +47,8 @@ export class BonusComboEffects {
         color,
         kind: 'fusion',
         types: combo.pair.map(({ type }) => type),
+        detail: combo.detail,
+        clearedCount: combo.clearedCount,
       });
     if (a.reducedMotion) {
       announce();
@@ -64,17 +71,19 @@ export class BonusComboEffects {
 
     this.release(combo, center);
     const pairIndices = new Set(combo.pair.map(({ index }) => index));
-    const primary = effects.filter(({ index }) => pairIndices.has(index));
     const chain = effects.filter(({ index }) => !pairIndices.has(index)).slice(0, 2);
-    // Supernova already emits one fused lightning fan from the collision point.
-    // Three overlapping fans wash out its colors, especially on small boards.
-    if (combo.key === 'rainbow+rainbow') this.b.sound('rainbow');
-    else primary.forEach((effect) => this.b.impact(effect));
-    chain.forEach((effect) => this.b.impact(effect));
+    [...new Set(combo.pair.map(({ type }) => type))].forEach((type) => this.b.sound(type));
     a.audio?.playArcadeCue?.('fusion-impact');
     a.onImpact?.({ type: 'bonus-fusion', color });
-    a.scene.cameras.main.shake(360, 0.012, true);
-    await a.tween({ phase: 0 }, { phase: 1, duration: 210 });
+    a.scene.cameras.main.shake(420, 0.016, true);
+    await playFusionPayload(a, combo, center);
+    if (generation !== a.generation) return;
+    chain.forEach((effect) => this.b.impact(effect));
+    // The second thump is the armor-breaking hit; debris continues into gravity.
+    a.audio?.playArcadeCue?.('fusion-aftershock');
+    a.onImpact?.({ type: 'bonus-fusion', color });
+    a.scene.cameras.main.shake(190, 0.009, true);
+    this.star(center, combo.accent, a.cellSize * 2.8, 360);
   }
 
   charge(combo, center, points) {
@@ -128,6 +137,7 @@ export class BonusComboEffects {
 
     combo.pair.forEach(({ type }, i) => {
       const icon = this.b.icon(type, points[i], size * 1.45);
+      const startAngle = Math.atan2(points[i].y - center.y, points[i].x - center.x);
       a.effect(icon, {
         x: center.x,
         y: center.y,
@@ -135,7 +145,16 @@ export class BonusComboEffects {
         scaleY: icon.scaleY * 1.25,
         angle: i ? 155 : -155,
         duration: 460,
-        ease: 'Back.easeIn',
+        ease: 'Cubic.easeIn',
+        onUpdate: (tween) => {
+          const t = tween.progress;
+          const radius = (size * 0.5 + Math.sin(t * Math.PI) * size * 1.35) * (1 - t);
+          const angle = startAngle + t * Math.PI * 1.6;
+          icon.setPosition(
+            center.x + Math.cos(angle) * radius,
+            center.y + Math.sin(angle) * radius,
+          );
+        },
       });
     });
   }
@@ -168,6 +187,7 @@ export class BonusComboEffects {
     const colors = rainbow ? SPECTRUM : [combo.color, combo.accent, 0xfff4d4];
     this.b.highlightTargets(combo.targets, combo.color);
     this.b.boardBurst(combo.color);
+    emitFusionDebris(a, combo, center);
 
     // Expanding segmented shockwaves keep a crisp silhouette around the bright core.
     const reach = Math.hypot(width, height) * 0.72;
@@ -184,7 +204,7 @@ export class BonusComboEffects {
       ring.setScale(0.025);
       a.effect(ring, {
         scale: 1,
-        alpha: 0,
+        alpha: { value: 0, ease: 'Cubic.easeIn' },
         rotation: i % 2 ? 0.35 : -0.35,
         delay: i * 65,
         duration: 800,
@@ -231,8 +251,6 @@ export class BonusComboEffects {
           ease: 'Cubic.easeIn',
         });
       });
-    if (combo.key === 'bomb+bomb') this.b.explosion(center);
-    if (combo.key === 'rainbow+rainbow') this.b.rainbow(center, combo.targets);
     a.particles?.emitExplosion(center, { color: combo.color, count: 72 });
   }
 }

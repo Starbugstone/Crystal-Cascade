@@ -137,12 +137,16 @@
             }}
           </p>
           <p class="fusion-tip">
-            {{ t('Swap two bonuses to unleash a spectacular bonus fusion.') }}
+            {{
+              t(
+                'Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a whole color into bombs or lasers.',
+              )
+            }}
           </p>
           <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
-          <span class="guide-footnote">
-            {{ t('Beat the score. Beat the clock. Win both chests.') }}
-          </span>
+          <span class="guide-footnote">{{
+            t('Beat the score. Beat the clock. Win both chests.')
+          }}</span>
         </div>
       </aside>
       <section
@@ -200,6 +204,8 @@
             <button class="text-button" @click="game.setBonusMode(null)">
               {{ t('Cancel') }}
             </button></template
+          ><template v-else-if="game.arcadeBanner?.kind === 'fusion'">
+            <strong class="fusion-reward">{{ t(game.arcadeBanner.detail) }}</strong> </template
           ><template v-else
             ><span
               ><strong v-if="game.totalRelics" class="relic-caption">
