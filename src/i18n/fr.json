@@ -472,5 +472,14 @@
   "Under construction · {wins}/{required}": "En construction · {wins}/{required}",
   "Each completed puzzle advances every building in progress. Opening day is getting closer.": "Chaque puzzle terminé fait avancer tous les chantiers. Le jour de l’inauguration approche.",
   "Several doors are opening!": "Plusieurs portes s’ouvrent !",
-  "Completed buildings: {buildings}.": "Bâtiments terminés : {buildings}."
+  "Completed buildings: {buildings}.": "Bâtiments terminés : {buildings}.",
+  "Town camera. Arrow keys rotate, plus and minus zoom, Home resets the view.": "Caméra de la ville. Les flèches font tourner la vue, plus et moins règlent le zoom, Début rétablit la vue.",
+  "Drag to rotate · Scroll to zoom": "Glissez pour tourner · Molette pour zoomer",
+  "Drag to rotate · Pinch to zoom": "Glissez pour tourner · Pincez pour zoomer",
+  "Camera controls": "Commandes de la caméra",
+  "Zoom out": "Dézoomer",
+  "Zoom in": "Zoomer",
+  "Rotate left": "Tourner à gauche",
+  "Rotate right": "Tourner à droite",
+  "Reset view": "Rétablir la vue"
 }

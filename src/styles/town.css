@@ -1310,7 +1310,7 @@
 }
 .town-scene {
   position: relative;
-  aspect-ratio: 1.24;
+  aspect-ratio: 1.4;
   isolation: isolate;
   background: #e9e8da;
 }
@@ -1318,8 +1318,12 @@
   display: block;
   width: 100%;
   height: 100%;
-  touch-action: pan-y;
-  cursor: pointer;
+  touch-action: none;
+  cursor: inherit;
+}
+.town-scene canvas:focus-visible {
+  outline: 3px solid #426654;
+  outline-offset: -4px;
 }
 .town-scene-labels {
   position: absolute;
@@ -1411,4 +1415,86 @@
   font-size: 12px;
   line-height: 1.8;
   padding: 0 4px 12px;
+}
+
+.town-camera-bar {
+  position: absolute;
+  z-index: 2;
+  bottom: 14px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+.town-camera-hint {
+  margin: 0;
+  color: #5e6f58;
+  font-size: 10px;
+  padding: 9px 12px;
+  border-radius: 16px;
+  background: #faf6e6d9;
+}
+.camera-touch-hint {
+  display: none;
+}
+.town-camera-controls {
+  display: flex;
+  border: 1px solid #a99b76;
+  border-radius: 12px;
+  background: #fff8e9ed;
+  box-shadow: 0 3px 14px #54452d1c;
+  pointer-events: auto;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.town-camera-controls button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-right: 1px solid #d7cfb9;
+  background: transparent;
+  color: #4b6559;
+  cursor: pointer;
+}
+.town-camera-controls button:last-child {
+  border-right: 0;
+}
+.town-camera-controls button:hover {
+  background: #e0e6d0;
+}
+.town-camera-controls button:focus-visible {
+  outline: 2px solid #426654;
+  outline-offset: -4px;
+}
+.town-camera-controls svg {
+  width: 21px;
+  height: 21px;
+}
+@media (max-width: 600px) {
+  .town-scene {
+    aspect-ratio: 5 / 6;
+  }
+  .town-camera-bar {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    align-items: center;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .town-camera-hint {
+    font-size: 9px;
+    padding: 5px 10px;
+  }
+  .camera-mouse-hint {
+    display: none;
+  }
+  .camera-touch-hint {
+    display: inline;
+  }
 }

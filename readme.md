@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Choose an empty plot in Prospect Hollow and start building; the first project's materials are free. Click the mine entrance to play the next level. Start additional buildings whenever you can afford their materials. Each completed puzzle adds one step to every active construction. Three wins finish a building; four finish the home's extra wing. Food, water, housing, and protection become available only after construction finishes. Any building can be chosen first. The Mine tab retains the level collection and completed levels can be replayed.
+Open http://localhost:5173. Choose an empty plot in Prospect Hollow and start building; the first project's materials are free. Explore the rolling prairie by dragging to rotate and scrolling or pinching to zoom; Reset view returns to town. Click the mine entrance to play the next level. Start additional buildings whenever you can afford their materials. Each completed puzzle adds one step to every active construction. Three wins finish a building; four finish the home's extra wing. Food, water, housing, and protection become available only after construction finishes. Any building can be chosen first. The Mine tab retains the level collection and completed levels can be replayed.
 
 The full site follows the browser's English or French language preference. Settings includes a confirmed **Reset progress for testing** action to restart the town, campaign, and power inventory on this device.
 
