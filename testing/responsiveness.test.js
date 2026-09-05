@@ -17,12 +17,21 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('generates sixty settled boards with legal moves', () => {
+it('generates sixty settled six-color boards with at least three legal opening moves', () => {
   for (const level of generateLevelConfigs()) {
-    expect(engine.findMatches(level.board, level.boardCols)).toEqual([]);
+    const { board, tiles, boardCols: cols, boardRows: rows } = level;
+    expect(level.boardLayout.gemTypeCount).toBe(6);
     expect(
-      new HintEngine().findBestMove(level.board, level.tiles, level.boardCols, level.boardRows),
-    ).not.toBeNull();
+      new Set(board.filter((gem) => gem && gem.type !== 'relic').map((gem) => gem.type)),
+    ).toEqual(new Set(['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone']));
+    expect(engine.findMatches(board, cols, rows, tiles)).toEqual([]);
+    let moves = 0;
+    for (let a = 0; a < board.length; a++) {
+      for (const b of [a % cols < cols - 1 ? a + 1 : -1, a + cols]) {
+        if (engine.evaluateSwap(board, cols, rows, a, b, tiles).matches.length) moves++;
+      }
+    }
+    expect(moves).toBeGreaterThanOrEqual(3);
   }
 });
 

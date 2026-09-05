@@ -1,10 +1,8 @@
-import { createGem } from './GemFactory.js';
+import { createGem, GEM_TYPES } from './GemFactory.js';
 import { MatchEngine } from './MatchEngine.js';
 import { LEVEL_COUNT, CHAPTERS } from '../../data/campaign.js';
 import { EXPANSION_LEVELS } from '../../data/expansion.js';
 import { layerCount } from './TileRules.js';
-
-const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
 const createSeededRng = (seed) => {
   let current = seed % 2147483647;
@@ -22,6 +20,8 @@ class BoardLayout {
     this.dimensions = dimensions;
     this.blockedCells = blockedCells;
     this.initialTilePlacements = initialTilePlacements;
+    // Include moonstone in both opening boards and subsequent refills.
+    this.gemTypeCount = GEM_TYPES.length;
   }
 }
 
@@ -55,7 +55,7 @@ const createBoard = (layout, rng) => {
     if (x >= 2 && board[i - 1]?.type === board[i - 2]?.type) forbidden.add(board[i - 1]?.type);
     if (y >= 2 && board[i - cols]?.type === board[i - 2 * cols]?.type)
       forbidden.add(board[i - cols]?.type);
-    const choices = GEM_TYPES.slice(0, layout.gemTypeCount ?? 6).filter(
+    const choices = GEM_TYPES.slice(0, layout.gemTypeCount ?? GEM_TYPES.length).filter(
       (type) => !forbidden.has(type),
     );
     board[i] = createGem(choices[Math.floor(rng() * choices.length)]);
@@ -156,7 +156,6 @@ const createExpansionLevel = (id) => {
   const chapter = Math.floor((id - 1) / 6);
   const rng = createSeededRng(id * 1337);
   const layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols, rows });
-  layout.gemTypeCount = 5;
   const seals = { r: 'ruby', b: 'sapphire', g: 'emerald' };
   const tiles = [...spec.map.replaceAll('/', '')].map((symbol, index) => {
     const tile = { type: 'standard', health: 0, maxHealth: 0 };
@@ -237,8 +236,8 @@ const createExpansionLevel = (id) => {
   };
 };
 
-// Evenly distributed ice grows by two layers per level. Stone is introduced
-// separately, with open side columns so every barrier stays approachable.
+// Denser ice gives the stronger bonus fusions more work to do. Stone is
+// introduced separately, with open side columns so barriers stay approachable.
 export const generateLevelConfigs = (count = LEVEL_COUNT) => {
   const levels = [];
   for (let index = 0; index < count; index++) {
@@ -253,8 +252,6 @@ export const generateLevelConfigs = (count = LEVEL_COUNT) => {
     const rows = id <= 12 ? 7 : 8;
     const rng = createSeededRng(id * 1337);
     const layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols, rows });
-    // Keep five colors throughout: difficulty grows through objectives and obstacles.
-    layout.gemTypeCount = 5;
     const tiles = Array.from({ length: cols * rows }, () => ({
       type: 'standard',
       health: 0,
@@ -292,7 +289,9 @@ export const generateLevelConfigs = (count = LEVEL_COUNT) => {
         );
       iceCells.sort((a, b) => edgeDistance(b) - edgeDistance(a));
     }
-    const iceLayers = 12 + index * 2;
+    // Cover more of the small boards before introducing layered ice at level 13.
+    // Larger boards retain a steady two-layer ramp alongside the sixth gem color.
+    const iceLayers = id <= 6 ? 20 + index * 2 : id <= 12 ? 24 + id : 42 + (id - 13) * 2;
     for (let layer = 0; layer < iceLayers; layer++) {
       const iceCellCount =
         id < 13 ? iceCells.length : Math.min(iceCells.length, Math.ceil(iceLayers * 0.8));
