@@ -36,6 +36,12 @@ export class MatchEngine {
         cols,
         rows,
         swap,
+        // Keep the swapped pair separate from bonuses caught in the chain reaction.
+        bonusSwap:
+          bonusActivator.isBonus(nextBoard[aIndex]?.type) &&
+          bonusActivator.isBonus(nextBoard[bIndex]?.type)
+            ? [aIndex, bIndex].map((index) => ({ index, type: nextBoard[index].type }))
+            : null,
         bonusesCreated: [],
         bonusIndices: [],
       };

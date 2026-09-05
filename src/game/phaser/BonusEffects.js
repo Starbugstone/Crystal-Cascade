@@ -1,4 +1,5 @@
 import { BONUS_TYPES } from './SpriteLoader';
+import { BonusComboEffects, describeBonusCombo } from './BonusComboEffects';
 
 const RAINBOW = [0xff658c, 0xffc85b, 0xffffad, 0x74ffc3, 0x7defff, 0xa39aff, 0xf293ff];
 const POWER_COLOR = {
@@ -46,6 +47,11 @@ export class BonusEffects {
       (index) => a.gemSprites.get(a.indexToGemId[index])?.__gemType,
     );
     if (!effects.length) return;
+    const combo = describeBonusCombo(step, effects);
+    if (combo) {
+      await new BonusComboEffects(this).play(combo, effects);
+      return;
+    }
     if (a.reducedMotion) {
       this.sound(effects[0].type);
       return;

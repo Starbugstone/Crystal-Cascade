@@ -14,6 +14,7 @@
       "
       :key="game.arcadeImpact.id"
       class="arcade-screen-impact"
+      :class="{ 'is-fusion': game.arcadeImpact.type === 'bonus-fusion' }"
       :style="{ '--impact-color': game.arcadeImpact.color }"
       aria-hidden="true"
     >
@@ -103,6 +104,7 @@
             Break the ice beneath your matches. Match beside stone to release the gems above. Gold
             bands take two hits.
           </p>
+          <p class="fusion-tip">Swap two bonuses to unleash a spectacular bonus fusion.</p>
           <p v-if="game.currentLevelId >= 43">{{ currentConfig?.tip }}</p>
           <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
         </div>
@@ -110,7 +112,10 @@
       <section
         class="play-area"
         :class="{ 'expanded-board': game.boardRows > 8 }"
-        :style="{ '--board-ratio': game.boardCols / game.boardRows }"
+        :style="{
+          '--board-ratio': game.boardCols / game.boardRows,
+          '--fusion-color': game.arcadeImpact?.color,
+        }"
       >
         <ArcadeBanner :banner="game.arcadeBanner" />
         <div class="board-topline">
@@ -130,7 +135,13 @@
             <GameIcon name="expand" />
           </button>
         </div>
-        <div class="board-frame" :class="{ 'power-active': game.activeBonusMode }">
+        <div
+          class="board-frame"
+          :class="{
+            'power-active': game.activeBonusMode,
+            'fusion-impact': game.arcadeImpact?.type === 'bonus-fusion',
+          }"
+        >
           <div class="frame-corner corner-tl"></div>
           <div class="frame-corner corner-tr"></div>
           <div class="frame-corner corner-bl"></div>
