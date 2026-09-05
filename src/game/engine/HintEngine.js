@@ -30,7 +30,10 @@ export class HintEngine {
         if (!usesBonus && !evaluation.matches.length) continue;
         const createsBonus = !!evaluation?.bonusesCreated.length;
         let indices = [...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b])];
-        if (usesBonus) {
+        const usesFusion = SPECIAL.has(board[a].type) && SPECIAL.has(board[b].type);
+        if (usesFusion) {
+          indices = bonusActivator.previewSwap(board, cols, rows, { aIndex: a, bIndex: b });
+        } else if (usesBonus) {
           const swapped = [...board];
           [swapped[a], swapped[b]] = [swapped[b], swapped[a]];
           const affected = new Set([a, b]);
@@ -84,6 +87,7 @@ export class HintEngine {
         ).length;
         const heuristicScore =
           Number(usesBonus) * 50 +
+          Number(usesFusion) * 150 +
           Number(createsBonus) * 100 +
           damage * 120 +
           nearbyBlocks.size * 180 +

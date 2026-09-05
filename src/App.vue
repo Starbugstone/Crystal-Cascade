@@ -104,7 +104,10 @@
             Break the ice beneath your matches. Match beside stone to release the gems above. Gold
             bands take two hits.
           </p>
-          <p class="fusion-tip">Swap two bonuses to unleash a spectacular bonus fusion.</p>
+          <p class="fusion-tip">
+            Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a
+            whole color into bombs or lasers.
+          </p>
           <p v-if="game.currentLevelId >= 43">{{ currentConfig?.tip }}</p>
           <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
         </div>
@@ -157,6 +160,8 @@
           <template v-if="game.activeBonusMode"
             >Tap a tile to use {{ powerName }}
             <button class="text-button" @click="game.setBonusMode(null)">Cancel</button></template
+          ><template v-else-if="game.arcadeBanner?.kind === 'fusion'">
+            <strong class="fusion-reward">{{ game.arcadeBanner.detail }}</strong> </template
           ><template v-else
             ><span
               ><strong v-if="game.totalRelics" class="relic-caption"

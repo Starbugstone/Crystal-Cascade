@@ -1,3 +1,5 @@
+import { dominantGemType, getBonusFusion } from './BonusFusion.js';
+
 export class BonusActivator {
   constructor() {
     this.BONUS_TYPES = new Set([
@@ -37,7 +39,7 @@ export class BonusActivator {
     return this.activate(clonedBoard, cols, rows, swap) ?? [];
   }
 
-  activate(board, cols, rows, swap) {
+  activate(board, cols, rows, swap, fusion = getBonusFusion(board, cols, rows, swap)) {
     if (!swap) {
       return [];
     }
@@ -69,11 +71,21 @@ export class BonusActivator {
       return { mode: 'target', targetType: counterpart.type };
     };
 
-    // Check and activate bonus at position A
-    enqueue(swap.aIndex, a, a?.type === 'rainbow' ? rainbowContext(a, b) : {});
-
-    // Check and activate bonus at position B
-    enqueue(swap.bIndex, b, b?.type === 'rainbow' ? rainbowContext(b, a) : {});
+    const chainContext = (gem) =>
+      fusion && gem?.type === 'rainbow'
+        ? { mode: 'target', targetType: fusion.targetType ?? dominantGemType(board) }
+        : this.chainContextFor(gem);
+    if (fusion) {
+      processed.add(swap.aIndex);
+      processed.add(swap.bIndex);
+      fusion.targets.forEach((index) => {
+        allCleared.add(index);
+        if (!processed.has(index)) enqueue(index, board[index], chainContext(board[index]));
+      });
+    } else {
+      enqueue(swap.aIndex, a, a?.type === 'rainbow' ? rainbowContext(a, b) : {});
+      enqueue(swap.bIndex, b, b?.type === 'rainbow' ? rainbowContext(b, a) : {});
+    }
 
     while (queue.length) {
       const { index, type, context } = queue.shift();
@@ -92,7 +104,7 @@ export class BonusActivator {
               queue.push({
                 index: resolvedIndex,
                 type: gem.type,
-                context: this.chainContextFor(gem),
+                context: chainContext(gem),
               });
             }
           }

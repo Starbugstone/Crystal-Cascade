@@ -185,6 +185,10 @@
 .match-guide .fusion-tip {
   color: #f4c5ff;
 }
+.fusion-reward {
+  color: #ffe49b;
+  letter-spacing: 1px;
+}
 @keyframes fusion-speed-lines {
   from {
     transform: scale(0.65) rotate(-5deg);

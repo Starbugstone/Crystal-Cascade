@@ -45,7 +45,11 @@
               height="43"
             />
             <text class="fusion-kicker" x="260" y="55" fill="var(--banner-color)">
-              ✦ BONUS FUSION ✦
+              {{
+                banner.clearedCount != null
+                  ? `${banner.clearedCount} GEMS · 2× DAMAGE`
+                  : '✦ BONUS FUSION ✦'
+              }}
             </text>
           </template>
           <text

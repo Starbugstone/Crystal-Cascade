@@ -259,7 +259,7 @@ export class BoardAnimator {
       if (i > 0) this.celebrate(i + 1);
       await this.bonuses.play(step);
       if (generation !== this.generation) return;
-      await this.clearGems(step.cleared);
+      await this.clearGems(step.cleared, step.bonusFusion);
       if (generation !== this.generation) return;
       if (step.collectedRelics?.length) {
         await this.clearGems(step.collectedRelics.map(({ index }) => index));
@@ -336,8 +336,13 @@ export class BoardAnimator {
     });
   }
 
-  async clearGems(indices) {
+  async clearGems(indices, fusion) {
     const generation = this.generation;
+    const detonate = fusion && !this.reducedMotion;
+    const origins = detonate ? fusion.pair.map(({ index }) => this.position(index)) : [];
+    const center = detonate
+      ? { x: (origins[0].x + origins[1].x) / 2, y: (origins[0].y + origins[1].y) / 2 }
+      : null;
     const entries = indices.map((index) => ({
       index,
       id: this.indexToGemId[index],
@@ -346,12 +351,25 @@ export class BoardAnimator {
     await Promise.all(
       entries.map(({ sprite, index }) => {
         if (!sprite) return;
-        this.particles?.emitBurst(this.position(index), GEM_COLORS[sprite.__gemType], 9);
+        const p = this.position(index);
+        const dx = detonate ? p.x - center.x : 0,
+          dy = detonate ? p.y - center.y : 0;
+        const distance = Math.max(1, Math.hypot(dx, dy));
+        if (!detonate) this.particles?.emitBurst(p, GEM_COLORS[sprite.__gemType], 9);
         return this.tween(sprite, {
-          scaleX: sprite.scaleX * 1.25,
-          scaleY: sprite.scaleY * 1.25,
+          ...(detonate
+            ? {
+                x: p.x + (dx / distance) * this.cellSize * 1.8,
+                y: p.y + (dy / distance) * this.cellSize * 1.8,
+                angle: index % 2 ? 100 : -100,
+                delay: Math.min(180, (distance / this.cellSize) * 28),
+                onStart: () => this.particles?.emitBurst(p, GEM_COLORS[sprite.__gemType], 12),
+              }
+            : {}),
+          scaleX: sprite.scaleX * (detonate ? 0.2 : 1.25),
+          scaleY: sprite.scaleY * (detonate ? 0.2 : 1.25),
           alpha: 0,
-          duration: this.reducedMotion ? 45 : MOTION.clear,
+          duration: this.reducedMotion ? 45 : detonate ? 230 : MOTION.clear,
           ease: 'Quad.easeOut',
         });
       }),

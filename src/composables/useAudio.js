@@ -152,15 +152,17 @@ export const useAudio = () => {
     const notes =
       kind === 'fusion-charge'
         ? [130.81, 196, 261.63, 392, 523.25, 784]
-        : kind === 'fusion-impact'
-          ? [65.41, 130.81, 261.63, 523.25]
-          : kind === 'charge'
-            ? [196, 294, 392, 588, 784]
-            : kind === 'jackpot'
-              ? [523, 659, 784, 1046, 1568]
-              : kind === 'reel-tick'
-                ? [420 + (index % 5) * 65]
-                : [660 + index * 110, 990 + index * 110];
+        : kind === 'fusion-aftershock'
+          ? [98, 196, 392]
+          : kind === 'fusion-impact'
+            ? [65.41, 130.81, 261.63, 523.25]
+            : kind === 'charge'
+              ? [196, 294, 392, 588, 784]
+              : kind === 'jackpot'
+                ? [523, 659, 784, 1046, 1568]
+                : kind === 'reel-tick'
+                  ? [420 + (index % 5) * 65]
+                  : [660 + index * 110, 990 + index * 110];
     notes.forEach((frequency, i) => {
       const oscillator = ctx.createOscillator(),
         gain = ctx.createGain();
