@@ -5,8 +5,9 @@ import { HintEngine } from '../src/game/engine/HintEngine';
 import { TileManager } from '../src/game/engine/TileManager';
 import { canSwapGem, layerCount } from '../src/game/engine/TileRules';
 import { GEM_TYPES } from '../src/game/engine/GemFactory';
+import { detectBonusFromMatches } from '../src/game/engine/MatchPatterns';
 
-const levels = generateLevelConfigs().slice(36);
+const levels = generateLevelConfigs();
 const engine = new MatchEngine();
 const hints = new HintEngine();
 const manager = new TileManager();
@@ -17,6 +18,9 @@ afterEach(() => vi.restoreAllMocks());
 it.each(levels.map((level) => [level.id, level]))(
   'can finish level %i without inventory powers',
   (id, level) => {
+    const cols = level.boardCols;
+    const rows = level.boardRows;
+    const gemTypes = GEM_TYPES.slice(0, level.boardLayout.gemTypeCount);
     for (const seed of [1, 19, 73]) {
       let randomState = id * seed * 7919;
       vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -34,11 +38,11 @@ it.each(levels.map((level) => [level.id, level]))(
       const remaining = () =>
         tiles.some((tile) => layerCount(tile) > 0) || board.some((gem) => gem?.type === 'relic');
       while (remaining() && turns < 400 && shuffles < 30) {
-        const move = hints.findBestMove(board, tiles, 7, 9);
+        const move = hints.findBestMove(board, tiles, cols, rows);
         let evaluation;
         if (move) {
           const { aIndex, bIndex } = move.swap;
-          evaluation = engine.evaluateSwap(board, 7, 9, aIndex, bIndex, tiles);
+          evaluation = engine.evaluateSwap(board, cols, rows, aIndex, bIndex, tiles);
           expect(evaluation.matches.length).toBeGreaterThan(0);
           turns++;
         } else {
@@ -51,15 +55,25 @@ it.each(levels.map((level) => [level.id, level]))(
               b = indices[j];
             [board[a], board[b]] = [board[b], board[a]];
           }
-          evaluation = { board, matches: engine.findMatches(board, 7, 9, tiles) };
+          const matches = engine.findMatches(board, cols, rows, tiles);
+          // Preserve earned shuffle bonuses just as the game store does.
+          const bonuses = detectBonusFromMatches(matches);
+          for (const bonus of bonuses)
+            board[bonus.index] = { ...board[bonus.index], type: bonus.type };
+          evaluation = {
+            board,
+            matches,
+            bonusesCreated: bonuses.map((bonus) => bonus.type),
+            bonusIndices: bonuses.map((bonus) => bonus.index),
+          };
           shuffles++;
         }
         const result = manager.getResolution({
           ...evaluation,
           tiles,
-          cols: 7,
-          rows: 9,
-          gemTypes: GEM_TYPES.slice(0, 5),
+          cols,
+          rows,
+          gemTypes,
         });
         board = result.board;
         cleared += result.layersCleared ?? 0;

@@ -39,6 +39,22 @@ it('provides 36 levels with steadily increasing objectives and staged obstacles'
     level.tiles.forEach((tile, i) => expect(level.board[i] === null).toBe(tile.type === 'blocker'));
   });
 });
+
+it('gives early levels more ice targets before introducing layered ice on larger boards', () => {
+  const levels = generateLevelConfigs(36);
+  expect(levels[0].objectives[0].target).toBe(20);
+  for (const level of levels.slice(0, 12)) {
+    const ice = level.tiles.filter((tile) => tile.type === 'standard' && tile.health > 0);
+    expect(ice.every((tile) => tile.health === 1)).toBe(true);
+  }
+  for (const level of levels) {
+    const iceLayers = level.tiles.reduce(
+      (sum, tile) => sum + (tile.type === 'standard' ? tile.health : 0),
+      0,
+    );
+    expect(iceLayers).toBeGreaterThan(12 + (level.id - 1) * 2);
+  }
+});
 it('enforces sequential unlocks in the game action, saves completion and awards only once', () => {
   const game = useGameStore();
   const campaign = useCampaignStore();
