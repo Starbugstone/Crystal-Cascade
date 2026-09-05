@@ -36,6 +36,7 @@ export class BoardAnimator {
     });
     this.bonuses = new BonusEffects(this);
     this.iceSprites = new Map();
+    this.tileOverlays = new Map();
     this.gemSprites = new Map();
     this.cellHighlights = new Map();
     this.indexToGemId = [];
@@ -65,6 +66,8 @@ export class BoardAnimator {
     this.gemSprites.clear();
     this.indexToGemId = [];
     this.backgroundLayer?.removeAll?.(true);
+    this.tileLayer?.removeAll?.(true);
+    this.tileOverlays.clear();
     this.cellHighlights.clear();
     this.iceSprites.clear();
     this.effects.forEach((effect) => effect.destroy());
@@ -258,6 +261,15 @@ export class BoardAnimator {
       if (generation !== this.generation) return;
       await this.clearGems(step.cleared);
       if (generation !== this.generation) return;
+      if (step.collectedRelics?.length) {
+        await this.clearGems(step.collectedRelics.map(({ index }) => index));
+        if (generation !== this.generation) return;
+        this.bonuses.callout(
+          'RELIC FOUND!',
+          this.position(step.collectedRelics[0].index),
+          0xffdf7a,
+        );
+      }
       for (const update of step.tileUpdates ?? []) {
         const tile = this.tiles[update.index];
         if (tile) {
@@ -418,7 +430,7 @@ export class BoardAnimator {
         this.cellHighlights.set(index, cell);
       }
       let ice = this.iceSprites.get(index);
-      if (health > 0 || frozen) {
+      if ((health > 0 && !this.tiles[index]?.sealColor) || frozen) {
         const damaged = health < (this.tiles[index]?.maxHealth ?? health);
         const blocker = this.tiles[index]?.type === 'blocker';
         const texture = blocker
@@ -448,6 +460,7 @@ export class BoardAnimator {
         .setSize(this.cellSize - 3, this.cellSize - 3)
         .setFillStyle(fill, 0.92)
         .setStrokeStyle(contrast ? 2 : 1, stroke, contrast ? 1 : frozen ? 0.5 : 0.22);
+      this.drawTileOverlay(index);
     }
     this.cellHighlights.forEach((cell, index) => {
       if (index >= count) {
@@ -455,8 +468,50 @@ export class BoardAnimator {
         this.cellHighlights.delete(index);
         this.iceSprites.get(index)?.destroy();
         this.iceSprites.delete(index);
+        this.tileOverlays.get(index)?.destroy();
+        this.tileOverlays.delete(index);
       }
     });
+  }
+
+  drawTileOverlay(index) {
+    if (!this.tileLayer) return;
+    const tile = this.tiles[index];
+    const sealColor = tile?.health > 0 ? tile.sealColor : null;
+    const chained = tile?.chainHealth > 0;
+    const key = `${sealColor ?? ''}-${chained}-${!!tile?.exit}-${this.cellSize}`;
+    let overlay = this.tileOverlays.get(index);
+    if (overlay?.__tileKey === key) return;
+    overlay?.destroy();
+    this.tileOverlays.delete(index);
+    if (!sealColor && !chained && !tile?.exit) return;
+    const p = this.position(index);
+    const size = this.cellSize - 3;
+    overlay = this.scene.add.container(p.x, p.y);
+    overlay.__tileKey = key;
+    const addImage = (type) => {
+      const sprite = this.scene.add.image(0, 0, `tile-${type}`).setDisplaySize(size, size);
+      overlay.add(sprite);
+      return sprite;
+    };
+    if (tile.exit) addImage('exit');
+    if (sealColor) {
+      addImage('seal').setTint(GEM_COLORS[sealColor]);
+      // A letter identifies each color even with color-vision differences.
+      const label = { ruby: 'R', sapphire: 'S', emerald: 'E' }[sealColor];
+      const badge = this.scene.add.text(-size * 0.43, -size * 0.43, label, {
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'bold',
+        fontSize: `${Math.max(12, size * 0.24)}px`,
+        color: '#ffffff',
+        backgroundColor: '#161324',
+        padding: { x: 2, y: 0 },
+      });
+      overlay.add(badge);
+    }
+    if (chained) addImage('chain');
+    this.tileLayer.add(overlay);
+    this.tileOverlays.set(index, overlay);
   }
 
   showMarkers(key, indices, color) {

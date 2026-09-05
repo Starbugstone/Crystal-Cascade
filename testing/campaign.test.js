@@ -22,7 +22,7 @@ afterEach(() => {
 });
 
 it('provides 36 levels with steadily increasing objectives and staged obstacles', () => {
-  const levels = generateLevelConfigs();
+  const levels = generateLevelConfigs(36);
   expect(levels).toHaveLength(36);
   levels.forEach((level, index) => {
     if (index > 0) {

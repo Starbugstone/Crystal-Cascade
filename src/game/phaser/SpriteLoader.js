@@ -9,6 +9,9 @@ export function preloadSpriteAssets(scene) {
   GEM_TYPES.forEach((type) =>
     scene.load.svg(`gem-${type}`, `/art/${type}.svg`, { width: 160, height: 160 }),
   );
+  scene.load.svg('gem-relic', '/art/relic.svg', { width: 160, height: 160 });
+  for (const type of ['chain', 'seal', 'exit'])
+    scene.load.svg(`tile-${type}`, `/art/obstacles/${type}.svg`, { width: 160, height: 160 });
   scene.load.svg('bonus-atlas', '/art/bonuses/atlas.svg', {
     width: BONUS_FRAME_SIZE * BONUS_FRAME_COUNT,
     height: BONUS_FRAME_SIZE * BONUS_TYPES.length,
@@ -23,6 +26,7 @@ export function preloadSpriteAssets(scene) {
 
 export function loadSpriteAtlas(scene) {
   const textures = Object.fromEntries(GEM_TYPES.map((type) => [type, { key: `gem-${type}` }]));
+  textures.relic = { key: 'gem-relic' };
   const atlas = scene.textures.get('bonus-atlas');
   BONUS_TYPES.forEach((type, row) => {
     const frames = Array.from({ length: BONUS_FRAME_COUNT }, (_, frame) => {
@@ -61,4 +65,5 @@ export const GEM_COLORS = {
   bomb: 0xffa14f,
   cross: 0x7debff,
   rainbow: 0xdcc0ff,
+  relic: 0xffdf7a,
 };

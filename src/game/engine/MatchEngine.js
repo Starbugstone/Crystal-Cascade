@@ -1,9 +1,10 @@
 import { BonusActivator } from './BonusActivator.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
+import { canSwapGem } from './TileRules.js';
 
 const bonusActivator = new BonusActivator();
 export class MatchEngine {
-  evaluateSwap(board, cols, rows, aIndex, bIndex) {
+  evaluateSwap(board, cols, rows, aIndex, bIndex, tiles = []) {
     if (
       !Number.isInteger(aIndex) ||
       !Number.isInteger(bIndex) ||
@@ -11,8 +12,8 @@ export class MatchEngine {
       bIndex < 0 ||
       aIndex >= board.length ||
       bIndex >= board.length ||
-      !board[aIndex] ||
-      !board[bIndex] ||
+      !canSwapGem(board[aIndex], tiles[aIndex]) ||
+      !canSwapGem(board[bIndex], tiles[bIndex]) ||
       aIndex === bIndex
     ) {
       return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
@@ -40,7 +41,7 @@ export class MatchEngine {
       };
     }
 
-    const matches = this.findMatches(nextBoard, cols, rows);
+    const matches = this.findMatches(nextBoard, cols, rows, tiles);
 
     if (!matches.length) {
       return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
@@ -61,13 +62,18 @@ export class MatchEngine {
     return { matches, board: nextBoard, cols, rows, swap, bonusesCreated, bonusIndices };
   }
 
-  findMatches(board, cols) {
+  findMatches(board, cols, rows, tiles = []) {
     const matches = [];
     const total = board.length;
 
+    const typeAt = (index) =>
+      board[index]?.type !== 'relic' && !(tiles[index]?.chainHealth > 0)
+        ? board[index]?.type
+        : null;
+
     for (let index = 0; index < total; index += 1) {
       const gem = board[index];
-      if (!gem) {
+      if (!gem || !typeAt(index)) {
         continue;
       }
 
@@ -76,11 +82,11 @@ export class MatchEngine {
 
       // Horizontal run – only evaluate if this cell is the leftmost in the run
       const leftIndex = index - 1;
-      const leftSame = col > 0 && board[leftIndex]?.type === gem.type;
+      const leftSame = col > 0 && typeAt(leftIndex) === gem.type;
       if (!leftSame) {
         const horizontal = [index];
         let cursor = index + 1;
-        while (cursor % cols !== 0 && board[cursor]?.type === gem.type) {
+        while (cursor % cols !== 0 && typeAt(cursor) === gem.type) {
           horizontal.push(cursor);
           cursor += 1;
         }
@@ -91,11 +97,11 @@ export class MatchEngine {
 
       // Vertical run – only evaluate if this cell is the topmost in the run
       const upperIndex = index - cols;
-      const upperSame = row > 0 && board[upperIndex]?.type === gem.type;
+      const upperSame = row > 0 && typeAt(upperIndex) === gem.type;
       if (!upperSame) {
         const vertical = [index];
         let cursor = index + cols;
-        while (cursor < total && board[cursor]?.type === gem.type) {
+        while (cursor < total && typeAt(cursor) === gem.type) {
           vertical.push(cursor);
           cursor += cols;
         }

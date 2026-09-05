@@ -21,17 +21,19 @@
       >
       <span
         class="mobile-cleared"
-        :aria-label="`${game.totalLayers - game.remainingLayers} of ${game.totalLayers} layers cleared`"
-        ><small>ICE & STONE</small
+        :aria-label="`${game.totalLayers - game.remainingLayers} of ${game.totalLayers} layers cleared${game.totalRelics ? `, ${game.totalRelics - game.remainingRelics} of ${game.totalRelics} relics collected` : ''}`"
+        ><small>{{
+          game.totalRelics ? 'GOALS' : game.currentLevelId >= 43 ? 'LAYERS' : 'ICE & STONE'
+        }}</small
         ><b
-          >{{ game.totalLayers - game.remainingLayers }}<em> / {{ game.totalLayers }}</em></b
+          >{{ game.goalProgress }}<em> / {{ game.goalTotal }}</em></b
         ></span
       >
       <GameIcon name="chevron" class="mobile-drawer-chevron" />
       <i class="mobile-goal-track" aria-hidden="true"
         ><i
           :style="{
-            width: `${game.totalLayers ? (1 - game.remainingLayers / game.totalLayers) * 100 : 0}%`,
+            width: `${game.goalTotal ? (game.goalProgress / game.goalTotal) * 100 : 0}%`,
           }"
         ></i
       ></i>
@@ -63,10 +65,16 @@
         <summary>How to play</summary>
         <p>
           Swipe or tap neighboring gems to match 3. Match 4 for a bomb, 5 for a rainbow, or a T / L
-          for cross fire. Clear every ice layer and stone block to finish. Stone stops falling gems:
-          match beside it or hit it with a bonus. Gold bands mean two hits. Finish fast for a
-          separate speed chest. The clock pauses during cascades and while viewing controls; you can
-          still finish after the speed target.
+          for cross fire. Clear every obstacle layer and collect any relics to finish. Stone stops
+          falling gems: match beside it or hit it with a bonus. Gold bands mean two hits. Finish
+          fast for a separate speed chest. The clock pauses during cascades and while viewing
+          controls; you can still finish after the speed target.
+        </p>
+        <p v-if="game.currentLevelId >= 43">
+          Chained gems cannot move or match: match beside them or hit them with a bonus. Match ruby
+          (R), sapphire (S), or emerald (E) gems on the corresponding seals; bonuses open any color.
+          Golden relics cannot swap or be destroyed. Clear beneath them to drop them through the
+          glowing bottom exits.
         </p>
       </details>
       <button class="mobile-resume" @click="close">

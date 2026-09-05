@@ -1,6 +1,7 @@
 import { MatchEngine } from './MatchEngine.js';
 import { createGem, randomGemType, GEM_TYPES } from './GemFactory.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
+import { isAnchored, neighborsOf } from './TileRules.js';
 
 const matchEngine = new MatchEngine();
 
@@ -37,6 +38,7 @@ export class TileManager {
       orientation: match.orientation,
     }));
     let totalLayersCleared = 0;
+    let relicsCollected = 0;
 
     while (pendingMatches.length) {
       if (iteration >= 128) throw new Error('Cascade did not settle after 128 steps');
@@ -51,7 +53,7 @@ export class TileManager {
           if (!tile || tile.state !== 'FROZEN') {
             if (index < 0 || index >= workingBoard.length) return;
             impacted.add(index);
-            if (workingBoard[index] && !(tile?.type === 'blocker' && tile.health > 0))
+            if (workingBoard[index] && workingBoard[index].type !== 'relic' && !isAnchored(tile))
               cleared.add(index);
           }
         });
@@ -101,14 +103,11 @@ export class TileManager {
       // A block takes one hit per cascade step, even if several matched gems
       // or overlapping blast cells touch it. Diagonal matches do not damage it.
       for (const index of [...damageTargets]) {
-        const x = index % totalCols;
-        for (const neighbor of [
-          x > 0 ? index - 1 : -1,
-          x < totalCols - 1 ? index + 1 : -1,
-          index - totalCols,
-          index + totalCols,
-        ]) {
-          if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
+        for (const neighbor of neighborsOf(index, totalCols, totalRows)) {
+          if (
+            (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0) ||
+            tiles[neighbor]?.chainHealth > 0
+          )
             damageTargets.add(neighbor);
         }
       }
@@ -136,7 +135,22 @@ export class TileManager {
 
       damageTargets.forEach((index) => {
         const tile = tiles[index];
-        if (tile && tile.health > 0) {
+        // A chain absorbs the hit and releases its gem. Ice beneath it survives
+        // until a later match, and adjacent hits never destroy the released gem.
+        if (tile?.chainHealth > 0) {
+          tile.chainHealth--;
+          totalLayersCleared++;
+          step.tileUpdates.push({ index, chainHealth: tile.chainHealth });
+          return;
+        }
+        const sealHit =
+          !tile?.sealColor ||
+          pendingMatches.some(
+            (match) =>
+              match.indices.includes(index) &&
+              (match.type === tile.sealColor || !GEM_TYPES.includes(match.type)),
+          );
+        if (tile && tile.health > 0 && sealHit) {
           const before = tile.health;
           tile.health = Math.max(0, tile.health - 1);
           if (tile.maxHealth == null) {
@@ -150,7 +164,7 @@ export class TileManager {
             step.tileUpdates.push({ index, health: tile.health, maxHealth, type: tile.type });
           }
         }
-        if (!protectedIndices.has(index)) {
+        if (cleared.has(index) && !protectedIndices.has(index)) {
           workingBoard[index] = null;
         }
       });
@@ -177,60 +191,48 @@ export class TileManager {
         });
       });
 
-      for (let col = 0; col < totalCols; col += 1) {
-        let writeRow = totalRows - 1;
-        for (let row = totalRows - 1; row >= 0; row -= 1) {
-          const index = row * totalCols + col;
-          // Existing gems below a barrier can fall within their segment, but
-          // refill only enters from the top. Breaking it reconnects the column.
-          if (
-            (tiles[index]?.type === 'blocker' && tiles[index].health > 0) ||
-            tiles[index]?.state === 'FROZEN'
-          ) {
-            writeRow = row - 1;
-            continue;
-          }
-          const gem = workingBoard[index];
-          if (gem) {
-            const targetIndex = writeRow * totalCols + col;
-            if (targetIndex !== index) {
-              workingBoard[targetIndex] = gem;
-              workingBoard[index] = null;
-              step.drops.push({ from: index, to: targetIndex, gem });
-            }
-            writeRow -= 1;
-          }
-        }
-
-        for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
-          const index = spawnRow * totalCols + col;
-          let type = randomGemType(gemTypes);
-          // A pathological RNG (or deterministic test) must not create an endless cascade.
-          if (iteration >= 24) {
-            const types = gemTypes;
-            type =
-              types.find(
-                (candidate) =>
-                  ![1, totalCols].some((stride) =>
-                    [-2, -1, 0].some((offset) => {
-                      const run = [0, 1, 2].map((n) => index + (offset + n) * stride);
-                      if (run.some((i) => i < 0 || i >= workingBoard.length)) return false;
-                      if (stride === 1 && run.some((i) => Math.floor(i / totalCols) !== spawnRow))
-                        return false;
-                      return run.every((i) => i === index || workingBoard[i]?.type === candidate);
-                    }),
-                  ),
-              ) ?? type;
-          }
-          const newGem = createGem(type);
-          workingBoard[index] = newGem;
-          step.spawns.push({ index, gem: newGem });
-        }
-      }
-
+      this.applyGravity(workingBoard, tiles, totalCols, totalRows, gemTypes, iteration, step);
       steps.push(step);
 
-      pendingMatches = matchEngine.findMatches(workingBoard, totalCols);
+      // Relics are collected only through a marked bottom exit, after falling.
+      // A separate step lets the renderer finish the fall before the collection.
+      while (true) {
+        const collectedRelics = [];
+        for (let index = (totalRows - 1) * totalCols; index < workingBoard.length; index++) {
+          if (
+            tiles[index]?.exit &&
+            workingBoard[index]?.type === 'relic' &&
+            !isAnchored(tiles[index])
+          ) {
+            collectedRelics.push({ index, gem: workingBoard[index] });
+            workingBoard[index] = null;
+          }
+        }
+        if (!collectedRelics.length) break;
+        relicsCollected += collectedRelics.length;
+        const collectionStep = {
+          index: iteration,
+          matches: [],
+          cleared: [],
+          drops: [],
+          spawns: [],
+          bonuses: [],
+          tileUpdates: [],
+          collectedRelics,
+        };
+        this.applyGravity(
+          workingBoard,
+          tiles,
+          totalCols,
+          totalRows,
+          gemTypes,
+          iteration,
+          collectionStep,
+        );
+        steps.push(collectionStep);
+      }
+
+      pendingMatches = matchEngine.findMatches(workingBoard, totalCols, totalRows, tiles);
       iteration += 1;
     }
 
@@ -240,7 +242,58 @@ export class TileManager {
       cols: totalCols,
       rows: totalRows,
       layersCleared: totalLayersCleared,
+      relicsCollected,
     };
+  }
+
+  applyGravity(workingBoard, tiles, totalCols, totalRows, gemTypes, iteration, step) {
+    for (let col = 0; col < totalCols; col += 1) {
+      let writeRow = totalRows - 1;
+      for (let row = totalRows - 1; row >= 0; row -= 1) {
+        const index = row * totalCols + col;
+        // Existing gems below a barrier can fall within their segment, but
+        // refill only enters from the top. Breaking it reconnects the column.
+        if (isAnchored(tiles[index])) {
+          writeRow = row - 1;
+          continue;
+        }
+        const gem = workingBoard[index];
+        if (gem) {
+          const targetIndex = writeRow * totalCols + col;
+          if (targetIndex !== index) {
+            workingBoard[targetIndex] = gem;
+            workingBoard[index] = null;
+            step.drops.push({ from: index, to: targetIndex, gem });
+          }
+          writeRow -= 1;
+        }
+      }
+
+      for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
+        const index = spawnRow * totalCols + col;
+        let type = randomGemType(gemTypes);
+        // A pathological RNG (or deterministic test) must not create an endless cascade.
+        if (iteration >= 24) {
+          const types = gemTypes;
+          type =
+            types.find(
+              (candidate) =>
+                ![1, totalCols].some((stride) =>
+                  [-2, -1, 0].some((offset) => {
+                    const run = [0, 1, 2].map((n) => index + (offset + n) * stride);
+                    if (run.some((i) => i < 0 || i >= workingBoard.length)) return false;
+                    if (stride === 1 && run.some((i) => Math.floor(i / totalCols) !== spawnRow))
+                      return false;
+                    return run.every((i) => i === index || workingBoard[i]?.type === candidate);
+                  }),
+                ),
+            ) ?? type;
+        }
+        const newGem = createGem(type);
+        workingBoard[index] = newGem;
+        step.spawns.push({ index, gem: newGem });
+      }
+    }
   }
 
   applyMatchResult(payload) {

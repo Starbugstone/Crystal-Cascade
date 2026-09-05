@@ -13,6 +13,7 @@ import { HintEngine } from '../game/engine/HintEngine';
 import { detectBonusFromMatches } from '../game/engine/MatchPatterns';
 import { BoardAnimator } from '../game/phaser/BoardAnimator';
 import { BoardInput } from '../game/phaser/BoardInput';
+import { canSwapGem, layerCount } from '../game/engine/TileRules';
 
 const matchEngine = new MatchEngine();
 const tileManager = new TileManager();
@@ -56,6 +57,7 @@ const cloneTileLayers = (tiles = []) => {
       ...tile,
       maxHealth,
       health: maxHealth,
+      ...(tile.maxChainHealth != null ? { chainHealth: tile.maxChainHealth } : {}),
       cleared: false,
     };
   });
@@ -94,6 +96,7 @@ export const useGameStore = defineStore('game', {
     },
     totalLayers: 0,
     remainingLayers: 0,
+    totalRelics: 0,
     levelCleared: false,
     levelRewards: [],
     arcadeImpact: null,
@@ -112,6 +115,16 @@ export const useGameStore = defineStore('game', {
     activeBoard(state) {
       return state.pendingBoardState ?? state.board;
     },
+    remainingRelics: (state) => state.board.filter((gem) => gem?.type === 'relic').length,
+    goalTotal: (state) => state.totalLayers + state.totalRelics,
+    goalProgress() {
+      return this.goalTotal - this.remainingLayers - this.remainingRelics;
+    },
+    layerLabel: (state) =>
+      state.currentLevelId > 36
+        ? (state.objectives.find((objective) => objective.type === 'clear-layers')?.label ??
+          'Layers')
+        : 'Ice & stone',
   },
   actions: {
     showArcadeBanner(banner) {
@@ -269,6 +282,7 @@ export const useGameStore = defineStore('game', {
         }
 
         this.board = resolution.board;
+        this.updateObjectives();
         this.pendingBoardState = null;
         this.boardVersion += 1;
 
@@ -331,6 +345,11 @@ export const useGameStore = defineStore('game', {
 
       const gemA = board[aIndex];
       const gemB = board[bIndex];
+
+      if (!canSwapGem(gemA, this.tiles[aIndex]) || !canSwapGem(gemB, this.tiles[bIndex])) {
+        this.clearBonusPreview();
+        return;
+      }
 
       if (!bonusActivator.isBonus(gemA?.type) && !bonusActivator.isBonus(gemB?.type)) {
         this.clearBonusPreview();
@@ -491,6 +510,7 @@ export const useGameStore = defineStore('game', {
         }
 
         this.board = resolution.board;
+        this.updateObjectives();
         this.pendingBoardState = null;
         this.boardVersion += 1;
 
@@ -638,11 +658,9 @@ export const useGameStore = defineStore('game', {
       this.activeBonusMode = null;
       this.clearBonusPreview(true);
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
-      this.totalLayers = this.tiles.reduce(
-        (sum, tile) => sum + (tile?.maxHealth ?? tile?.health ?? 0),
-        0,
-      );
+      this.totalLayers = this.tiles.reduce((sum, tile) => sum + layerCount(tile), 0);
       this.remainingLayers = this.totalLayers;
+      this.totalRelics = this.remainingRelics;
       this.updateObjectives({ reset: true });
       this.boardVersion += 1;
       this.refreshBoardVisuals(true);
@@ -685,6 +703,7 @@ export const useGameStore = defineStore('game', {
         scene: renderer.scene,
         boardContainer: renderer.boardContainer,
         backgroundLayer: renderer.backgroundLayer,
+        tileLayer: renderer.tileLayer,
         gemLayer: renderer.gemLayer,
         fxLayer: renderer.fxLayer,
         textures: renderer.textures,
@@ -783,12 +802,7 @@ export const useGameStore = defineStore('game', {
       const tileA = tiles[aIndex];
       const tileB = tiles[bIndex];
       let boardUpdated = false;
-      if (
-        tileA?.state === 'FROZEN' ||
-        tileB?.state === 'FROZEN' ||
-        (tileA?.type === 'blocker' && tileA.health > 0) ||
-        (tileB?.type === 'blocker' && tileB.health > 0)
-      ) {
+      if (!canSwapGem(this.board[aIndex], tileA) || !canSwapGem(this.board[bIndex], tileB)) {
         if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
           this.animationInProgress = true;
           try {
@@ -807,7 +821,7 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex);
+      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex, tiles);
       const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
 
       if (!evaluation.matches.length) {
@@ -856,6 +870,7 @@ export const useGameStore = defineStore('game', {
 
         if (!animator) {
           this.board = resolution.board;
+          this.updateObjectives();
           this.pendingBoardState = null;
           this.boardVersion += 1;
           if (layersCleared > 0) {
@@ -877,6 +892,7 @@ export const useGameStore = defineStore('game', {
         }
 
         this.board = resolution.board;
+        this.updateObjectives();
         this.pendingBoardState = null;
         this.boardVersion += 1;
         if (layersCleared > 0) {
@@ -966,6 +982,7 @@ export const useGameStore = defineStore('game', {
       this.clearBonusPreview(true);
       this.totalLayers = 0;
       this.remainingLayers = 0;
+      this.totalRelics = 0;
       this.levelCleared = false;
       this.levelRewards = [];
       clearTimeout(arcadeImpactTimeout);
@@ -986,7 +1003,13 @@ export const useGameStore = defineStore('game', {
     },
 
     completeLevel() {
-      if (this.levelCleared || !this.sessionActive || this.remainingLayers > 0) return;
+      if (
+        this.levelCleared ||
+        !this.sessionActive ||
+        this.remainingLayers > 0 ||
+        this.remainingRelics > 0
+      )
+        return;
       this.syncRunClock(false);
       this.levelRewards = useCampaignStore().recordVictory({
         elapsedMs: this.playClock.started ? this.elapsedMs : null,
@@ -1024,6 +1047,10 @@ export const useGameStore = defineStore('game', {
     updateObjectives({ reset = false, scoreDelta = 0, layersCleared = 0 } = {}) {
       const layerObjective = this.objectives.find((objective) => objective.type === 'clear-layers');
       const scoreObjective = this.objectives.find((objective) => objective.type === 'score');
+      const relicObjective = this.objectives.find(
+        (objective) => objective.type === 'collect-relics',
+      );
+      if (relicObjective) relicObjective.progress = this.totalRelics - this.remainingRelics;
 
       if (reset) {
         if (layerObjective) {
@@ -1171,11 +1198,7 @@ export const useGameStore = defineStore('game', {
 
       const nextBoard = [...this.board];
       const movable = nextBoard
-        .map((gem, index) =>
-          gem && this.tiles[index]?.state !== 'FROZEN' && this.tiles[index]?.type !== 'blocker'
-            ? index
-            : -1,
-        )
+        .map((gem, index) => (canSwapGem(gem, this.tiles[index]) ? index : -1))
         .filter((index) => index >= 0);
       for (let i = movable.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -1212,7 +1235,7 @@ export const useGameStore = defineStore('game', {
     async _resolveBoardAfterShuffle(nextBoard, { cols, rows, animator }) {
       const session = this.sessionVersion;
       try {
-        const matches = matchEngine.findMatches(nextBoard, cols, rows);
+        const matches = matchEngine.findMatches(nextBoard, cols, rows, this.tiles);
 
         let bonusesCreated = [];
         let bonusIndices = [];
@@ -1251,6 +1274,7 @@ export const useGameStore = defineStore('game', {
         }
 
         this.board = resolution.board;
+        this.updateObjectives();
         this.pendingBoardState = null;
         this.boardVersion += 1;
         if (layersCleared > 0) {

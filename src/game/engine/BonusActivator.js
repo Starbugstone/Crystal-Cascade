@@ -174,6 +174,7 @@ export class BonusActivator {
 
   _previewColorWand(board, index) {
     const targetGem = board[index];
+    if (targetGem?.type === 'relic') return [];
     if (!targetGem) return [index];
 
     const indices = [];
@@ -356,7 +357,7 @@ export class BonusActivator {
 
   activateColorWand(board, cols, rows, index) {
     const targetGem = board[index];
-    if (!targetGem) return [];
+    if (!targetGem || targetGem.type === 'relic') return [];
 
     const cleared = new Set();
     board.forEach((gem, i) => {

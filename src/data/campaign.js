@@ -1,4 +1,4 @@
-export const LEVEL_COUNT = 36;
+export const LEVEL_COUNT = 60;
 export const CHAPTERS = [
   { name: 'First light', description: 'Find your rhythm. Match gems and melt the ice.' },
   { name: 'Stone gardens', description: 'Match beside stone blocks to open the way.' },
@@ -6,6 +6,10 @@ export const CHAPTERS = [
   { name: 'Golden vaults', description: 'Reinforced stone takes two separate hits.' },
   { name: 'Prismatic paths', description: 'Open the columns. Let the cascades flow.' },
   { name: 'Celestial summit', description: 'Bring every trick to the final ascent.' },
+  { name: 'Crystal depths', description: 'One more row. Find a path through the stone.' },
+  { name: 'Chained treasures', description: 'Match beside chains to free the gems within.' },
+  { name: 'Prismatic locks', description: 'Match the marked color on each seal to open it.' },
+  { name: 'Lost relics', description: 'Clear a path. Drop golden relics through the exits.' },
 ];
 export const POWERS = [
   { id: 'clear-row', label: 'Clear Row', dropWeight: 35 },

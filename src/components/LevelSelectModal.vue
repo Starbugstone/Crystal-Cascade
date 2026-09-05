@@ -13,9 +13,10 @@
     </div>
     <button class="featured-level" @click="$emit('start-level', campaign.nextLevel)">
       <div class="featured-art">
-        <img :src="`/art/${gems[Math.floor((campaign.nextLevel - 1) / 6)]}.svg`" alt="" /><span
-          >✦</span
-        >
+        <img
+          :src="`/art/${gems[Math.floor((campaign.nextLevel - 1) / 6) % gems.length]}.svg`"
+          alt=""
+        /><span>✦</span>
       </div>
       <div>
         <span class="eyebrow">{{
@@ -62,7 +63,11 @@
           :aria-label="`${campaign.isUnlocked(level.id) ? 'Play' : 'Locked'} level ${level.id}: ${names[level.id - 1]}${campaign.records[level.id] ? `, ${campaign.records[level.id].stars} stars` : ''}`"
         >
           <span class="level-number">{{ String(level.id).padStart(2, '0') }}</span>
-          <img v-if="campaign.isUnlocked(level.id)" :src="`/art/${gems[index]}.svg`" alt="" />
+          <img
+            v-if="campaign.isUnlocked(level.id)"
+            :src="`/art/${gems[index % gems.length]}.svg`"
+            alt=""
+          />
           <svg
             v-else
             class="level-lock"

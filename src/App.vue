@@ -103,10 +103,15 @@
             Break the ice beneath your matches. Match beside stone to release the gems above. Gold
             bands take two hits.
           </p>
+          <p v-if="game.currentLevelId >= 43">{{ currentConfig?.tip }}</p>
           <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
         </div>
       </aside>
-      <section class="play-area" :style="{ '--board-ratio': game.boardCols / game.boardRows }">
+      <section
+        class="play-area"
+        :class="{ 'expanded-board': game.boardRows > 8 }"
+        :style="{ '--board-ratio': game.boardCols / game.boardRows }"
+      >
         <ArcadeBanner :banner="game.arcadeBanner" />
         <div class="board-topline">
           <span
@@ -141,7 +146,16 @@
           <template v-if="game.activeBonusMode"
             >Tap a tile to use {{ powerName }}
             <button class="text-button" @click="game.setBonusMode(null)">Cancel</button></template
-          ><template v-else>{{ currentConfig?.tip }}</template>
+          ><template v-else
+            ><span
+              ><strong v-if="game.totalRelics" class="relic-caption"
+                >Relics {{ game.totalRelics - game.remainingRelics }}/{{
+                  game.totalRelics
+                }}
+                · </strong
+              >{{ currentConfig?.tip }}</span
+            ></template
+          >
         </div>
         <PowerUpBar />
       </section>

@@ -6,7 +6,12 @@ import { useGameStore } from '../src/stores/gameStore';
 vi.mock('../src/game/engine/MatchEngine', () => ({
   MatchEngine: class {
     evaluateSwap() {
-      return { matches: [{ type: 'standard', indices: [0, 1] }], board: [] };
+      return {
+        matches: [{ type: 'standard', indices: [0, 1] }],
+        board: [],
+        bonusesCreated: [],
+        bonusIndices: [],
+      };
     }
     areAdjacent() {
       return true;
@@ -29,7 +34,10 @@ vi.mock('../src/game/engine/LevelGenerator', () => ({
   generateLevelConfigs: () => [
     {
       id: 1,
-      board: [],
+      board: [
+        { id: 'a', type: 'ruby' },
+        { id: 'b', type: 'sapphire' },
+      ],
       tiles: [{ health: 1, maxHealth: 1 }],
       objectives: [{ type: 'clear-layers', target: 1 }],
       shuffleAllowance: 3,

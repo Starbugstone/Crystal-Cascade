@@ -36,7 +36,7 @@
     </div>
     <div class="objective">
       <div class="objective-title">
-        <span><GameIcon name="spark" /> Ice & stone</span
+        <span><GameIcon name="spark" /> {{ game.layerLabel }}</span
         ><strong
           >{{ game.totalLayers - game.remainingLayers
           }}<small> / {{ game.totalLayers }}</small></strong
@@ -45,12 +45,19 @@
       <div
         class="objective-track"
         role="progressbar"
-        aria-label="Ice and stone layers cleared"
+        :aria-label="`${game.layerLabel} layers cleared`"
         :aria-valuenow="game.totalLayers - game.remainingLayers"
         :aria-valuemax="game.totalLayers"
         :aria-valuemin="0"
       >
         <i :style="{ width: `${progress}%` }"></i>
+      </div>
+      <div v-if="game.totalRelics" class="objective-title relic-objective">
+        <span><img src="/art/relic.svg" alt="" /> Relics collected</span>
+        <strong
+          >{{ game.totalRelics - game.remainingRelics
+          }}<small> / {{ game.totalRelics }}</small></strong
+        >
       </div>
       <p>Two ways to win: score high and finish fast. Speed pauses during cascades.</p>
     </div>
@@ -71,3 +78,12 @@ const progress = computed(() =>
   game.totalLayers ? ((game.totalLayers - game.remainingLayers) / game.totalLayers) * 100 : 0,
 );
 </script>
+<style scoped>
+.relic-objective {
+  margin-top: 14px;
+}
+.relic-objective img {
+  width: 22px;
+  height: 22px;
+}
+</style>

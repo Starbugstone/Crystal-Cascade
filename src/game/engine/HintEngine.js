@@ -1,5 +1,6 @@
 import { MatchEngine } from './MatchEngine.js';
 import { BonusActivator } from './BonusActivator.js';
+import { canSwapGem, neighborsOf } from './TileRules.js';
 const bonusActivator = new BonusActivator();
 
 const SPECIAL = new Set(['bomb', 'cross', 'rainbow']);
@@ -17,17 +18,15 @@ export class HintEngine {
         if (
           b < 0 ||
           b >= board.length ||
-          !board[a] ||
-          !board[b] ||
-          tiles[a]?.state === 'FROZEN' ||
-          tiles[b]?.state === 'FROZEN'
+          !canSwapGem(board[a], tiles[a]) ||
+          !canSwapGem(board[b], tiles[b])
         )
           continue;
         const usesBonus = SPECIAL.has(board[a].type) || SPECIAL.has(board[b].type);
         // Bonus swaps are always legal. Never simulate their random clears or refills to suggest a move.
         const evaluation = usesBonus
           ? null
-          : this.matchEngine.evaluateSwap(board, cols, rows, a, b);
+          : this.matchEngine.evaluateSwap(board, cols, rows, a, b, tiles);
         if (!usesBonus && !evaluation.matches.length) continue;
         const createsBonus = !!evaluation?.bonusesCreated.length;
         let indices = [...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b])];
@@ -55,25 +54,40 @@ export class HintEngine {
         }
         const nearbyBlocks = new Set();
         for (const index of indices) {
-          for (const neighbor of [
-            index % cols > 0 ? index - 1 : -1,
-            index % cols < cols - 1 ? index + 1 : -1,
-            index - cols,
-            index + cols,
-          ]) {
-            if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
+          for (const neighbor of neighborsOf(index, cols, rows)) {
+            if (
+              (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0) ||
+              tiles[neighbor]?.chainHealth > 0
+            )
               nearbyBlocks.add(neighbor);
           }
         }
         const damage = indices.reduce(
-          (sum, index) => sum + Number((tiles[index]?.health ?? 0) > 0),
+          (sum, index) =>
+            sum +
+            Number(
+              (tiles[index]?.health ?? 0) > 0 &&
+                (!tiles[index]?.sealColor ||
+                  usesBonus ||
+                  evaluation?.matches.some(
+                    (match) =>
+                      match.type === tiles[index].sealColor && match.indices.includes(index),
+                  )),
+            ),
           0,
         );
+        const relicPaths = indices.filter((index) =>
+          board.some(
+            (gem, origin) =>
+              gem?.type === 'relic' && origin < index && origin % cols === index % cols,
+          ),
+        ).length;
         const heuristicScore =
           Number(usesBonus) * 50 +
           Number(createsBonus) * 100 +
           damage * 120 +
           nearbyBlocks.size * 180 +
+          relicPaths * 90 +
           indices.length;
         const candidate = {
           swap: { aIndex: a, bIndex: b },

@@ -1,6 +1,8 @@
 import { createGem } from './GemFactory.js';
 import { MatchEngine } from './MatchEngine.js';
 import { LEVEL_COUNT, CHAPTERS } from '../../data/campaign.js';
+import { EXPANSION_LEVELS } from '../../data/expansion.js';
+import { layerCount } from './TileRules.js';
 
 const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
@@ -43,6 +45,11 @@ const createBoard = (layout, rng) => {
       board[i] = null;
       continue;
     }
+    const placement = layout.initialTilePlacements.find((cell) => cell.x === x && cell.y === y);
+    if (placement) {
+      board[i] = createGem(placement.type);
+      continue;
+    }
     const forbidden = new Set();
     const cols = layout.dimensions.cols;
     if (x >= 2 && board[i - 1]?.type === board[i - 2]?.type) forbidden.add(board[i - 1]?.type);
@@ -70,7 +77,7 @@ const hasMissingGems = (board, layout) => {
   return false;
 };
 
-const countPotentialMoves = (board, cols, rows, minMoves = 1) => {
+const countPotentialMoves = (board, cols, rows, minMoves = 1, tiles = []) => {
   if (!Array.isArray(board) || !cols || !rows) {
     return 0;
   }
@@ -88,7 +95,7 @@ const countPotentialMoves = (board, cols, rows, minMoves = 1) => {
     // Adjacent right swap
     const rightIndex = col < cols - 1 ? index + 1 : -1;
     if (rightIndex >= 0 && board[rightIndex]) {
-      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, rightIndex);
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, rightIndex, tiles);
       if (evaluation?.matches?.length) {
         moveCount += 1;
       }
@@ -97,7 +104,7 @@ const countPotentialMoves = (board, cols, rows, minMoves = 1) => {
     // Adjacent down swap
     const belowIndex = index + cols;
     if (belowIndex < board.length && board[belowIndex]) {
-      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, belowIndex);
+      const evaluation = matchEngine.evaluateSwap(board, cols, rows, index, belowIndex, tiles);
       if (evaluation?.matches?.length) {
         moveCount += 1;
       }
@@ -111,7 +118,7 @@ const countPotentialMoves = (board, cols, rows, minMoves = 1) => {
   return moveCount;
 };
 
-const createPlayableBoard = (layout, rng, { minMoves = 1 } = {}) => {
+const createPlayableBoard = (layout, rng, { minMoves = 1, tiles = [] } = {}) => {
   let lastBoard = null;
   for (let attempt = 0; attempt < MAX_BOARD_GENERATION_ATTEMPTS; attempt += 1) {
     const board = createBoard(layout, rng);
@@ -126,6 +133,7 @@ const createPlayableBoard = (layout, rng, { minMoves = 1 } = {}) => {
       layout.dimensions.cols,
       layout.dimensions.rows,
       minMoves,
+      tiles,
     );
     if (moves >= minMoves) {
       return board;
@@ -141,12 +149,105 @@ const createPlayableBoard = (layout, rng, { minMoves = 1 } = {}) => {
   return lastBoard ?? createBoard(layout, rng);
 };
 
+const createExpansionLevel = (id) => {
+  const spec = EXPANSION_LEVELS[id - 37];
+  const cols = 7;
+  const rows = 9;
+  const chapter = Math.floor((id - 1) / 6);
+  const rng = createSeededRng(id * 1337);
+  const layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols, rows });
+  layout.gemTypeCount = 5;
+  const seals = { r: 'ruby', b: 'sapphire', g: 'emerald' };
+  const tiles = [...spec.map.replaceAll('/', '')].map((symbol, index) => {
+    const tile = { type: 'standard', health: 0, maxHealth: 0 };
+    const cell = { x: index % cols, y: Math.floor(index / cols) };
+    if (symbol === '#' || symbol === 'X') {
+      tile.type = 'blocker';
+      tile.health = tile.maxHealth = symbol === 'X' ? 2 : 1;
+      layout.blockedCells.push(cell);
+    } else if (symbol === 'c') {
+      tile.chainHealth = tile.maxChainHealth = 1;
+    } else if (seals[symbol]) {
+      tile.type = 'seal';
+      tile.sealColor = seals[symbol];
+      tile.health = tile.maxHealth = 1;
+    } else if (symbol === 'R') {
+      layout.initialTilePlacements.push({ ...cell, type: 'relic' });
+    } else if (symbol === 'E') {
+      tile.exit = true;
+    }
+    return tile;
+  });
+  const iceCells = tiles.flatMap((tile, index) => (tile.type === 'standard' ? [index] : []));
+  for (let i = iceCells.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [iceCells[i], iceCells[j]] = [iceCells[j], iceCells[i]];
+  }
+  for (let layer = 0; layer < spec.ice; layer++) {
+    const tile = tiles[iceCells[layer % iceCells.length]];
+    tile.health++;
+    tile.maxHealth++;
+  }
+  const totalLayers = tiles.reduce((sum, tile) => sum + layerCount(tile), 0);
+  const relicCount = layout.initialTilePlacements.length;
+  const board = createPlayableBoard(layout, rng, { minMoves: DEFAULT_MIN_STARTING_MOVES, tiles });
+  // Reward targets follow each puzzle's workload, including the chapter breathers.
+  const chestTarget = Math.ceil((totalLayers * 380 + relicCount * 1500) / 500) * 500;
+  const layerLabel = tiles.some((tile) => tile.sealColor)
+    ? 'Ice, stone & seals'
+    : tiles.some((tile) => tile.chainHealth)
+      ? 'Ice, stone & chains'
+      : 'Ice & stone';
+  return {
+    id,
+    chapter,
+    chapterName: CHAPTERS[chapter].name,
+    tip: spec.tip,
+    chestTarget,
+    speedTargetMs: (75 + totalLayers + relicCount * 20) * 1000,
+    boardCols: cols,
+    boardRows: rows,
+    boardSize: cols,
+    shuffleAllowance: 3,
+    board,
+    tiles,
+    boardLayout: layout,
+    objectives: [
+      {
+        id: `clear-${id}`,
+        type: 'clear-layers',
+        label: layerLabel,
+        target: totalLayers,
+        progress: 0,
+      },
+      ...(relicCount
+        ? [
+            {
+              id: `relics-${id}`,
+              type: 'collect-relics',
+              label: 'Collect relics',
+              target: relicCount,
+              progress: 0,
+            },
+          ]
+        : []),
+      { id: `score-${id}`, type: 'score', label: 'Earn a chest', target: chestTarget, progress: 0 },
+    ],
+    summary: `Clear ${totalLayers} obstacle layers${relicCount ? ` and collect ${relicCount} relics` : ''}. Earn a chest at ${chestTarget.toLocaleString()} points.`,
+  };
+};
+
 // Evenly distributed ice grows by two layers per level. Stone is introduced
 // separately, with open side columns so every barrier stays approachable.
 export const generateLevelConfigs = (count = LEVEL_COUNT) => {
   const levels = [];
   for (let index = 0; index < count; index++) {
     const id = index + 1;
+    if (id > 36) {
+      if (id > LEVEL_COUNT) break;
+      levels.push(createExpansionLevel(id));
+      continue;
+    }
     const chapter = Math.min(5, Math.floor(index / 6));
     const cols = id <= 12 ? 6 : 7;
     const rows = id <= 12 ? 7 : 8;
