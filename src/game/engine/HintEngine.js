@@ -1,200 +1,54 @@
 import { MatchEngine } from './MatchEngine.js';
-import { TileManager } from './TileManager.js';
-import { cloneGem } from './GemFactory.js';
-import { BonusActivator } from './BonusActivator.js';
 
-const PRIORITY_WEIGHTS = {
-  useBonus: 4,
-  createBonus: 3,
-  cascade: 2,
-  basic: 1,
-};
-
-const isValidIndex = (index) => typeof index === 'number' && index >= 0;
+const SPECIAL = new Set(['bomb', 'cross', 'rainbow']);
 
 export class HintEngine {
   constructor() {
     this.matchEngine = new MatchEngine();
-    this.tileManager = new TileManager();
-    this.bonusActivator = new BonusActivator();
   }
 
-  findBestMove(board, tiles, cols, rows) {
-    if (!Array.isArray(board) || !board.length || !cols || !rows) {
-      return null;
-    }
-
-    const evaluations = [];
-
-    for (let index = 0; index < board.length; index += 1) {
-      const col = index % cols;
-
-      // Right neighbour
-      if (col < cols - 1) {
-        const result = this.evaluateSwap(board, tiles, cols, rows, index, index + 1);
-        if (result) {
-          evaluations.push(result);
-        }
+  findBestMove(board, tiles, cols, rows, { first = false } = {}) {
+    if (!board?.length || !cols || !rows) return null;
+    let best = null;
+    for (let a = 0; a < board.length; a++) {
+      for (const b of [a % cols < cols - 1 ? a + 1 : -1, a + cols]) {
+        if (
+          b < 0 ||
+          b >= board.length ||
+          !board[a] ||
+          !board[b] ||
+          tiles[a]?.state === 'FROZEN' ||
+          tiles[b]?.state === 'FROZEN'
+        )
+          continue;
+        const usesBonus = SPECIAL.has(board[a].type) || SPECIAL.has(board[b].type);
+        // Bonus swaps are always legal. Never simulate their random clears or refills to suggest a move.
+        const evaluation = usesBonus
+          ? null
+          : this.matchEngine.evaluateSwap(board, cols, rows, a, b);
+        if (!usesBonus && !evaluation.matches.length) continue;
+        const createsBonus = !!evaluation?.bonusesCreated.length;
+        const indices = [
+          ...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b]),
+        ];
+        const damage = indices.reduce(
+          (sum, index) => sum + Number((tiles[index]?.health ?? 0) > 0),
+          0,
+        );
+        const heuristicScore =
+          Number(usesBonus) * 10000 + Number(createsBonus) * 1000 + damage * 10 + indices.length;
+        const candidate = {
+          swap: { aIndex: a, bIndex: b },
+          indices: [a, b],
+          usesBonus,
+          createsBonus,
+          totalCleared: indices.length,
+          heuristicScore,
+        };
+        if (first) return candidate;
+        if (!best || candidate.heuristicScore > best.heuristicScore) best = candidate;
       }
-
-      // Down neighbour
-      const below = index + cols;
-      if (below < board.length) {
-        const result = this.evaluateSwap(board, tiles, cols, rows, index, below);
-        if (result) {
-          evaluations.push(result);
-        }
-      }
     }
-
-    if (!evaluations.length) {
-      return null;
-    }
-
-    let currentBest = evaluations[0];
-
-    for (let i = 1; i < evaluations.length; i += 1) {
-      const candidate = evaluations[i];
-      if (candidate.heuristicScore > currentBest.heuristicScore) {
-        currentBest = candidate;
-      }
-    }
-
-    return currentBest;
-  }
-
-  evaluateSwap(board, tiles, cols, rows, aIndex, bIndex) {
-    const evaluation = this.matchEngine.evaluateSwap(board, cols, rows, aIndex, bIndex);
-    if (!evaluation?.matches?.length) {
-      return null;
-    }
-
-    const clonedBoard = evaluation.board.map((gem) => (gem ? cloneGem(gem) : gem));
-    const clonedTiles = Array.isArray(tiles)
-      ? tiles.map((tile) => (tile ? { ...tile } : tile))
-      : [];
-      
-    const clearedIndices = this.bonusActivator.activate(clonedBoard, cols, rows, evaluation.swap);
-      let matches = evaluation.matches;
-
-      if (clearedIndices.length > 0) {
-        matches = [{ type: 'bonus-activation', indices: clearedIndices }];
-      }
-
-    const resolution = this.tileManager.getResolution({
-      board: clonedBoard,
-      tiles: clonedTiles,
-        matches: matches,
-        cols,
-        rows,
-        bonusesCreated: null,
-        bonusIndices: null,
-      });
-
-      const usesBonus = matches.some((match) => match.type === 'bonus-activation');
-      const createsBonus = false; // This is a simplification, we are not creating bonuses here
-
-    const clearedSet = new Set();
-    let maxMatchesInStep = 0;
-
-    resolution.steps.forEach((step) => {
-      step.cleared.forEach((index) => clearedSet.add(index));
-      if (Array.isArray(step.matches)) {
-        maxMatchesInStep = Math.max(maxMatchesInStep, step.matches.length);
-      }
-    });
-
-    const cascadeCount = resolution.steps.length;
-      const totalCleared = clearedSet.size;
-      const scoreGain = resolution.steps.reduce((sum, step) => sum + (step.score ?? 0), 0);
-
-    const priorityTier = this.resolvePriority({
-      usesBonus,
-      createsBonus,
-      cascadeCount,
-      maxMatchesInStep,
-    });
-
-    const centerBias = this.computeCenterBias({ aIndex, bIndex, cols, rows });
-
-    const heuristicScore = this.buildScore({
-      priorityTier,
-      usesBonus,
-      createsBonus,
-      totalCleared,
-      cascadeCount,
-      maxMatchesInStep,
-      scoreGain,
-      centerBias,
-    });
-
-    return {
-      swap: { aIndex, bIndex },
-      indices: [aIndex, bIndex],
-      usesBonus,
-      createsBonus,
-      cascadeCount,
-      totalCleared,
-      scoreGain,
-      priorityTier,
-      maxMatchesInStep,
-      centerBias,
-      heuristicScore,
-    };
-  }
-
-  resolvePriority({ usesBonus, createsBonus, cascadeCount, maxMatchesInStep }) {
-    if (usesBonus) {
-      return PRIORITY_WEIGHTS.useBonus;
-    }
-    if (createsBonus) {
-      return PRIORITY_WEIGHTS.createBonus;
-    }
-    if (cascadeCount > 1 || maxMatchesInStep > 1) {
-      return PRIORITY_WEIGHTS.cascade;
-    }
-    return PRIORITY_WEIGHTS.basic;
-  }
-
-  computeCenterBias({ aIndex, bIndex, cols, rows }) {
-    if (!isValidIndex(aIndex) || !isValidIndex(bIndex) || !cols || !rows) {
-      return Number.POSITIVE_INFINITY;
-    }
-
-    const centerX = (cols - 1) / 2;
-    const centerY = (rows - 1) / 2;
-
-    const distanceFor = (index) => {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-      const dx = col - centerX;
-      const dy = row - centerY;
-      return Math.sqrt(dx * dx + dy * dy);
-    };
-
-    const distanceA = distanceFor(aIndex);
-    const distanceB = distanceFor(bIndex);
-
-    return (distanceA + distanceB) / 2;
-  }
-
-  buildScore({
-    priorityTier,
-    usesBonus,
-    createsBonus,
-    totalCleared,
-    cascadeCount,
-    maxMatchesInStep,
-    scoreGain,
-    centerBias,
-  }) {
-    const priorityWeight = priorityTier * 1e9;
-    const bonusWeight = (usesBonus ? 5 : createsBonus ? 2 : 0) * 1e7;
-    const clearedWeight = totalCleared * 1e6;
-    const cascadeWeight = cascadeCount * 6e5 + maxMatchesInStep * 4e5;
-    const scoreWeight = scoreGain * 100;
-    const centerWeight = Number.isFinite(centerBias) ? -centerBias * 1e5 : 0;
-
-    return priorityWeight + bonusWeight + clearedWeight + cascadeWeight + scoreWeight + centerWeight;
+    return best;
   }
 }

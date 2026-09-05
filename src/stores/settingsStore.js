@@ -5,7 +5,9 @@ export const useSettingsStore = defineStore('settings', {
     isSettingsOpen: false,
     musicVolume: 0.6,
     sfxVolume: 0.8,
-    reducedMotion: false,
+    reducedMotion:
+      typeof window !== 'undefined' &&
+      (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false),
     highContrastMode: false,
   }),
   actions: {

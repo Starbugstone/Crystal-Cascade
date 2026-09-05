@@ -11,7 +11,7 @@ const DEFAULT_SLOTS = [
 
 export const useInventoryStore = defineStore('inventory', {
   state: () => ({
-    quickAccessSlots: DEFAULT_SLOTS,
+    quickAccessSlots: DEFAULT_SLOTS.map((slot) => ({ ...slot })),
     inventoryOpen: false,
   }),
   actions: {
@@ -51,9 +51,9 @@ export const useInventoryStore = defineStore('inventory', {
           case 'tile-breaker':
             // Map inventory IDs to internal bonus names
             const bonusModeMap = {
-              'hammer': 'hammer',
+              hammer: 'hammer',
               'color-wand': 'color_wand',
-              'tile-breaker': 'tile_breaker'
+              'tile-breaker': 'tile_breaker',
             };
             powerUpExecuted = gameStore.setBonusMode(bonusModeMap[id]);
             consumeImmediately = false; // Will be consumed upon successful board interaction
@@ -78,9 +78,9 @@ export const useInventoryStore = defineStore('inventory', {
       // The gameStore passes the internal bonus mode name (e.g., 'color_wand')
       // We need to map 'color_wand' -> 'color-wand', 'tile_breaker' -> 'tile-breaker'
       const modeToIdMap = {
-        'hammer': 'hammer',
-        'color_wand': 'color-wand',
-        'tile_breaker': 'tile-breaker'
+        hammer: 'hammer',
+        color_wand: 'color-wand',
+        tile_breaker: 'tile-breaker',
       };
 
       const inventoryId = modeToIdMap[id] || id;

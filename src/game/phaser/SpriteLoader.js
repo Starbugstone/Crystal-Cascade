@@ -1,190 +1,62 @@
-import { createPlaceholderGems } from './placeholder-gems';
-import { createPlaceholderTiles } from './placeholder-tiles';
+import { GEM_TYPES } from '../engine/GemFactory';
 
-const BASE_GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
-const SPECIAL_TYPES = ['bomb', 'rainbow', 'cross'];
-const SPRITE_PATH = '/sprite/gem-sprite-1.png';
-const BONUS_SPRITE_PATH = '/sprite/bonus-sprite-1.png';
-const TILE_PLACEHOLDER_SIZE = 256;
-const TILE_LAYER_STATES = [1, 2, 3, 4];
+export const BONUS_TYPES = ['bomb', 'rainbow', 'cross'];
+export const BONUS_FRAME_SIZE = 192;
+export const BONUS_FRAME_COUNT = 8;
 
-const SPRITE_GRID_COLS = 3;
-const SPRITE_GRID_ROWS = 3;
-
-const BONUS_GRID_COLS = 3;
-const BONUS_GRID_ROWS = 3;
-const BONUS_FRAMES_PER_ANIMATION = 3;
-const BONUS_FRAME_RATE = 8;
-
-// Per-frame crop adjustments (in pixels) to align content consistently across frames.
-// Each bonus type has an array of 3 frame adjustments [frame0, frame1, frame2].
-// Positive X = crop from left (shift content left), Negative X = crop from right (shift content right)
-// Positive Y = crop from top (shift content up), Negative Y = crop from bottom (shift content down)
-// These are applied during canvas slicing to ensure all frames align visually.
-const BONUS_FRAME_ADJUSTMENTS = {
-  bomb: [
-    { x: 15, y: 45 },    // Frame 0
-    { x: 0, y: 45 },    // Frame 1
-    { x: -15, y: 45 },    // Frame 2
-  ],
-  rainbow: [
-    { x: 15, y: 0 },    // Frame 0
-    { x: 0, y: 0 },    // Frame 1
-    { x: -15, y: 0 },    // Frame 2
-  ],
-  cross: [
-    { x: 15, y: -45 },    // Frame 0
-    { x: 0, y: -45 },    // Frame 1
-    { x: -15, y: -45 },    // Frame 2
-  ],
-};
-
-export const preloadSpriteAssets = (scene) => {
-  scene.load.image('gem-sheet', SPRITE_PATH);
-  scene.load.image('bonus-sheet', BONUS_SPRITE_PATH);
-};
-
-const sliceBaseGemTextures = (scene, textures) => {
-  const result = { created: [], missing: [] };
-  const gemSheet = scene.textures.get('gem-sheet');
-  const source = gemSheet?.getSourceImage?.();
-
-  if (!source || !source.width || !source.height) {
-    result.missing.push(...BASE_GEM_TYPES);
-    return result;
-  }
-
-  const tileWidth = Math.floor(source.width / SPRITE_GRID_COLS);
-  const tileHeight = Math.floor(source.height / SPRITE_GRID_ROWS);
-
-  BASE_GEM_TYPES.forEach((type, index) => {
-    const col = index % SPRITE_GRID_COLS;
-    const row = Math.floor(index / SPRITE_GRID_COLS);
-    const sx = col * tileWidth;
-    const sy = row * tileHeight;
-    const textureKey = `gem-${type}`;
-
-    if (!scene.textures.exists(textureKey)) {
-      const canvasTexture = scene.textures.createCanvas(textureKey, tileWidth, tileHeight);
-      const ctx = canvasTexture.context;
-      ctx.drawImage(source, sx, sy, tileWidth, tileHeight, 0, 0, tileWidth, tileHeight);
-      canvasTexture.refresh();
-    }
-
-    textures[type] = {
-      key: textureKey,
-      width: tileWidth,
-      height: tileHeight,
-    };
-    result.created.push(type);
+// Vector art is rasterized once at load time; animation uses a single GPU atlas.
+export function preloadSpriteAssets(scene) {
+  GEM_TYPES.forEach((type) =>
+    scene.load.svg(`gem-${type}`, `/art/${type}.svg`, { width: 160, height: 160 }),
+  );
+  scene.load.svg('bonus-atlas', '/art/bonuses/atlas.svg', {
+    width: BONUS_FRAME_SIZE * BONUS_FRAME_COUNT,
+    height: BONUS_FRAME_SIZE * BONUS_TYPES.length,
   });
+  for (const type of ['hammer', 'color-wand', 'clear-row', 'shuffle', 'tile-breaker'])
+    scene.load.svg(`power-${type}`, `/art/powers/${type}.svg`, { width: 192, height: 192 });
+  for (const type of ['frost', 'cracked'])
+    scene.load.svg(`ice-${type}`, `/art/ice/${type}.svg`, { width: 160, height: 160 });
+}
 
-  return result;
-};
-
-const sliceBonusAnimations = (scene, textures, bonusAnimations) => {
-  const result = { created: [], missing: [] };
-  const bonusSheet = scene.textures.get('bonus-sheet');
-  const source = bonusSheet?.getSourceImage?.();
-
-  if (!source || !source.width || !source.height) {
-    result.missing.push(...SPECIAL_TYPES);
-    return result;
-  }
-
-  const frameWidth = Math.floor(source.width / BONUS_GRID_COLS);
-  const frameHeight = Math.floor(source.height / BONUS_GRID_ROWS);
-
-  SPECIAL_TYPES.forEach((type, typeIndex) => {
-    const animationKey = `bonus-${type}`;
-    const baseFrames = [];
-
-    for (let frameIdx = 0; frameIdx < BONUS_FRAMES_PER_ANIMATION; frameIdx += 1) {
-      const col = frameIdx;
-      const row = typeIndex;
-      const baseX = col * frameWidth;
-      const baseY = row * frameHeight;
-
-      // Get per-frame adjustment (in pixels)
-      const adjustment = BONUS_FRAME_ADJUSTMENTS[type]?.[frameIdx] ?? { x: 0, y: 0 };
-      const sx = baseX + adjustment.x;
-      const sy = baseY + adjustment.y;
-
-      const frameKey = `${animationKey}-frame-${frameIdx}`;
-
-      if (!scene.textures.exists(frameKey)) {
-        const canvasTexture = scene.textures.createCanvas(frameKey, frameWidth, frameHeight);
-        const ctx = canvasTexture.context;
-        // Apply adjustment by shifting the source crop position
-        ctx.drawImage(source, sx, sy, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
-        canvasTexture.refresh();
-      }
-
-      baseFrames.push({ key: frameKey });
-    }
-
-    // Build ping-pong frame sequence: 0-1-2-1-0-1-2-1... (frames play left-to-right then back)
-    const pingPongFrames = [...baseFrames];
-    for (let i = BONUS_FRAMES_PER_ANIMATION - 2; i > 0; i -= 1) {
-      pingPongFrames.push(baseFrames[i]);
-    }
-
-    if (!scene.anims.exists(animationKey)) {
+export function loadSpriteAtlas(scene) {
+  const textures = Object.fromEntries(GEM_TYPES.map((type) => [type, { key: `gem-${type}` }]));
+  const atlas = scene.textures.get('bonus-atlas');
+  BONUS_TYPES.forEach((type, row) => {
+    const frames = Array.from({ length: BONUS_FRAME_COUNT }, (_, frame) => {
+      const name = `${type}-${frame}`;
+      if (!atlas.has(name))
+        atlas.add(
+          name,
+          0,
+          frame * BONUS_FRAME_SIZE,
+          row * BONUS_FRAME_SIZE,
+          BONUS_FRAME_SIZE,
+          BONUS_FRAME_SIZE,
+        );
+      return { key: 'bonus-atlas', frame: name };
+    });
+    const animation = `bonus-${type}`;
+    if (!scene.anims.exists(animation))
       scene.anims.create({
-        key: animationKey,
-        frames: pingPongFrames,
-        frameRate: BONUS_FRAME_RATE,
+        key: animation,
+        frames,
+        frameRate: type === 'rainbow' ? 12 : 10,
         repeat: -1,
       });
-    }
-
-    bonusAnimations[type] = {
-      animationKey,
-      frameKey: baseFrames[0].key,
-      width: frameWidth,
-      height: frameHeight,
-    };
-
-    textures[type] = {
-      key: baseFrames[0].key,
-      width: frameWidth,
-      height: frameHeight,
-    };
-
-    result.created.push(type);
+    textures[type] = { key: 'bonus-atlas', frame: `${type}-0`, animation };
   });
+  return { textures };
+}
 
-  return result;
-};
-
-export const loadSpriteAtlas = (scene) => {
-  const textures = {};
-  const bonusAnimations = {};
-  const tileTextures = createPlaceholderTiles(scene, TILE_PLACEHOLDER_SIZE, TILE_LAYER_STATES);
-
-  const baseResult = sliceBaseGemTextures(scene, textures);
-  const bonusResult = sliceBonusAnimations(scene, textures, bonusAnimations);
-
-  const missingTypes = new Set([
-    ...baseResult.missing,
-    ...bonusResult.missing,
-  ]);
-
-  if (missingTypes.size > 0) {
-    const placeholders = createPlaceholderGems(scene, 128, [...missingTypes]);
-    [...missingTypes].forEach((type) => {
-      textures[type] = placeholders[type];
-
-      if (SPECIAL_TYPES.includes(type) && !bonusAnimations[type]) {
-        bonusAnimations[type] = {
-          animationKey: null,
-          frameKey: placeholders[type].key,
-          width: placeholders[type].width,
-          height: placeholders[type].height,
-        };
-      }
-    });
-  }
-
-  return { textures, bonusAnimations, tileTextures };
+export const GEM_COLORS = {
+  ruby: 0xff5187,
+  sapphire: 0x6098ff,
+  emerald: 0x38efb1,
+  topaz: 0xffcc58,
+  amethyst: 0xc883ff,
+  moonstone: 0x79f1f6,
+  bomb: 0xffa14f,
+  cross: 0x7debff,
+  rainbow: 0xdcc0ff,
 };

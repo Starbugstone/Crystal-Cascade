@@ -1,15 +1,20 @@
 import { BonusActivator } from './BonusActivator.js';
-import { EvolutionEngine } from './EvolutionEngine.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const bonusActivator = new BonusActivator();
 export class MatchEngine {
-  constructor() {
-    this.evolutionEngine = new EvolutionEngine();
-  }
-
   evaluateSwap(board, cols, rows, aIndex, bIndex) {
-    if (aIndex === bIndex) {
+    if (
+      !Number.isInteger(aIndex) ||
+      !Number.isInteger(bIndex) ||
+      aIndex < 0 ||
+      bIndex < 0 ||
+      aIndex >= board.length ||
+      bIndex >= board.length ||
+      !board[aIndex] ||
+      !board[bIndex] ||
+      aIndex === bIndex
+    ) {
       return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
     }
 
@@ -24,7 +29,15 @@ export class MatchEngine {
 
     const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap);
     if (bonusClear.length > 0) {
-      return { matches: [{ type: 'bonus-activation', indices: bonusClear }], board: nextBoard, cols, rows, swap, bonusesCreated: [], bonusIndices: [] };
+      return {
+        matches: [{ type: 'bonus-activation', indices: bonusClear }],
+        board: nextBoard,
+        cols,
+        rows,
+        swap,
+        bonusesCreated: [],
+        bonusIndices: [],
+      };
     }
 
     const matches = this.findMatches(nextBoard, cols, rows);
@@ -38,21 +51,12 @@ export class MatchEngine {
     const bonusIndices = [];
 
     if (bonuses.length > 0) {
-      bonuses.forEach(bonus => {
+      bonuses.forEach((bonus) => {
         nextBoard[bonus.index] = { ...nextBoard[bonus.index], type: bonus.type };
         bonusesCreated.push(bonus.type);
         bonusIndices.push(bonus.index);
       });
     }
-
-    matches.forEach(match => {
-      match.indices.forEach(index => {
-        const gem = nextBoard[index];
-          if (gem) {
-            this.evolutionEngine.trackMatch(gem.type);
-          }
-        });
-      });
 
     return { matches, board: nextBoard, cols, rows, swap, bonusesCreated, bonusIndices };
   }

@@ -86,7 +86,7 @@ const findLineCandidates = (matches, swapIndices) => {
     return [];
   }
 
-  return lines.map(line => ({
+  return lines.map((line) => ({
     match: line,
     swapIndex: determineSwapIndex(line, swapIndices),
   }));
@@ -110,7 +110,7 @@ export const detectBonusFromMatches = (matches, { swap } = {}) => {
   }
 
   const lineCandidates = findLineCandidates(normalMatches, swapIndices);
-  lineCandidates.forEach(lineCandidate => {
+  lineCandidates.forEach((lineCandidate) => {
     const lineLength = lineCandidate.match.indices.length;
     if (lineLength >= 5) {
       bonuses.push({ type: 'rainbow', index: lineCandidate.swapIndex });
@@ -118,7 +118,6 @@ export const detectBonusFromMatches = (matches, { swap } = {}) => {
       bonuses.push({ type: 'bomb', index: lineCandidate.swapIndex });
     }
   });
-
 
   return bonuses;
 };

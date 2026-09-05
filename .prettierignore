@@ -1,7 +1,8 @@
-node_modules
-dist
-build
-coverage
+node_modules/
+dist/
+output/
+.playwright-cli/
 package-lock.json
-yarn.lock
-pnpm-lock.yaml
+public/art/
+capacitor/
+.github/

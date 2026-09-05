@@ -1,138 +1,49 @@
 # Crystal Cascade
 
-Crystal Cascade is a Vue 3 + Phaser 3 match‑3 prototype that focuses on delivering a responsive board, procedural levels, and emergent bonus logic. The project is currently in a **pre-alpha** state: the core technical pieces are scaffolded, but most of the design specification captured in earlier drafts has not been implemented yet.
+A jewel match-3 game built with Vue, Pinia and Phaser. Twelve chapters, faceted crystal artwork, quick swipes, cascading matches and five power-ups.
 
-_Last updated: 2025-12-20_
+## Run locally
 
-https://crystal-cascade.vercel.app/
+Requires Node.js 20.19+ (or 22.12+).
 
----
-
-## Current Snapshot
-
-- ✅ 8×8 match-3 board rendered with Phaser, including swap interaction and cascades.
-- ✅ Procedural level generator that creates 12 seed-based level configs with simple objectives.
-- ✅ Score + cascade HUD, level select modal, quick power-up bar, and settings drawer.
-- ✅ Bonus resolver that can spawn `bomb`, `rainbow`, and `cross` specials on long matches.
-- ✅ Capacitor tooling is wired up for future mobile builds.
-- ✅ Tile layers under each gem chip away with clears; clearing the entire board now ends the level (console celebration still pending).
-- ✅ Ambient music loop and a first pass of match/bonus SFX are wired through Howler.js and the Phaser animator hooks.
-- 🚧 Win/fail UI, multi-layer tile art, and advanced block behaviours (frozen tiles, dwarfs, etc.) are still unimplemented.
-- 🚧 Inventory, loot tables, and art assets remain placeholders or unused stubs.
-- 🚧 Documentation now reflects the working feature set instead of the aspirational spec.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20 or newer
-- npm 9 or newer
-
-### Installation & Scripts
-
-```bash
-npm install        # install dependencies
-npm run dev        # start Vite dev server at http://localhost:5173
-npm run build      # produce a production build in dist/
-npm run preview    # preview the production build locally
-
-# Capacitor helpers for platform shells
-npm run cap:sync
-npm run cap:open:ios
-npm run cap:open:android
+```sh
+npm ci
+npm run dev
 ```
 
----
+Open http://localhost:5173. Choose any chapter to play.
 
-## Gameplay Overview (Current Build)
-
-- **Session flow:** The app boots to a level select modal fed by the procedural generator. Selecting a level seeds the board and objectives. Sessions can be exited via the header button.
-- **Controls:** Click/tap swapping runs through a Phaser-driven board input system that supports both tap-to-select and drag swaps with pointer and touch support. A fullscreen toggle keeps the board square on wide screens.
-- **Scoring:** Matches award `tileCount × 100` points scaled by a cascade multiplier that grows with chained clears. Multiplier resets when a cascade sequence ends.
-- **Bonuses:** Matches of 4+ crystals dispatch through `BonusResolver` to replace the swapped gem with a special (`bomb`, `rainbow`, `cross`). `BonusActivator` handles activation when these specials are part of a swap.
-- **Objectives:** Strip every tile layer to win; HUD objectives now track remaining layers alongside score, but there is still no win/fail overlay or reward flow.
-- **Audio & FX:** `useAudio` wires up Howler-backed ambient music and targeted SFX triggers (`playMatch`, `playBomb`, `playRainbowLaser`, etc.), all routed through the Phaser animator. Particle bursts highlight swaps, cascades, and special gem detonations.
-
----
-
-## Architecture Notes
-
-### Key Technologies
-
-- **Vue 3 + Vite** for the application shell.
-- **Pinia** stores (`game`, `settings`, `inventory`) for state management.
-- **Phaser 3** scene + tween system for board rendering, sprites, and particles.
-- **Howler.js** drives ambient music and context-aware SFX dispatched from Phaser.
-- **Capacitor** project scaffold for native packaging.
-
-### Project Structure (abridged)
-
-```
-src/
-  App.vue                 # UI shell with header, board, HUD, modals
-  main.js                 # Vue bootstrap + Pinia registration
-  components/             # BoardCanvas, HudPanel, LevelSelectModal, etc.
-  composables/            # useAudio (ambient + SFX manager), other hooks
-  game/phaser/            # Scene, animator, input, sprite helpers
-  data/                   # Static level/drop-table JSON (currently unused)
-  game/
-    engine/               # MatchEngine, TileManager, LevelGenerator, bonuses
-    phaser/               # Phaser scene, sprite helpers, particles
-  stores/                 # Pinia stores for game, settings, inventory
-  styles/                 # Base + theme CSS tokens
+```sh
+npm test              # Game logic and input regression tests
+npm run build        # Production output in dist/
+npm run preview      # Serve the production build
+npm run format:check # Check source formatting
+npm run assets       # Regenerate gem, bonus, power and ice artwork
 ```
 
-### Core Systems
+## Playing
 
-- `src/stores/gameStore.js` orchestrates game sessions, coordinates rendering hooks (`attachRenderer`, `refreshBoardVisuals`), tracks layered tile progress, and delegates logic to the engine modules.
-- `src/game/engine/MatchEngine.js` evaluates swaps, prevents illegal moves, and searches for horizontal/vertical matches.
-- `src/game/engine/TileManager.js` applies match results, handles gravity, generates replacement gems, and recurses to resolve cascades.
-- `src/game/engine/BonusResolver.js` scores clears and injects special gems; `BonusActivator.js` executes effects when specials are swapped.
-- `src/game/engine/LevelGenerator.js` seeds reproducible 8×8 boards with layered tile objectives and score targets per level.
-- `src/components/BoardCanvas.vue` boots the Phaser scene, builds placeholder textures via `src/game/phaser/placeholder-gems.js`, and responds to container resize events.
+Swipe a gem, or tap two neighboring gems. Match at least three to break the ice underneath them. Fresh ice has frosted edges; damaged ice cracks, then shatters to reveal a dark cleared tile. Four in a line creates a sparking bomb; five creates a rotating rainbow orb; a T or L match creates a pulsing cross launcher. Swap a bonus to activate it. Clear every ice layer to finish the chapter; the score target and best cascade determine extra stars.
 
----
+- **Clear Row:** clears a random row.
+- **Hammer:** shatters a 3 × 3 area around the selected gem.
+- **Color Wand:** clears gems of the selected color.
+- **Shuffle:** mixes the board.
+- **Tile Breaker:** clears the selected row and column.
 
-## Content & Data Status
+Power-ups start with 20 uses each per application session. Progress and inventory are currently in memory. The existing automatic reshuffle rule retains one third of your score when no legal moves remain.
 
-- `src/data/levels.json` and `dropTables.json` are legacy design artefacts and not consumed by runtime code.
-- Levels generated at bootstrap contain basic gem data plus placeholder layered tiles (currently 1–2 layers). Advanced tile types (frozen blocks, dwarfs to rescue, scripted layouts) are still on the backlog.
-- The inventory store exposes four quick-access slots with static quantities; the "Inventory" button does not open a modal.
-- Asset pipeline is placeholder-only: sprites are runtime-generated vector shapes, and audio assets are limited to the current ambient loop and SFX stubs. There are no packaged textures or custom fonts beyond CSS-defined web fonts.
+Keyboard controls: focus the board with Tab, use arrows to move, Enter or Space to select, and Shift + arrow to swap. Escape cancels a selection or closes settings. Settings include music, sound effects, reduced motion and high contrast. Focus mode enlarges the play area.
 
----
+## Project structure
 
-## Known Limitations & Issues
+- `src/game/engine/`: level generation, matches, bonuses, gravity and deterministic hints.
+- `src/game/phaser/`: rendering, animation, gesture input and pooled particles.
+- `src/stores/`: game sessions, inventory and preferences.
+- `src/components/`: menus, board host, HUD and dialogs.
+- `public/art/`: generated SVG gems, animated bonus atlas, illustrated powers and ice. The generators live in `scripts/`; Phaser rasterizes the art once when loading.
+- `testing/`: Vitest regression tests running in Node, without a browser or canvas mock.
 
-- Level completion currently just disables input and logs to the console—there is no victory/failure UI, rewards, or progression flow.
-- Tile layers use simple colour fills; there is no production art, texture variation, or special block behaviour yet.
-- Special gem activation happens only on swap; passive cascades do not trigger them.
-- Cascades and bonuses trigger Phaser particle FX plus the current ambient loop and SFX set; richer sound design is still pending.
-- UI glyphs for icons in `App.vue`/`SettingsDrawer.vue` are placeholder characters that render as garbled symbols.
-- No persistence, user profile, or analytics hooks are implemented.
-- No automated testing or linting scripts are configured.
+Phaser loads when a chapter opens. Vue never wraps the renderer's internal object graph in reactive proxies. Bonuses use an eight-frame animation atlas and a 120 ms activation wind-up. Shockwaves, directional blasts, rainbow lightning and ice shards run alongside the clear and fall phases. Cosmetic effects may continue after the board becomes playable; every board animation is cancellable on a level change.
 
----
-
-## Suggested Next Steps
-
-1. **Gameplay progression:** Build victory/defeat overlays, reward flows, and persistent progression once tile layers are cleared.
-2. **Tile variety:** Implement additional tile types (frozen blocks, dwarfs to rescue, blockers) and author scripted layouts.
-3. **Visual polish:** Replace placeholder board art, design distinctive tile-layer textures, and refine combo/bonus animations.
-4. **Audio pass:** Expand the Howler library with layered ambience, responsive SFX variations, and volume-setting persistence.
-5. **Inventory & power-ups:** Build a full inventory modal, connect drop tables, and implement power-up interactions.
-6. **Quality of life:** Add accessibility settings, mobile-responsive tuning, keyboard bindings, automated tests, and CI tooling.
-
----
-
-## Contributing & Licensing
-
-- The project license is set to **ISC** in `package.json`.
-- Follow typical Git workflows: create a branch, make changes, run `npm run build` to ensure Vite succeeds, then open a pull request.
-- Please document any new systems in this README, `TECH_README.md`, and mirror supporting detail under `.docs/` to keep the project state accurate.
-
----
-
-By keeping this README aligned with the actual implementation, future contributors can quickly understand what exists today, what is stubbed, and where development should focus next.
+See [the analysis and verification report](docs/analysis.md) for the performance findings, changes and testing limits. Capacitor configuration and the existing Azure deployment workflow are retained; native platforms need their usual platform setup before using the `cap:*` commands.

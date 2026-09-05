@@ -1,130 +1,182 @@
 <template>
-  <transition name="drawer">
-    <aside v-if="open" class="settings-drawer">
-      <header>
-        <h2>Settings</h2>
-        <button @click="$emit('close')">✕</button>
-      </header>
-      <section>
-        <label>
-          <span>Music Volume</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            :value="settingsStore.musicVolume"
-            @input="settingsStore.setMusicVolume($event.target.value)"
-          />
-        </label>
-        <label>
-          <span>SFX Volume</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            :value="settingsStore.sfxVolume"
-            @input="settingsStore.setSfxVolume($event.target.value)"
-          />
-        </label>
-        <label class="toggle-row">
-          <input
-            type="checkbox"
-            :checked="settingsStore.reducedMotion"
-            @change="settingsStore.setReducedMotion($event.target.checked)"
-          />
-          <span>Reduced Motion</span>
-        </label>
-        <label class="toggle-row">
-          <input
-            type="checkbox"
-            :checked="settingsStore.highContrastMode"
-            @change="settingsStore.setHighContrast($event.target.checked)"
-          />
-          <span>High Contrast Mode</span>
-        </label>
-      </section>
-    </aside>
-  </transition>
+  <dialog
+    ref="dialog"
+    class="settings-drawer"
+    @cancel.prevent="$emit('close')"
+    @click="closeBackdrop"
+  >
+    <header>
+      <div>
+        <span class="eyebrow">MAKE IT YOURS</span>
+        <h2>A moment of calm</h2>
+      </div>
+      <button class="icon-button" aria-label="Close settings" @click="$emit('close')">
+        <GameIcon name="close" />
+      </button>
+    </header>
+    <p class="settings-intro">Set the mood for your next cascade.</p>
+    <label
+      ><span
+        >Music <small>{{ Math.round(settings.musicVolume * 100) }}%</small></span
+      ><input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        :value="settings.musicVolume"
+        @input="settings.setMusicVolume($event.target.value)"
+    /></label>
+    <label
+      ><span
+        >Sound effects <small>{{ Math.round(settings.sfxVolume * 100) }}%</small></span
+      ><input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        :value="settings.sfxVolume"
+        @input="settings.setSfxVolume($event.target.value)"
+    /></label>
+    <label class="toggle-row"
+      ><span>Reduced motion<small>Gentler movement, without bursts or flashes.</small></span
+      ><input
+        type="checkbox"
+        :checked="settings.reducedMotion"
+        @change="settings.setReducedMotion($event.target.checked)"
+    /></label>
+    <label class="toggle-row"
+      ><span>High contrast<small>Stronger outlines and brighter text.</small></span
+      ><input
+        type="checkbox"
+        :checked="settings.highContrastMode"
+        @change="settings.setHighContrast($event.target.checked)"
+    /></label>
+    <div class="keyboard-guide">
+      <span class="eyebrow">PLAY YOUR WAY</span>
+      <p>
+        Swipe or tap neighboring gems.<br />Keyboard: arrows to explore, Enter to select.<br />Shift
+        + arrow to swap. Esc to cancel.
+      </p>
+    </div>
+  </dialog>
 </template>
-
 <script setup>
-import { defineProps } from 'vue';
+import { ref, watch } from 'vue';
 import { useSettingsStore } from '../stores/settingsStore';
-
-defineProps({
-  open: {
-    type: Boolean,
-    default: false,
+import GameIcon from './GameIcon.vue';
+const props = defineProps({ open: Boolean });
+const emit = defineEmits(['close']);
+const dialog = ref(null);
+const settings = useSettingsStore();
+watch(
+  () => props.open,
+  (open) => {
+    if (open) dialog.value?.showModal();
+    else dialog.value?.close();
   },
-});
-
-const settingsStore = useSettingsStore();
+  { flush: 'post' },
+);
+const closeBackdrop = (event) => {
+  if (event.target === dialog.value) {
+    const r = dialog.value.getBoundingClientRect();
+    if (
+      event.clientX < r.left ||
+      event.clientX > r.right ||
+      event.clientY < r.top ||
+      event.clientY > r.bottom
+    )
+      emit('close');
+  }
+};
 </script>
-
 <style scoped>
 .settings-drawer {
   position: fixed;
-  top: 0;
-  right: 0;
-  width: min(320px, 90vw);
+  inset: 0 0 0 auto;
+  width: min(390px, 92vw);
   height: 100dvh;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  box-shadow: -12px 0 30px rgba(2, 6, 23, 0.6);
-  padding: 2rem 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  z-index: 40;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 34px 27px;
+  background: #1d1629;
+  color: var(--color-foreground);
+  border: 0;
+  border-left: 1px solid #84619e;
+  box-shadow: -20px 0 70px #09050d88;
 }
-
+.settings-drawer::backdrop {
+  background: #090612ad;
+  backdrop-filter: blur(4px);
+}
 header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  color: var(--color-accent);
+  justify-content: space-between;
+  gap: 10px;
 }
-
-header button {
-  border: none;
-  background: rgba(51, 65, 85, 0.6);
-  color: inherit;
-  border-radius: 999px;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
+h2 {
+  font-family: var(--font-heading);
+  font-size: 25px;
+  font-weight: 400;
+  margin-top: 8px;
 }
-
-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  color: var(--color-foreground);
+.settings-intro {
+  color: #b5a3c4;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 20px 0 35px;
 }
-
 label {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.95rem;
+  gap: 15px;
+  margin-bottom: 30px;
+  font-size: 13px;
 }
-
+label > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+small {
+  color: #ae9dbd;
+  font-size: 11px;
+}
+input {
+  accent-color: #c29ae8;
+}
+input[type='range'] {
+  width: 100%;
+}
 .toggle-row {
   flex-direction: row;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
 }
-
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: transform 200ms ease, opacity 200ms ease;
+.toggle-row > span {
+  display: block;
 }
-
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
+.toggle-row small {
+  display: block;
+  margin-top: 9px;
+  line-height: 1.6;
+}
+input[type='checkbox'] {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.keyboard-guide {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.keyboard-guide p {
+  font-size: 11px;
+  line-height: 2;
+  color: #ac98bc;
+  margin-top: 12px;
 }
 </style>

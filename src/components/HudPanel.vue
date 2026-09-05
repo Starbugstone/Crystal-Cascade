@@ -1,170 +1,57 @@
 <template>
-  <section class="hud-panel">
-    <div class="hud-card">
-      <h2>Score</h2>
-      <p :class="{ 'score-flash': gameStore.scorePenaltyFlash }">
-        {{ gameStore.score.toLocaleString() }}
-      </p>
+  <section class="hud-panel" aria-label="Level progress">
+    <div class="score-card">
+      <span class="eyebrow">YOUR BRILLIANCE</span>
+      <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
+        {{ game.score.toLocaleString() }}<span>pts</span>
+      </div>
+      <div class="score-stars" aria-label="Score star target">
+        <span>✦</span>
+        <div class="score-track">
+          <i :style="{ width: `${Math.min(100, (game.score / target) * 100)}%` }"></i>
+        </div>
+        <span>✦</span><small>{{ target.toLocaleString() }}</small>
+      </div>
     </div>
-    <div class="hud-card">
-      <h2>Cascade</h2>
-      <p>x{{ gameStore.cascadeMultiplier }}</p>
+    <div class="stats-row">
+      <div>
+        <span class="eyebrow">MOVES</span
+        ><strong>{{ game.moves.toString().padStart(2, '0') }}</strong>
+      </div>
+      <div>
+        <span class="eyebrow">BEST CASCADE</span
+        ><strong class="cascade-value">×{{ game.maxCascade }}</strong>
+      </div>
     </div>
-    <div class="hud-card objectives">
-      <h2>Objectives</h2>
-      <ul>
-        <li v-for="objective in gameStore.objectives" :key="objective.id">
-          <span>{{ objective.label }}</span>
-          <span>{{ objective.progress }}/{{ objective.target }}</span>
-        </li>
-      </ul>
-    </div>
-    <div class="hud-card debug-card">
-      <button @click="forceRedraw" class="redraw-btn">
-        🔄 Force Redraw
-      </button>
-      <button @click="activateClearRowBonus" class="redraw-btn">
-        💣 Clear Row Bonus
-      </button>
+    <div class="objective">
+      <div class="objective-title">
+        <span><GameIcon name="spark" /> Break the ice</span
+        ><strong
+          >{{ game.totalLayers - game.remainingLayers
+          }}<small> / {{ game.totalLayers }}</small></strong
+        >
+      </div>
+      <div
+        class="objective-track"
+        role="progressbar"
+        aria-label="Ice layers cleared"
+        :aria-valuenow="game.totalLayers - game.remainingLayers"
+        :aria-valuemax="game.totalLayers"
+        :aria-valuemin="0"
+      >
+        <i :style="{ width: `${progress}%` }"></i>
+      </div>
+      <p>Shatter every ice layer to complete the chapter.</p>
     </div>
   </section>
 </template>
-
 <script setup>
-import { storeToRefs } from 'pinia';
+import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
-
-const gameStore = useGameStore();
-const { objectives } = storeToRefs(gameStore);
-
-const forceRedraw = () => {
-  console.log('🔄 Manual redraw requested');
-  
-  // Clear the animation lock first
-  gameStore.animationInProgress = false;
-  
-  if (gameStore.renderer?.animator) {
-    gameStore.renderer.animator.forceCompleteRedraw();
-  } else {
-    console.error('❌ No animator available');
-  }
-};
-
-const activateClearRowBonus = async () => {
-  if (gameStore.animationInProgress) {
-    console.warn('Cannot trigger Clear Row bonus during animations.');
-    return;
-  }
-
-  if (!gameStore.sessionActive) {
-    console.warn('Cannot trigger Clear Row bonus without an active session.');
-    return;
-  }
-
-  try {
-    const activated = await gameStore.activateOneTimeBonus('clear_row');
-    if (!activated) {
-      console.warn('Clear Row bonus was not activated.');
-    }
-  } catch (error) {
-    console.error('Failed to activate Clear Row bonus:', error);
-  }
-};
+import GameIcon from './GameIcon.vue';
+const game = useGameStore();
+const target = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 1);
+const progress = computed(() =>
+  game.totalLayers ? ((game.totalLayers - game.remainingLayers) / game.totalLayers) * 100 : 0,
+);
 </script>
-
-<style scoped>
-.hud-panel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1rem;
-}
-
-.hud-card {
-  background: rgba(15, 23, 42, 0.75);
-  padding: 1rem;
-  border-radius: 12px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.45);
-}
-
-.hud-card h2 {
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  letter-spacing: 0.08rem;
-  text-transform: uppercase;
-  margin: 0 0 0.5rem;
-  color: var(--color-accent);
-}
-
-.hud-card p {
-  font-size: 1.5rem;
-  margin: 0;
-}
-
-.objectives ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.25rem;
-}
-
-.objectives li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.95rem;
-}
-
-.debug-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.redraw-btn {
-  background: var(--color-accent);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.redraw-btn:hover {
-  background: var(--color-accent-dark, #e11d48);
-  transform: scale(1.05);
-}
-
-.redraw-btn:active {
-  transform: scale(0.95);
-}
-
-.score-flash {
-  color: #f87171;
-  animation: score-flash-combined 0.9s ease;
-}
-
-@keyframes score-flash-combined {
-  0% {
-    text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
-    transform: scale(1) translateX(0);
-  }
-  25% {
-    transform: scale(1.05) translateX(-3px);
-  }
-  35% {
-    text-shadow: 0 0 18px rgba(248, 113, 113, 0.5);
-    transform: scale(1.06) translateX(3px);
-  }
-  60% {
-    transform: scale(1.02) translateX(-2px);
-  }
-  100% {
-    text-shadow: 0 0 0 rgba(248, 113, 113, 0.4);
-    transform: scale(1) translateX(0);
-  }
-}
-</style>

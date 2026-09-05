@@ -1,6 +1,16 @@
 export class BonusActivator {
   constructor() {
-    this.BONUS_TYPES = new Set(['bomb', 'rainbow', 'cross', 'clear_row', 'transform_gems', 'unfreeze_all', 'hammer', 'color_wand', 'tile_breaker']);
+    this.BONUS_TYPES = new Set([
+      'bomb',
+      'rainbow',
+      'cross',
+      'clear_row',
+      'transform_gems',
+      'unfreeze_all',
+      'hammer',
+      'color_wand',
+      'tile_breaker',
+    ]);
   }
 
   isBonus(type) {
@@ -20,12 +30,7 @@ export class BonusActivator {
 
     const maxIndex = clonedBoard.length - 1;
     const { aIndex, bIndex } = swap;
-    if (
-      aIndex >= 0 &&
-      bIndex >= 0 &&
-      aIndex <= maxIndex &&
-      bIndex <= maxIndex
-    ) {
+    if (aIndex >= 0 && bIndex >= 0 && aIndex <= maxIndex && bIndex <= maxIndex) {
       [clonedBoard[aIndex], clonedBoard[bIndex]] = [clonedBoard[bIndex], clonedBoard[aIndex]];
     }
 
@@ -84,7 +89,11 @@ export class BonusActivator {
           if (resolvedIndex !== index) {
             const gem = board[resolvedIndex];
             if (this.isBonus(gem?.type) && !processed.has(resolvedIndex)) {
-              queue.push({ index: resolvedIndex, type: gem.type, context: this.chainContextFor(gem) });
+              queue.push({
+                index: resolvedIndex,
+                type: gem.type,
+                context: this.chainContextFor(gem),
+              });
             }
           }
         }

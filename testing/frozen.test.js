@@ -52,9 +52,15 @@ describe('GameStore - Frozen Tiles', () => {
     gameStore.boardCols = 3;
     gameStore.boardRows = 3;
     gameStore.board = [
-      createGem('ruby'), createGem('ruby'), createGem('ruby'), // Match
-      createGem('emerald'), createGem('emerald'), createGem('emerald'),
-      createGem('sapphire'), createGem('sapphire'), createGem('sapphire'),
+      createGem('ruby'),
+      createGem('ruby'),
+      createGem('ruby'), // Match
+      createGem('emerald'),
+      createGem('emerald'),
+      createGem('emerald'),
+      createGem('sapphire'),
+      createGem('sapphire'),
+      createGem('sapphire'),
     ];
     gameStore.tiles = Array.from({ length: 9 }, (_, i) => ({
       state: i === 3 ? 'FROZEN' : 'PLAYABLE', // Tile at index 3 (below ruby match) is frozen
@@ -62,7 +68,7 @@ describe('GameStore - Frozen Tiles', () => {
     }));
 
     // Perform a dummy swap to trigger match resolution (the match is already set up)
-    await gameStore.resolveSwap(0, 1); 
+    await gameStore.resolveSwap(0, 1);
 
     // Tile at index 3 should have been unfrozen
     expect(gameStore.tiles[3].state).toBe('PLAYABLE');

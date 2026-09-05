@@ -12,3 +12,9 @@ capacitor/ios/build
 coverage/
 build/
 *.tmp
+
+# Local browser verification artifacts
+output/
+.playwright-cli/
+playwright-report/
+test-results/

@@ -1,3 +1,5 @@
+import { markRaw } from 'vue';
+import { useSettingsStore } from './settingsStore';
 import { defineStore } from 'pinia';
 import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { MatchEngine } from '../game/engine/MatchEngine';
@@ -57,6 +59,8 @@ const cloneTileLayers = (tiles = []) => {
 export const useGameStore = defineStore('game', {
   state: () => ({
     sessionActive: false,
+    sessionVersion: 0,
+    inputPaused: false,
     board: [],
     tiles: [],
     boardSize: 8,
@@ -100,7 +104,7 @@ export const useGameStore = defineStore('game', {
   },
   actions: {
     setAudioManager(manager) {
-      this.audioManager = manager ?? null;
+      this.audioManager = manager ? markRaw(manager) : null;
       const animator = this.renderer?.animator;
       if (animator?.setAudioManager) {
         animator.setAudioManager(this.audioManager);
@@ -166,6 +170,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     async resolveBonusClick(index) {
+      const session = this.sessionVersion;
       if (!this.sessionActive || !this.activeBonusMode || this.levelCleared) {
         return false;
       }
@@ -215,14 +220,18 @@ export const useGameStore = defineStore('game', {
           rows,
         });
 
+        if (resolution.steps[0]) {
+          resolution.steps[0].bonusEffect = { type: bonusName, originIndex: index };
+        }
+
         const layersCleared = resolution.layersCleared ?? 0;
         this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
-        window.__currentBoard = this.pendingBoardState;
 
         if (animator && resolution.steps.length) {
           await animator.playSteps(resolution.steps);
+          if (session !== this.sessionVersion) return false;
         }
 
         this.board = resolution.board;
@@ -235,7 +244,6 @@ export const useGameStore = defineStore('game', {
         }
 
         animator?.updateTiles(this.tiles);
-        window.__currentBoard = this.board;
 
         if (this.remainingLayers === 0 && this.sessionActive) {
           this.completeLevel();
@@ -245,17 +253,17 @@ export const useGameStore = defineStore('game', {
         inventoryStore.consumeItem(bonusName);
         boardUpdated = true;
         return true;
-
       } catch (error) {
         console.error('Error activating bonus:', error);
         return false;
       } finally {
+        if (session !== this.sessionVersion) return false;
         this.pendingBoardState = null;
         this.animationInProgress = false;
         if (this.sessionActive) {
           this.scheduleHint();
         }
-        this._processQueuedBonusSoon();
+        this.processQueuedInput();
         if (boardUpdated && this.sessionActive && !this.levelCleared) {
           await this.ensurePlayableBoard();
         }
@@ -340,7 +348,13 @@ export const useGameStore = defineStore('game', {
       const rows = this.boardRows ?? this.boardSize ?? 8;
       const board = this.activeBoard;
 
-      if (!Array.isArray(board) || !board.length || index == null || index < 0 || index >= board.length) {
+      if (
+        !Array.isArray(board) ||
+        !board.length ||
+        index == null ||
+        index < 0 ||
+        index >= board.length
+      ) {
         this.clearBonusPreview();
         return;
       }
@@ -365,34 +379,26 @@ export const useGameStore = defineStore('game', {
       };
       this.renderer?.animator?.showBonusPreview?.(indices);
     },
-    _processQueuedBonusSoon() {
-      if (!this.queuedBonus) {
-        return;
-      }
-      const queued = this.queuedBonus;
-      this.queuedBonus = null;
-
-      const tryActivate = () => {
-        if (!this.sessionActive || this.levelCleared) {
-          this.renderer?.animator?.clearQueuedBonusHighlight?.();
-          return;
-        }
-        if (this.animationInProgress) {
-          // Still busy; requeue and try again shortly
-          this.queuedBonus = queued;
-          setTimeout(() => this._processQueuedBonusSoon(), 60);
-          return;
-        }
+    processQueuedInput() {
+      if (this.animationInProgress || !this.sessionActive || this.levelCleared) return;
+      if (this.queuedBonus) {
+        const queued = this.queuedBonus;
+        this.queuedBonus = null;
         this.activeBonusMode = queued.bonusName;
-        this.renderer?.animator?.clearQueuedBonusHighlight?.();
         this.resolveBonusClick(queued.index);
-      };
-
-      setTimeout(tryActivate, 0);
+      } else if (this.queuedSwap) {
+        const queued = this.queuedSwap;
+        this.queuedSwap = null;
+        this.renderer?.animator?.clearQueuedSwapHighlight?.();
+        this.resolveSwap(queued.aIndex, queued.bIndex);
+      }
     },
     async activateOneTimeBonus(bonusName) {
+      const session = this.sessionVersion;
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
-        console.warn('Cannot activate bonus: session not active, animation in progress, or level cleared.');
+        console.warn(
+          'Cannot activate bonus: session not active, animation in progress, or level cleared.',
+        );
         return false;
       }
       this.clearBonusPreview(true);
@@ -435,14 +441,18 @@ export const useGameStore = defineStore('game', {
           rows,
         });
 
+        if (resolution.steps[0]) {
+          resolution.steps[0].bonusEffect = { type: bonusName, originIndex: bonusOriginIndex };
+        }
+
         const layersCleared = resolution.layersCleared ?? 0;
         this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
-        window.__currentBoard = this.pendingBoardState;
 
         if (animator && resolution.steps.length) {
           await animator.playSteps(resolution.steps);
+          if (session !== this.sessionVersion) return false;
         }
 
         this.board = resolution.board;
@@ -455,18 +465,17 @@ export const useGameStore = defineStore('game', {
         }
 
         animator?.updateTiles(this.tiles);
-        window.__currentBoard = this.board;
 
         if (this.remainingLayers === 0 && this.sessionActive) {
           this.completeLevel();
         }
         boardUpdated = true;
         return true;
-
       } catch (error) {
         console.error('Error activating bonus:', error);
         return false;
       } finally {
+        if (session !== this.sessionVersion) return false;
         this.pendingBoardState = null;
         this.animationInProgress = false;
         if (this.sessionActive) {
@@ -475,6 +484,7 @@ export const useGameStore = defineStore('game', {
         if (boardUpdated && this.sessionActive && !this.levelCleared) {
           await this.ensurePlayableBoard();
         }
+        this.processQueuedInput();
       }
     },
     notifyPlayerActivity() {
@@ -540,6 +550,10 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
+      this.sessionVersion += 1;
+      const session = this.sessionVersion;
+      this.renderer?.animator?.clear();
+      this.renderer?.input?.reset();
       const { config } = selected;
       this.currentLevelId = levelId;
       if (scoreFlashTimeoutId) {
@@ -561,7 +575,6 @@ export const useGameStore = defineStore('game', {
       this.boardSize = this.boardCols;
       this.board = freshBoard;
       this.clearBonusPreview(true);
-      window.__currentBoard = this.board;
       this.tiles = freshTiles;
       this.currentBoardLayout = config.boardLayout || this.currentBoardLayout;
       if (this.renderer?.animator) {
@@ -577,6 +590,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = true;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.queuedBonus = null;
       this.activeBonusMode = null;
       this.clearBonusPreview(true);
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
@@ -592,16 +606,19 @@ export const useGameStore = defineStore('game', {
 
       const introPromise = this.renderer?.animator?.playIntroCascade?.();
       const finalizeIntro = () => {
+        if (session !== this.sessionVersion) return;
         this.animationInProgress = false;
         if (this.sessionActive) {
           this.scheduleHint();
         }
+        this.processQueuedInput();
         this.ensurePlayableBoard();
       };
 
       if (introPromise?.then) {
         introPromise
           .then(() => {
+            if (session !== this.sessionVersion) return;
             this.renderer?.animator?.updateTiles?.(this.tiles);
           })
           .catch((error) => {
@@ -624,14 +641,12 @@ export const useGameStore = defineStore('game', {
         scene: renderer.scene,
         boardContainer: renderer.boardContainer,
         backgroundLayer: renderer.backgroundLayer,
-        tileLayer: renderer.tileLayer,
         gemLayer: renderer.gemLayer,
         fxLayer: renderer.fxLayer,
         textures: renderer.textures,
-        bonusAnimations: renderer.bonusAnimations,
-        tileTextures: renderer.tileTextures,
         particles: renderer.particles,
         audio: this.audioManager,
+        settings: useSettingsStore(),
         boardLayout: this.currentBoardLayout,
       });
 
@@ -641,7 +656,7 @@ export const useGameStore = defineStore('game', {
         gameStore: this,
       });
 
-      this.renderer = { ...renderer, animator, input };
+      this.renderer = markRaw({ ...renderer, animator, input });
       this.clearBonusPreview(true);
 
       if (this.board.length > 0) {
@@ -653,14 +668,9 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
-      // Expose current board state for debugging
-      window.__currentBoard = this.board;
-
       const { boardContainer, scene, animator } = this.renderer;
       const fallbackWidth =
-        scene?.scale?.width ??
-        scene?.scale?.parentSize?.width ??
-        scene?.sys?.game?.canvas?.width;
+        scene?.scale?.width ?? scene?.scale?.parentSize?.width ?? scene?.sys?.game?.canvas?.width;
       const fallbackHeight =
         scene?.scale?.height ??
         scene?.scale?.parentSize?.height ??
@@ -698,16 +708,17 @@ export const useGameStore = defineStore('game', {
       this.renderer.input?.setLayout({ boardCols: cols, boardRows: rows, cellSize });
       animator.updateTiles(this.tiles);
 
-      const shouldReset = ((forceRedraw && !this.animationInProgress) || animator.indexToGemId.length === 0);
+      const shouldReset =
+        (forceRedraw && !this.animationInProgress) || animator.indexToGemId.length === 0;
 
       if (shouldReset) {
         animator.reset(this.board, { boardCols: cols, boardRows: rows, cellSize });
-      } else {
+      } else if (!this.animationInProgress) {
         animator.syncToBoard(this.board);
       }
-
     },
     async resolveSwap(aIndex, bIndex) {
+      const session = this.sessionVersion;
       if (!this.sessionActive || this.levelCleared) {
         return false;
       }
@@ -728,7 +739,16 @@ export const useGameStore = defineStore('game', {
       let boardUpdated = false;
       if (tileA?.state === 'FROZEN' || tileB?.state === 'FROZEN') {
         if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
-          await animator.animateInvalidSwap({ aIndex, bIndex });
+          this.animationInProgress = true;
+          try {
+            await animator.animateInvalidSwap({ aIndex, bIndex });
+          } finally {
+            if (session === this.sessionVersion) {
+              this.animationInProgress = false;
+              this.processQueuedInput();
+            }
+          }
+          if (session !== this.sessionVersion) return false;
         }
         if (this.sessionActive) {
           this.scheduleHint();
@@ -741,7 +761,16 @@ export const useGameStore = defineStore('game', {
 
       if (!evaluation.matches.length) {
         if (isAdjacent && animator) {
-          await animator.animateInvalidSwap({ aIndex, bIndex });
+          this.animationInProgress = true;
+          try {
+            await animator.animateInvalidSwap({ aIndex, bIndex });
+          } finally {
+            if (session === this.sessionVersion) {
+              this.animationInProgress = false;
+              this.processQueuedInput();
+            }
+          }
+          if (session !== this.sessionVersion) return false;
         }
         if (this.sessionActive) {
           this.scheduleHint();
@@ -756,6 +785,7 @@ export const useGameStore = defineStore('game', {
         const swapPayload = evaluation.swap ?? { aIndex, bIndex };
         if (animator && swapPayload) {
           await animator.animateSwap(swapPayload);
+          if (session !== this.sessionVersion) return false;
         }
 
         const resolution = tileManager.getResolution({
@@ -771,7 +801,6 @@ export const useGameStore = defineStore('game', {
         this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
-        window.__currentBoard = this.pendingBoardState;
 
         if (!animator) {
           this.board = resolution.board;
@@ -782,7 +811,6 @@ export const useGameStore = defineStore('game', {
             this.updateObjectives({ layersCleared });
           }
           this.refreshBoardVisuals(true);
-          window.__currentBoard = this.board;
           if (this.remainingLayers === 0 && this.sessionActive) {
             this.completeLevel();
           }
@@ -793,6 +821,7 @@ export const useGameStore = defineStore('game', {
 
         if (resolution.steps.length) {
           await animator.playSteps(resolution.steps);
+          if (session !== this.sessionVersion) return false;
         }
 
         this.board = resolution.board;
@@ -803,8 +832,6 @@ export const useGameStore = defineStore('game', {
           this.updateObjectives({ layersCleared });
         }
         animator.updateTiles(this.tiles);
-
-        window.__currentBoard = this.board;
 
         if (this.remainingLayers === 0 && this.sessionActive) {
           this.completeLevel();
@@ -817,22 +844,13 @@ export const useGameStore = defineStore('game', {
         console.error('Error in resolveSwap:', error);
         return false;
       } finally {
+        if (session !== this.sessionVersion) return false;
         this.pendingBoardState = null;
         this.animationInProgress = false;
         if (this.sessionActive) {
           this.scheduleHint();
         }
-        const queued = this.queuedSwap;
-        if (queued) {
-          this.queuedSwap = null;
-          setTimeout(() => {
-            if (!this.sessionActive) {
-              return;
-            }
-            this.resolveSwap(queued.aIndex, queued.bIndex);
-          }, 0);
-        }
-        this._processQueuedBonusSoon();
+        this.processQueuedInput();
         if (boardUpdated && this.sessionActive && !this.levelCleared) {
           await this.ensurePlayableBoard();
         }
@@ -843,7 +861,7 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const boardSnapshot = this.pendingBoardState;
+      const boardSnapshot = this.pendingBoardState ?? this.board;
       if (!Array.isArray(boardSnapshot) || !boardSnapshot.length) {
         return false;
       }
@@ -867,6 +885,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      this.sessionVersion += 1;
       this.cancelHint(true);
       if (scoreFlashTimeoutId) {
         clearTimeout(scoreFlashTimeoutId);
@@ -923,15 +942,15 @@ export const useGameStore = defineStore('game', {
       this.remainingLayers = 0;
       this.levelCleared = true;
       // Keep session active so the board remains visible behind the victory modal
-      // this.sessionActive = false; 
+      // this.sessionActive = false;
       this.animationInProgress = false;
       this.pendingBoardState = null;
       this.queuedSwap = null;
+      this.queuedBonus = null;
       this.activeBonusMode = null;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
       this.renderer?.input?.reset();
       this.updateObjectives();
-      console.log('✨ Level cleared!');
     },
 
     updateObjectives({ reset = false, scoreDelta = 0, layersCleared = 0 } = {}) {
@@ -979,8 +998,7 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const hint = hintEngine.findBestMove(board, this.tiles ?? [], cols, rows);
-      return !!hint;
+      return !!hintEngine.findBestMove(board, this.tiles ?? [], cols, rows, { first: true });
     },
     _triggerScorePenaltyFlash() {
       if (scoreFlashTimeoutId) {
@@ -1082,6 +1100,7 @@ export const useGameStore = defineStore('game', {
       return total;
     },
     shuffleBoard() {
+      const session = this.sessionVersion;
       if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
         return false;
       }
@@ -1098,67 +1117,31 @@ export const useGameStore = defineStore('game', {
 
       this.animationInProgress = true;
       this.pendingBoardState = nextBoard;
-      window.__currentBoard = this.pendingBoardState;
 
       const runAnimation = animator?.animateShuffle
         ? animator
-          .animateShuffle(nextBoard, { cols, rows })
-          .catch((error) => console.error('Shuffle animation failed:', error))
+            .animateShuffle(nextBoard, { cols, rows })
+            .catch((error) => console.error('Shuffle animation failed:', error))
         : Promise.resolve();
 
       return runAnimation
-        .then(() => this._resolveBoardAfterShuffle(nextBoard, { cols, rows, animator }))
+        .then(() =>
+          session === this.sessionVersion
+            ? this._resolveBoardAfterShuffle(nextBoard, { cols, rows, animator })
+            : false,
+        )
         .finally(() => {
+          if (session !== this.sessionVersion) return;
           this.pendingBoardState = null;
           this.animationInProgress = false;
           if (this.sessionActive) {
             this.scheduleHint();
           }
-          this._processQueuedBonusSoon();
+          this.processQueuedInput();
         });
     },
-    async hammerTile(index, bonusName = 'hammer') {
-      if (!this.sessionActive || this.animationInProgress || this.levelCleared) {
-        return;
-      }
-      this.board[index] = null;
-
-      const cols = this.boardCols ?? this.boardSize ?? 8;
-      const rows = this.boardRows ?? this.boardSize ?? 8;
-
-      const resolution = tileManager.getResolution({
-        board: this.board,
-        tiles: this.tiles,
-        matches: [],
-        cols,
-        rows,
-      });
-
-      this.pendingBoardState = resolution.board;
-      window.__currentBoard = this.pendingBoardState;
-
-      if (this.renderer.animator && resolution.steps.length) {
-        // Inject bonus effect metadata into the first step if applicable
-        if (resolution.steps[0] && resolution.steps[0].cleared.includes(index)) {
-          resolution.steps[0].bonusEffect = {
-            type: bonusName,
-            originIndex: index,
-          };
-        }
-        await this.renderer.animator.playSteps(resolution.steps);
-      }
-
-      // Consume the item from inventory now that it has been successfully used
-      const inventoryStore = useInventoryStore();
-      inventoryStore.consumeItem(bonusName);
-
-      this.board = resolution.board;
-      this.pendingBoardState = null;
-      this.boardVersion += 1;
-      this.renderer.animator.updateTiles(this.tiles);
-      window.__currentBoard = this.board;
-    },
     async _resolveBoardAfterShuffle(nextBoard, { cols, rows, animator }) {
+      const session = this.sessionVersion;
       try {
         const matches = matchEngine.findMatches(nextBoard, cols, rows);
 
@@ -1191,10 +1174,10 @@ export const useGameStore = defineStore('game', {
         this._applyScoring(resolution.steps);
 
         this.pendingBoardState = resolution.board;
-        window.__currentBoard = this.pendingBoardState;
 
         if (animator && resolution.steps.length) {
           await animator.playSteps(resolution.steps);
+          if (session !== this.sessionVersion) return false;
         }
 
         this.board = resolution.board;
@@ -1209,7 +1192,6 @@ export const useGameStore = defineStore('game', {
         } else {
           this.refreshBoardVisuals(true);
         }
-        window.__currentBoard = this.board;
 
         if (this.remainingLayers === 0 && this.sessionActive) {
           this.completeLevel();
@@ -1218,13 +1200,6 @@ export const useGameStore = defineStore('game', {
       } catch (error) {
         console.error('Error resolving board after shuffle:', error);
         return false;
-      } finally {
-        this.pendingBoardState = null;
-        this.animationInProgress = false;
-        if (this.sessionActive) {
-          this.scheduleHint();
-        }
-        this._processQueuedBonusSoon();
       }
     },
   },

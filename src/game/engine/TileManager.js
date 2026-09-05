@@ -4,15 +4,6 @@ import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const matchEngine = new MatchEngine();
 
-class GameTile {
-  constructor(state, coordinates, element, unfreezeCondition = { trigger: 'ADJACENT_MATCH' }) {
-    this.state = state;
-    this.coordinates = coordinates;
-    this.element = element;
-    this.unfreezeCondition = unfreezeCondition;
-  }
-}
-
 export class TileManager {
   getResolution({ board, tiles, matches, cols, rows, bonusesCreated, bonusIndices }) {
     if (!matches?.length) {
@@ -39,23 +30,24 @@ export class TileManager {
     let totalLayersCleared = 0;
 
     while (pendingMatches.length) {
+      if (iteration >= 128) throw new Error('Cascade did not settle after 128 steps');
       const cleared = new Set();
       const protectedIndices = new Set();
       const cascadeBonuses = [];
-      
-        pendingMatches.forEach((match) => {
-          match.indices.forEach((index) => {
-            const tile = tiles[index];
-            if (!tile || tile.state !== 'FROZEN') {
-              cleared.add(index);
-            }
-          });
+
+      pendingMatches.forEach((match) => {
+        match.indices.forEach((index) => {
+          const tile = tiles[index];
+          if (!tile || tile.state !== 'FROZEN') {
+            cleared.add(index);
+          }
         });
+      });
 
       if (iteration > 0) {
         const newBonuses = detectBonusFromMatches(pendingMatches);
         if (newBonuses.length > 0) {
-          newBonuses.forEach(bonus => {
+          newBonuses.forEach((bonus) => {
             cascadeBonuses.push(bonus);
             workingBoard[bonus.index] = createGem(bonus.type);
           });
@@ -80,12 +72,14 @@ export class TileManager {
             });
           }
         } else if (bonusesCreated || bonusIndices) {
-          console.warn('TileManager: expected arrays for bonusesCreated and bonusIndices during initial swap handling');
+          console.warn(
+            'TileManager: expected arrays for bonusesCreated and bonusIndices during initial swap handling',
+          );
         }
       }
-      
+
       // Handle bonus from cascade
-      cascadeBonuses.forEach(bonus => {
+      cascadeBonuses.forEach((bonus) => {
         protectedIndices.add(bonus.index);
         cleared.delete(bonus.index);
       });
@@ -105,7 +99,11 @@ export class TileManager {
         cleared: [...cleared].sort((a, b) => a - b),
         drops: [],
         spawns: [],
-        bonuses: cascadeBonuses.map(b => ({ type: b.type, index: b.index, gem: workingBoard[b.index] })),
+        bonuses: cascadeBonuses.map((b) => ({
+          type: b.type,
+          index: b.index,
+          gem: workingBoard[b.index],
+        })),
         tileUpdates: [],
       };
 
@@ -128,9 +126,9 @@ export class TileManager {
           workingBoard[index] = null;
         }
       });
-      
+
       // Unfreeze adjacent tiles
-      cleared.forEach(index => {
+      cleared.forEach((index) => {
         const x = index % totalCols;
         const y = Math.floor(index / totalCols);
         const adjacent = [
@@ -139,7 +137,7 @@ export class TileManager {
           { x, y: y - 1 },
           { x, y: y + 1 },
         ];
-        adjacent.forEach(pos => {
+        adjacent.forEach((pos) => {
           if (pos.x >= 0 && pos.x < totalCols && pos.y >= 0 && pos.y < totalRows) {
             const adjacentIndex = pos.y * totalCols + pos.x;
             const adjacentTile = tiles[adjacentIndex];
@@ -169,7 +167,25 @@ export class TileManager {
 
         for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
           const index = spawnRow * totalCols + col;
-          const newGem = createGem(randomGemType());
+          let type = randomGemType();
+          // A pathological RNG (or deterministic test) must not create an endless cascade.
+          if (iteration >= 24) {
+            const types = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
+            type =
+              types.find(
+                (candidate) =>
+                  ![1, totalCols].some((stride) =>
+                    [-2, -1, 0].some((offset) => {
+                      const run = [0, 1, 2].map((n) => index + (offset + n) * stride);
+                      if (run.some((i) => i < 0 || i >= workingBoard.length)) return false;
+                      if (stride === 1 && run.some((i) => Math.floor(i / totalCols) !== spawnRow))
+                        return false;
+                      return run.every((i) => i === index || workingBoard[i]?.type === candidate);
+                    }),
+                  ),
+              ) ?? type;
+          }
+          const newGem = createGem(type);
           workingBoard[index] = newGem;
           step.spawns.push({ index, gem: newGem });
         }

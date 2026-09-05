@@ -79,7 +79,11 @@ describe('GameStore - Diverse Board Layouts', () => {
     expect(allCellsFilled).toBe(true);
 
     const requiredMoves = LEVEL_STARTING_MOVE_REQUIREMENTS[levelThree.id] ?? DEFAULT_MIN_MOVES;
-    const actualMoves = countPlayableMoves(gameStore.board, gameStore.boardCols, gameStore.boardRows);
+    const actualMoves = countPlayableMoves(
+      gameStore.board,
+      gameStore.boardCols,
+      gameStore.boardRows,
+    );
     expect(actualMoves).toBeGreaterThanOrEqual(requiredMoves);
   });
 });

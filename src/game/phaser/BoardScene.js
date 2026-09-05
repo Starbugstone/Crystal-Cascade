@@ -5,47 +5,26 @@ import { createParticleFactory } from './ParticleFactory';
 export class BoardScene extends Phaser.Scene {
   constructor() {
     super({ key: 'BoardScene' });
-    this.boardContainer = null;
-    this.backgroundLayer = null;
-    this.tileLayer = null;
-    this.gemLayer = null;
-    this.fxLayer = null;
-    this.onReady = null;
   }
-
   preload() {
     preloadSpriteAssets(this);
   }
-
   create() {
-    this.boardContainer = this.add.container(0, 0);
-    this.backgroundLayer = this.add.container(0, 0);
-    this.tileLayer = this.add.container(0, 0);
-    this.gemLayer = this.add.container(0, 0);
-    this.fxLayer = this.add.container(0, 0);
-
-    this.boardContainer.add([this.backgroundLayer, this.tileLayer, this.gemLayer, this.fxLayer]);
-
-    const { textures, bonusAnimations, tileTextures } = loadSpriteAtlas(this);
-    const particles = createParticleFactory(this, this.fxLayer);
-
-    const payload = {
+    const boardContainer = this.add.container(0, 0);
+    const backgroundLayer = this.add.container(0, 0);
+    const gemLayer = this.add.container(0, 0);
+    const fxLayer = this.add.container(0, 0);
+    boardContainer.add([backgroundLayer, gemLayer, fxLayer]);
+    const { textures } = loadSpriteAtlas(this);
+    const particles = createParticleFactory(this, fxLayer);
+    this.onReady?.({
       scene: this,
-      boardContainer: this.boardContainer,
-      backgroundLayer: this.backgroundLayer,
-      tileLayer: this.tileLayer,
-      gemLayer: this.gemLayer,
-      fxLayer: this.fxLayer,
+      boardContainer,
+      backgroundLayer,
+      gemLayer,
+      fxLayer,
       textures,
-      bonusAnimations,
-      tileTextures,
       particles,
-    };
-
-    if (typeof this.onReady === 'function') {
-      this.onReady(payload);
-    } else {
-      this.events.emit('scene-ready', payload);
-    }
+    });
   }
 }

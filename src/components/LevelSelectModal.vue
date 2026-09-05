@@ -1,122 +1,48 @@
 <template>
-  <div class="modal-scrim">
-    <div class="modal-card">
-      <h2>Select Level</h2>
-      <div class="level-grid">
-        <button
-          v-for="level in levels"
-          :key="level.id"
-          class="level-button"
-          @click="$emit('start-level', level.id)"
-        >
-          <span>{{ level.label }}</span>
-          <small>{{ level.summary }}</small>
-        </button>
+  <section class="collection" aria-labelledby="collection-title">
+    <div class="collection-heading">
+      <div>
+        <span class="eyebrow">YOUR NEXT LITTLE ADVENTURE</span>
+        <h2 id="collection-title">The collection<span>01 — 12</span></h2>
       </div>
+      <GameIcon name="spark" />
     </div>
-  </div>
+    <button class="featured-level" @click="$emit('start-level', 1)">
+      <div class="featured-art"><img src="/art/emerald.svg" alt="" /><span>✦</span></div>
+      <div>
+        <span class="eyebrow">BEGIN THE JOURNEY</span>
+        <h3>First light</h3>
+        <p>Every cascade starts with a spark.</p>
+        <span class="featured-play">Let's play <GameIcon name="arrow" /></span>
+      </div>
+    </button>
+    <div class="level-grid">
+      <button
+        v-for="level in levels"
+        :key="level.id"
+        class="level-button"
+        @click="$emit('start-level', level.id)"
+        :aria-label="`Play level ${level.id}: ${names[level.id - 1]}`"
+      >
+        <span class="level-number">{{ String(level.id).padStart(2, '0') }}</span
+        ><img :src="`/art/${gems[(level.id - 1) % gems.length]}.svg`" alt="" /><span
+          class="level-name"
+          >{{ names[level.id - 1] }}</span
+        ><span class="level-dots" aria-hidden="true">✧ ✧ ✧</span>
+      </button>
+    </div>
+    <p class="collection-note">
+      <span>✧</span> Twelve chapters of color. Play any chapter, any time.
+    </p>
+  </section>
 </template>
-
 <script setup>
 import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
-
-const gameStore = useGameStore();
-
-const levels = computed(() => gameStore.availableLevels);
+import { LEVEL_NAMES as names } from '../data/levelNames';
+import GameIcon from './GameIcon.vue';
+defineEmits(['start-level']);
+const game = useGameStore();
+const levels = computed(() => game.availableLevels);
+const gems = ['emerald', 'sapphire', 'topaz', 'amethyst', 'ruby', 'moonstone'];
 </script>
-
-<style scoped>
-.modal-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(2, 6, 23, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  z-index: 30;
-}
-
-.modal-card {
-  width: min(720px, 100%);
-  background: rgba(15, 23, 42, 0.95);
-  border-radius: 18px;
-  padding: 2rem;
-  box-shadow: 0 12px 48px rgba(15, 23, 42, 0.6);
-  display: flex;
-  flex-direction: column;
-  max-height: min(90vh, 720px);
-  overflow: hidden;
-}
-
-.modal-card h2 {
-  margin: 0 0 1.5rem;
-  font-family: var(--font-heading);
-  text-align: center;
-  color: var(--color-accent);
-}
-
-.level-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.level-button {
-  border: none;
-  border-radius: 12px;
-  padding: 1rem;
-  background: rgba(30, 41, 59, 0.85);
-  color: var(--color-foreground);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-  transition: transform 150ms ease, background 150ms ease;
-}
-
-.level-button span {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.level-button small {
-  opacity: 0.75;
-}
-
-.level-button:hover {
-  transform: translateY(-4px);
-  background: rgba(59, 130, 246, 0.6);
-}
-
-@media (max-width: 640px) {
-  .modal-scrim {
-    padding: 1.5rem;
-  }
-
-  .modal-card {
-    padding: 1.25rem;
-    max-height: calc(100vh - 2rem);
-  }
-
-  .level-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    row-gap: 0.75rem;
-  }
-}
-
-@media (max-width: 400px) {
-  .modal-card {
-    padding: 1rem;
-  }
-
-  .level-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

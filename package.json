@@ -1,7 +1,7 @@
 {
   "name": "crystal-cascade",
   "version": "1.0.0",
-  "description": "**Crystal Cascade** is a premium match-3 puzzle game featuring tile-breaking mechanics, procedural level generation, arcade-style gameplay, and mobile-first design. This specification transforms the existing \"Cascade Candy Clash\" prototype into a full-featured game with progression systems, inventory management, and polished visual effects.",
+  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and twelve puzzle chapters.",
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",
@@ -10,8 +10,11 @@
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",
-    "test": "vitest",
-    "test:e2e": "playwright test"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "assets": "node scripts/generate-gems.mjs && node scripts/generate-bonus-art.mjs"
   },
   "repository": {
     "type": "git",
@@ -37,11 +40,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.4",
-    "@playwright/test": "^1.56.1",
     "@vitejs/plugin-vue": "^6.0.1",
-    "happy-dom": "^20.0.10",
-    "jest-canvas-mock": "^2.5.2",
-    "phaser3spectorjs": "^0.0.8",
+    "prettier": "^3.9.6",
     "vite": "^7.1.12",
     "vitest": "^4.0.10"
   }

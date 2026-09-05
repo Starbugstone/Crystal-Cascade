@@ -1,231 +1,161 @@
 export class BoardInput {
   constructor({ scene, boardContainer, gameStore }) {
-    this.scene = scene;
-    this.boardContainer = boardContainer;
-    this.gameStore = gameStore;
-
-    this.layout = {
-      boardCols: 0,
-      boardRows: 0,
-      cellSize: 0,
-    };
-
-    this.startCell = null;
+    Object.assign(this, { scene, boardContainer, gameStore });
+    this.layout = { boardCols: 0, boardRows: 0, cellSize: 0 };
     this.selectedCell = null;
-    this.isDragging = false;
-
-    const input = this.scene?.input;
-    if (!input?.on) {
-      return;
-    }
-
-    input.on('pointerdown', this.handlePointerDown, this);
-    input.on('pointermove', this.handlePointerMove, this);
-    input.on('pointerup', this.handlePointerUp, this);
-    input.on('pointerupoutside', this.handlePointerUp, this);
+    this.startCell = null;
+    this.focusIndex = 0;
+    this.activePointer = null;
+    scene?.input?.on?.('pointerdown', this.handlePointerDown, this);
+    scene?.input?.on?.('pointermove', this.handlePointerMove, this);
+    scene?.input?.on?.('pointerup', this.handlePointerUp, this);
+    scene?.input?.on?.('pointerupoutside', this.reset, this);
+    scene?.input?.on?.('gameout', this.handleOut, this);
   }
-
+  get enabled() {
+    return (
+      this.gameStore.sessionActive && !this.gameStore.levelCleared && !this.gameStore.inputPaused
+    );
+  }
   destroy() {
-    const input = this.scene?.input;
-    if (!input?.off) {
-      return;
-    }
-    input.off('pointerdown', this.handlePointerDown, this);
-    input.off('pointermove', this.handlePointerMove, this);
-    input.off('pointerup', this.handlePointerUp, this);
-    input.off('pointerupoutside', this.handlePointerUp, this);
+    for (const [name, handler] of [
+      ['pointerdown', this.handlePointerDown],
+      ['pointermove', this.handlePointerMove],
+      ['pointerup', this.handlePointerUp],
+      ['pointerupoutside', this.reset],
+      ['gameout', this.handleOut],
+    ])
+      this.scene?.input?.off?.(name, handler, this);
     this.reset();
   }
-
+  setLayout(layout) {
+    this.layout = layout;
+  }
   reset() {
     this.startCell = null;
     this.selectedCell = null;
-    this.isDragging = false;
+    this.activePointer = null;
     this.clearHighlights();
-  }
-
-  setLayout({ boardCols, boardRows, cellSize }) {
-    this.layout.boardCols = boardCols;
-    this.layout.boardRows = boardRows;
-    this.layout.cellSize = cellSize;
-  }
-
-  handlePointerDown(pointer) {
-    if (this.gameStore?.sessionActive && typeof this.gameStore.notifyPlayerActivity === 'function') {
-      this.gameStore.notifyPlayerActivity();
-    }
-
-    if (!this.gameStore.sessionActive || this.gameStore.levelCleared) {
-      return;
-    }
-
-    const cell = this.getCellIndexFromPointer(pointer);
-    this.startCell = cell;
-    this.isDragging = false;
-  }
-
-  handlePointerMove(pointer) {
-    // If in active bonus mode (hammer, color_wand, tile_breaker), show preview on hover
-    if (this.gameStore.activeBonusMode) {
-      const currentCell = this.getCellIndexFromPointer(pointer);
-      if (currentCell != null && !this.gameStore.animationInProgress) {
-        this.gameStore.previewPowerEffect(currentCell);
-      } else {
-        this.gameStore.clearBonusPreview();
-      }
-      return;
-    }
-
-    if (
-      this.startCell == null ||
-      !this.gameStore.sessionActive ||
-      this.gameStore.levelCleared
-    ) {
-      this.gameStore.clearBonusPreview();
-      return;
-    }
-
-    const currentCell = this.getCellIndexFromPointer(pointer);
-    if (currentCell != null && currentCell !== this.startCell) {
-      if (!this.gameStore.animationInProgress) {
-        this.gameStore.previewBonusSwap(this.startCell, currentCell);
-      } else {
-        this.gameStore.clearBonusPreview();
-      }
-      if (!this.isDragging && typeof this.gameStore.notifyPlayerActivity === 'function') {
-        this.gameStore.notifyPlayerActivity();
-      }
-      this.isDragging = true;
-    } else if (this.isDragging) {
-      this.gameStore.clearBonusPreview();
-    }
-  }
-
-  async handlePointerUp(pointer) {
-    if (this.gameStore?.sessionActive && typeof this.gameStore.notifyPlayerActivity === 'function') {
-      this.gameStore.notifyPlayerActivity();
-    }
-
-    if (
-      this.startCell == null ||
-      !this.gameStore.sessionActive ||
-      this.gameStore.levelCleared
-    ) {
-      this.startCell = null;
-      this.isDragging = false;
-      return;
-    }
-
-    const endCell = this.getCellIndexFromPointer(pointer);
-
-    if (endCell == null) {
-      this.startCell = null;
-      this.isDragging = false;
-      return;
-    }
-
-    // Handle active bonus mode click
-    if (this.gameStore.activeBonusMode && endCell === this.startCell) {
-      this.clearHighlights();
-      this.selectedCell = null;
-      this.gameStore.clearBonusPreview();
-      await this.gameStore.resolveBonusClick(endCell);
-      this.startCell = null;
-      this.isDragging = false;
-      return;
-    }
-
-    if (this.isDragging && endCell !== this.startCell) {
-      this.clearHighlights();
-      this.selectedCell = null;
-      this.gameStore.clearBonusPreview();
-      await this.gameStore.resolveSwap(this.startCell, endCell);
-      this.startCell = null;
-      this.isDragging = false;
-      return;
-    }
-
-    if (endCell === this.startCell) {
-      if (this.selectedCell != null) {
-        if (this.selectedCell === endCell) {
-          this.clearHighlights();
-          this.selectedCell = null;
-        } else {
-          const firstCell = this.selectedCell;
-          this.clearHighlights();
-          this.selectedCell = null;
-          this.gameStore.clearBonusPreview();
-          await this.gameStore.resolveSwap(firstCell, endCell);
-        }
-      } else {
-        this.clearHighlights();
-        this.selectedCell = endCell;
-        this.highlightCell(endCell);
-      }
-    }
-
-    this.startCell = null;
-    this.isDragging = false;
     this.gameStore.clearBonusPreview();
   }
-
+  handleOut() {
+    this.gameStore.clearBonusPreview();
+  }
+  handlePointerDown(pointer) {
+    if (!this.enabled || this.activePointer !== null) return;
+    const index = this.getCellIndexFromPointer(pointer);
+    if (index === null) return;
+    this.activePointer = pointer.id;
+    this.startCell = index;
+    this.startX = pointer.x;
+    this.startY = pointer.y;
+    this.gameStore.notifyPlayerActivity();
+    this.highlightCell(index);
+  }
+  handlePointerMove(pointer) {
+    if (!this.enabled) return;
+    if (this.gameStore.activeBonusMode) {
+      const index = this.getCellIndexFromPointer(pointer);
+      if (index !== null) this.gameStore.previewPowerEffect(index);
+      else this.gameStore.clearBonusPreview();
+      return;
+    }
+    if (this.startCell === null || pointer.id !== this.activePointer) return;
+    const dx = pointer.x - this.startX;
+    const dy = pointer.y - this.startY;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < this.layout.cellSize * 0.22) return;
+    const horizontal = Math.abs(dx) > Math.abs(dy);
+    const col = this.startCell % this.layout.boardCols;
+    const row = Math.floor(this.startCell / this.layout.boardCols);
+    const nextCol = col + (horizontal ? Math.sign(dx) : 0);
+    const nextRow = row + (horizontal ? 0 : Math.sign(dy));
+    if (
+      nextCol < 0 ||
+      nextCol >= this.layout.boardCols ||
+      nextRow < 0 ||
+      nextRow >= this.layout.boardRows
+    )
+      return;
+    const from = this.startCell;
+    this.startCell = null; // Commit at the swipe threshold, once per gesture.
+    this.selectedCell = null;
+    this.clearHighlights();
+    this.gameStore.resolveSwap(from, nextRow * this.layout.boardCols + nextCol);
+  }
+  handlePointerUp(pointer) {
+    if (pointer.id !== this.activePointer) return;
+    this.activePointer = null;
+    const start = this.startCell;
+    this.startCell = null;
+    if (!this.enabled || start === null) return;
+    const index = this.getCellIndexFromPointer(pointer);
+    if (index === null || index !== start) {
+      this.clearHighlights();
+      return;
+    }
+    this.activateCell(index);
+  }
+  activateCell(index) {
+    if (this.gameStore.activeBonusMode) {
+      this.selectedCell = null;
+      this.clearHighlights();
+      this.gameStore.resolveBonusClick(index);
+      return;
+    }
+    if (this.selectedCell === index) {
+      this.selectedCell = null;
+      this.clearHighlights();
+      return;
+    }
+    if (this.selectedCell !== null && this.adjacent(this.selectedCell, index)) {
+      const first = this.selectedCell;
+      this.selectedCell = null;
+      this.clearHighlights();
+      this.gameStore.resolveSwap(first, index);
+      return;
+    }
+    this.selectedCell = index;
+    this.highlightCell(index);
+  }
+  adjacent(a, b) {
+    const cols = this.layout.boardCols;
+    return (
+      Math.abs((a % cols) - (b % cols)) + Math.abs(Math.floor(a / cols) - Math.floor(b / cols)) ===
+      1
+    );
+  }
+  handleKey(event) {
+    if (!this.enabled) return;
+    const { boardCols: cols, boardRows: rows } = this.layout;
+    const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols };
+    if (event.key in offsets) {
+      event.preventDefault();
+      const next = this.focusIndex + offsets[event.key];
+      if (next >= 0 && next < cols * rows && this.adjacent(this.focusIndex, next)) {
+        if (event.shiftKey) this.gameStore.resolveSwap(this.focusIndex, next);
+        this.focusIndex = next;
+        this.highlightCell(next);
+      }
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.activateCell(this.focusIndex);
+    } else if (event.key === 'Escape') {
+      this.reset();
+      this.gameStore.setBonusMode(null);
+    }
+  }
   getCellIndexFromPointer(pointer) {
     const { boardCols, boardRows, cellSize } = this.layout;
-    if (!boardCols || !boardRows || !cellSize) {
-      return null;
-    }
-
-    const pointerX = typeof pointer.worldX === 'number' ? pointer.worldX : pointer.x;
-    const pointerY = typeof pointer.worldY === 'number' ? pointer.worldY : pointer.y;
-
-    const localX = pointerX - this.boardContainer.x;
-    const localY = pointerY - this.boardContainer.y;
-    const boardWidth = boardCols * cellSize;
-    const boardHeight = boardRows * cellSize;
-
-    if (localX < 0 || localY < 0 || localX >= boardWidth || localY >= boardHeight) {
-      return null;
-    }
-
-    const col = Math.floor(localX / cellSize);
-    const row = Math.floor(localY / cellSize);
-
-    if (col < 0 || row < 0 || col >= boardCols || row >= boardRows) {
-      return null;
-    }
-
-    return row * boardCols + col;
+    if (!cellSize) return null;
+    const x = (pointer.worldX ?? pointer.x) - this.boardContainer.x;
+    const y = (pointer.worldY ?? pointer.y) - this.boardContainer.y;
+    if (x < 0 || y < 0 || x >= boardCols * cellSize || y >= boardRows * cellSize) return null;
+    return Math.floor(y / cellSize) * boardCols + Math.floor(x / cellSize);
   }
-
   highlightCell(index) {
-    const board = this.gameStore.activeBoard;
-    const gem = board?.[index];
-    if (gem) {
-      gem.highlight = true;
-    }
-
-    const animator = this.gameStore.renderer?.animator;
-    animator?.highlightCell(index, true);
-    animator?.setGemHighlight(index, true);
+    this.gameStore.renderer?.animator?.highlightCell(index);
   }
-
   clearHighlights() {
-    const animator = this.gameStore.renderer?.animator;
-
-    const processed = new Set();
-    [this.gameStore.board, this.gameStore.pendingBoardState].forEach((board) => {
-      if (!Array.isArray(board) || processed.has(board)) {
-        return;
-      }
-      processed.add(board);
-      board.forEach((gem) => {
-        if (gem) {
-          gem.highlight = false;
-        }
-      });
-    });
-
-    animator?.clearCellHighlights();
-    animator?.clearGemHighlights();
+    this.gameStore.renderer?.animator?.clearCellHighlights();
   }
 }

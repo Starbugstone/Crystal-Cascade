@@ -5,7 +5,6 @@ import { useSettingsStore } from '../stores/settingsStore';
 const clampVolume = (value) => Math.min(1, Math.max(0, value ?? 0));
 
 const AMBIENT_SRC = '/sound/knickknack.ogg';
-const AMBIENT_BASE_VOLUME = 0.35;
 
 export const SFX_VOLUME = Object.freeze({
   MATCH: 0.55,
@@ -62,7 +61,7 @@ const ensureAmbientHowl = (settingsStore) => {
       src: [AMBIENT_SRC],
       loop: true,
       preload: true,
-      volume: clampVolume(AMBIENT_BASE_VOLUME * settingsStore.musicVolume),
+      volume: clampVolume(settingsStore.musicVolume),
     });
     ambientHowl.on('loaderror', (_id, error) => {
       console.error('Failed to load ambient loop audio', error);
@@ -105,7 +104,7 @@ export const useAudio = () => {
     if (!ambientHowl) {
       return;
     }
-    const effective = clampVolume(AMBIENT_BASE_VOLUME * settingsStore.musicVolume);
+    const effective = clampVolume(settingsStore.musicVolume);
     if (ambientSoundId != null) {
       ambientHowl.volume(effective, ambientSoundId);
     } else {
@@ -144,7 +143,7 @@ export const useAudio = () => {
 
   const playMatch = ({ comboCount = 1 } = {}) => {
     const key = comboCount >= 4 ? SFX_KEYS.COMBO : SFX_KEYS.MATCH;
-    return playSfx(key);
+    return playSfx(key, { rate: Math.min(1.35, 1 + (comboCount - 1) * 0.07) });
   };
 
   const playBonusAppears = () => playSfx(SFX_KEYS.BONUS_APPEAR);
@@ -153,8 +152,9 @@ export const useAudio = () => {
   const playRainbowLaser = () => playSfx(SFX_KEYS.RAINBOW_LASER);
 
   const playAmbientLoop = () => {
+    Object.keys(SFX_DEFINITIONS).forEach((key) => ensureSfxHowl(key, settingsStore));
     const loop = ensureAmbientHowl(settingsStore);
-    const targetVolume = clampVolume(AMBIENT_BASE_VOLUME * settingsStore.musicVolume);
+    const targetVolume = clampVolume(settingsStore.musicVolume);
 
     if (ambientSoundId != null && loop.playing(ambientSoundId)) {
       const currentVolume = loop.volume(ambientSoundId);

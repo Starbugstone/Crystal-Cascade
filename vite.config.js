@@ -18,7 +18,7 @@ export default defineConfig({
     host: true,
   },
   test: {
-    environment: 'happy-dom',
-    setupFiles: ['./vitest.setup.js'],
+    environment: 'node',
+    include: ['testing/**/*.test.js'],
   },
 });

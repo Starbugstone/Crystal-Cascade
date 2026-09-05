@@ -21,8 +21,8 @@ describe('GameStore - Bonus Activation', () => {
     gameStore.sessionActive = true;
     gameStore.renderer = {
       animator: {
-        playSteps: () => Promise.resolve(),
-        updateTiles: () => { },
+        playSteps: vi.fn(() => Promise.resolve()),
+        updateTiles: () => {},
       },
     };
   });
@@ -34,9 +34,15 @@ describe('GameStore - Bonus Activation', () => {
 
     // Manually set gems to allow for a clear row bonus effect
     gameStore.board = [
-      createGem('gem0'), createGem('gem1'), createGem('gem2'),
-      createGem('gem3'), createGem('gem4'), createGem('gem5'),
-      createGem('gem6'), createGem('gem7'), createGem('gem8'),
+      createGem('gem0'),
+      createGem('gem1'),
+      createGem('gem2'),
+      createGem('gem3'),
+      createGem('gem4'),
+      createGem('gem5'),
+      createGem('gem6'),
+      createGem('gem7'),
+      createGem('gem8'),
     ];
 
     const initialBoard = [...gameStore.board];
@@ -49,6 +55,9 @@ describe('GameStore - Bonus Activation', () => {
     // Expecting the first row to be cleared (indices 0, 1, 2)
     // The board should have changed
     expect(gameStore.board).not.toEqual(initialBoard);
+    const firstStep = gameStore.renderer.animator.playSteps.mock.calls[0][0][0];
+    expect(firstStep.bonusEffect).toEqual({ type: 'clear_row', originIndex: 0 });
+    expect(firstStep.cleared).toEqual([0, 1, 2]);
   });
 
   it('should not activate bonus if session is not active', async () => {
@@ -69,9 +78,15 @@ describe('BonusActivator previewSwap', () => {
   it('returns affected indices for bomb without mutating board', () => {
     const activator = new BonusActivator();
     const board = [
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
-      createGem('topaz'), { ...createGem('bomb'), type: 'bomb' }, createGem('moonstone'),
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
+      createGem('topaz'),
+      { ...createGem('bomb'), type: 'bomb' },
+      createGem('moonstone'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
     ];
 
     const preview = activator.previewSwap(board, 3, 3, { aIndex: 4, bIndex: 5 });
@@ -94,9 +109,15 @@ describe('Interactive Bonuses', () => {
     gameStore.boardCols = 3;
     gameStore.boardRows = 3;
     gameStore.board = [
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
-      createGem('topaz'), createGem('amethyst'), createGem('moonstone'),
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
+      createGem('topaz'),
+      createGem('amethyst'),
+      createGem('moonstone'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
     ];
     gameStore.tiles = Array.from({ length: 9 }, () => ({ state: 'PLAYABLE', health: 1 }));
     gameStore.sessionActive = true;
@@ -109,7 +130,7 @@ describe('Interactive Bonuses', () => {
     };
   });
 
-  it('activates hammer mode and destroys a single gem', async () => {
+  it('activates hammer mode and clears its 3 by 3 area', async () => {
     const hammerSlot = inventoryStore.quickAccessSlots.find((slot) => slot.id === 'hammer');
     expect(hammerSlot.quantity).toBeGreaterThan(0);
 
@@ -125,19 +146,13 @@ describe('Interactive Bonuses', () => {
     expect(result).toBe(true);
     expect(gameStore.activeBonusMode).toBe(null);
 
-    // Hammer now acts like a bomb (3x3 clear)
-    // Clicking at 0 (top-left) should clear 0, 1, 3, 4
-    // We check if multiple gems are replaced/cleared
-    const initialGem0 = gameStore.board[0];
-    const initialGem1 = gameStore.board[1];
-    const initialGem3 = gameStore.board[3];
-    const initialGem4 = gameStore.board[4];
-
-    // Since board refills, we check if the gems at these positions have changed IDs or types
-    // Ideally we'd check for a specific "cleared" state, but integration tests usually check the after-effect
-    // We can check that the board state has changed significantly
-    expect(gameStore.board[0]).not.toEqual(initialGem0);
-    expect(gameStore.board[1]).not.toEqual(initialGem1);
+    const cleared = gameStore.renderer.animator.playSteps.mock.calls[0][0][0].cleared;
+    expect(cleared).toEqual(expect.arrayContaining([0, 1, 3, 4]));
+    expect(gameStore.renderer.animator.playSteps.mock.calls[0][0][0].bonusEffect).toEqual({
+      type: 'hammer',
+      originIndex: 0,
+    });
+    expect(gameStore.board.every(Boolean)).toBe(true);
 
     expect(hammerSlot.quantity).toBe(19); // Consumed AFTER use
   });
@@ -176,9 +191,15 @@ describe('Queued swap buffering', () => {
     gameStore.sessionActive = true;
     gameStore.animationInProgress = true;
     gameStore.pendingBoardState = [
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
-      createGem('topaz'), createGem('amethyst'), createGem('moonstone'),
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
+      createGem('topaz'),
+      createGem('amethyst'),
+      createGem('moonstone'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
     ];
     gameStore.renderer = {
       animator: {
@@ -208,9 +229,15 @@ describe('GameStore bonus preview highlighting', () => {
     gameStore.boardCols = 3;
     gameStore.boardRows = 3;
     gameStore.board = [
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
-      createGem('topaz'), { ...createGem('bomb'), type: 'bomb' }, createGem('moonstone'),
-      createGem('ruby'), createGem('sapphire'), createGem('emerald'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
+      createGem('topaz'),
+      { ...createGem('bomb'), type: 'bomb' },
+      createGem('moonstone'),
+      createGem('ruby'),
+      createGem('sapphire'),
+      createGem('emerald'),
     ];
     gameStore.tiles = Array.from({ length: 9 }, () => ({ state: 'PLAYABLE', health: 1 }));
     gameStore.sessionActive = true;
@@ -227,7 +254,9 @@ describe('GameStore bonus preview highlighting', () => {
   it('computes preview indices when dragging a bomb', () => {
     gameStore.previewBonusSwap(4, 5);
     expect(gameStore.bonusPreview.indices.length).toBeGreaterThan(0);
-    expect(gameStore.renderer.animator.showBonusPreview).toHaveBeenCalledWith(gameStore.bonusPreview.indices);
+    expect(gameStore.renderer.animator.showBonusPreview).toHaveBeenCalledWith(
+      gameStore.bonusPreview.indices,
+    );
   });
 
   it('clears preview state when requested', () => {

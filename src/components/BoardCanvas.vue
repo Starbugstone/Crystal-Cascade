@@ -2,217 +2,97 @@
   <div
     ref="canvasRoot"
     class="board-canvas"
-    :class="{ 'board-canvas--fullscreen': fullscreen }"
-    :style="canvasStyle"
+    tabindex="0"
+    role="application"
+    aria-label="Crystal match board. Swipe or tap neighboring gems. Keyboard: arrows to navigate, Enter to select, Shift and arrow to swap, Escape to cancel."
+    @keydown="gameStore.renderer?.input?.handleKey($event)"
+    @pointercancel="gameStore.renderer?.input?.reset()"
+    :style="{ aspectRatio: `${gameStore.boardCols} / ${gameStore.boardRows}` }"
   ></div>
 </template>
-
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import Phaser from 'phaser';
 import { useGameStore } from '../stores/gameStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { BoardScene } from '../game/phaser/BoardScene';
 
-const props = defineProps({
-  fullscreen: {
-    type: Boolean,
-    default: false,
-  },
-});
-
 const canvasRoot = ref(null);
-const phaserGame = ref(null);
 const gameStore = useGameStore();
-const resizeObserver = ref(null);
-
-const boardCols = computed(() => gameStore.boardCols ?? gameStore.boardSize ?? 8);
-const boardRows = computed(() => gameStore.boardRows ?? gameStore.boardSize ?? 8);
-const canvasStyle = computed(() => ({
-  '--board-aspect': String(boardCols.value / (boardRows.value || 1)),
-}));
-
-const handleResize = () => {
-  if (!phaserGame.value || !canvasRoot.value) {
-    return;
-  }
-
-  const { clientWidth, clientHeight } = canvasRoot.value;
-  if (!clientWidth || !clientHeight) {
-    return;
-  }
-
-  const safeWidth = Math.max(32, Math.floor(clientWidth));
-  const safeHeight = Math.max(32, Math.floor(clientHeight));
-
-  if (
-    phaserGame.value.scale.width !== safeWidth ||
-    phaserGame.value.scale.height !== safeHeight
-  ) {
-    phaserGame.value.scale.resize(safeWidth, safeHeight);
-  }
-  gameStore.refreshBoardVisuals(true);
-};
-
-const setupPhaser = () => {
-  if (!canvasRoot.value) {
-    return;
-  }
-
-  const initialWidth = canvasRoot.value.clientWidth || 800;
-  const initialHeight = canvasRoot.value.clientHeight || 800;
-
-  const boardScene = new BoardScene();
-  boardScene.onReady = (payload) => {
-    const {
-      scene,
-      boardContainer,
-      backgroundLayer,
-      tileLayer,
-      gemLayer,
-      fxLayer,
-      textures,
-      bonusAnimations,
-      tileTextures,
-      particles,
-    } = payload;
-    gameStore.attachRenderer({
-      game: phaserGame.value,
-      scene,
-      boardContainer,
-      backgroundLayer,
-      tileLayer,
-      gemLayer,
-      fxLayer,
-      textures,
-      bonusAnimations,
-      tileTextures,
-      particles,
-    });
-
-    setTimeout(() => {
-      handleResize();
-    }, 50);
-  };
-
-  const game = new Phaser.Game({
-    type: Phaser.AUTO,
-    backgroundColor: '#0F172A',
-    parent: canvasRoot.value,
-    scale: {
-      mode: Phaser.Scale.RESIZE,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: initialWidth,
-      height: initialHeight,
-    },
-    scene: boardScene,
-    banner: false,
-    pixelArt: true,
+const settings = useSettingsStore();
+// Phaser owns its mutable object graph. Never put it in a deep reactive ref.
+let game;
+let observer;
+let resizeFrame;
+const resize = () => {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    if (!game || !canvasRoot.value) return;
+    const width = Math.floor(canvasRoot.value.clientWidth);
+    const height = Math.floor(canvasRoot.value.clientHeight);
+    if (!width || !height) return;
+    if (game.scale.width !== width || game.scale.height !== height) {
+      game.scale.resize(width, height);
+      // Defer resizing moving sprites until the current move settles.
+      if (!gameStore.animationInProgress) gameStore.refreshBoardVisuals();
+    }
   });
-
-  phaserGame.value = game;
-
-  if (game.canvas) {
-    const canvas = game.canvas;
-    canvas.style.position = 'absolute';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.display = 'block';
-  }
-
-  if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
-    resizeObserver.value = new ResizeObserver(handleResize);
-    resizeObserver.value.observe(canvasRoot.value);
-  }
 };
-
+watch(
+  () => gameStore.animationInProgress,
+  (busy) => {
+    if (!busy) {
+      resize();
+      gameStore.refreshBoardVisuals();
+    }
+  },
+);
+watch(
+  () => [settings.reducedMotion, settings.highContrastMode],
+  () => {
+    gameStore.renderer?.particles?.setReducedMotion(settings.reducedMotion);
+    gameStore.renderer?.animator?.drawCells();
+    gameStore.renderer?.animator?.syncBonusMotion();
+  },
+);
 onMounted(() => {
-  setupPhaser();
+  const scene = new BoardScene();
+  scene.onReady = (payload) => {
+    gameStore.attachRenderer({ ...payload, game });
+    payload.particles.setReducedMotion(settings.reducedMotion);
+    gameStore.animationInProgress = true;
+    const session = gameStore.sessionVersion;
+    payload.scene.events.once('shutdown', () => payload.particles.destroy());
+    gameStore.renderer.animator.playIntroCascade().finally(() => {
+      if (session !== gameStore.sessionVersion) return;
+      gameStore.animationInProgress = false;
+      gameStore.processQueuedInput();
+    });
+    resize();
+  };
+  game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: canvasRoot.value,
+    transparent: true,
+    width: canvasRoot.value.clientWidth,
+    height: canvasRoot.value.clientHeight,
+    scene,
+    banner: false,
+    antialias: true,
+    pixelArt: false,
+    render: { roundPixels: false, powerPreference: 'high-performance' },
+    input: { activePointers: 1, touch: true },
+  });
+  observer = new ResizeObserver(resize);
+  observer.observe(canvasRoot.value);
 });
-
 onBeforeUnmount(() => {
-  if (resizeObserver.value) {
-    resizeObserver.value.disconnect();
-    resizeObserver.value = null;
-  }
-  if (gameStore.renderer?.animator) {
-    gameStore.renderer.animator.destroy();
-  }
-  if (gameStore.renderer?.input) {
-    gameStore.renderer.input.destroy();
-  }
-  if (phaserGame.value) {
-    phaserGame.value.destroy(true);
-    phaserGame.value = null;
-  }
+  observer?.disconnect();
+  cancelAnimationFrame(resizeFrame);
+  gameStore.renderer?.input?.destroy();
+  gameStore.renderer?.animator?.destroy();
   gameStore.renderer = null;
+  game?.destroy(true);
+  game = null;
 });
 </script>
-
-<style scoped>
-.board-canvas {
-  position: relative;
-  flex: 1 1 auto;
-  width: 100%;
-  height: 100%;
-  min-height: 220px;
-  min-width: 220px;
-  max-width: 1400px;
-  max-height: 1400px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.45), transparent 60%),
-    radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.3), transparent 55%),
-    rgba(15, 23, 42, 0.85);
-  box-shadow: inset 0 0 32px rgba(8, 47, 73, 0.75);
-}
-
-.board-canvas canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.board-canvas--fullscreen {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  max-width: 100%;
-  margin: 0;
-  border-radius: 0;
-}
-
-.board-canvas--fullscreen canvas {
-  width: 100%;
-  height: 100%;
-}
-
-@media (max-width: 1024px) {
-  .board-canvas {
-    max-width: none;
-    max-height: none;
-    min-width: min(100%, 720px);
-    min-height: min(calc(100vw * 1.05), 820px);
-    height: auto;
-  }
-
-  .board-canvas--fullscreen {
-    max-height: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .board-canvas {
-    min-width: min(100%, 640px);
-    min-height: min(calc(100vw * 1.1), 840px);
-    height: auto;
-  }
-
-  .board-canvas--fullscreen {
-    max-height: 100%;
-  }
-}
-</style>

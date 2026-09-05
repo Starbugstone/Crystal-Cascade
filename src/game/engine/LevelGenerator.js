@@ -3,8 +3,6 @@ import { MatchEngine } from './MatchEngine.js';
 
 const GEM_TYPES = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
 
-const pickRandomType = (rng) => GEM_TYPES[Math.floor(rng() * GEM_TYPES.length)];
-
 const createSeededRng = (seed) => {
   let current = seed % 2147483647;
   if (current <= 0) current += 2147483646;
@@ -40,7 +38,17 @@ const createBoard = (layout, rng) => {
   for (let i = 0; i < board.length; i++) {
     const x = i % layout.dimensions.cols;
     const y = Math.floor(i / layout.dimensions.cols);
-    board[i] = isBlockedCell(layout, x, y) ? null : createGem(pickRandomType(rng));
+    if (isBlockedCell(layout, x, y)) {
+      board[i] = null;
+      continue;
+    }
+    const forbidden = new Set();
+    const cols = layout.dimensions.cols;
+    if (x >= 2 && board[i - 1]?.type === board[i - 2]?.type) forbidden.add(board[i - 1].type);
+    if (y >= 2 && board[i - cols]?.type === board[i - 2 * cols]?.type)
+      forbidden.add(board[i - cols].type);
+    const choices = GEM_TYPES.filter((type) => !forbidden.has(type));
+    board[i] = createGem(choices[Math.floor(rng() * choices.length)]);
   }
   return board;
 };
@@ -110,7 +118,12 @@ const createPlayableBoard = (layout, rng, { minMoves = 1 } = {}) => {
       continue;
     }
 
-    const moves = countPotentialMoves(board, layout.dimensions.cols, layout.dimensions.rows, minMoves);
+    const moves = countPotentialMoves(
+      board,
+      layout.dimensions.cols,
+      layout.dimensions.rows,
+      minMoves,
+    );
     if (moves >= minMoves) {
       return board;
     }
@@ -140,12 +153,7 @@ export const generateLevelConfigs = (count = 12) => {
     let layout = new BoardLayout(`level_${id}`, 'RECTANGLE', { cols: 8, rows: 9 });
 
     if (id === 3) {
-      layout = new BoardLayout(
-        'Compact-5x5',
-        'RECTANGLE',
-        { cols: 5, rows: 5 },
-        [],
-      );
+      layout = new BoardLayout('Compact-5x5', 'RECTANGLE', { cols: 5, rows: 5 }, []);
     }
 
     const rng = createSeededRng(id * 1337);
@@ -180,7 +188,7 @@ export const generateLevelConfigs = (count = 12) => {
           progress: 0,
         },
       ],
-      summary: `Remove all ${totalLayers.toLocaleString()} tile layers and score ${(20000 + id * 1500).toLocaleString()} points.`,
+      summary: `Clear ${totalLayers.toLocaleString()} layers. Aim for ${(20000 + id * 1500).toLocaleString()} points for an extra star.`,
     });
   }
 
