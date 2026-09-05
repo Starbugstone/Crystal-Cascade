@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { BONUS_TYPES } from './SpriteLoader';
 
 const RAINBOW = [0xff658c, 0xffc85b, 0xffffad, 0x74ffc3, 0x7defff, 0xa39aff, 0xf293ff];
@@ -71,7 +72,9 @@ export class BonusEffects {
       clear_row: 'ROW ROCKET!',
     };
     this.callout(
-      effects.length > 1 ? `CHAIN REACTION ×${effects.length}` : labels[primary.type],
+      effects.length > 1
+        ? t('CHAIN REACTION ×{count}', { count: effects.length })
+        : t(labels[primary.type]),
       a.position(primary.index),
       color,
     );

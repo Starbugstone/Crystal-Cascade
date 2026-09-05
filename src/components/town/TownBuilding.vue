@@ -100,7 +100,7 @@
           font-family="Georgia, serif"
           :font-size="id === 'saloon' ? 11 : 13"
           font-weight="bold"
-          >{{ id === 'saloon' ? 'GOLDEN HOUR' : 'SHERIFF' }}</text
+          >{{ t(id === 'saloon' ? 'GOLDEN HOUR' : 'SHERIFF') }}</text
         >
       </template>
       <template v-if="id === 'stable' || id === 'farm'">
@@ -118,7 +118,7 @@
           font-size="10"
           font-family="Georgia, serif"
           fill="#665336"
-          >{{ id === 'farm' ? 'CLOVER' : 'STABLES' }}</text
+          >{{ t(id === 'farm' ? 'CLOVER' : 'STABLES') }}</text
         >
       </template>
       <template v-else>
@@ -229,6 +229,7 @@
 </template>
 
 <script setup>
+import { t } from '../../i18n';
 import { computed } from 'vue';
 const props = defineProps({
   id: { type: String, required: true },

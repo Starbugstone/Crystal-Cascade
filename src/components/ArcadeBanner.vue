@@ -6,7 +6,7 @@
       class="arcade-banner-art"
       viewBox="0 0 520 72"
       role="img"
-      :aria-label="banner.label"
+      :aria-label="t(banner.label)"
       :style="{ '--banner-color': banner.color }"
     >
       <g class="banner-streaks" fill="var(--banner-color)">
@@ -38,7 +38,7 @@
             stroke="#16091e"
             stroke-width="7"
           >
-            {{ banner.label }}
+            {{ t(banner.label) }}
           </text>
           <text
             x="260"
@@ -50,20 +50,23 @@
             stroke="#24102f"
             stroke-width="5"
           >
-            {{ banner.label }}
+            {{ t(banner.label) }}
           </text>
         </g>
         <path class="banner-glint" d="M119 12L139 12L110 58L90 58Z" fill="#ffffff" opacity=".12" />
       </g>
     </svg>
-    <span v-else class="announcer-ready" aria-hidden="true">✦ MATCH. BLAST. GO MEGA. ✦</span>
+    <span v-else class="announcer-ready" aria-hidden="true">
+      {{ t('✦ MATCH. BLAST. GO MEGA. ✦') }}
+    </span>
   </div>
 </template>
 <script setup>
+import { t } from '../i18n';
 import { computed } from 'vue';
 const props = defineProps({ banner: Object });
-const fontSize = computed(() => (props.banner?.label.length > 15 ? 32 : 38));
-const textLength = computed(() => (props.banner?.label.length > 15 ? 358 : undefined));
+const fontSize = computed(() => (t(props.banner?.label)?.length > 15 ? 32 : 38));
+const textLength = computed(() => (t(props.banner?.label)?.length > 15 ? 358 : undefined));
 </script>
 <style scoped>
 .arcade-announcer {

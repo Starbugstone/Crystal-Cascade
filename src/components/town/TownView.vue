@@ -2,65 +2,72 @@
   <main class="town-view">
     <div class="town-heading">
       <div>
-        <p class="town-kicker"><span></span> CHAPTER 01 · A FRESH START</p>
-        <h1>Prospect Hollow<span>Est. one good deed at a time.</span></h1>
+        <p class="town-kicker"><span></span> {{ t('CHAPTER 01 · A FRESH START') }}</p>
+        <h1>
+          Prospect Hollow<span> {{ t('Est. one good deed at a time.') }} </span>
+        </h1>
       </div>
-      <div class="town-wallet" aria-label="Town savings">
+      <div class="town-wallet" :aria-label="t('Town savings')">
         <TownIcon name="coin" />
         <div>
-          <strong>{{ town.coins.toLocaleString() }}</strong
-          ><span>MINING COINS</span>
+          <strong>{{ number(town.coins) }}</strong
+          ><span> {{ t('MINING COINS') }} </span>
         </div>
       </div>
     </div>
 
     <div class="town-layout">
-      <section class="town-world" aria-label="Your town">
+      <section class="town-world" :aria-label="t('Your town')">
         <div class="town-map-frame">
           <div class="town-map-caption">
-            <span><TownIcon name="sun" /> A LITTLE HOPE ON THE HORIZON</span
-            ><span>{{ repaired }} / 6 restored</span>
+            <span><TownIcon name="sun" /> {{ t('A LITTLE HOPE ON THE HORIZON') }} </span
+            ><span>{{ repaired }} {{ t('/ 6 built') }} </span>
           </div>
-          <TownMap
+          <TownScene
             :town="town"
             :selected="selected"
             :population="residents"
             :reduced-motion="settings.reducedMotion"
             :paused="paused || settings.isSettingsOpen"
             :revealing="revealing"
+            :next-level="campaign.nextLevel"
             @select="selectBuilding"
+            @mine="$emit('mine')"
           />
           <div class="town-map-footnote">
-            <span><i></i> {{ townStatus }}</span
-            ><span>Choose a place to make a difference</span>
+            <span><i></i> {{ t(townStatus) }}</span
+            ><span> {{ t('Choose a plot · Play puzzles to build it') }} </span>
           </div>
         </div>
-        <div class="town-needs" aria-label="Basic town needs">
+        <div class="town-needs" :aria-label="t('Basic town needs')">
           <div>
-            <TownIcon name="water" /><span
-              >Water<small>{{
-                town.buildings.well ? 'Fresh & flowing' : 'A well worth fixing'
+            <TownIcon name="water" /><span>
+              {{ t('Water') }}
+              <small>{{
+                t(town.buildings.well ? 'Fresh & flowing' : 'A well to build')
               }}</small></span
             ><TownIcon v-if="town.buildings.well" name="check" class="need-ready" />
           </div>
           <div>
-            <TownIcon name="food" /><span
-              >Food<small>{{
-                town.buildings.farm ? 'Good things growing' : 'The fields are waiting'
+            <TownIcon name="food" /><span>
+              {{ t('Food') }}
+              <small>{{
+                t(town.buildings.farm ? 'Good things growing' : 'The fields are waiting')
               }}</small></span
             ><TownIcon v-if="town.buildings.farm" name="check" class="need-ready" />
           </div>
           <div>
             <TownIcon name="people" /><span
-              >{{ residents }} neighbors<small>{{
-                residents ? 'A little more like home' : 'Room for a fresh start'
+              >{{ residents }} {{ t('neighbors') }}
+              <small>{{
+                t(residents ? 'A little more like home' : 'Room for a fresh start')
               }}</small></span
             >
           </div>
         </div>
         <section
           class="town-story"
-          aria-label="A word from your neighbors"
+          :aria-label="t('A word from your neighbors')"
           aria-live="polite"
           aria-atomic="true"
         >
@@ -78,44 +85,83 @@
             </svg>
           </div>
           <div>
-            <span class="town-kicker">{{ moment.speaker }}</span>
-            <h2>{{ moment.title }}</h2>
-            <p>{{ moment.text }}</p>
+            <span class="town-kicker">{{ t(moment.speaker) }}</span>
+            <h2>{{ t(moment.title) }}</h2>
+            <p>{{ t(moment.text) }}</p>
           </div>
-          <button v-if="revealing" class="story-skip" @click="finishReveal">Skip reveal</button>
+          <button v-if="revealing" class="story-skip" @click="finishReveal">
+            {{ t('Skip reveal') }}
+          </button>
         </section>
       </section>
 
       <aside ref="panel" class="town-building-panel" aria-labelledby="building-title">
         <div class="town-panel-top">
           <span class="town-kicker">{{
-            offer ? 'A LITTLE WORK. A BIG DIFFERENCE.' : 'ANOTHER PIECE OF HOME.'
+            t(offer ? 'YOUR TOWN. YOUR CHOICE.' : 'ANOTHER PIECE OF HOME.')
           }}</span
           ><span class="town-stage">{{
-            town.buildings[selected] ? 'Restored' : 'Waiting for you'
+            t(
+              selectedProject
+                ? 'Under construction'
+                : town.buildings[selected]
+                  ? 'Built'
+                  : 'Empty plot',
+            )
           }}</span>
         </div>
         <div class="town-building-preview" :style="{ '--building-tint': building.color }">
           <svg viewBox="-160 -200 320 245" aria-hidden="true">
             <ellipse cy="9" rx="133" ry="26" fill="#a79d7040" />
-            <TownBuilding :id="selected" :stage="town.buildings[selected]" />
+            <TownSite
+              :id="selected"
+              :stage="town.buildings[selected]"
+              :wins="selectedProject?.wins ?? null"
+            />
           </svg>
         </div>
-        <p class="town-kicker">{{ building.purpose }}</p>
-        <h2 id="building-title" ref="panelTitle" tabindex="-1">{{ building.name }}</h2>
-        <p class="town-stage-description">{{ building.stages[town.buildings[selected]] }}</p>
-        <template v-if="offer">
+        <p class="town-kicker">{{ t(building.purpose) }}</p>
+        <h2 id="building-title" ref="panelTitle" tabindex="-1">{{ t(building.name) }}</h2>
+        <p class="town-stage-description">
+          {{
+            t(
+              town.buildings[selected]
+                ? building.stages[town.buildings[selected]]
+                : 'A place for your next beginning',
+            )
+          }}
+        </p>
+        <div v-if="selectedProject" class="town-project-progress">
+          <h3>{{ t('Your building is taking shape') }}</h3>
+          <p>
+            {{ selectedProject.wins }} / {{ t(projectRuns(selectedProject.stage)) }}
+            {{ t('puzzles completed') }}
+          </p>
+          <progress
+            :value="selectedProject.wins"
+            :max="projectRuns(selectedProject.stage)"
+            :aria-label="t('Construction progress')"
+          ></progress>
+          <p>
+            {{
+              t(
+                'Every completed puzzle adds the next part. Benefits arrive when the building is finished.',
+              )
+            }}
+          </p>
+        </div>
+        <template v-else-if="offer">
           <div class="town-upgrade-description">
-            <h3>{{ offer.title }}</h3>
-            <p>{{ offer.benefit }}</p>
+            <h3>{{ t(offer.title) }}</h3>
+            <p>{{ t(offer.benefit) }}</p>
           </div>
           <div class="town-after">
             <svg viewBox="-160 -190 320 240" aria-hidden="true">
               <TownBuilding :id="selected" :stage="town.buildings[selected] + 1" />
             </svg>
             <div>
-              <span class="town-kicker">AFTER A LITTLE LOVE</span
-              ><span>{{ building.stages[town.buildings[selected] + 1] }}</span>
+              <span class="town-kicker"> {{ t('WHEN THE WORK IS DONE') }} </span
+              ><span>{{ t(building.stages[town.buildings[selected] + 1]) }}</span>
             </div>
           </div>
           <button
@@ -123,37 +169,41 @@
             :disabled="!!offer.reason || !!revealing"
             @click="repair"
           >
-            <span
-              >{{ town.buildings[selected] ? 'Improve' : 'Restore' }}
-              {{ building.shortName.toLowerCase() }}</span
-            ><span><TownIcon name="coin" />{{ offer.cost }}</span>
+            <span>{{ t(town.buildings[selected] ? 'Start improvement' : 'Start building') }}</span
+            ><span><TownIcon v-if="offer.cost" name="coin" />{{ t(offer.cost || 'Free') }}</span>
           </button>
           <p class="town-purchase-hint">
-            {{ offer.reason || 'One small change. A lasting difference.' }}
+            {{ t(offer.reason || 'Materials ready. Complete puzzles to finish the work.') }}
+          </p>
+          <p class="town-purchase-hint">
+            {{ offer.runs }} {{ t('completed puzzles · Benefits on completion') }}
           </p>
         </template>
         <template v-else>
           <div class="town-restored-note">
             <TownIcon name="check" />
-            <p>{{ building.upgrades.at(-1).benefit }}</p>
+            <p>{{ t(building.upgrades.at(-1).benefit) }}</p>
           </div>
           <button v-if="goal" class="town-secondary" @click="selectBuilding(goal.id)">
-            Next: {{ goal.title }}<TownIcon name="arrow" />
+            {{ t('Next:') }} {{ t(goal.title) }}<TownIcon name="arrow" />
           </button>
           <p v-else class="town-finished">
-            You’ve brought Prospect Hollow back to life. Stay for a while. There are always more
-            jewels in the hills.
+            {{
+              t(
+                'You’ve brought Prospect Hollow back to life. Stay for a while. There are always more jewels in the hills.',
+              )
+            }}
           </p>
         </template>
         <div class="town-mine-action">
           <button class="town-primary" @click="$emit('mine')">
-            <TownIcon name="mine" /> Go mining <TownIcon name="arrow" /></button
-          ><small>A few jewels can change a whole town.</small>
+            <TownIcon name="mine" /> {{ t('Go mining') }} <TownIcon name="arrow" /></button
+          ><small> {{ t('A few jewels can change a whole town.') }} </small>
         </div>
       </aside>
     </div>
 
-    <section class="town-building-list" aria-label="All town buildings">
+    <section class="town-building-list" :aria-label="t('All town buildings')">
       <button
         v-for="place in BUILDINGS"
         :key="place.id"
@@ -162,11 +212,13 @@
       >
         <span class="building-list-dot" :style="{ background: place.color }"></span
         ><span
-          >{{ place.shortName
+          >{{ t(place.shortName)
           }}<small>{{
-            town.buildings[place.id]
-              ? place.stages[town.buildings[place.id]]
-              : 'Ready for a new beginning'
+            t(
+              town.buildings[place.id]
+                ? place.stages[town.buildings[place.id]]
+                : 'Ready for a new beginning',
+            )
           }}</small></span
         ><TownIcon :name="town.buildings[place.id] ? 'check' : 'arrow'" />
       </button>
@@ -174,56 +226,62 @@
 
     <details v-if="residents" class="town-trail-story">
       <summary>
-        <TownIcon name="star" /><span
-          >Stories from the trail<small>A little frontier adventure · optional</small></span
+        <TownIcon name="star" /><span>
+          {{ t('Stories from the trail') }}
+          <small> {{ t('A little frontier adventure · optional') }} </small></span
         ><span>+</span>
       </summary>
       <div v-if="!event">
-        <h3>Strangers on the dusty trail</h3>
+        <h3>{{ t('Strangers on the dusty trail') }}</h3>
         <p>
-          Ada has spotted bandits beyond the ridge. A sheriff can send them on their way. Without
-          one, they might take a few coins—but never your last savings.
+          {{
+            t(
+              'Ada has spotted bandits beyond the ridge. A sheriff can send them on their way. Without one, they might take a few coins—but never your last savings.',
+            )
+          }}
         </p>
         <button class="town-secondary" @click="meetBandits">
-          See who’s coming <TownIcon name="arrow" />
+          {{ t('See who’s coming') }} <TownIcon name="arrow" />
         </button>
       </div>
       <div v-else>
-        <h3>{{ banditStory.title }}</h3>
-        <p>{{ banditStory.text }}</p>
-        <small>This chapter of the story is complete.</small>
+        <h3>{{ t(banditStory.title) }}</h3>
+        <p>{{ t(banditStory.text) }}</p>
+        <small> {{ t('This chapter of the story is complete.') }} </small>
       </div>
     </details>
     <p v-if="campaign.saveWarning" role="status" class="town-save-warning">
-      {{ campaign.saveWarning }}
+      {{ t(campaign.saveWarning) }}
     </p>
     <div class="town-bottom-note">
-      <span>One town. One little adventure at a time.</span
+      <span> {{ t('One town. One little adventure at a time.') }} </span
       ><span
-        >{{ campaign.saveWarning ? 'Progress kept for this session' : 'Saved on this device' }} ·
-        More chapters to come</span
-      >
+        >{{ t(campaign.saveWarning ? 'Progress kept for this session' : 'Saved on this device') }}
+        {{ t('· More chapters to come') }}
+      </span>
     </div>
     <div class="town-mobile-mining">
       <div>
-        <span class="town-kicker">A FEW JEWELS. A FRESH START.</span
-        ><span>{{ goal ? goal.title : 'The hills are full of possibility.' }}</span>
+        <span class="town-kicker"> {{ t('A FEW JEWELS. A FRESH START.') }} </span
+        ><span>{{ t(goal ? goal.title : 'The hills are full of possibility.') }}</span>
       </div>
       <button class="town-primary" @click="$emit('mine')">
-        <TownIcon name="mine" /> Go mining
+        <TownIcon name="mine" /> {{ t('Go mining') }}
       </button>
     </div>
-    <span class="town-sr-only" role="status">{{ announcement }}</span>
+    <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
   </main>
 </template>
 <script setup>
+import { t, number } from '../../i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
-import { population, nextGoal, upgradeOffer } from '../../game/town/TownRules';
+import { population, nextGoal, upgradeOffer, projectRuns } from '../../game/town/TownRules';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import TownMap from './TownMap.vue';
+import TownScene from './TownScene.vue';
 import TownBuilding from './TownBuilding.vue';
+import TownSite from './TownSite.vue';
 import TownIcon from './TownIcon.vue';
 import '../../styles/town.css';
 
@@ -232,8 +290,15 @@ const campaign = useCampaignStore(),
   settings = useSettingsStore();
 const town = computed(() => campaign.town);
 const residents = computed(() => population(town.value));
-const goal = computed(() => nextGoal(town.value));
-const selected = ref(goal.value?.id ?? 'home');
+const goal = computed(() =>
+  town.value.project
+    ? { id: town.value.project.id, title: 'Continue the work' }
+    : nextGoal(town.value),
+);
+const selected = ref(town.value.project?.id ?? goal.value?.id ?? 'home');
+const selectedProject = computed(() =>
+  town.value.project?.id === selected.value ? town.value.project : null,
+);
 const building = computed(() => BUILDING_BY_ID[selected.value]);
 const offer = computed(() => upgradeOffer(town.value, selected.value));
 const repaired = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
@@ -248,24 +313,30 @@ const latestMoment = ref(null);
 const moment = computed(
   () =>
     latestMoment.value ??
-    (residents.value
+    (town.value.project
       ? {
           speaker: 'Ada · the caretaker',
-          title:
-            repaired.value === 6
-              ? 'Look what we built together.'
-              : 'It’s good to have neighbors again.',
-          text: goal.value
-            ? `${goal.value.title}. ${goal.value.benefit}`
-            : 'The lights are on, the horses are home, and there’s music down the street. Those jewels made quite a difference.',
+          title: 'A little more with every puzzle.',
+          text: 'The next completed puzzle adds another part to your building. Opening day is getting closer.',
         }
-      : repaired.value
+      : residents.value
         ? {
             speaker: 'Ada · the caretaker',
-            title: 'One good deed leads to another.',
-            text: `${town.value.buildings.farm ? 'Water’s flowing and the fields are planted.' : 'Fresh water is flowing again.'} ${goal.value?.benefit ?? 'This place is beginning to feel like home.'}`,
+            title:
+              repaired.value === 6
+                ? 'Look what we built together.'
+                : 'It’s good to have neighbors again.',
+            text: goal.value
+              ? `${t(goal.value.title)}. ${t(goal.value.benefit)}`
+              : 'The lights are on, the horses are home, and there’s music down the street. Those jewels made quite a difference.',
           }
-        : INITIAL_STORY),
+        : repaired.value
+          ? {
+              speaker: 'Ada · the caretaker',
+              title: 'One good deed leads to another.',
+              text: 'Choose what to build next. Families need a working well, a farm, and a home before they move in.',
+            }
+          : INITIAL_STORY),
 );
 const panel = ref(null),
   panelTitle = ref(null),
@@ -283,6 +354,18 @@ const visibilityChanged = () => {
 onMounted(() => {
   visibilityChanged();
   document.addEventListener('visibilitychange', visibilityChanged);
+  const completed = campaign.lastConstruction;
+  if (completed?.complete) {
+    const upgrade = BUILDING_BY_ID[completed.id].upgrades[completed.stage - 1];
+    latestMoment.value = { speaker: upgrade.speaker, title: upgrade.title, text: upgrade.story };
+    if (residents.value && completed.stage === 1 && ['well', 'farm', 'home'].includes(completed.id))
+      latestMoment.value = {
+        speaker: 'Ada · the caretaker',
+        title: 'Welcome home.',
+        text: 'Fresh water, food, and a home. The Bell family has decided to stay!',
+      };
+    campaign.lastConstruction = null;
+  }
 });
 onBeforeUnmount(() => {
   clearTimeout(revealTimer);
@@ -302,10 +385,12 @@ function repair() {
   if (revealing.value) return;
   const current = offer.value;
   if (!current || !campaign.upgradeBuilding(selected.value, current.stage)) return;
-  latestMoment.value = { speaker: current.speaker, title: current.title, text: current.story };
-  announcement.value = `${building.value.name} improved. ${town.value.coins} coins remaining. ${residents.value} neighbors.`;
-  revealing.value = selected.value;
-  revealTimer = setTimeout(finishReveal, settings.reducedMotion ? 350 : 800);
+  latestMoment.value = {
+    speaker: 'Ada · the caretaker',
+    title: 'The first step is yours.',
+    text: 'The materials are ready. Each completed puzzle will bring this building a little closer to opening day.',
+  };
+  announcement.value = 'Construction started. Head to the mine to make progress.';
 }
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const banditStory = computed(() =>
@@ -319,7 +404,10 @@ const banditStory = computed(() =>
       ? {
           speaker: 'Ada · the caretaker',
           title: 'A little trouble on the trail.',
-          text: `The bandits slipped away with ${event.value.loss} coins. Our homes and savings are safe. Perhaps it’s time to pin up that sheriff’s badge.`,
+          text: t(
+            'The bandits slipped away with {value0} coins. Our homes and savings are safe. Perhaps it’s time to pin up that sheriff’s badge.',
+            { value0: t(event.value.loss) },
+          ),
         }
       : {
           speaker: 'Ada · the caretaker',

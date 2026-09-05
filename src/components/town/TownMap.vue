@@ -1,11 +1,21 @@
 <template>
-  <div class="town-map" :class="{ 'town-map-paused': paused, 'town-map-still': reducedMotion }">
+  <div
+    ref="scene"
+    class="town-map"
+    :class="{ 'town-map-paused': paused, 'town-map-still': reducedMotion }"
+    @pointermove="lookAround"
+    @pointerleave="resetView"
+  >
     <svg
-      viewBox="0 0 1000 710"
+      class="town-diorama"
+      viewBox="0 0 1000 750"
       role="group"
-      aria-label="Prospect Hollow town map. Select a building to inspect it."
+      :aria-label="
+        t('Prospect Hollow town map. Choose any building to restore, or enter the mine to play.')
+      "
     >
       <defs>
+        <clipPath :id="`${uid}-land`"><path :d="land" /></clipPath>
         <linearGradient :id="`${uid}-sky`" x2="0" y2="1">
           <stop stop-color="#e9ece0" />
           <stop offset="1" stop-color="#f6ecd2" />
@@ -37,7 +47,8 @@
         </g>
         <g :id="`${uid}-person`">
           <ellipse cy="4" rx="7" ry="3" fill="#596242" opacity=".23" />
-          <path d="m-3-6-1 9m7-9 2 9" stroke="#6e6552" stroke-width="3" />
+          <path class="walker-leg leg-left" d="m-3-6-1 9" stroke="#6e6552" stroke-width="3" />
+          <path class="walker-leg leg-right" d="m3-6 2 9" stroke="#6e6552" stroke-width="3" />
           <path d="M0-18v13" stroke="currentColor" stroke-width="9" />
           <circle cy="-24" r="5" fill="#d7a577" />
           <path d="M-8-28H8M-4-29v-4h8v4" stroke="#9c7b4f" stroke-width="3" />
@@ -53,9 +64,19 @@
           <circle cx="26" cy="-37" r="1.5" fill="#403e2e" />
         </g>
       </defs>
-      <g aria-hidden="true">
-        <path d="M0 0h1000v710H0Z" :fill="`url(#${uid}-sky)`" />
+      <g aria-hidden="true" class="town-backdrop">
+        <path d="M0 0h1000v750H0Z" :fill="`url(#${uid}-sky)`" />
         <circle cx="781" cy="84" r="43" fill="#f6e6b5" opacity=".9" />
+        <g fill="#fff9e7" opacity=".55">
+          <path
+            class="town-cloud cloud-one"
+            d="M90 67q-18-24 12-32 10-25 35-9 26-8 33 14 30-2 27 23Z"
+          />
+          <path
+            class="town-cloud cloud-two"
+            d="M618 43q-15-17 10-22 9-24 28-11 28-6 31 16 24-3 22 17Z"
+          />
+        </g>
         <path
           d="M0 158 81 89 170 138 261 45 326 111 416 74 516 149 612 91 692 133 791 83 879 132 947 83 1000 131V340H0Z"
           fill="#cdd2b7"
@@ -65,8 +86,22 @@
           d="M0 204 80 143 191 184 318 125 451 191 551 148 634 201 770 158 864 177 940 154 1000 182V440H0Z"
           fill="#b9c3a0"
         />
-        <path d="M0 242Q197 159 401 226T1000 203V710H0Z" :fill="`url(#${uid}-ground)`" />
-        <path d="M0 242Q197 159 401 226T1000 203V710H0Z" :fill="`url(#${uid}-grain)`" />
+      </g>
+      <g aria-hidden="true">
+        <ellipse cx="505" cy="698" rx="449" ry="39" fill="#59604c" opacity=".15" />
+        <path d="M0 620 550 700 1000 590v30L550 735 0 653Z" fill="#ac8c5e" />
+        <path d="m550 700 450-110v30L550 735Z" fill="#8e7955" />
+        <path
+          d="m0 633 550 81 450-111M0 646l550 79 450-114"
+          fill="none"
+          stroke="#d6b983"
+          stroke-width="3"
+          opacity=".55"
+        />
+        <path :d="land" :fill="`url(#${uid}-ground)`" />
+      </g>
+      <g aria-hidden="true" :clip-path="`url(#${uid}-land)`">
+        <path :d="land" :fill="`url(#${uid}-grain)`" />
         <path
           d="M541 184Q423 286 533 391T503 735"
           stroke="#c3a67c"
@@ -111,20 +146,6 @@
             d="m114 217 59 11m-53 6v-28m19 31v-28m20 31v-28M786 289l81-40m-77 49v-25m22 15v-28m23 16v-27m24 16v-26"
           />
         </g>
-        <g transform="translate(487 157)">
-          <path d="M0 29V0m48 29V0" stroke="#877552" stroke-width="5" />
-          <path d="m-7-2 62-6v22l-62 5Z" fill="#a59065" />
-          <text
-            x="24"
-            y="9"
-            text-anchor="middle"
-            font-family="Georgia, serif"
-            font-size="9"
-            fill="#faf0d5"
-          >
-            THE MINE ↑
-          </text>
-        </g>
         <g fill="#bca783" opacity=".7">
           <ellipse
             v-for="n in 22"
@@ -136,12 +157,20 @@
           />
         </g>
       </g>
+      <g transform="translate(500 103)">
+        <TownMine :level="nextLevel" @enter="$emit('mine')" />
+      </g>
       <g
         v-for="building in orderedBuildings"
         :key="building.id"
         role="button"
         tabindex="0"
-        :aria-label="`Inspect ${building.name}: ${building.stages[town.buildings[building.id]]}`"
+        :aria-label="
+          t('Inspect {value0}: {value1}', {
+            value0: t(building.name),
+            value1: t(building.stages[town.buildings[building.id]]),
+          })
+        "
         :aria-pressed="selected === building.id"
         :transform="`translate(${building.x} ${building.y})`"
         class="map-building"
@@ -168,7 +197,11 @@
           :class="{ 'repair-reveal': revealing === building.id }"
           aria-hidden="true"
         >
-          <TownBuilding :id="building.id" :stage="town.buildings[building.id]" />
+          <TownSite
+            :id="building.id"
+            :stage="town.buildings[building.id]"
+            :wins="town.project?.id === building.id ? town.project.wins : null"
+          />
         </g>
         <g class="map-label" transform="translate(0 55)" aria-hidden="true">
           <rect
@@ -186,12 +219,21 @@
             font-size="19"
             font-family="Georgia, serif"
           >
-            {{ building.shortName }}
+            {{ t(building.shortName) }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
           </text>
         </g>
       </g>
       <g aria-hidden="true">
+        <g class="tumbleweed-trail">
+          <ellipse cy="5" rx="15" ry="5" fill="#77623b" opacity=".17" />
+          <g class="tumbleweed-spin" fill="none" stroke="#aa8c50" stroke-width="2">
+            <circle cy="-6" r="13" />
+            <ellipse cy="-6" rx="7" ry="13" />
+            <ellipse cy="-6" rx="13" ry="5" />
+            <path d="m-10-15 20 18m-20-1 19-18M0-21V9" />
+          </g>
+        </g>
         <g v-if="population > 0" class="resident-walk resident-one" color="#ac7259">
           <use :href="`#${uid}-person`" />
         </g>
@@ -242,34 +284,45 @@
             N
           </text>
         </g>
-        <text
-          x="925"
-          y="655"
-          text-anchor="end"
-          fill="#9a895f"
-          font-family="Georgia, serif"
-          font-style="italic"
-          font-size="18"
-        >
-          a little place to call home
-        </text>
       </g>
     </svg>
   </div>
 </template>
 <script setup>
-import { useId } from 'vue';
+import { t } from '../../i18n';
+import { ref, useId, watch } from 'vue';
 import { BUILDINGS } from '../../data/town';
-import TownBuilding from './TownBuilding.vue';
-defineProps({
+import TownSite from './TownSite.vue';
+import TownMine from './TownMine.vue';
+const props = defineProps({
   town: { type: Object, required: true },
   selected: String,
   population: Number,
   reducedMotion: Boolean,
   paused: Boolean,
   revealing: String,
+  nextLevel: { type: Number, required: true },
 });
-defineEmits(['select']);
+defineEmits(['select', 'mine']);
+const scene = ref(null);
+const land = 'M0 242Q197 159 401 226T1000 203V590L550 700 0 620Z';
+function resetView() {
+  scene.value?.style.removeProperty('--look-x');
+  scene.value?.style.removeProperty('--look-y');
+}
+function lookAround(event) {
+  if (event.pointerType !== 'mouse' || props.paused || props.reducedMotion) return;
+  const bounds = event.currentTarget.getBoundingClientRect();
+  scene.value.style.setProperty(
+    '--look-x',
+    ((event.clientX - bounds.left) / bounds.width - 0.5).toFixed(3),
+  );
+  scene.value.style.setProperty(
+    '--look-y',
+    ((event.clientY - bounds.top) / bounds.height - 0.5).toFixed(3),
+  );
+}
+watch(() => props.paused || props.reducedMotion, resetView);
 const uid = `town-${useId().replaceAll(':', '')}`;
 const orderedBuildings = [...BUILDINGS].sort((a, b) => a.y - b.y);
 const trees = [

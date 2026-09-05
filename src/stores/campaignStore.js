@@ -10,7 +10,14 @@ import {
 
 import { localProfile, SAVE_KEY } from '../services/localProfile';
 import { createTown } from '../data/town';
-import { normalizeTown, miningPayout, purchase, banditEncounter } from '../game/town/TownRules';
+import {
+  normalizeTown,
+  miningPayout,
+  purchase,
+  banditEncounter,
+  advanceConstruction,
+  projectRuns,
+} from '../game/town/TownRules';
 export { SAVE_KEY };
 
 const defaults = () => ({
@@ -20,6 +27,7 @@ const defaults = () => ({
   settledRun: 0,
   saveWarning: '',
   readOnly: false,
+  lastConstruction: null,
   powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
 });
 const load = () => {
@@ -99,6 +107,10 @@ export const useCampaignStore = defineStore('campaign', {
       this.save();
       return this.issuedRun;
     },
+    resetProgress() {
+      this.$patch((state) => Object.assign(state, defaults()));
+      return this.save();
+    },
     upgradeBuilding(id, expectedStage) {
       const next = purchase(this.town, id, expectedStage);
       if (!next) return false;
@@ -140,6 +152,17 @@ export const useCampaignStore = defineStore('campaign', {
         rewards.push({ ...tier, count: 1, source, items: [{ id: drop.id, label: drop.label }] });
       }
       this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
+      const project = this.town.project;
+      this.town = advanceConstruction(this.town);
+      this.lastConstruction = project
+        ? {
+            id: project.id,
+            stage: project.stage,
+            wins: project.wins + 1,
+            required: projectRuns(project.stage),
+            complete: !this.town.project,
+          }
+        : null;
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.
       this.save();

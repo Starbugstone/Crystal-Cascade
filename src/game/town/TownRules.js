@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 
 export const miningPayout = (jewels) =>
@@ -21,7 +22,28 @@ export function normalizeTown(saved) {
   ) {
     town.events[BANDIT_EVENT] = { outcome: event.outcome, loss: event.loss };
   }
+  const project = saved?.project;
+  if (
+    project &&
+    Object.hasOwn(BUILDING_BY_ID, project.id) &&
+    project.stage === town.buildings[project.id] + 1 &&
+    project.stage <= BUILDING_BY_ID[project.id].upgrades.length &&
+    Number.isInteger(project.wins) &&
+    project.wins >= 0 &&
+    project.wins < projectRuns(project.stage)
+  ) {
+    town.project = { id: project.id, stage: project.stage, wins: project.wins };
+  }
   return town;
+}
+
+export const projectRuns = (stage) => (stage === 1 ? 3 : 4);
+
+export function advanceConstruction(town) {
+  if (!town.project) return town;
+  const project = { ...town.project, wins: town.project.wins + 1 };
+  if (project.wins < projectRuns(project.stage)) return { ...town, project };
+  return { ...town, buildings: { ...town.buildings, [project.id]: project.stage }, project: null };
 }
 
 export const population = (town) =>
@@ -33,14 +55,17 @@ export function upgradeOffer(town, id) {
   const stage = town.buildings[id];
   const upgrade = building.upgrades[stage];
   if (!upgrade) return null;
-  const missing = upgrade.requires && !town.buildings[upgrade.requires];
+  const firstProject = BUILDINGS.every(({ id }) => !town.buildings[id]);
+  const cost = firstProject ? 0 : upgrade.cost;
   return {
     ...upgrade,
+    cost,
     stage,
-    reason: missing
-      ? `Repair ${BUILDING_BY_ID[upgrade.requires].name.toLowerCase()} first.`
-      : town.coins < upgrade.cost
-        ? `Earn ${upgrade.cost - town.coins} more coins in the mine.`
+    runs: projectRuns(stage + 1),
+    reason: town.project
+      ? 'Finish your current building first.'
+      : town.coins < cost
+        ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
         : '',
   };
 }
@@ -60,7 +85,7 @@ export function purchase(town, id, expectedStage) {
   return {
     ...town,
     coins: town.coins - offer.cost,
-    buildings: { ...town.buildings, [id]: expectedStage + 1 },
+    project: { id, stage: expectedStage + 1, wins: 0 },
   };
 }
 

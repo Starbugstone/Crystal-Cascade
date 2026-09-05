@@ -5,9 +5,9 @@ export const BUILDINGS = [
     shortName: 'Well',
     purpose: 'A fresh start',
     x: 490,
-    y: 355,
+    y: 385,
     color: '#679f9d',
-    stages: ['Dry & forgotten', 'Fresh water flowing'],
+    stages: ['Empty plot', 'Fresh water flowing'],
     upgrades: [
       {
         cost: 50,
@@ -26,11 +26,10 @@ export const BUILDINGS = [
     x: 725,
     y: 230,
     color: '#859753',
-    stages: ['Fields lie empty', 'The first harvest'],
+    stages: ['Empty plot', 'The first harvest'],
     upgrades: [
       {
         cost: 50,
-        requires: 'well',
         title: 'Plant the first seeds',
         benefit: 'A little harvest to feed our future neighbors.',
         story:
@@ -47,20 +46,21 @@ export const BUILDINGS = [
     x: 250,
     y: 235,
     color: '#bc8067',
-    stages: ['Waiting for a family', 'A place to call home', 'A growing household'],
+    stages: ['Empty plot', 'A place to call home', 'A growing household'],
     upgrades: [
       {
         cost: 50,
-        requires: 'farm',
-        title: 'Welcome our first family',
+        title: 'Make a home for a family',
         benefit: 'Two new neighbors, once food and water are ready.',
-        story: 'The roof is mended and the kettle’s on. The Bell family has decided to stay!',
+        story:
+          'The roof is mended and the kettle’s on. With food and water, this will be a lovely home for the Bell family.',
         speaker: 'Ada · the caretaker',
       },
       {
         cost: 150,
         title: 'Make a little more room',
-        benefit: 'A new wing and a garden welcome two more neighbors.',
+        benefit:
+          'A new wing and a garden make room for two more neighbors, once food and water are ready.',
         story:
           'A proper garden and room for cousins. It’s beginning to feel like we’ve always lived here.',
         speaker: 'June · your neighbor',
@@ -75,11 +75,10 @@ export const BUILDINGS = [
     x: 225,
     y: 455,
     color: '#c69849',
-    stages: ['Last orders, long ago', 'The doors are open'],
+    stages: ['Empty plot', 'The doors are open'],
     upgrades: [
       {
         cost: 100,
-        requires: 'home',
         title: 'Bring back the good times',
         benefit: 'Music, warm lamps, and a place for neighbors to meet.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
@@ -95,11 +94,10 @@ export const BUILDINGS = [
     x: 735,
     y: 455,
     color: '#a8764a',
-    stages: ['An empty hitching post', 'Back in the saddle'],
+    stages: ['Empty plot', 'Back in the saddle'],
     upgrades: [
       {
         cost: 100,
-        requires: 'home',
         title: 'Welcome weary travelers',
         benefit: 'Horses and a wagon bring life to the edge of town.',
         story: 'A dry stall and some good hay. Word of this place will travel faster than we do.',
@@ -113,13 +111,12 @@ export const BUILDINGS = [
     shortName: 'Sheriff',
     purpose: 'Someone looking out for us',
     x: 485,
-    y: 560,
+    y: 590,
     color: '#6f8996',
-    stages: ['Badge gathering dust', 'The town is in good hands'],
+    stages: ['Empty plot', 'The town is in good hands'],
     upgrades: [
       {
         cost: 100,
-        requires: 'home',
         title: 'Pin up the badge',
         benefit: 'A sheriff to keep an eye on town and turn bandits away.',
         story: 'No need to worry, folks. I’ll take the evening walk from here.',
@@ -136,12 +133,13 @@ export const INTRO_ORDER = ['well', 'farm', 'home'];
 export const BANDIT_EVENT = 'dusty-trail-visitors';
 export const INITIAL_STORY = {
   speaker: 'Ada · the caretaker',
-  title: 'Every town starts with a little hope.',
-  text: 'The well’s dry and the street’s quiet. But there are jewels in those hills. A few good mining runs could give this place a fresh start.',
+  title: 'A town starts with your first choice.',
+  text: 'Choose any empty plot. The first building’s materials are on us. Complete three puzzles to bring it to life, one part at a time.',
 };
 
 export const createTown = () => ({
   coins: 0,
   buildings: Object.fromEntries(BUILDINGS.map(({ id }) => [id, 0])),
   events: {},
+  project: null,
 });

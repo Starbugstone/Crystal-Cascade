@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { GEM_COLORS } from './SpriteLoader';
 import { BonusEffects } from './BonusEffects';
 
@@ -402,7 +403,7 @@ export class BoardAnimator {
           : combo >= 3
             ? 'SUPER COMBO!'
             : 'DOUBLE!';
-    this.bonuses.callout(`${label} ×${combo}`, p, combo >= 4 ? 0xffd86a : 0xee8bff);
+    this.bonuses.callout(`${t(label)} ×${combo}`, p, combo >= 4 ? 0xffd86a : 0xee8bff);
     this.audio?.playArcadeCue?.('reward', Math.min(combo, 5));
     if (combo >= 4) this.onImpact?.({ color: '#e987ff', type: 'cascade' });
     this.ring(p, 0xffdc91, this.cellSize * 3);

@@ -6,24 +6,38 @@
     @toggle.self="$emit('update:open', $event.target.open)"
     @keydown.esc.stop="close"
   >
-    <summary ref="handle" aria-label="Level status and controls">
+    <summary ref="handle" :aria-label="t('Level status and controls')">
       <span class="mobile-level"
-        ><small>LEVEL</small><b>{{ String(game.currentLevelId).padStart(2, '0') }}</b></span
+        ><small> {{ t('LEVEL') }} </small
+        ><b>{{ String(game.currentLevelId).padStart(2, '0') }}</b></span
       >
-      <span class="mobile-score" :aria-label="`${game.score} points`"
-        ><small>SCORE</small><b>{{ game.score.toLocaleString() }}</b></span
+      <span class="mobile-score" :aria-label="t('{value0} points', { value0: game.score })"
+        ><small> {{ t('SCORE') }} </small><b>{{ number(game.score) }}</b></span
       >
       <span
         class="mobile-time"
         :class="{ expired: game.elapsedMs > game.speedTargetMs }"
-        :aria-label="`Active time ${formatTime(game.elapsedMs)}`"
-        ><small>TIME</small><b>{{ formatTime(game.elapsedMs) }}</b></span
+        :aria-label="t('Active time {value0}', { value0: formatTime(game.elapsedMs) })"
+        ><small> {{ t('TIME') }} </small><b>{{ formatTime(game.elapsedMs) }}</b></span
       >
       <span
         class="mobile-cleared"
-        :aria-label="`${game.totalLayers - game.remainingLayers} of ${game.totalLayers} layers cleared${game.totalRelics ? `, ${game.totalRelics - game.remainingRelics} of ${game.totalRelics} relics collected` : ''}`"
+        :aria-label="
+          t('{value0} of {value1} layers cleared{value2}', {
+            value0: game.totalLayers - game.remainingLayers,
+            value1: game.totalLayers,
+            value2: t(
+              game.totalRelics
+                ? t(', {value0} of {value1} relics collected', {
+                    value0: game.totalRelics - game.remainingRelics,
+                    value1: game.totalRelics,
+                  })
+                : '',
+            ),
+          })
+        "
         ><small>{{
-          game.totalRelics ? 'GOALS' : game.currentLevelId >= 43 ? 'LAYERS' : 'ICE & STONE'
+          t(game.totalRelics ? 'GOALS' : game.currentLevelId >= 43 ? 'LAYERS' : 'ICE & STONE')
         }}</small
         ><b
           >{{ game.goalProgress }}<em> / {{ game.goalTotal }}</em></b
@@ -38,52 +52,62 @@
         ></i
       ></i>
     </summary>
-    <button class="mobile-drawer-scrim" aria-label="Close level details" @click="close"></button>
+    <button
+      class="mobile-drawer-scrim"
+      :aria-label="t('Close level details')"
+      @click="close"
+    ></button>
     <div class="mobile-details-panel">
       <div class="mobile-panel-heading">
-        <h1>{{ levelName }}</h1>
-        <span>PAUSED</span>
+        <h1>{{ t(levelName) }}</h1>
+        <span> {{ t('PAUSED') }} </span>
       </div>
       <div class="mobile-panel-actions">
         <button class="text-button" @click="game.exitLevel()">
-          <GameIcon name="back" />The collection
+          <GameIcon name="back" /> {{ t('The collection') }}
         </button>
         <button
           class="icon-button"
-          :aria-label="muted ? 'Unmute audio' : 'Mute audio'"
+          :aria-label="t(muted ? 'Unmute audio' : 'Mute audio')"
           :aria-pressed="muted"
           @click="$emit('toggle-mute')"
         >
           <GameIcon :name="muted ? 'muted' : 'sound'" />
         </button>
-        <button class="icon-button" aria-label="Settings" @click="settings.toggleSettings(true)">
+        <button
+          class="icon-button"
+          :aria-label="t('Settings')"
+          @click="settings.toggleSettings(true)"
+        >
           <GameIcon name="settings" />
         </button>
       </div>
       <HudPanel />
       <details class="mobile-help">
-        <summary>How to play</summary>
+        <summary>{{ t('How to play') }}</summary>
         <p>
-          Swipe or tap neighboring gems to match 3. Match 4 for a bomb, 5 for a rainbow, or a T / L
-          for cross fire. Clear every obstacle layer and collect any relics to finish. Stone stops
-          falling gems: match beside it or hit it with a bonus. Gold bands mean two hits. Finish
-          fast for a separate speed chest. The clock pauses during cascades and while viewing
-          controls; you can still finish after the speed target.
+          {{
+            t(
+              'Swipe or tap neighboring gems to match 3. Match 4 for a bomb, 5 for a rainbow, or a T / L for cross fire. Clear every obstacle layer and collect any relics to finish. Stone stops falling gems: match beside it or hit it with a bonus. Gold bands mean two hits. Finish fast for a separate speed chest. The clock pauses during cascades and while viewing controls; you can still finish after the speed target.',
+            )
+          }}
         </p>
         <p v-if="game.currentLevelId >= 43">
-          Chained gems cannot move or match: match beside them or hit them with a bonus. Match ruby
-          (R), sapphire (S), or emerald (E) gems on the corresponding seals; bonuses open any color.
-          Golden relics cannot swap or be destroyed. Clear beneath them to drop them through the
-          glowing bottom exits.
+          {{
+            t(
+              'Chained gems cannot move or match: match beside them or hit them with a bonus. Match ruby (R), sapphire (S), or emerald (E) gems on the corresponding seals; bonuses open any color. Golden relics cannot swap or be destroyed. Clear beneath them to drop them through the glowing bottom exits.',
+            )
+          }}
         </p>
       </details>
       <button class="mobile-resume" @click="close">
-        BACK TO THE GAME <GameIcon name="chevron" />
+        {{ t('BACK TO THE GAME') }} <GameIcon name="chevron" />
       </button>
     </div>
   </details>
 </template>
 <script setup>
+import { t, number } from '../i18n';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
 import HudPanel from './HudPanel.vue';

@@ -22,27 +22,33 @@
     </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
-      <button class="brand" aria-label="Crystal Cascade home" @click="showTown">
+      <button class="brand" :aria-label="t('Crystal Cascade home')" @click="showTown">
         <img src="/art/amethyst.svg" alt="" />
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
-      <nav v-if="!game.sessionActive" class="world-nav" aria-label="Choose your adventure">
-        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">Town</button>
+      <nav v-if="!game.sessionActive" class="world-nav" :aria-label="t('Choose your adventure')">
+        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">
+          {{ t('Town') }}
+        </button>
         <button :aria-current="view === 'mine' ? 'page' : undefined" @click="view = 'mine'">
-          Mine
+          {{ t('Mine') }}
         </button>
       </nav>
       <div class="header-actions">
-        <span class="edition">BIG MATCHES. BIGGER REWARDS.</span>
+        <span class="edition"> {{ t('BIG MATCHES. BIGGER REWARDS.') }} </span>
         <button
           class="icon-button"
-          :aria-label="muted ? 'Unmute audio' : 'Mute audio'"
+          :aria-label="t(muted ? 'Unmute audio' : 'Mute audio')"
           :aria-pressed="muted"
           @click="toggleMute"
         >
           <GameIcon :name="muted ? 'muted' : 'sound'" />
         </button>
-        <button class="icon-button" aria-label="Settings" @click="settings.toggleSettings(true)">
+        <button
+          class="icon-button"
+          :aria-label="t('Settings')"
+          @click="settings.toggleSettings(true)"
+        >
           <GameIcon name="settings" />
         </button>
       </div>
@@ -61,9 +67,14 @@
     />
     <main v-else-if="!game.sessionActive" class="welcome">
       <section class="hero">
-        <span class="eyebrow"><i></i> THE CRYSTAL ARCADE</span>
-        <h1>MATCH.<br /><em>GO MEGA.</em></h1>
-        <p>Chase the combo. Beat the clock.<br />Two chests. One brilliant run.</p>
+        <span class="eyebrow"><i></i> {{ t('THE CRYSTAL ARCADE') }} </span>
+        <h1>
+          {{ t('MATCH.') }} <br /><em> {{ t('GO MEGA.') }} </em>
+        </h1>
+        <p>
+          {{ t('Chase the combo. Beat the clock.') }} <br />
+          {{ t('Two chests. One brilliant run.') }}
+        </p>
         <div class="crystal-orbit" aria-hidden="true">
           <div class="orbit orbit-one"></div>
           <div class="orbit orbit-two"></div>
@@ -74,7 +85,9 @@
           <span class="orbit-spark">✦</span>
         </div>
         <div class="hero-note">
-          <GameIcon name="spark" /><span>Match. Blast. <b>Hit the jackpot.</b></span>
+          <GameIcon name="spark" /><span>
+            {{ t('Match. Blast.') }} <b> {{ t('Hit the jackpot.') }} </b></span
+          >
         </div>
       </section>
       <LevelSelectModal @start-level="startLevel" />
@@ -83,39 +96,49 @@
     <main v-else class="game-layout">
       <aside class="game-sidebar">
         <button class="text-button back-button" @click="game.exitLevel()">
-          <GameIcon name="back" /> The collection
+          <GameIcon name="back" /> {{ t('The collection') }}
         </button>
         <div class="level-heading">
-          <span class="eyebrow">LEVEL {{ String(game.currentLevelId).padStart(2, '0') }}</span>
-          <h1>{{ levelName }}</h1>
-          <p>{{ currentConfig?.chapterName }}</p>
+          <span class="eyebrow">
+            {{ t('LEVEL') }} {{ String(game.currentLevelId).padStart(2, '0') }}</span
+          >
+          <h1>{{ t(levelName) }}</h1>
+          <p>{{ t(currentConfig?.chapterName) }}</p>
         </div>
         <HudPanel />
         <div class="match-guide">
-          <span class="eyebrow">MAKE SOME MAGIC</span>
+          <span class="eyebrow"> {{ t('MAKE SOME MAGIC') }} </span>
           <div class="bonus-legend">
             <div>
               <img src="/art/bonuses/bomb.svg" alt="" /><span
-                ><b>Blast bomb</b><small>Match 4 · Blast a 3 × 3 area</small></span
+                ><b> {{ t('Blast bomb') }} </b
+                ><small> {{ t('Match 4 · Blast a 3 × 3 area') }} </small></span
               >
             </div>
             <div>
               <img src="/art/bonuses/rainbow.svg" alt="" /><span
-                ><b>Rainbow orb</b><small>Match 5 · Clear a color</small></span
+                ><b> {{ t('Rainbow orb') }} </b
+                ><small> {{ t('Match 5 · Clear a color') }} </small></span
               >
             </div>
             <div>
               <img src="/art/bonuses/cross.svg" alt="" /><span
-                ><b>Cross fire</b><small>T or L · Clear row + column</small></span
+                ><b> {{ t('Cross fire') }} </b
+                ><small> {{ t('T or L · Clear row + column') }} </small></span
               >
             </div>
           </div>
           <p>
-            Break the ice beneath your matches. Match beside stone to release the gems above. Gold
-            bands take two hits.
+            {{
+              t(
+                'Break the ice beneath your matches. Match beside stone to release the gems above. Gold bands take two hits.',
+              )
+            }}
           </p>
-          <p v-if="game.currentLevelId >= 43">{{ currentConfig?.tip }}</p>
-          <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
+          <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
+          <span class="guide-footnote">
+            {{ t('Beat the score. Beat the clock. Win both chests.') }}
+          </span>
         </div>
       </aside>
       <section
@@ -128,13 +151,18 @@
           <span
             ><i class="live-dot"></i
             >{{
-              game.activeBonusMode
-                ? 'CHOOSE A TILE'
-                : `LEVEL ${String(game.currentLevelId).padStart(2, '0')} · ${currentConfig?.chapterName ?? 'FOLLOW THE CASCADE'}`
+              t(
+                game.activeBonusMode
+                  ? 'CHOOSE A TILE'
+                  : t('LEVEL {value0} · {value1}', {
+                      value0: String(game.currentLevelId).padStart(2, '0'),
+                      value1: t(currentConfig?.chapterName ?? 'FOLLOW THE CASCADE'),
+                    }),
+              )
             }}</span
           ><button
             class="icon-button"
-            :aria-label="focusMode ? 'Exit focus mode' : 'Enter focus mode'"
+            :aria-label="t(focusMode ? 'Exit focus mode' : 'Enter focus mode')"
             :aria-pressed="focusMode"
             @click="focusMode = !focusMode"
           >
@@ -149,22 +177,24 @@
           <BoardCanvas />
           <transition name="notice"
             ><div v-if="game.reshuffleNotice" class="board-notice" role="status">
-              {{ game.reshuffleNotice.message }}
+              {{ t(game.reshuffleNotice.message) }}
             </div></transition
           >
         </div>
         <div class="board-caption" aria-live="polite">
-          <template v-if="game.activeBonusMode"
-            >Tap a tile to use {{ powerName }}
-            <button class="text-button" @click="game.setBonusMode(null)">Cancel</button></template
+          <template v-if="game.activeBonusMode">
+            {{ t('Tap a tile to use') }} {{ t(powerName) }}
+            <button class="text-button" @click="game.setBonusMode(null)">
+              {{ t('Cancel') }}
+            </button></template
           ><template v-else
             ><span
-              ><strong v-if="game.totalRelics" class="relic-caption"
-                >Relics {{ game.totalRelics - game.remainingRelics }}/{{
+              ><strong v-if="game.totalRelics" class="relic-caption">
+                {{ t('Relics') }} {{ game.totalRelics - game.remainingRelics }}/{{
                   game.totalRelics
                 }}
                 · </strong
-              >{{ currentConfig?.tip }}</span
+              >{{ t(currentConfig?.tip) }}</span
             ></template
           >
         </div>
@@ -172,7 +202,7 @@
       </section>
     </main>
     <footer class="app-footer">
-      <span>CRYSTAL CASCADE</span><span>Big combos. Double chests. One more run.</span
+      <span>CRYSTAL CASCADE</span><span> {{ t('Big combos. Double chests. One more run.') }} </span
       ><span class="footer-spark">✦</span>
     </footer>
     <VictoryModal
@@ -180,6 +210,7 @@
       :rewards="game.levelRewards"
       :coins="game.coinReward"
       :jewels="game.collectedJewels"
+      :construction="game.constructionReward"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
       :score="game.score"
@@ -192,11 +223,16 @@
       @replay="startLevel(game.currentLevelId)"
       @next="startLevel(game.currentLevelId + 1)"
     />
-    <SettingsDrawer :open="settings.isSettingsOpen" @close="settings.toggleSettings(false)" />
+    <SettingsDrawer
+      :open="settings.isSettingsOpen"
+      @close="settings.toggleSettings(false)"
+      @reset-progress="resetProgress"
+    />
   </div>
 </template>
 
 <script setup>
+import { t } from './i18n';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
@@ -224,6 +260,11 @@ const showTown = () => {
 const showCollection = () => {
   game.exitLevel();
   view.value = 'mine';
+};
+const resetProgress = () => {
+  game.exitLevel();
+  campaign.resetProgress();
+  view.value = 'town';
 };
 const settings = useSettingsStore();
 const audio = useAudio();

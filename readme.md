@@ -1,6 +1,6 @@
 # Crystal Cascade
 
-A jewel match-3 game built with Vue, Pinia and Phaser. 60 levels across ten chapters, faceted crystal artwork, breakable stone barriers, cascading matches, earned power-up chests, and a small Old West town to restore.
+A jewel match-3 game built with Vue, Pinia, Phaser and Three.js. 60 levels across ten chapters, faceted crystal artwork, breakable stone barriers, cascading matches, earned power-up chests, and a small 3D Old West town to build.
 
 ## Run locally
 
@@ -11,7 +11,9 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173. Prospect Hollow is your new home: choose **Go mining** to start the next puzzle, or **Mine** to browse levels. Finish a run, earn town coins, and **Visit town** to repair its well, farm, homes, saloon, stables, and sheriff’s office. Clearing each level unlocks the next; completed levels remain available for replay and more town earnings.
+Open http://localhost:5173. Choose an empty plot in Prospect Hollow and start building; the first project's materials are free. Click the mine entrance to play the next level. Each completed puzzle adds one construction step. Three wins finish a building; four finish the home's extra wing. Food, water, housing, and protection become available only after construction finishes. Any building can be chosen first. The Mine tab retains the level collection and completed levels can be replayed.
+
+The full site follows the browser's English or French language preference. Settings includes a confirmed **Reset progress for testing** action to restart the town, campaign, and power inventory on this device.
 
 See the [town demo guide](docs/town-demo.md) for the story, local-save migration, optional bandit encounter, and implementation details.
 

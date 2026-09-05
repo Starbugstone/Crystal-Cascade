@@ -103,6 +103,7 @@ export const useGameStore = defineStore('game', {
     collectedJewels: 0,
     runId: null,
     coinReward: 0,
+    constructionReward: null,
     arcadeImpact: null,
     arcadeBanner: null,
     playClock: markRaw(new PlayClock()),
@@ -635,6 +636,7 @@ export const useGameStore = defineStore('game', {
       this.levelRewards = [];
       this.collectedJewels = 0;
       this.coinReward = 0;
+      this.constructionReward = null;
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
       clearTimeout(arcadeBannerTimeout);
@@ -994,6 +996,7 @@ export const useGameStore = defineStore('game', {
       this.levelRewards = [];
       this.collectedJewels = 0;
       this.coinReward = 0;
+      this.constructionReward = null;
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
       clearTimeout(arcadeBannerTimeout);
@@ -1031,6 +1034,7 @@ export const useGameStore = defineStore('game', {
         combo: this.maxCascade,
         target: this.objectives.find((objective) => objective.type === 'score')?.target ?? 0,
       });
+      this.constructionReward = useCampaignStore().lastConstruction;
       this.cancelHint(true);
       if (scoreFlashTimeoutId) {
         clearTimeout(scoreFlashTimeoutId);

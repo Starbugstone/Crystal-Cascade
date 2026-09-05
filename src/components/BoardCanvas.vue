@@ -4,13 +4,18 @@
     class="board-canvas"
     tabindex="0"
     role="application"
-    aria-label="Crystal match board. Swipe or tap neighboring gems. Keyboard: arrows to navigate, Enter to select, Shift and arrow to swap, Escape to cancel."
+    :aria-label="
+      t(
+        'Crystal match board. Swipe or tap neighboring gems. Keyboard: arrows to navigate, Enter to select, Shift and arrow to swap, Escape to cancel.',
+      )
+    "
     @keydown="gameStore.renderer?.input?.handleKey($event)"
     @pointercancel="gameStore.renderer?.input?.reset()"
     :style="{ aspectRatio: `${gameStore.boardCols} / ${gameStore.boardRows}` }"
   ></div>
 </template>
 <script setup>
+import { t } from '../i18n';
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import Phaser from 'phaser';
 import { useGameStore } from '../stores/gameStore';

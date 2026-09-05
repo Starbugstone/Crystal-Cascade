@@ -1123,3 +1123,285 @@
     animation: none !important;
   }
 }
+
+/* A shallow diorama camera complements the buildings' solid faces and cast shadows. */
+.town-map {
+  --look-x: 0;
+  --look-y: 0;
+  background: #e9ecdf;
+  perspective: 1100px;
+}
+.town-diorama {
+  transform: rotateX(calc(var(--look-y) * -3deg)) rotateY(calc(var(--look-x) * 3deg));
+  transform-origin: 50% 60%;
+  transition: transform 0.35s ease-out;
+}
+.town-backdrop {
+  transform: translate(calc(var(--look-x) * -9px), calc(var(--look-y) * -5px));
+  transition: transform 0.35s ease-out;
+}
+.town-mine-entrance {
+  cursor: pointer;
+  outline: none;
+}
+.town-mine-entrance:focus-visible .mine-hit-area {
+  stroke: #385c48;
+  stroke-width: 5;
+  fill: #f9edcd22;
+}
+.town-mine-entrance:hover .mine-label rect,
+.town-mine-entrance:focus-visible .mine-label rect {
+  fill: #345644;
+  stroke-width: 4;
+}
+.mine-cart {
+  animation: mine-cart-roll 7s ease-in-out infinite;
+}
+.mine-lantern-glow {
+  animation: lantern-glow 3s ease-in-out infinite;
+}
+.town-cloud {
+  animation: cloud-drift 38s ease-in-out infinite alternate;
+}
+.cloud-two {
+  animation-delay: -18s;
+  animation-duration: 47s;
+}
+.loose-sign {
+  transform-origin: -60px -117px;
+  animation: sign-sway 4.5s ease-in-out infinite alternate;
+}
+.well-bucket {
+  animation: well-draw 8s ease-in-out infinite;
+}
+.well-ripple {
+  transform-origin: 0 -12px;
+  animation: well-water 3s ease-out infinite;
+}
+.chimney-smoke {
+  animation: chimney-drift 5s ease-out infinite both;
+}
+.smoke-two {
+  animation-delay: -1.7s;
+}
+.smoke-three {
+  animation-delay: -3.4s;
+}
+.tumbleweed-trail {
+  animation: tumbleweed-travel 20s linear infinite;
+}
+.tumbleweed-spin {
+  transform-origin: 0 -6px;
+  animation: tumbleweed-turn 2.8s linear infinite;
+}
+.walker-leg {
+  transform-origin: 0 -6px;
+  animation: walking-step 0.7s ease-in-out infinite alternate;
+}
+.leg-right {
+  animation-delay: -0.7s;
+}
+@keyframes mine-cart-roll {
+  0%,
+  20%,
+  100% {
+    transform: translate(0, 0);
+  }
+  55%,
+  75% {
+    transform: translate(1px, 15px);
+  }
+}
+@keyframes lantern-glow {
+  0%,
+  100% {
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.38;
+  }
+}
+@keyframes cloud-drift {
+  from {
+    transform: translateX(-40px);
+  }
+  to {
+    transform: translateX(60px);
+  }
+}
+@keyframes sign-sway {
+  from {
+    transform: rotate(8deg);
+  }
+  to {
+    transform: rotate(15deg);
+  }
+}
+@keyframes well-draw {
+  0%,
+  20%,
+  100% {
+    transform: translateY(0);
+  }
+  50%,
+  70% {
+    transform: translateY(10px);
+  }
+}
+@keyframes well-water {
+  from {
+    transform: scale(0.55);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+@keyframes chimney-drift {
+  from {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0.6;
+  }
+  to {
+    transform: translate(18px, -43px) scale(2.2);
+    opacity: 0;
+  }
+}
+@keyframes tumbleweed-travel {
+  0% {
+    transform: translate(92px, 548px);
+    opacity: 0;
+  }
+  5%,
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(862px, 585px);
+    opacity: 0;
+  }
+}
+@keyframes tumbleweed-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes walking-step {
+  from {
+    transform: rotate(-13deg);
+  }
+  to {
+    transform: rotate(13deg);
+  }
+}
+.town-map-paused .town-diorama,
+.town-map-paused .town-backdrop,
+.town-map-still .town-diorama,
+.town-map-still .town-backdrop {
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-diorama,
+  .town-backdrop {
+    transform: none !important;
+    transition: none;
+  }
+}
+.town-scene {
+  position: relative;
+  aspect-ratio: 1.24;
+  isolation: isolate;
+  background: #e9e8da;
+}
+.town-scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+.town-scene-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.town-scene-labels button {
+  position: absolute;
+  transform: translate(-50%, -30%);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 16px;
+  border: 1px solid #bba77c;
+  background: #fff8e9ec;
+  color: #4e5b45;
+  font:
+    13px Georgia,
+    serif;
+  box-shadow: 0 3px 7px #534a3022;
+  white-space: nowrap;
+}
+.town-scene-labels button.selected,
+.town-scene-labels .scene-mine-button {
+  background: #4b6b58;
+  color: #fff6df;
+  border-color: #c2cba4;
+}
+.town-scene-labels button:focus-visible {
+  outline: 3px solid #426654;
+  outline-offset: 3px;
+}
+.town-scene-labels button small {
+  font: 9px var(--font-body);
+}
+.high-contrast .town-view .scene-mine-button small {
+  color: inherit;
+}
+.town-scene-labels button:hover {
+  box-shadow: 0 4px 14px #534a3044;
+}
+@media (max-width: 550px) {
+  .town-scene {
+    aspect-ratio: 1;
+  }
+  .town-scene-labels button {
+    min-height: 32px;
+    padding: 7px;
+    gap: 3px;
+    font-size: 10px;
+    border-radius: 11px;
+  }
+  .town-scene-labels button small {
+    font-size: 8px;
+  }
+  .town-scene-labels .scene-mine-button {
+    flex-direction: column;
+    min-height: 44px;
+  }
+}
+.town-project-progress {
+  border-block: 1px solid #d5cbb4;
+  padding-block: 18px;
+}
+.town-project-progress h3 {
+  color: #536c57;
+  font-family: Georgia, serif;
+  font-size: 18px;
+}
+.town-project-progress p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #6b705f;
+  margin-top: 12px;
+}
+.town-project-progress progress {
+  width: 100%;
+  height: 10px;
+  margin-top: 14px;
+  accent-color: #688b70;
+}

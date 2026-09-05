@@ -2,9 +2,9 @@
   <section class="collection" aria-labelledby="collection-title">
     <div class="collection-heading">
       <div>
-        <span class="eyebrow">YOUR NEXT LITTLE ADVENTURE</span>
+        <span class="eyebrow"> {{ t('YOUR NEXT LITTLE ADVENTURE') }} </span>
         <h2 id="collection-title">
-          The journey<span>01 — {{ levels.length }}</span>
+          {{ t('The journey') }} <span>01 — {{ levels.length }}</span>
         </h2>
       </div>
       <span class="journey-stars"
@@ -20,19 +20,21 @@
       </div>
       <div>
         <span class="eyebrow">{{
-          campaign.completedCount === levels.length
-            ? 'THE COLLECTION IS YOURS'
-            : campaign.completedCount
-              ? 'CONTINUE YOUR JOURNEY'
-              : 'BEGIN THE JOURNEY'
+          t(
+            campaign.completedCount === levels.length
+              ? 'THE COLLECTION IS YOURS'
+              : campaign.completedCount
+                ? 'CONTINUE YOUR JOURNEY'
+                : 'BEGIN THE JOURNEY',
+          )
         }}</span>
-        <h3>{{ names[campaign.nextLevel - 1] }}</h3>
+        <h3>{{ t(names[campaign.nextLevel - 1]) }}</h3>
         <p>
-          Level {{ campaign.nextLevel }} · {{ campaign.completedCount }} of
-          {{ levels.length }} complete
+          {{ t('Level') }} {{ campaign.nextLevel }} · {{ campaign.completedCount }} {{ t('of') }}
+          {{ levels.length }} {{ t('complete') }}
         </p>
         <span class="featured-play"
-          >{{ campaign.completedCount === levels.length ? 'Play again' : 'Let’s play' }}
+          >{{ t(campaign.completedCount === levels.length ? 'Play again' : 'Let’s play') }}
           <GameIcon name="arrow"
         /></span>
       </div>
@@ -42,13 +44,13 @@
     </div>
     <div v-for="(chapter, index) in chapters" :key="chapter.name" class="journey-chapter">
       <div class="chapter-heading">
-        <span class="eyebrow">{{ String(index + 1).padStart(2, '0') }} / {{ chapter.name }}</span
+        <span class="eyebrow">{{ String(index + 1).padStart(2, '0') }} / {{ t(chapter.name) }}</span
         ><small
           >{{ chapterLevels(index).filter((level) => campaign.records[level.id]).length }} /
           6</small
         >
       </div>
-      <p>{{ chapter.description }}</p>
+      <p>{{ t(chapter.description) }}</p>
       <div class="level-grid">
         <button
           v-for="level in chapterLevels(index)"
@@ -60,7 +62,18 @@
           }"
           :disabled="!campaign.isUnlocked(level.id)"
           @click="$emit('start-level', level.id)"
-          :aria-label="`${campaign.isUnlocked(level.id) ? 'Play' : 'Locked'} level ${level.id}: ${names[level.id - 1]}${campaign.records[level.id] ? `, ${campaign.records[level.id].stars} stars` : ''}`"
+          :aria-label="
+            t('{value0} level {value1}: {value2}{value3}', {
+              value0: t(campaign.isUnlocked(level.id) ? 'Play' : 'Locked'),
+              value1: level.id,
+              value2: t(names[level.id - 1]),
+              value3: t(
+                campaign.records[level.id]
+                  ? t(', {value0} stars', { value0: campaign.records[level.id].stars })
+                  : '',
+              ),
+            })
+          "
         >
           <span class="level-number">{{ String(level.id).padStart(2, '0') }}</span>
           <img
@@ -81,24 +94,26 @@
             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
             <circle cx="12" cy="15" r="1" />
           </svg>
-          <span class="level-name">{{ names[level.id - 1] }}</span>
+          <span class="level-name">{{ t(names[level.id - 1]) }}</span>
           <span class="level-dots" aria-hidden="true"
             ><span
               v-for="star in 3"
               :key="star"
               :class="{ earned: star <= (campaign.records[level.id]?.stars ?? 0) }"
-              >{{ star <= (campaign.records[level.id]?.stars ?? 0) ? '✦' : '✧' }}
+              >{{ t(star <= (campaign.records[level.id]?.stars ?? 0) ? '✦' : '✧') }}
             </span></span
           >
         </button>
       </div>
     </div>
     <p class="collection-note">
-      <span>✧</span> Clear a level to unlock the next. Replay to earn more stars and chests.
+      <span>✧</span>
+      {{ t('Clear a level to unlock the next. Replay to earn more stars and chests.') }}
     </p>
   </section>
 </template>
 <script setup>
+import { t } from '../i18n';
 import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
 import { useCampaignStore } from '../stores/campaignStore';

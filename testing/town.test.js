@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { BUILDINGS, BANDIT_EVENT, createTown } from '../src/data/town';
 import {
+  advanceConstruction,
+  projectRuns,
   banditEncounter,
   miningPayout,
   nextGoal,
@@ -60,49 +62,74 @@ describe('A small, reachable town', () => {
   ])('pays %s jewels as %s coins', (gems, coins) => {
     expect(miningPayout(gems)).toBe(coins);
   });
-  it('gets a family settled in three minimum-paying wins, then reaches every improvement', () => {
-    let town = createTown();
-    expect(population(town)).toBe(0);
-    for (const id of ['well', 'farm', 'home']) {
-      expect(nextGoal(town).id).toBe(id);
-      town.coins += miningPayout(0);
-      town = purchase(town, id, 0);
-      expect(town.coins).toBe(0);
+  it('starts from bare plots and grants a building only after three completed puzzles', () => {
+    let town = purchase(createTown(), 'home', 0);
+    expect(town.coins).toBe(0);
+    expect(town.project).toEqual({ id: 'home', stage: 1, wins: 0 });
+    for (let win = 1; win <= 3; win++) {
+      town = advanceConstruction(town);
+      expect(town.buildings.home).toBe(win === 3 ? 1 : 0);
+      expect(population(town)).toBe(0);
     }
-    expect(population(town)).toBe(2);
-    let runs = 3;
+    expect(town.project).toBeNull();
+  });
+  it('lets the player choose any first building, with no immediate benefits or second project', () => {
+    for (const building of BUILDINGS) {
+      const town = purchase(createTown(), building.id, 0);
+      expect(town.project.id).toBe(building.id);
+      expect(town.buildings[building.id]).toBe(0);
+      expect(purchase(town, building.id, 0)).toBeNull();
+      expect(purchase(town, building.id === 'well' ? 'farm' : 'well', 0)).toBeNull();
+    }
+    expect(purchase(createTown(), '__proto__', 0)).toBeNull();
+    expect(purchase(createTown(), 'home', 1)).toBeNull();
+  });
+  it('requires materials after the free project and keeps every improvement reachable', () => {
+    let town = createTown(),
+      runs = 0;
     while (nextGoal(town)) {
       const goal = nextGoal(town);
-      town.coins += miningPayout(0);
-      runs++;
-      const next = purchase(town, goal.id, town.buildings[goal.id]);
-      if (next) town = next;
-      expect(runs).toBeLessThan(20);
+      town = purchase(town, goal.id, town.buildings[goal.id]);
+      expect(town).not.toBeNull();
+      const required = projectRuns(town.project.stage);
+      for (let i = 0; i < required; i++) {
+        town.coins += miningPayout(0);
+        town = advanceConstruction(town);
+        runs++;
+      }
     }
+    expect(runs).toBe(22);
     expect(population(town)).toBe(4);
-    BUILDINGS.forEach((building) =>
-      expect(town.buildings[building.id]).toBe(building.upgrades.length),
-    );
+    expect(town.coins).toBe(550);
+    expect(purchase(town, 'well', 1)).toBeNull();
+    const broke = { ...settledTown(0) };
+    expect(purchase(broke, 'saloon', 0)).toBeNull();
   });
-  it('rejects locked, unknown, unaffordable, maxed and duplicate purchases without spending', () => {
-    const town = createTown();
-    expect(purchase(town, 'well', 0)).toBeNull();
-    town.coins = 500;
-    expect(purchase(town, 'home', 0)).toBeNull();
-    expect(purchase(town, '__proto__', 0)).toBeNull();
-    const repaired = purchase(town, 'well', 0);
-    expect(purchase(repaired, 'well', 0)).toBeNull();
-    expect(purchase(repaired, 'well', 1)).toBeNull();
-    expect(town.coins).toBe(500);
-    const family = settledTown(500);
-    const biggerHome = purchase(family, 'home', 1);
-    expect(biggerHome.coins).toBe(350);
-    expect(purchase(biggerHome, 'home', 1)).toBeNull();
+  it('welcomes households after the last essential building finishes, in any chosen order', () => {
+    for (const order of [
+      ['home', 'farm', 'well'],
+      ['farm', 'well', 'home'],
+      ['well', 'home', 'farm'],
+    ]) {
+      let town = { ...createTown(), coins: 500 };
+      order.forEach((id, index) => {
+        town = purchase(town, id, 0);
+        for (let i = 0; i < 3; i++) {
+          town = advanceConstruction(town);
+          expect(population(town)).toBe(index === 2 && i === 2 ? 2 : 0);
+        }
+      });
+    }
   });
-  it('only counts households when basic needs are met', () => {
-    const town = settledTown();
-    town.buildings.well = 0;
-    expect(population(town)).toBe(0);
+  it('preserves a valid unfinished project and discards invalid work markers', () => {
+    const town = advanceConstruction(purchase(createTown(), 'sheriff', 0));
+    expect(normalizeTown(JSON.parse(JSON.stringify(town)))).toEqual(town);
+    for (const project of [
+      { id: '__proto__', stage: 1, wins: 1 },
+      { id: 'sheriff', stage: 2, wins: 1 },
+      { id: 'sheriff', stage: 1, wins: 3 },
+    ])
+      expect(normalizeTown({ ...town, project }).project).toBeNull();
   });
   it('warns through an optional event only after onboarding, caps loss, and preserves savings', () => {
     expect(banditEncounter(createTown())).toBeNull();
@@ -175,10 +202,41 @@ describe('Profile and reward integrity', () => {
     const hammerBefore = campaign.powers.find((power) => power.id === 'hammer').quantity;
     useInventoryStore().consumeItem('hammer');
     setActivePinia(createPinia());
-    expect(useCampaignStore().town).toMatchObject({ coins: 45, buildings: { well: 1 } });
+    expect(useCampaignStore().town).toMatchObject({
+      coins: 95,
+      buildings: { well: 0 },
+      project: { id: 'well', wins: 0 },
+    });
     expect(useCampaignStore().powers.find((power) => power.id === 'hammer').quantity).toBe(
       hammerBefore - 1,
     );
+  });
+  it('advances construction with settlement once, survives reload, and unlocks the benefit only at completion', () => {
+    let campaign = useCampaignStore();
+    campaign.upgradeBuilding('well', 0);
+    for (let win = 1; win <= 3; win++) {
+      const id = campaign.beginRun();
+      campaign.recordVictory(victory(id));
+      campaign.recordVictory(victory(id));
+      expect(campaign.lastConstruction).toMatchObject({ wins: win, complete: win === 3 });
+      setActivePinia(createPinia());
+      campaign = useCampaignStore();
+      expect(campaign.town.buildings.well).toBe(win === 3 ? 1 : 0);
+      expect(campaign.town.project?.wins ?? 3).toBe(win);
+      expect(campaign.town.coins).toBe(win * 95);
+    }
+  });
+  it('resets town, campaign and powers durably without changing language or settings', () => {
+    const campaign = useCampaignStore();
+    campaign.recordVictory(victory(campaign.beginRun()));
+    campaign.upgradeBuilding('home', 0);
+    expect(campaign.resetProgress()).toBe(true);
+    setActivePinia(createPinia());
+    const reset = useCampaignStore();
+    expect(reset.town).toEqual(createTown());
+    expect(reset.records).toEqual({});
+    expect(reset.powers.every((power) => power.quantity === 3)).toBe(true);
+    expect(reset.issuedRun).toBe(0);
   });
   it('keeps a bandit result and its deduction in the same snapshot', () => {
     const campaign = useCampaignStore();
