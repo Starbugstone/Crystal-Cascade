@@ -17,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('generates twelve settled boards with legal moves', () => {
+it('generates thirty-six settled boards with legal moves', () => {
   for (const level of generateLevelConfigs()) {
     expect(engine.findMatches(level.board, level.boardCols)).toEqual([]);
     expect(

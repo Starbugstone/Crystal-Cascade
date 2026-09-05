@@ -139,7 +139,7 @@ describe('Interactive Bonuses', () => {
     expect(gameStore.activeBonusMode).toBe('hammer');
 
     // Count should NOT decrease yet
-    expect(hammerSlot.quantity).toBe(20);
+    expect(hammerSlot.quantity).toBe(3);
 
     const result = await gameStore.resolveBonusClick(0); // Click first gem
 
@@ -154,7 +154,7 @@ describe('Interactive Bonuses', () => {
     });
     expect(gameStore.board.every(Boolean)).toBe(true);
 
-    expect(hammerSlot.quantity).toBe(19); // Consumed AFTER use
+    expect(hammerSlot.quantity).toBe(2); // Consumed AFTER use
   });
 
   it('activates color wand mode and destroys all gems of same color', async () => {

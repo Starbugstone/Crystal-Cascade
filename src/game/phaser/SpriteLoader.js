@@ -15,6 +15,8 @@ export function preloadSpriteAssets(scene) {
   });
   for (const type of ['hammer', 'color-wand', 'clear-row', 'shuffle', 'tile-breaker'])
     scene.load.svg(`power-${type}`, `/art/powers/${type}.svg`, { width: 192, height: 192 });
+  for (const type of ['stone', 'reinforced', 'cracked'])
+    scene.load.svg(`block-${type}`, `/art/blocks/${type}.svg`, { width: 160, height: 160 });
   for (const type of ['frost', 'cracked'])
     scene.load.svg(`ice-${type}`, `/art/ice/${type}.svg`, { width: 160, height: 160 });
 }

@@ -1,7 +1,10 @@
 import { markRaw } from 'vue';
+import { PlayClock } from '../game/engine/PlayClock';
+import { useCampaignStore } from './campaignStore';
 import { useSettingsStore } from './settingsStore';
 import { defineStore } from 'pinia';
 import { generateLevelConfigs } from '../game/engine/LevelGenerator';
+import { GEM_TYPES } from '../game/engine/GemFactory';
 import { MatchEngine } from '../game/engine/MatchEngine';
 import { TileManager } from '../game/engine/TileManager';
 import { useInventoryStore } from './inventoryStore';
@@ -17,6 +20,8 @@ const bonusActivator = new BonusActivator();
 const hintEngine = new HintEngine();
 const HINT_DELAY_MS = 15000;
 let hintTimerId = null;
+let arcadeImpactTimeout = null;
+let arcadeBannerTimeout = null;
 let scoreFlashTimeoutId = null;
 let reshuffleNoticeTimeoutId = null;
 
@@ -90,6 +95,12 @@ export const useGameStore = defineStore('game', {
     totalLayers: 0,
     remainingLayers: 0,
     levelCleared: false,
+    levelRewards: [],
+    arcadeImpact: null,
+    arcadeBanner: null,
+    playClock: markRaw(new PlayClock()),
+    elapsedMs: 0,
+    speedTargetMs: 0,
     audioManager: null,
     hintMove: null,
     currentBoardLayout: null,
@@ -103,6 +114,28 @@ export const useGameStore = defineStore('game', {
     },
   },
   actions: {
+    showArcadeBanner(banner) {
+      if (!this.sessionActive || this.levelCleared) return;
+      clearTimeout(arcadeBannerTimeout);
+      this.arcadeBanner = { ...banner, id: (this.arcadeBanner?.id ?? 0) + 1 };
+      arcadeBannerTimeout = setTimeout(() => (this.arcadeBanner = null), 2000);
+    },
+    showArcadeImpact(effect) {
+      if (useSettingsStore().reducedMotion || !this.sessionActive || this.levelCleared) return;
+      clearTimeout(arcadeImpactTimeout);
+      this.arcadeImpact = { ...effect, id: (this.arcadeImpact?.id ?? 0) + 1 };
+      arcadeImpactTimeout = setTimeout(() => (this.arcadeImpact = null), 850);
+    },
+    syncRunClock(running) {
+      const canPlay =
+        running ??
+        (this.sessionActive &&
+          !this.levelCleared &&
+          !this.animationInProgress &&
+          !this.inputPaused &&
+          !!this.renderer);
+      this.elapsedMs = this.playClock.setRunning(canPlay);
+    },
     setAudioManager(manager) {
       this.audioManager = manager ? markRaw(manager) : null;
       const animator = this.renderer?.animator;
@@ -213,6 +246,7 @@ export const useGameStore = defineStore('game', {
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
         const resolution = tileManager.getResolution({
+          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
           board: this.board,
           tiles: this.tiles,
           matches: matches,
@@ -434,6 +468,7 @@ export const useGameStore = defineStore('game', {
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
         const resolution = tileManager.getResolution({
+          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
           board: this.board,
           tiles: this.tiles,
           matches: matches,
@@ -526,7 +561,7 @@ export const useGameStore = defineStore('game', {
         return;
       }
 
-      this.availableLevels = generateLevelConfigs(12).map((level, index) => ({
+      this.availableLevels = generateLevelConfigs().map((level, index) => ({
         id: level.id ?? index + 1,
         label: `Level ${level.id ?? index + 1}`,
         summary: level.summary,
@@ -544,6 +579,7 @@ export const useGameStore = defineStore('game', {
       };
     },
     startLevel(levelId) {
+      if (!useCampaignStore().isUnlocked(levelId)) return false;
       const selected = this.availableLevels.find((entry) => entry.id === levelId);
       if (!selected) {
         console.warn('No level config found for id', levelId);
@@ -555,6 +591,9 @@ export const useGameStore = defineStore('game', {
       this.renderer?.animator?.clear();
       this.renderer?.input?.reset();
       const { config } = selected;
+      this.playClock.reset();
+      this.elapsedMs = 0;
+      this.speedTargetMs = config.speedTargetMs ?? 0;
       this.currentLevelId = levelId;
       if (scoreFlashTimeoutId) {
         clearTimeout(scoreFlashTimeoutId);
@@ -568,6 +607,11 @@ export const useGameStore = defineStore('game', {
       const freshTiles = cloneTileLayers(config.tiles);
       this.sessionActive = true;
       this.levelCleared = false;
+      this.levelRewards = [];
+      clearTimeout(arcadeImpactTimeout);
+      this.arcadeImpact = null;
+      clearTimeout(arcadeBannerTimeout);
+      this.arcadeBanner = null;
       this.scorePenaltyFlash = false;
       this.reshuffleNotice = null;
       this.boardCols = config.boardCols ?? config.boardSize ?? 8;
@@ -647,6 +691,8 @@ export const useGameStore = defineStore('game', {
         particles: renderer.particles,
         audio: this.audioManager,
         settings: useSettingsStore(),
+        onImpact: (effect) => this.showArcadeImpact(effect),
+        onBanner: (banner) => this.showArcadeBanner(banner),
         boardLayout: this.currentBoardLayout,
       });
 
@@ -737,7 +783,12 @@ export const useGameStore = defineStore('game', {
       const tileA = tiles[aIndex];
       const tileB = tiles[bIndex];
       let boardUpdated = false;
-      if (tileA?.state === 'FROZEN' || tileB?.state === 'FROZEN') {
+      if (
+        tileA?.state === 'FROZEN' ||
+        tileB?.state === 'FROZEN' ||
+        (tileA?.type === 'blocker' && tileA.health > 0) ||
+        (tileB?.type === 'blocker' && tileB.health > 0)
+      ) {
         if (animator && matchEngine.areAdjacent(aIndex, bIndex, cols)) {
           this.animationInProgress = true;
           try {
@@ -789,6 +840,7 @@ export const useGameStore = defineStore('game', {
         }
 
         const resolution = tileManager.getResolution({
+          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
           board: evaluation.board,
           tiles: this.tiles,
           matches: evaluation.matches,
@@ -885,6 +937,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      this.syncRunClock(false);
       this.sessionVersion += 1;
       this.cancelHint(true);
       if (scoreFlashTimeoutId) {
@@ -914,6 +967,11 @@ export const useGameStore = defineStore('game', {
       this.totalLayers = 0;
       this.remainingLayers = 0;
       this.levelCleared = false;
+      this.levelRewards = [];
+      clearTimeout(arcadeImpactTimeout);
+      this.arcadeImpact = null;
+      clearTimeout(arcadeBannerTimeout);
+      this.arcadeBanner = null;
       this.scorePenaltyFlash = false;
       this.reshuffleNotice = null;
       this.renderer?.animator?.clearQueuedSwapHighlight?.();
@@ -928,6 +986,16 @@ export const useGameStore = defineStore('game', {
     },
 
     completeLevel() {
+      if (this.levelCleared || !this.sessionActive || this.remainingLayers > 0) return;
+      this.syncRunClock(false);
+      this.levelRewards = useCampaignStore().recordVictory({
+        elapsedMs: this.playClock.started ? this.elapsedMs : null,
+        speedTargetMs: this.speedTargetMs,
+        id: this.currentLevelId,
+        score: this.score,
+        combo: this.maxCascade,
+        target: this.objectives.find((objective) => objective.type === 'score')?.target ?? 0,
+      });
       this.cancelHint(true);
       if (scoreFlashTimeoutId) {
         clearTimeout(scoreFlashTimeoutId);
@@ -1023,14 +1091,14 @@ export const useGameStore = defineStore('game', {
       }
       this.reshuffleNotice = {
         loss: lostScore,
-        message: `Reshuffling, losing ${Math.max(0, lostScore).toLocaleString()} score`,
+        message: 'No moves left. A free shuffle to keep you going.',
         timestamp: Date.now(),
       };
       reshuffleNoticeTimeoutId = setTimeout(() => {
         this.reshuffleNotice = null;
       }, 2000);
     },
-    async ensurePlayableBoard({ attempts = 0, penaltyApplied = false } = {}) {
+    async ensurePlayableBoard({ attempts = 0, noticeShown = false } = {}) {
       if (this.animationInProgress || !this.sessionActive || this.levelCleared) {
         return false;
       }
@@ -1046,17 +1114,9 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      let lostScore = 0;
-      if (!penaltyApplied) {
-        // Only apply the penalty+notice once per reshuffle chain so recursive retries don't stack
-        lostScore = Math.floor(this.score * (2 / 3));
-        if (lostScore > 0) {
-          this.score = Math.max(0, this.score - lostScore);
-          this.updateObjectives({ scoreDelta: -lostScore });
-        }
-        this._triggerScorePenaltyFlash();
-        this._showReshuffleNotice(lostScore);
-        penaltyApplied = true;
+      if (!noticeShown) {
+        this._showReshuffleNotice();
+        noticeShown = true;
       }
 
       const shuffleResult = await this.shuffleBoard();
@@ -1065,7 +1125,7 @@ export const useGameStore = defineStore('game', {
       }
 
       if (!this._hasPlayableMove() && attempts < 2) {
-        return this.ensurePlayableBoard({ attempts: attempts + 1, penaltyApplied });
+        return this.ensurePlayableBoard({ attempts: attempts + 1, noticeShown });
       }
 
       return true;
@@ -1110,9 +1170,18 @@ export const useGameStore = defineStore('game', {
       const animator = this.renderer?.animator;
 
       const nextBoard = [...this.board];
-      for (let i = nextBoard.length - 1; i > 0; i--) {
+      const movable = nextBoard
+        .map((gem, index) =>
+          gem && this.tiles[index]?.state !== 'FROZEN' && this.tiles[index]?.type !== 'blocker'
+            ? index
+            : -1,
+        )
+        .filter((index) => index >= 0);
+      for (let i = movable.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [nextBoard[i], nextBoard[j]] = [nextBoard[j], nextBoard[i]];
+        const a = movable[i],
+          b = movable[j];
+        [nextBoard[a], nextBoard[b]] = [nextBoard[b], nextBoard[a]];
       }
 
       this.animationInProgress = true;
@@ -1162,6 +1231,7 @@ export const useGameStore = defineStore('game', {
         }
 
         const resolution = tileManager.getResolution({
+          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
           board: nextBoard,
           tiles: this.tiles,
           matches,

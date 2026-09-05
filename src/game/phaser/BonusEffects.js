@@ -56,9 +56,11 @@ export class BonusEffects {
     this.highlightTargets(primary.targets, color);
     // A short wind-up gives a special its weight. Cosmetic tails run alongside gravity.
     effects.slice(0, 6).forEach((effect) => this.charge(effect));
-    await a.tween({ phase: 0 }, { phase: 1, duration: 120 });
+    await a.tween({ phase: 0 }, { phase: 1, duration: 230 });
     if (generation !== a.generation) return;
     effects.slice(0, 6).forEach((effect) => this.impact(effect));
+    a.onImpact?.({ type: primary.type, color: `#${color.toString(16).padStart(6, '0')}` });
+    this.boardBurst(color);
     const labels = {
       bomb: 'BOOM!',
       hammer: 'SMASH!',
@@ -68,7 +70,12 @@ export class BonusEffects {
       tile_breaker: 'CROSS FIRE!',
       clear_row: 'ROW ROCKET!',
     };
-    this.callout(labels[primary.type], a.position(primary.index), color);
+    this.callout(
+      effects.length > 1 ? `CHAIN REACTION ×${effects.length}` : labels[primary.type],
+      a.position(primary.index),
+      color,
+    );
+    await a.tween({ phase: 0 }, { phase: 1, duration: 160 });
   }
 
   icon(type, position, size) {
@@ -83,16 +90,28 @@ export class BonusEffects {
     const a = this.a;
     const p = a.position(index);
     const size = a.cellSize;
-    const icon = this.icon(type, p, size * 1.05);
+    const icon = this.icon(type, p, size * 1.5);
+    const pull = a.scene.add.graphics({ x: p.x, y: p.y }).setBlendMode('ADD');
+    pull.lineStyle(3, POWER_COLOR[type], 0.75);
+    for (let i = 0; i < 16; i++) {
+      const angle = (i * Math.PI) / 8;
+      pull.lineBetween(
+        Math.cos(angle) * size * 1.3,
+        Math.sin(angle) * size * 1.3,
+        Math.cos(angle) * size * 3.4,
+        Math.sin(angle) * size * 3.4,
+      );
+    }
+    a.effect(pull, { scale: 0.05, rotation: 0.3, alpha: 0, duration: 230, ease: 'Cubic.easeIn' });
     if (type === 'hammer') {
       icon.setPosition(p.x + size * 0.7, p.y - size * 1.5).setAngle(40);
-      a.effect(icon, { x: p.x, y: p.y, angle: -25, duration: 120, ease: 'Cubic.easeIn' });
+      a.effect(icon, { x: p.x, y: p.y, angle: -25, duration: 230, ease: 'Cubic.easeIn' });
     } else {
       a.effect(icon, {
-        scaleX: icon.scaleX * 1.8,
-        scaleY: icon.scaleY * 1.8,
+        scaleX: icon.scaleX * 2.2,
+        scaleY: icon.scaleY * 2.2,
         alpha: 0,
-        duration: 330,
+        duration: 390,
         ease: 'Cubic.easeOut',
       });
     }
@@ -100,7 +119,7 @@ export class BonusEffects {
       .circle(p.x, p.y, size * 0.9, 0, 0)
       .setStrokeStyle(3, POWER_COLOR[type], 0.95)
       .setBlendMode('ADD');
-    a.effect(ring, { scale: 0.25, alpha: 0, duration: 140, ease: 'Quad.easeIn' });
+    a.effect(ring, { scale: 0.25, alpha: 0, duration: 230, ease: 'Quad.easeIn' });
   }
 
   sound(type) {
@@ -132,30 +151,46 @@ export class BonusEffects {
     a.effect(art, { alpha: 0, duration: 440, ease: 'Cubic.easeIn' });
   }
 
+  boardBurst(color) {
+    const a = this.a;
+    const width = a.boardSize * a.cellSize,
+      height = a.boardRows * a.cellSize;
+    const wash = a.scene.add
+      .rectangle(width / 2, height / 2, width, height, color, 0.17)
+      .setBlendMode('ADD');
+    a.effect(wash, { alpha: 0, duration: 520, ease: 'Cubic.easeOut' });
+    const border = a.scene.add
+      .rectangle(width / 2, height / 2, width - 8, height - 8)
+      .setStrokeStyle(8, color, 0.8)
+      .setBlendMode('ADD');
+    a.effect(border, { alpha: 0, duration: 640, ease: 'Cubic.easeOut' });
+    a.scene.cameras.main.shake(220, 0.007);
+  }
+
   explosion(p) {
     const a = this.a,
       size = a.cellSize;
     const glow = a.scene.add
-      .circle(p.x, p.y, size * 1.5, 0xffa748, 0.3)
+      .circle(p.x, p.y, size * 2.6, 0xffa748, 0.45)
       .setScale(0.1)
       .setBlendMode('ADD');
-    a.effect(glow, { scale: 1.7, alpha: 0, duration: 400, ease: 'Cubic.easeOut' });
+    a.effect(glow, { scale: 1.8, alpha: 0, duration: 800, ease: 'Cubic.easeOut' });
     for (const [color, delay, radius] of [
-      [0xffffd4, 0, 2],
-      [0xff9f42, 50, 2.7],
-      [0xffe5a6, 90, 2.2],
+      [0xffffd4, 0, 2.4],
+      [0xff9f42, 60, 4],
+      [0xffe5a6, 110, 3.3],
     ]) {
       const ring = a.scene.add
         .circle(p.x, p.y, size * radius, 0, 0)
-        .setStrokeStyle(size * 0.065, color)
+        .setStrokeStyle(size * 0.12, color)
         .setScale(0.08)
         .setBlendMode('ADD');
-      a.effect(ring, { scale: 1, alpha: 0, delay, duration: 460, ease: 'Cubic.easeOut' });
+      a.effect(ring, { scale: 1, alpha: 0, delay, duration: 800, ease: 'Cubic.easeOut' });
     }
     const rays = a.scene.add.graphics({ x: p.x, y: p.y }).setBlendMode('ADD');
-    for (let i = 0; i < 12; i++) {
-      const angle = (i * Math.PI) / 6;
-      const distance = size * (i % 2 ? 2 : 2.7);
+    for (let i = 0; i < 24; i++) {
+      const angle = (i * Math.PI) / 12;
+      const distance = size * (i % 2 ? 2.8 : 4.6);
       rays.fillStyle(i % 2 ? 0xffb455 : 0xffefb0, 0.9);
       rays.fillTriangle(
         Math.cos(angle - 0.08) * size * 0.3,
@@ -167,9 +202,22 @@ export class BonusEffects {
       );
     }
     rays.setScale(0.12);
-    a.effect(rays, { scale: 1, alpha: 0, angle: 12, duration: 470, ease: 'Cubic.easeOut' });
-    a.particles?.emitExplosion(p, { color: 0xffc667, count: 40 });
-    a.scene.cameras.main.shake(160, 0.004);
+    a.effect(rays, { scale: 1, alpha: 0, angle: 12, duration: 700, ease: 'Cubic.easeOut' });
+    a.particles?.emitExplosion(p, { color: 0xffc667, count: 72 });
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * Math.PI) / 4;
+      const ember = a.scene.add
+        .circle(p.x, p.y, size * 0.11, i % 2 ? 0xffdf7a : 0xff6c41)
+        .setBlendMode('ADD');
+      a.effect(ember, {
+        x: p.x + Math.cos(angle) * size * 3.6,
+        y: p.y + Math.sin(angle) * size * 3.6,
+        scale: 0.1,
+        alpha: 0,
+        duration: 720,
+        ease: 'Cubic.easeOut',
+      });
+    }
   }
 
   cross(p, rowOnly = false) {
@@ -184,9 +232,9 @@ export class BonusEffects {
       const distance = Math.hypot(end.x - p.x, end.y - p.y);
       const color = i < 2 ? 0x81efff : 0xc9b2ff;
       for (const [width, alpha] of [
-        [a.cellSize * 0.4, 0.17],
-        [a.cellSize * 0.13, 0.7],
-        [3, 1],
+        [a.cellSize * 0.95, 0.28],
+        [a.cellSize * 0.34, 0.8],
+        [a.cellSize * 0.085, 1],
       ]) {
         const beam = a.scene.add
           .rectangle(p.x, p.y, distance, width, color, alpha)
@@ -194,16 +242,17 @@ export class BonusEffects {
           .setRotation(angle)
           .setScale(0.03, 1)
           .setBlendMode('ADD');
-        a.effect(beam, { scaleX: 1, alpha: 0, duration: 420, ease: 'Cubic.easeOut' });
+        a.effect(beam, { scaleX: 1, alpha: 0, duration: 570, ease: 'Cubic.easeOut' });
       }
       const tip = a.scene.add
         .triangle(p.x, p.y, 0, 0, -20, -10, -20, 10, 0xf3ffff)
         .setRotation(angle)
         .setBlendMode('ADD');
-      a.effect(tip, { x: end.x, y: end.y, alpha: 0, duration: 280, ease: 'Quad.easeOut' });
+      a.effect(tip, { x: end.x, y: end.y, alpha: 0, duration: 410, ease: 'Quad.easeOut' });
     });
-    a.ring(p, 0xd9faff, a.cellSize * 1.7);
-    a.particles?.emitExplosion(p, { color: 0xaeedff, count: 24 });
+    a.ring(p, 0xd9faff, a.cellSize * 3);
+    edges.forEach((end) => a.particles?.emitExplosion(end, { color: 0x9effff, count: 20 }));
+    a.particles?.emitExplosion(p, { color: 0xaeedff, count: 48 });
   }
 
   rainbow(p, targets) {
@@ -212,12 +261,12 @@ export class BonusEffects {
     const orbit = a.scene.add.graphics({ x: p.x, y: p.y }).setBlendMode('ADD');
     RAINBOW.forEach((color, i) =>
       orbit
-        .lineStyle(4, color, 0.85)
+        .lineStyle(7, color, 0.9)
         .beginPath()
         .arc(0, 0, size * 0.85, (i * Math.PI * 2) / 7, ((i + 0.75) * Math.PI * 2) / 7)
         .strokePath(),
     );
-    a.effect(orbit, { rotation: 2.3, scale: 1.8, alpha: 0, duration: 650, ease: 'Cubic.easeOut' });
+    a.effect(orbit, { rotation: 3.5, scale: 3, alpha: 0, duration: 800, ease: 'Cubic.easeOut' });
     // Cap lightning paths; every affected cell is still highlighted and cleared.
     const visibleTargets = targets.filter(
       (_, i) => i % Math.max(1, Math.ceil(targets.length / 24)) === 0,
@@ -240,12 +289,12 @@ export class BonusEffects {
       });
       const bolt = a.scene.add.graphics().setBlendMode('ADD');
       for (const [width, alpha] of [
-        [9, 0.18],
-        [3, 0.9],
-        [1, 1],
+        [16, 0.28],
+        [6, 0.9],
+        [2, 1],
       ]) {
         bolt
-          .lineStyle(width, width === 1 ? 0xffffff : color, alpha)
+          .lineStyle(width, width === 2 ? 0xffffff : color, alpha)
           .beginPath()
           .moveTo(points[0].x, points[0].y);
         points.slice(1).forEach((point) => bolt.lineTo(point.x, point.y));
@@ -254,42 +303,18 @@ export class BonusEffects {
       a.effect(bolt, {
         alpha: 0,
         delay: (order % 4) * 20,
-        duration: 450 + (order % 3) * 70,
+        duration: 650 + (order % 3) * 70,
         ease: 'Cubic.easeIn',
       });
-      a.particles?.emitBurst(end, color, 4);
+      a.particles?.emitBurst(end, color, 8);
+      a.ring(end, color, size * 0.6);
     });
     a.ring(p, 0xf6d3ff, size * 2.3);
   }
 
   callout(label, p, color) {
     if (!label) return;
-    const a = this.a,
-      width = a.boardSize * a.cellSize;
-    const x = width / 2;
-    const y = Math.max(
-      a.cellSize,
-      Math.min(p.y - a.cellSize * 0.9, (a.boardRows - 1) * a.cellSize),
-    );
-    const text = a.scene.add
-      .text(x, y, label, {
-        fontFamily: 'Arial, sans-serif',
-        fontStyle: 'bold italic',
-        fontSize: `${Math.min(36, width / 10)}px`,
-        color: '#fff7dc',
-        stroke: '#24102f',
-        strokeThickness: 6,
-        shadow: { color: `#${color.toString(16).padStart(6, '0')}`, blur: 18, fill: true },
-      })
-      .setOrigin(0.5)
-      .setAngle(-5);
-    a.effect(text, {
-      y: y - a.cellSize * 0.45,
-      alpha: 0,
-      delay: 120,
-      duration: 620,
-      ease: 'Cubic.easeIn',
-    });
+    this.a.onBanner?.({ label, color: `#${color.toString(16).padStart(6, '0')}` });
   }
 
   created(gem, index) {
@@ -297,7 +322,16 @@ export class BonusEffects {
     if (a.reducedMotion) return;
     const p = a.position(index);
     a.ring(p, POWER_COLOR[gem.type], a.cellSize);
-    a.particles?.emitBurst(p, POWER_COLOR[gem.type], 16);
+    a.particles?.emitBurst(p, POWER_COLOR[gem.type], 28);
+    this.callout(
+      gem.type === 'bomb'
+        ? 'BOMB READY!'
+        : gem.type === 'rainbow'
+          ? 'RAINBOW READY!'
+          : 'CROSS FIRE READY!',
+      p,
+      POWER_COLOR[gem.type],
+    );
     const icon = this.icon(gem.type, p, a.cellSize * 0.4);
     a.effect(icon, {
       scaleX: icon.scaleX * 3.2,

@@ -1,211 +1,322 @@
 <template>
-  <dialog ref="dialog" class="victory-modal" @cancel.prevent="$emit('menu')">
-    <div class="victory-confetti" aria-hidden="true">
-      <i
-        v-for="i in 24"
-        :key="i"
-        :style="{
-          '--i': i,
-          left: `${(i * 37) % 100}%`,
-          background: ['#eaca96', '#bf8ff0', '#88dfcd'][i % 3],
-        }"
-      ></i>
-    </div>
-    <span class="eyebrow">A LITTLE MOMENT OF BRILLIANCE</span>
-    <div class="victory-stars" :aria-label="`${earnedStars} of 3 stars`">
-      <span
-        v-for="i in 3"
-        :key="i"
-        :class="{ earned: i <= earnedStars }"
-        :style="{ animationDelay: `${i * 100}ms` }"
-        >✦</span
+  <dialog
+    ref="dialog"
+    class="arcade-victory"
+    :class="{ 'showing-chest': showingChest }"
+    :aria-label="showingChest ? 'Bonus chest reward' : 'Level results'"
+    @cancel.prevent="showingChest ? showResults() : $emit('menu')"
+  >
+    <RewardChest
+      v-if="showingChest"
+      :key="chestIndex"
+      :reward="rewards[chestIndex]"
+      :chest-index="chestIndex"
+      :total-chests="rewards.length"
+      @continue="nextChest"
+      @skip="showResults"
+    />
+    <section v-else class="arcade-results" aria-labelledby="victory-title">
+      <span class="arcade-kicker"
+        >RUN COMPLETE ·
+        {{
+          rewards.length
+            ? `${rewards.length} ${rewards.length === 1 ? 'CHEST' : 'CHESTS'} EARNED`
+            : 'KEEP THE CASCADE GOING'
+        }}</span
       >
-    </div>
-    <h2>Beautifully done.</h2>
-    <p class="victory-subtitle">Every crystal cleared. Every match a little magic.</p>
-    <div class="victory-score">
-      <span class="eyebrow">FINAL SCORE</span><strong>{{ score.toLocaleString() }}</strong>
-    </div>
-    <div class="victory-stats">
-      <div>
-        <span class="eyebrow">MOVES</span><strong>{{ moves }}</strong>
+      <div class="victory-stars" :aria-label="`${earnedStars} of 3 stars`">
+        <span v-for="i in 3" :key="i" :class="{ earned: i <= earnedStars }">✦</span>
       </div>
-      <div>
-        <span class="eyebrow">BEST CASCADE</span><strong>×{{ maxCombo }}</strong>
+      <h2 id="victory-title">LEVEL CLEAR!</h2>
+      <div class="result-score">{{ score.toLocaleString() }}<small>POINTS</small></div>
+      <div class="result-stats">
+        <div>
+          <span>ACTIVE TIME</span><strong>{{ formatTime(elapsedMs) }}</strong>
+        </div>
+        <div>
+          <span>MOVES</span><strong>{{ moves }}</strong>
+        </div>
+        <div>
+          <span>BEST CASCADE</span><strong>×{{ maxCombo }}</strong>
+        </div>
       </div>
-    </div>
-    <p class="star-rules">
-      Clear the board · Reach {{ scoreTarget.toLocaleString() }} pts · Cascade ×4 or score 135% of
-      target
-    </p>
-    <button v-if="hasNextLevel" class="victory-next" @click="$emit('next')">
-      One more little adventure <GameIcon name="arrow" />
-    </button>
-    <div class="victory-actions">
-      <button class="text-button" @click="$emit('menu')">The collection</button
-      ><button class="text-button" @click="$emit('replay')">Play again</button>
-    </div>
+      <div class="result-goals">
+        <div
+          v-for="source in ['score', 'speed']"
+          :key="source"
+          :class="{ earned: rewards.some((r) => r.source === source) }"
+        >
+          <b>{{ source === 'score' ? '✦' : 'ϟ' }}</b
+          ><span
+            ><strong>{{ source === 'score' ? 'SCORE CHEST' : 'SPEED CHEST' }}</strong
+            ><small>{{ goalText(source) }}</small></span
+          ><span class="goal-check">{{
+            rewards.some((r) => r.source === source) ? '✓' : '—'
+          }}</span>
+        </div>
+      </div>
+      <p class="result-note">
+        {{
+          rewards.length
+            ? 'Your powers are saved. Take them into the next round.'
+            : 'Replay to beat either target and earn a chest.'
+        }}
+      </p>
+      <button v-if="hasNextLevel" class="result-next" @click="$emit('next')">
+        NEXT LEVEL <GameIcon name="arrow" />
+      </button>
+      <div class="victory-actions">
+        <button @click="$emit('menu')">The collection</button
+        ><button @click="$emit('replay')">Play again</button>
+      </div>
+    </section>
   </dialog>
 </template>
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
+import RewardChest from './RewardChest.vue';
+import { getStars, formatTime } from '../data/campaign';
 const props = defineProps({
   score: { type: Number, default: 0 },
   moves: { type: Number, default: 0 },
   maxCombo: { type: Number, default: 1 },
   scoreTarget: { type: Number, default: 0 },
+  elapsedMs: { type: Number, default: 0 },
+  speedTargetMs: { type: Number, default: 0 },
   hasNextLevel: Boolean,
+  rewards: { type: Array, default: () => [] },
 });
 defineEmits(['menu', 'replay', 'next']);
-const dialog = ref(null);
+const dialog = ref(null),
+  chestIndex = ref(0),
+  showingChest = ref(props.rewards.length > 0);
 onMounted(() => dialog.value.showModal());
-const earnedStars = computed(() =>
-  Math.min(
-    3,
-    1 +
-      Number(props.scoreTarget > 0 && props.score >= props.scoreTarget) +
-      Number(
-        props.maxCombo >= 4 || (props.scoreTarget > 0 && props.score >= props.scoreTarget * 1.35),
-      ),
-  ),
-);
+const focusAction = async () => {
+  await nextTick();
+  dialog.value.scrollTop = 0;
+  dialog.value
+    .querySelector('.chest-trigger, .arcade-button, .result-next, .victory-actions button')
+    ?.focus({ preventScroll: true });
+};
+const showResults = () => {
+  showingChest.value = false;
+  focusAction();
+};
+const nextChest = () => {
+  if (chestIndex.value + 1 < props.rewards.length) {
+    chestIndex.value++;
+    focusAction();
+  } else showResults();
+};
+const earnedStars = computed(() => getStars(props.score, props.scoreTarget, props.maxCombo));
+const goalText = (source) => {
+  const reward = props.rewards.find((r) => r.source === source);
+  if (reward) return `${reward.label} · +1 bonus`;
+  return source === 'score'
+    ? `Target: ${props.scoreTarget.toLocaleString()} points`
+    : `Target: ${formatTime(props.speedTargetMs)} active play`;
+};
 </script>
 <style scoped>
-.victory-modal {
-  width: min(460px, calc(100vw - 32px));
-  padding: 36px;
-  max-height: calc(100dvh - 32px);
-  border: 1px solid #9870b5;
-  border-radius: 22px;
-  background: radial-gradient(circle at 50% 15%, #65418066, transparent 60%), #21172e;
-  color: #f3e7ff;
+.arcade-victory {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #fff2dc;
+  background: radial-gradient(ellipse at 50% 25%, #6c2b7866, transparent 60%), #170b2b;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.arcade-victory.showing-chest {
+  overflow: hidden;
+}
+.arcade-victory::backdrop {
+  background: #11081ef5;
+}
+.arcade-results {
+  width: min(540px, 100%);
+  min-height: 100%;
+  margin: auto;
+  padding: max(30px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
-  box-shadow: 0 24px 100px #09050f;
-  overflow-x: hidden;
 }
-.victory-modal::backdrop {
-  background: #0d081bcc;
-  backdrop-filter: blur(5px);
-}
-.victory-modal > :not(.victory-confetti) {
-  position: relative;
+.arcade-kicker {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #d1abd9;
+  font-weight: 800;
 }
 .victory-stars {
   display: flex;
-  align-items: center;
   justify-content: center;
   gap: 18px;
-  margin: 22px 0 18px;
-  font-size: 50px;
-  color: #57445f;
+  font-size: 44px;
+  color: #5b3b69;
+  margin: 15px 0 10px;
 }
 .victory-stars .earned {
-  color: #f5d79b;
-  text-shadow: 0 0 24px #dea85655;
-  animation: star-in 400ms ease-out both;
+  color: #ffdc7d;
+  text-shadow: 0 0 24px #ffbd6544;
 }
-.victory-stars > :nth-child(2) {
-  font-size: 66px;
+.arcade-results h2 {
+  font:
+    italic 900 clamp(38px, 8vw, 64px)/1.1 Impact,
+    'Arial Black',
+    sans-serif;
+  letter-spacing: 1px;
+  text-shadow:
+    3px 4px #a645b0,
+    5px 7px #30113e;
 }
-h2 {
-  font-family: var(--font-heading);
-  font-size: 37px;
-  font-weight: 400;
+.result-score {
+  font:
+    italic 900 64px/1 Impact,
+    'Arial Black',
+    sans-serif;
+  color: #ffdf80;
+  margin: 25px 0;
 }
-.victory-subtitle {
-  color: #bba5cb;
-  font-size: 11px;
-  line-height: 1.8;
-  margin-top: 13px;
-}
-.victory-score {
-  margin: 26px 0 17px;
-}
-.victory-score strong {
+.result-score small {
   display: block;
-  font-size: 49px;
-  font-family: var(--font-heading);
-  font-weight: 400;
-  margin-top: 8px;
+  font:
+    800 9px 'Trebuchet MS',
+    sans-serif;
+  color: #b393c7;
+  letter-spacing: 3px;
+  margin-top: 10px;
 }
-.victory-stats {
-  display: flex;
-  justify-content: space-around;
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   padding: 19px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-block: 1px solid #ac69c33b;
 }
-.victory-stats strong {
+.result-stats span {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #bc9ed0;
+}
+.result-stats strong {
   display: block;
-  font-weight: 400;
-  font-size: 26px;
-  font-family: var(--font-heading);
+  font-size: 27px;
   margin-top: 8px;
 }
-.star-rules {
-  font-size: 9px;
-  line-height: 1.8;
-  color: #a995bb;
-  margin: 16px 0 24px;
+.result-goals {
+  display: grid;
+  gap: 9px;
+  margin-top: 20px;
+  text-align: left;
 }
-.victory-next {
+.result-goals > div {
   display: flex;
   align-items: center;
+  gap: 14px;
+  border: 1px solid #725189;
+  border-radius: 10px;
+  padding: 15px;
+  background: #281438;
+}
+.result-goals > .earned {
+  border-color: #caa755;
+  background: linear-gradient(100deg, #68502e44, #281438);
+}
+.result-goals b {
+  font-size: 28px;
+  color: #ffd87b;
+}
+.result-goals strong {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.result-goals small {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: #bfa4d0;
+}
+.goal-check {
+  margin-left: auto;
+  color: #ffdf87;
+  font-size: 22px;
+}
+.result-note {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #b89cc9;
+  margin: 18px 0;
+}
+.result-next {
+  display: flex;
   justify-content: space-between;
-  width: 100%;
-  background: linear-gradient(120deg, #e6c69a, #f3dcba);
-  border: 0;
-  border-radius: 9px;
-  padding: 14px 17px;
-  color: #33223f;
-  font-size: 12px;
+  align-items: center;
+  padding: 16px 20px;
+  min-height: 52px;
+  border: 1px solid #ffeaa1;
+  border-radius: 8px;
+  background: linear-gradient(#ffe89c, #ffc458);
+  color: #321144;
+  font-weight: 900;
+  letter-spacing: 1px;
+  box-shadow: 0 4px #926239;
 }
 .victory-actions {
   display: flex;
   justify-content: center;
-  gap: 35px;
-  margin-top: 24px;
+  gap: 30px;
+  margin-top: 18px;
 }
-.victory-confetti {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
+.victory-actions button {
+  background: transparent;
+  border: 0;
+  color: #d0b6e0;
+  min-height: 44px;
+  padding: 10px;
+  font-size: 12px;
 }
-.victory-confetti i {
-  position: absolute;
-  top: -20px;
-  width: 5px;
-  height: 9px;
-  animation: confetti 1.6s calc(var(--i) * 35ms) ease-out both;
-}
-@keyframes star-in {
-  from {
-    opacity: 0;
-    transform: scale(0.6) rotate(-15deg);
+@media (max-height: 700px) {
+  .arcade-results {
+    padding-block: 20px;
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
+  .victory-stars {
+    font-size: 30px;
+    margin: 8px 0;
   }
-}
-@keyframes confetti {
-  from {
-    transform: translateY(-20px) rotate(0);
-    opacity: 1;
+  .arcade-results h2 {
+    font-size: 38px;
   }
-  to {
-    transform: translateY(500px) rotate(400deg);
-    opacity: 0;
+  .result-score {
+    font-size: 44px;
+    margin: 15px 0;
   }
-}
-@media (max-width: 420px) {
-  .victory-modal {
-    padding: 28px 23px;
+  .result-stats {
+    padding: 10px 0;
   }
-  h2 {
-    font-size: 31px;
+  .result-stats strong {
+    font-size: 22px;
+    margin-top: 4px;
+  }
+  .result-goals {
+    margin-top: 12px;
+  }
+  .result-goals > div {
+    padding: 10px 12px;
+  }
+  .result-note {
+    margin: 12px 0;
+  }
+  .victory-actions {
+    margin-top: 10px;
   }
 }
 </style>

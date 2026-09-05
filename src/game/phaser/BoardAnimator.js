@@ -16,6 +16,8 @@ export class BoardAnimator {
     audio,
     boardLayout,
     settings,
+    onImpact,
+    onBanner,
   }) {
     Object.assign(this, {
       scene,
@@ -29,6 +31,8 @@ export class BoardAnimator {
       audio,
       boardLayout,
       settings,
+      onImpact,
+      onBanner,
     });
     this.bonuses = new BonusEffects(this);
     this.iceSprites = new Map();
@@ -262,7 +266,7 @@ export class BoardAnimator {
             this.particles?.emitIce?.(p, update.health === 0 ? 8 : 4);
             if (update.health === 0 && !this.reducedMotion) {
               const chip = this.scene.add
-                .image(p.x, p.y, 'ice-cracked')
+                .image(p.x, p.y, tile.type === 'blocker' ? 'block-cracked' : 'ice-cracked')
                 .setDisplaySize(this.cellSize - 3, this.cellSize - 3);
               this.effect(chip, {
                 scaleX: chip.scaleX * 1.18,
@@ -378,27 +382,18 @@ export class BoardAnimator {
   celebrate(combo) {
     if (this.reducedMotion) return;
     const p = { x: (this.boardSize * this.cellSize) / 2, y: this.boardRows * this.cellSize * 0.4 };
-    const label = combo >= 5 ? 'SPECTACULAR' : combo >= 3 ? 'BRILLIANT' : 'CASCADE';
-    const text = this.scene.add
-      .text(p.x, p.y, `${label}\n×${combo}`, {
-        fontFamily: 'Georgia, serif',
-        fontSize: `${Math.max(22, this.cellSize * 0.52)}px`,
-        fontStyle: 'bold',
-        color: '#fff2ce',
-        stroke: '#4b236e',
-        strokeThickness: 5,
-        align: 'center',
-        shadow: { color: '#8a51df', blur: 16, fill: true },
-      })
-      .setOrigin(0.5)
-      .setDepth(20);
-    this.effect(text, {
-      y: p.y - this.cellSize * 0.65,
-      alpha: 0,
-      duration: 620,
-      ease: 'Quad.easeIn',
-    });
-    this.ring(p, 0xdab6ff, this.cellSize * 2);
+    const label =
+      combo >= 7
+        ? 'UNSTOPPABLE!'
+        : combo >= 5
+          ? 'MEGA CASCADE!'
+          : combo >= 3
+            ? 'SUPER COMBO!'
+            : 'DOUBLE!';
+    this.bonuses.callout(`${label} ×${combo}`, p, combo >= 4 ? 0xffd86a : 0xee8bff);
+    this.audio?.playArcadeCue?.('reward', Math.min(combo, 5));
+    if (combo >= 4) this.onImpact?.({ color: '#e987ff', type: 'cascade' });
+    this.ring(p, 0xffdc91, this.cellSize * 3);
   }
 
   updateTiles(tiles) {
@@ -425,7 +420,16 @@ export class BoardAnimator {
       let ice = this.iceSprites.get(index);
       if (health > 0 || frozen) {
         const damaged = health < (this.tiles[index]?.maxHealth ?? health);
-        const texture = damaged && !frozen ? 'ice-cracked' : 'ice-frost';
+        const blocker = this.tiles[index]?.type === 'blocker';
+        const texture = blocker
+          ? damaged
+            ? 'block-cracked'
+            : health > 1
+              ? 'block-reinforced'
+              : 'block-stone'
+          : damaged && !frozen
+            ? 'ice-cracked'
+            : 'ice-frost';
         if (!ice) {
           ice = this.scene.add.image(p.x, p.y, texture);
           this.backgroundLayer.add(ice);

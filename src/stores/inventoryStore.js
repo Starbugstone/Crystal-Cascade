@@ -1,19 +1,15 @@
 import { defineStore } from 'pinia';
 import { useGameStore } from './gameStore';
 
-const DEFAULT_SLOTS = [
-  { id: 'clear-row', label: 'Clear Row', quantity: 20 },
-  { id: 'hammer', label: 'Hammer', quantity: 20 },
-  { id: 'color-wand', label: 'Color Wand', quantity: 20 },
-  { id: 'shuffle', label: 'Shuffle', quantity: 20 },
-  { id: 'tile-breaker', label: 'Tile Breaker', quantity: 20 },
-];
+import { useCampaignStore } from './campaignStore';
 
 export const useInventoryStore = defineStore('inventory', {
   state: () => ({
-    quickAccessSlots: DEFAULT_SLOTS.map((slot) => ({ ...slot })),
     inventoryOpen: false,
   }),
+  getters: {
+    quickAccessSlots: () => useCampaignStore().powers,
+  },
   actions: {
     async usePowerUp(id) {
       const slot = this.quickAccessSlots.find((entry) => entry.id === id);
@@ -68,6 +64,7 @@ export const useInventoryStore = defineStore('inventory', {
 
       if (powerUpExecuted && consumeImmediately) {
         slot.quantity -= 1;
+        useCampaignStore().save();
         return true;
       }
 
@@ -88,6 +85,7 @@ export const useInventoryStore = defineStore('inventory', {
 
       if (slot && slot.quantity > 0) {
         slot.quantity -= 1;
+        useCampaignStore().save();
         return true;
       }
       return false;
@@ -99,9 +97,11 @@ export const useInventoryStore = defineStore('inventory', {
      * @returns {boolean} True if power was found and awarded
      */
     awardPower(powerId, quantity = 1) {
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) return false;
       const slot = this.quickAccessSlots.find((entry) => entry.id === powerId);
       if (slot) {
         slot.quantity += quantity;
+        useCampaignStore().save();
         return true;
       }
       console.warn(`Cannot award unknown power: ${powerId}`);

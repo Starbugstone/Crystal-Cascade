@@ -1,11 +1,20 @@
 import { MatchEngine } from './MatchEngine.js';
-import { createGem, randomGemType } from './GemFactory.js';
+import { createGem, randomGemType, GEM_TYPES } from './GemFactory.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
 
 const matchEngine = new MatchEngine();
 
 export class TileManager {
-  getResolution({ board, tiles, matches, cols, rows, bonusesCreated, bonusIndices }) {
+  getResolution({
+    board,
+    tiles,
+    matches,
+    cols,
+    rows,
+    bonusesCreated,
+    bonusIndices,
+    gemTypes = GEM_TYPES,
+  }) {
     if (!matches?.length) {
       return { board, steps: [] };
     }
@@ -32,6 +41,7 @@ export class TileManager {
     while (pendingMatches.length) {
       if (iteration >= 128) throw new Error('Cascade did not settle after 128 steps');
       const cleared = new Set();
+      const impacted = new Set();
       const protectedIndices = new Set();
       const cascadeBonuses = [];
 
@@ -39,7 +49,10 @@ export class TileManager {
         match.indices.forEach((index) => {
           const tile = tiles[index];
           if (!tile || tile.state !== 'FROZEN') {
-            cleared.add(index);
+            if (index < 0 || index >= workingBoard.length) return;
+            impacted.add(index);
+            if (workingBoard[index] && !(tile?.type === 'blocker' && tile.health > 0))
+              cleared.add(index);
           }
         });
       });
@@ -84,7 +97,21 @@ export class TileManager {
         cleared.delete(bonus.index);
       });
 
-      const damageTargets = new Set([...cleared, ...protectedIndices]);
+      const damageTargets = new Set([...impacted, ...protectedIndices]);
+      // A block takes one hit per cascade step, even if several matched gems
+      // or overlapping blast cells touch it. Diagonal matches do not damage it.
+      for (const index of [...damageTargets]) {
+        const x = index % totalCols;
+        for (const neighbor of [
+          x > 0 ? index - 1 : -1,
+          x < totalCols - 1 ? index + 1 : -1,
+          index - totalCols,
+          index + totalCols,
+        ]) {
+          if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
+            damageTargets.add(neighbor);
+        }
+      }
 
       if (!damageTargets.size) {
         break;
@@ -119,7 +146,8 @@ export class TileManager {
           const maxHealth = tile.maxHealth ?? before;
           if (before !== tile.health) {
             totalLayersCleared += before - tile.health;
-            step.tileUpdates.push({ index, health: tile.health, maxHealth });
+            if (tile.type === 'blocker' && tile.health === 0) tile.type = 'standard';
+            step.tileUpdates.push({ index, health: tile.health, maxHealth, type: tile.type });
           }
         }
         if (!protectedIndices.has(index)) {
@@ -153,6 +181,15 @@ export class TileManager {
         let writeRow = totalRows - 1;
         for (let row = totalRows - 1; row >= 0; row -= 1) {
           const index = row * totalCols + col;
+          // Existing gems below a barrier can fall within their segment, but
+          // refill only enters from the top. Breaking it reconnects the column.
+          if (
+            (tiles[index]?.type === 'blocker' && tiles[index].health > 0) ||
+            tiles[index]?.state === 'FROZEN'
+          ) {
+            writeRow = row - 1;
+            continue;
+          }
           const gem = workingBoard[index];
           if (gem) {
             const targetIndex = writeRow * totalCols + col;
@@ -167,10 +204,10 @@ export class TileManager {
 
         for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
           const index = spawnRow * totalCols + col;
-          let type = randomGemType();
+          let type = randomGemType(gemTypes);
           // A pathological RNG (or deterministic test) must not create an endless cascade.
           if (iteration >= 24) {
-            const types = ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone'];
+            const types = gemTypes;
             type =
               types.find(
                 (candidate) =>

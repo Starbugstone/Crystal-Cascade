@@ -29,11 +29,11 @@ export function createParticleFactory(scene, fxLayer) {
   // Capped emitters recycle particles; bursts create no tweens or game objects.
   const emitter = scene.add.particles(0, 0, 'spark', {
     emitting: false,
-    maxParticles: 320,
-    lifespan: { min: 220, max: 460 },
-    speed: { min: 45, max: 180 },
+    maxParticles: 400,
+    lifespan: { min: 220, max: 650 },
+    speed: { min: 65, max: 245 },
     angle: { min: 0, max: 360 },
-    scale: { start: 0.3, end: 0 },
+    scale: { start: 0.4, end: 0 },
     alpha: { start: 1, end: 0 },
     rotate: { min: 0, max: 180 },
     gravityY: 100,
@@ -45,7 +45,7 @@ export function createParticleFactory(scene, fxLayer) {
     lifespan: { min: 230, max: 410 },
     speed: { min: 50, max: 155 },
     angle: { min: 190, max: 350 },
-    scale: { start: 0.35, end: 0.05 },
+    scale: { start: 0.45, end: 0.05 },
     alpha: { start: 0.95, end: 0 },
     rotate: { start: 0, end: 200 },
     gravityY: 350,
@@ -59,7 +59,7 @@ export function createParticleFactory(scene, fxLayer) {
     emitBurst(position, color = 0xffffff, count = 10) {
       if (reducedMotion) return;
       emitter.setParticleTint(color);
-      emitter.explode(Math.min(40, count), position.x, position.y);
+      emitter.explode(Math.min(72, count), position.x, position.y);
     },
     emitExplosion(position, { color = 0xffffff, count = 28 } = {}) {
       this.emitBurst(position, color, count);

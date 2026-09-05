@@ -1,0 +1,331 @@
+/* Neon cabinet colors, bold scores, and effects that extend beyond the board. */
+:root {
+  --gold: #ffda77;
+  --color-accent: #ee9eff;
+}
+.app-shell {
+  background:
+    radial-gradient(ellipse at 10% 48%, #571f6b55, transparent 48%),
+    radial-gradient(ellipse at 90% 8%, #184b6444, transparent 43%), #100d20;
+}
+.app-header {
+  border-bottom-color: #c37beb33;
+}
+.brand img {
+  filter: drop-shadow(0 0 10px #c966ff66);
+}
+.hero h1 {
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-shadow: 3px 4px #5b2279;
+}
+.hero h1 em {
+  color: #ffdd82;
+  text-shadow:
+    3px 4px #a13b9a,
+    6px 7px #37133e;
+}
+.hero .eyebrow,
+.hero-note b {
+  color: #f7bdff;
+}
+.featured-level {
+  border-color: #d18dec88;
+  background:
+    radial-gradient(ellipse at 10% 80%, #9d4e9855, transparent 60%),
+    linear-gradient(120deg, #352145, #251e36);
+  box-shadow:
+    0 5px 0 #08051355,
+    inset 0 1px #f4b0ff22;
+}
+.featured-play {
+  color: #ffe19a;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.level-button.is-current {
+  box-shadow:
+    0 0 22px #ffd35b22,
+    inset 0 0 20px #e7a84418;
+}
+.is-playing .level-heading h1 {
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.5px;
+  color: #fff2d4;
+  text-shadow: 2px 3px #7b2d9c;
+}
+.score-card {
+  background: linear-gradient(125deg, #6f328833, #29183288);
+  border-color: #ba76da66;
+}
+.score-value {
+  font-family: Impact, 'Arial Black', sans-serif;
+  font-style: italic;
+  color: #ffe29c;
+  text-shadow: 2px 3px #7f338e;
+}
+.stats-row strong {
+  font-family: 'Arial Black', 'Trebuchet MS', sans-serif;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.run-time {
+  color: #8bf7ff;
+}
+.run-time.expired {
+  color: #b09cb9;
+}
+.speed-target {
+  display: block;
+  font-size: 8px;
+  line-height: 1.4;
+  color: #8fdde9;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+.chest-progress {
+  color: #ffd384;
+}
+.chest-progress.qualified > span {
+  color: #ffeb91;
+}
+.score-track i {
+  background: linear-gradient(90deg, #e86ddc, #ffe575);
+}
+.objective-track i {
+  background: linear-gradient(90deg, #be6ffa, #8cffff);
+  box-shadow: 0 0 9px #89ffff;
+}
+.board-frame {
+  border-color: #bf83db;
+  background: linear-gradient(135deg, #9751b0, #34234f 20%, #241e3d 75%, #368193);
+  box-shadow:
+    0 0 0 2px #1a1029,
+    0 0 22px #cc61e627,
+    0 0 46px #66d6ed18,
+    0 18px 50px #07021099,
+    inset 0 0 0 3px #171020;
+}
+.frame-corner {
+  border-color: #ffe39e;
+}
+.board-frame.power-active {
+  box-shadow:
+    0 0 32px #ffd15b66,
+    inset 0 0 12px #ffc65455;
+}
+.powerup-button {
+  background: linear-gradient(140deg, #58346a77, #201b30);
+  border-color: #aa73c64d;
+  box-shadow: 0 3px 0 #08051188;
+}
+.powerup-button.active {
+  border-color: #ffe389;
+  background: #68522f;
+  box-shadow: 0 0 18px #ffcb5644;
+}
+.powerup-name {
+  color: #e3cce9;
+}
+.powerup-qty {
+  background: #713894;
+  color: #fff0a9;
+  font-weight: 900;
+}
+.arcade-screen-impact {
+  --impact-color: #ffca6b;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  overflow: hidden;
+  box-shadow: inset 0 0 90px color-mix(in srgb, var(--impact-color) 40%, transparent);
+  animation: arcade-impact 850ms ease-out both;
+}
+.arcade-screen-impact i {
+  position: absolute;
+  left: -10%;
+  top: 15%;
+  width: 120%;
+  height: 2px;
+  background: var(--impact-color);
+  transform: rotate(-13deg);
+  box-shadow: 0 0 22px 4px var(--impact-color);
+  animation: arcade-streak 600ms ease-out both;
+}
+.arcade-screen-impact i + i {
+  top: auto;
+  bottom: 17%;
+  transform: rotate(13deg);
+  animation-direction: reverse;
+}
+@keyframes arcade-impact {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes arcade-streak {
+  from {
+    translate: -80% 0;
+    opacity: 0.9;
+  }
+  to {
+    translate: 90% 0;
+    opacity: 0;
+  }
+}
+@media (max-width: 640px) {
+  .score-card {
+    background: none;
+  }
+  .score-value {
+    font-size: 29px;
+  }
+  .speed-target {
+    font-size: 6px;
+    margin-top: 2px;
+  }
+  .stats-row strong {
+    font-size: 20px;
+  }
+  .stats-row .eyebrow {
+    font-size: 6px;
+    letter-spacing: 0.6px;
+  }
+  .stats-row {
+    gap: 12px;
+  }
+  .run-time {
+    white-space: nowrap;
+  }
+  .chest-progress small {
+    font-size: 7px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arcade-screen-impact {
+    display: none;
+  }
+}
+.reduced-motion .arcade-screen-impact {
+  display: none;
+}
+
+@media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
+  .is-playing .app-header,
+  .is-playing .game-sidebar {
+    display: none;
+  }
+  .is-playing .game-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 620px;
+    padding: 4px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .is-playing .play-area {
+    margin-top: 0;
+  }
+  .is-playing .board-topline {
+    display: none;
+  }
+  .is-playing .play-area .arcade-announcer {
+    height: 40px;
+    margin-bottom: 4px;
+  }
+  .is-playing .board-frame {
+    width: min(
+      100%,
+      calc(
+        (100dvh - 192px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) *
+          var(--board-ratio) + 12px
+      )
+    );
+    min-width: 0;
+  }
+  .is-playing .board-caption {
+    min-height: 28px;
+    padding-block: 3px;
+  }
+  .is-playing .powerup-section {
+    padding-top: 2px;
+  }
+  .is-playing .powerup-bar {
+    max-width: 440px;
+    margin-inline: auto;
+    gap: 6px;
+  }
+  .is-playing .powerup-button {
+    min-height: 46px;
+    padding: 6px 2px;
+    gap: 0;
+    justify-content: center;
+  }
+  .is-playing .powerup-name {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (min-width: 641px) {
+  .board-frame {
+    width: calc((100dvh - 195px) * var(--board-ratio));
+  }
+}
+
+@media (max-height: 500px) and (min-width: 480px) and (max-width: 1000px) {
+  .is-playing .play-area {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 0 16px;
+    align-items: center;
+    max-width: calc(
+      (100dvh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) *
+        var(--board-ratio) + 124px
+    );
+    margin-inline: auto;
+  }
+  .is-playing .play-area .arcade-announcer {
+    grid-column: 1 / -1;
+    height: 32px;
+  }
+  .is-playing .board-frame {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    padding: 5px;
+  }
+  .is-playing .powerup-section {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .is-playing .powerup-bar {
+    grid-template-columns: repeat(2, 44px);
+    gap: 8px;
+  }
+  .is-playing .powerup-button {
+    min-height: 44px;
+    padding: 4px;
+  }
+  .is-playing .powerup-button:last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 44px;
+  }
+  .is-playing .powerup-art > img {
+    width: 30px;
+    height: 30px;
+  }
+  .is-playing .powerup-heading {
+    display: none;
+  }
+  .is-playing .board-caption {
+    grid-column: 1 / -1;
+  }
+}

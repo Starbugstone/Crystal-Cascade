@@ -3,6 +3,14 @@ import { describeBonusEffects, BonusEffects } from '../src/game/phaser/BonusEffe
 import { BoardAnimator } from '../src/game/phaser/BoardAnimator';
 
 describe('bonus visual accuracy', () => {
+  it('routes banners to the space above the board without drawing text over gems', () => {
+    const onBanner = vi.fn();
+    const text = vi.fn();
+    const effects = new BonusEffects({ onBanner, scene: { add: { text } } });
+    effects.callout('BOOM!', { x: 120, y: 180 }, 0xffbb64);
+    expect(onBanner).toHaveBeenCalledWith({ label: 'BOOM!', color: '#ffbb64' });
+    expect(text).not.toHaveBeenCalled();
+  });
   it('animates activated chain bonuses only at cells that are actually cleared', () => {
     const step = {
       cleared: [1, 2, 3],

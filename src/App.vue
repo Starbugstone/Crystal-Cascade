@@ -8,6 +8,17 @@
       'high-contrast': settings.highContrastMode,
     }"
   >
+    <div
+      v-if="
+        game.arcadeImpact && game.sessionActive && !game.levelCleared && !settings.reducedMotion
+      "
+      :key="game.arcadeImpact.id"
+      class="arcade-screen-impact"
+      :style="{ '--impact-color': game.arcadeImpact.color }"
+      aria-hidden="true"
+    >
+      <i></i><i></i>
+    </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
       <button class="brand" aria-label="Crystal Cascade home" @click="game.exitLevel()">
@@ -15,7 +26,7 @@
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
       <div class="header-actions">
-        <span class="edition">A LITTLE MAGIC. EVERY MATCH.</span>
+        <span class="edition">BIG MATCHES. BIGGER REWARDS.</span>
         <button
           class="icon-button"
           :aria-label="muted ? 'Unmute audio' : 'Mute audio'"
@@ -29,12 +40,19 @@
         </button>
       </div>
     </header>
+    <MobileGameHeader
+      v-if="game.sessionActive"
+      v-model:open="mobileDetailsOpen"
+      :muted="muted"
+      :level-name="levelName"
+      @toggle-mute="toggleMute"
+    />
 
     <main v-if="!game.sessionActive" class="welcome">
       <section class="hero">
-        <span class="eyebrow"><i></i> THE CRYSTAL COLLECTION</span>
-        <h1>Find your<br /><em>brilliant.</em></h1>
-        <p>A world of color. A spark of possibility.<br />One match can change everything.</p>
+        <span class="eyebrow"><i></i> THE CRYSTAL ARCADE</span>
+        <h1>MATCH.<br /><em>GO MEGA.</em></h1>
+        <p>Chase the combo. Beat the clock.<br />Two chests. One brilliant run.</p>
         <div class="crystal-orbit" aria-hidden="true">
           <div class="orbit orbit-one"></div>
           <div class="orbit orbit-two"></div>
@@ -45,7 +63,7 @@
           <span class="orbit-spark">✦</span>
         </div>
         <div class="hero-note">
-          <GameIcon name="spark" /><span>Match. Shatter. <b>Be dazzled.</b></span>
+          <GameIcon name="spark" /><span>Match. Blast. <b>Hit the jackpot.</b></span>
         </div>
       </section>
       <LevelSelectModal @start-level="startLevel" />
@@ -57,9 +75,9 @@
           <GameIcon name="back" /> The collection
         </button>
         <div class="level-heading">
-          <span class="eyebrow">CHAPTER {{ String(game.currentLevelId).padStart(2, '0') }}</span>
+          <span class="eyebrow">LEVEL {{ String(game.currentLevelId).padStart(2, '0') }}</span>
           <h1>{{ levelName }}</h1>
-          <p>Let a little brilliance happen.</p>
+          <p>{{ currentConfig?.chapterName }}</p>
         </div>
         <HudPanel />
         <div class="match-guide">
@@ -81,15 +99,23 @@
               >
             </div>
           </div>
-          <p>Break the ice beneath your matches.<br />Dark tiles are already cleared.</p>
-          <span class="guide-footnote">No timer. Find your flow.</span>
+          <p>
+            Break the ice beneath your matches. Match beside stone to release the gems above. Gold
+            bands take two hits.
+          </p>
+          <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
         </div>
       </aside>
-      <section class="play-area">
+      <section class="play-area" :style="{ '--board-ratio': game.boardCols / game.boardRows }">
+        <ArcadeBanner :banner="game.arcadeBanner" />
         <div class="board-topline">
           <span
             ><i class="live-dot"></i
-            >{{ game.activeBonusMode ? 'CHOOSE A GEM' : 'FOLLOW THE CASCADE' }}</span
+            >{{
+              game.activeBonusMode
+                ? 'CHOOSE A TILE'
+                : `LEVEL ${String(game.currentLevelId).padStart(2, '0')} · ${currentConfig?.chapterName ?? 'FOLLOW THE CASCADE'}`
+            }}</span
           ><button
             class="icon-button"
             :aria-label="focusMode ? 'Exit focus mode' : 'Enter focus mode'"
@@ -113,19 +139,22 @@
         </div>
         <div class="board-caption" aria-live="polite">
           <template v-if="game.activeBonusMode"
-            >Tap a gem to use {{ powerName }}
+            >Tap a tile to use {{ powerName }}
             <button class="text-button" @click="game.setBonusMode(null)">Cancel</button></template
-          ><template v-else>Swipe a gem or tap two neighbors to match</template>
+          ><template v-else>{{ currentConfig?.tip }}</template>
         </div>
         <PowerUpBar />
       </section>
     </main>
     <footer class="app-footer">
-      <span>CRYSTAL CASCADE</span><span>Small matches. Endless possibilities.</span
+      <span>CRYSTAL CASCADE</span><span>Big combos. Double chests. One more run.</span
       ><span class="footer-spark">✦</span>
     </footer>
     <VictoryModal
       v-if="game.levelCleared"
+      :rewards="game.levelRewards"
+      :elapsed-ms="game.elapsedMs"
+      :speed-target-ms="game.speedTargetMs"
       :score="game.score"
       :moves="game.moves"
       :max-combo="game.maxCascade"
@@ -143,6 +172,8 @@
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
 import HudPanel from './components/HudPanel.vue';
+import ArcadeBanner from './components/ArcadeBanner.vue';
+import MobileGameHeader from './components/MobileGameHeader.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
 import LevelSelectModal from './components/LevelSelectModal.vue';
 import VictoryModal from './components/VictoryModal.vue';
@@ -157,6 +188,8 @@ const game = useGameStore();
 const settings = useSettingsStore();
 const audio = useAudio();
 const focusMode = ref(false);
+const mobileDetailsOpen = ref(false);
+let clockInterval;
 const muted = computed(() => settings.musicVolume === 0 && settings.sfxVolume === 0);
 let previousVolumes = [0.6, 0.8];
 const toggleMute = () => {
@@ -169,6 +202,9 @@ const toggleMute = () => {
     settings.setSfxVolume(0);
   }
 };
+const currentConfig = computed(
+  () => game.availableLevels.find((level) => level.id === game.currentLevelId)?.config,
+);
 const levelName = computed(() => LEVEL_NAMES[game.currentLevelId - 1]);
 const powerName = computed(() => game.activeBonusMode?.replaceAll('_', ' '));
 const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 0);
@@ -176,16 +212,33 @@ const hasNextLevel = computed(() =>
   game.availableLevels.some((level) => level.id === game.currentLevelId + 1),
 );
 const startLevel = (id) => {
+  mobileDetailsOpen.value = false;
   game.startLevel(id);
   audio.playAmbientLoop();
 };
+watch(
+  () => [
+    game.sessionActive,
+    game.levelCleared,
+    game.animationInProgress,
+    game.inputPaused,
+    !!game.renderer,
+  ],
+  () => game.syncRunClock(),
+  { flush: 'sync' },
+);
+const updateInputPause = () => {
+  game.inputPaused = document.hidden || settings.isSettingsOpen || mobileDetailsOpen.value;
+  game.renderer?.input?.reset();
+};
 const visibilityChanged = () => {
-  game.inputPaused = document.hidden || settings.isSettingsOpen;
+  updateInputPause();
   if (document.hidden) audio.stopAmbientLoop({ fadeMs: 0 });
   else if (game.sessionActive) audio.playAmbientLoop();
 };
 onMounted(() => {
   game.bootstrap();
+  clockInterval = setInterval(() => game.syncRunClock(), 100);
   game.setAudioManager(audio);
   document.addEventListener('visibilitychange', visibilityChanged);
 });
@@ -198,14 +251,9 @@ watch(
     }
   },
 );
-watch(
-  () => settings.isSettingsOpen,
-  () => {
-    game.inputPaused = document.hidden || settings.isSettingsOpen;
-    game.renderer?.input?.reset();
-  },
-);
+watch([() => settings.isSettingsOpen, mobileDetailsOpen], updateInputPause, { flush: 'sync' });
 onBeforeUnmount(() => {
+  clearInterval(clockInterval);
   document.removeEventListener('visibilitychange', visibilityChanged);
   game.exitLevel();
   game.setAudioManager(null);

@@ -19,7 +19,7 @@
         "
         :aria-pressed="activeId === item.id"
         :aria-label="`${item.label}, ${item.quantity} remaining. ${descriptions[item.id]}`"
-        :title="descriptions[item.id]"
+        :title="`${item.label}: ${descriptions[item.id]}`"
         @click="inventory.usePowerUp(item.id)"
       >
         <span class="powerup-art"

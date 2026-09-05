@@ -1,4 +1,6 @@
 import { MatchEngine } from './MatchEngine.js';
+import { BonusActivator } from './BonusActivator.js';
+const bonusActivator = new BonusActivator();
 
 const SPECIAL = new Set(['bomb', 'cross', 'rainbow']);
 
@@ -28,15 +30,51 @@ export class HintEngine {
           : this.matchEngine.evaluateSwap(board, cols, rows, a, b);
         if (!usesBonus && !evaluation.matches.length) continue;
         const createsBonus = !!evaluation?.bonusesCreated.length;
-        const indices = [
-          ...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b]),
-        ];
+        let indices = [...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b])];
+        if (usesBonus) {
+          const swapped = [...board];
+          [swapped[a], swapped[b]] = [swapped[b], swapped[a]];
+          const affected = new Set([a, b]);
+          for (const [index, counterpart] of [
+            [a, b],
+            [b, a],
+          ]) {
+            const type = swapped[index].type;
+            // Only deterministic geometry/color previews: hints never roll randomness.
+            if (type === 'bomb' || type === 'cross') {
+              bonusActivator
+                .activateBonus(type, swapped, cols, rows, index)
+                .forEach((i) => affected.add(i));
+            } else if (type === 'rainbow' && !SPECIAL.has(swapped[counterpart].type)) {
+              swapped.forEach((gem, i) => {
+                if (gem?.type === swapped[counterpart].type) affected.add(i);
+              });
+            }
+          }
+          indices = [...affected];
+        }
+        const nearbyBlocks = new Set();
+        for (const index of indices) {
+          for (const neighbor of [
+            index % cols > 0 ? index - 1 : -1,
+            index % cols < cols - 1 ? index + 1 : -1,
+            index - cols,
+            index + cols,
+          ]) {
+            if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
+              nearbyBlocks.add(neighbor);
+          }
+        }
         const damage = indices.reduce(
           (sum, index) => sum + Number((tiles[index]?.health ?? 0) > 0),
           0,
         );
         const heuristicScore =
-          Number(usesBonus) * 10000 + Number(createsBonus) * 1000 + damage * 10 + indices.length;
+          Number(usesBonus) * 50 +
+          Number(createsBonus) * 100 +
+          damage * 120 +
+          nearbyBlocks.size * 180 +
+          indices.length;
         const candidate = {
           swap: { aIndex: a, bIndex: b },
           indices: [a, b],

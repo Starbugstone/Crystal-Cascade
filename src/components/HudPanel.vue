@@ -5,18 +5,29 @@
       <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
         {{ game.score.toLocaleString() }}<span>pts</span>
       </div>
-      <div class="score-stars" aria-label="Score star target">
-        <span>✦</span>
+      <div class="score-stars" aria-label="Chest score progress">
+        <span>✧</span>
         <div class="score-track">
           <i :style="{ width: `${Math.min(100, (game.score / target) * 100)}%` }"></i>
         </div>
         <span>✦</span><small>{{ target.toLocaleString() }}</small>
       </div>
+      <div class="chest-progress" :class="{ qualified: tier }">
+        <span>{{ tier ? 'Score chest earned' : 'Score chest' }}</span>
+        <small>{{
+          tier ? '1 bonus on completion' : `${target.toLocaleString()} pts · 1 bonus`
+        }}</small>
+      </div>
     </div>
     <div class="stats-row">
       <div>
-        <span class="eyebrow">MOVES</span
-        ><strong>{{ game.moves.toString().padStart(2, '0') }}</strong>
+        <span class="eyebrow">SPEED RUN</span
+        ><strong class="run-time" :class="{ expired: game.elapsedMs > game.speedTargetMs }">{{
+          formatTime(game.elapsedMs)
+        }}</strong
+        ><small class="speed-target">{{
+          speedTier ? `≤ ${formatTime(game.speedTargetMs)} · 1 bonus` : 'Finish for score'
+        }}</small>
       </div>
       <div>
         <span class="eyebrow">BEST CASCADE</span
@@ -25,7 +36,7 @@
     </div>
     <div class="objective">
       <div class="objective-title">
-        <span><GameIcon name="spark" /> Break the ice</span
+        <span><GameIcon name="spark" /> Ice & stone</span
         ><strong
           >{{ game.totalLayers - game.remainingLayers
           }}<small> / {{ game.totalLayers }}</small></strong
@@ -34,14 +45,14 @@
       <div
         class="objective-track"
         role="progressbar"
-        aria-label="Ice layers cleared"
+        aria-label="Ice and stone layers cleared"
         :aria-valuenow="game.totalLayers - game.remainingLayers"
         :aria-valuemax="game.totalLayers"
         :aria-valuemin="0"
       >
         <i :style="{ width: `${progress}%` }"></i>
       </div>
-      <p>Shatter every ice layer to complete the chapter.</p>
+      <p>Two ways to win: score high and finish fast. Speed pauses during cascades.</p>
     </div>
   </section>
 </template>
@@ -49,8 +60,13 @@
 import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
 import GameIcon from './GameIcon.vue';
+import { getChestTier, getSpeedChestTier, formatTime } from '../data/campaign';
 const game = useGameStore();
 const target = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 1);
+const tier = computed(() => getChestTier(game.score, target.value));
+const speedTier = computed(() =>
+  getSpeedChestTier(Math.max(1, game.elapsedMs), game.speedTargetMs),
+);
 const progress = computed(() =>
   game.totalLayers ? ((game.totalLayers - game.remainingLayers) / game.totalLayers) * 100 : 0,
 );

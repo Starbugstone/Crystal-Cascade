@@ -7,4 +7,4 @@ export const createGem = (type, { highlight = false } = {}) => ({
   highlight,
 });
 
-export const randomGemType = () => GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+export const randomGemType = (types = GEM_TYPES) => types[Math.floor(Math.random() * types.length)];

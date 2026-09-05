@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import './styles/base.css';
 import './styles/theme.css';
+import './styles/arcade.css';
 
 const app = createApp(App);
 const pinia = createPinia();

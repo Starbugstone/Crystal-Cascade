@@ -1,7 +1,7 @@
 {
   "name": "crystal-cascade",
   "version": "1.0.0",
-  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and twelve puzzle chapters.",
+  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and 36 progressive puzzles and earned power-up chests.",
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",

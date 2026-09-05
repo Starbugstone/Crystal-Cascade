@@ -1,4 +1,4 @@
-import { Howl } from 'howler';
+import { Howl, Howler } from 'howler';
 import { onBeforeUnmount, watch } from 'vue';
 import { useSettingsStore } from '../stores/settingsStore';
 
@@ -146,6 +146,38 @@ export const useAudio = () => {
     return playSfx(key, { rate: Math.min(1.35, 1 + (comboCount - 1) * 0.07) });
   };
 
+  const playArcadeCue = (kind, index = 0) => {
+    const ctx = Howler.ctx;
+    if (!ctx || ctx.state !== 'running' || settingsStore.sfxVolume <= 0) return;
+    const notes =
+      kind === 'charge'
+        ? [196, 294, 392, 588, 784]
+        : kind === 'jackpot'
+          ? [523, 659, 784, 1046, 1568]
+          : kind === 'reel-tick'
+            ? [420 + (index % 5) * 65]
+            : [660 + index * 110, 990 + index * 110];
+    notes.forEach((frequency, i) => {
+      const oscillator = ctx.createOscillator(),
+        gain = ctx.createGain();
+      const start = ctx.currentTime + i * 0.09;
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(settingsStore.sfxVolume * 0.09, start + 0.012);
+      const duration = kind === 'reel-tick' ? 0.055 : 0.22;
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      oscillator.connect(gain);
+      gain.connect(Howler.masterGain ?? ctx.destination);
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        gain.disconnect();
+      };
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.02);
+    });
+  };
+
   const playBonusAppears = () => playSfx(SFX_KEYS.BONUS_APPEAR);
   const playCrossFire = () => playSfx(SFX_KEYS.CROSS_FIRE);
   const playBomb = () => playSfx(SFX_KEYS.BOMB);
@@ -215,6 +247,7 @@ export const useAudio = () => {
     playSfx,
     playMatch,
     playBonusAppears,
+    playArcadeCue,
     playCrossFire,
     playBomb,
     playRainbowLaser,

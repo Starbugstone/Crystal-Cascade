@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { useCampaignStore } from '../src/stores/campaignStore';
 import { useGameStore } from '../src/stores/gameStore';
 import { createPinia, setActivePinia } from 'pinia';
 import { MatchEngine } from '../src/game/engine/MatchEngine';
@@ -65,15 +66,16 @@ describe('GameStore - Diverse Board Layouts', () => {
     gameStore.sessionActive = true;
   });
 
-  it('starts level 3 with a compact, fully populated, and playable board', () => {
+  it('starts an unlocked early level with a compact, fully populated, playable board', () => {
     const levelThree = gameStore.availableLevels.find((level) => level.id === 3);
     expect(levelThree).toBeDefined();
 
+    useCampaignStore().records = { 1: { stars: 1, score: 0 }, 2: { stars: 1, score: 0 } };
     gameStore.startLevel(levelThree.id);
 
-    expect(gameStore.boardCols).toBe(5);
-    expect(gameStore.boardRows).toBe(5);
-    expect(gameStore.currentBoardLayout.name).toBe('Compact-5x5');
+    expect(gameStore.boardCols).toBe(6);
+    expect(gameStore.boardRows).toBe(7);
+    expect(gameStore.currentBoardLayout.name).toBe('level_3');
 
     const allCellsFilled = gameStore.board.every((cell) => cell !== null);
     expect(allCellsFilled).toBe(true);
