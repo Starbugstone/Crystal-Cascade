@@ -23,8 +23,8 @@ A repeated-navigation browser check also caught labels being hidden by a render 
 
 - Village opens full screen on entry. Coin counter, story book popup, available-parcel directory, cheerful action colors, and a central fountain are available in the village. Persistent camera/help text is removed; a one-time construction tip explains opening the first ready building.
 - All building and shop coin prices increase by 50%. First materials remain free. Builder hammers are excluded from shop stock, purchase validation and tutorial shop claims; mine bonus chests remain their only reward source. Shop levels now offer 1, 2, 3, 4 and 5 items so every upgrade adds a choice.
-- Saloon base income changes from 3 to 2 coins per person per level per hour before happiness. Its gold tag shows stored income; tap to collect. This is roughly one-third less before integer rounding.
-- Roulette symbols take 310 ms instead of 350 ms, approximately 13% faster. Its complete reel lasts 4.34 seconds. Automatic reward weighting is unchanged.
+- Saloon base income changes from 3 to 2 coins per person per level per hour before happiness. Its light green tag shows stored income; tap to collect with a coin burst and chimes. A later tap opens its details. This is roughly one-third less before integer rounding.
+- Roulette symbols now take 326 ms, about 5% slower than the 310 ms beta revision. Its complete reel lasts 4.564 seconds. Automatic reward weighting is unchanged.
 - Village sound effects use 90% of their previous gain. Music volume is unchanged.
 - This release uses `crystal-cascade-profile-v3` as a new progress generation. Earlier v1/v2 saves are not loaded. New progress survives reloads and later deployments using this same key; old open tabs cannot write old progress into it. There is no remote account database in this repository.
 
@@ -34,7 +34,7 @@ Removed unused shuffle allowance/penalty state, its timer and CSS, the unused st
 
 CI now includes the actual case-sensitive `Develop` branch. Dependencies were audited without changing the lockfile; the audit reported zero advisories.
 
-## Verification
+## Initial review verification
 
 - `npm run verify`: formatting, **351 tests across 29 files**, and the production build pass.
 - Chromium at **390 × 844** and **1440 × 1000**: fund construction through the interface, make a real board match, complete a victory fixture, open the roulette, return to the scaffolded village, tap to finish, inspect the fountain, open/close the story popup, and enable reduced motion. Scene and audio instances are reused; neither runs in the mine. No application runtime or failed-request errors were recorded.
@@ -51,3 +51,40 @@ Screenshots and browser instrumentation are in the ignored `output/review/` dire
 - Chromium here uses software graphics. Responsive viewport checks and renderer reuse demonstrate behavior, but do not establish physical iPhone/Android frame rates, thermal behavior or memory limits. Safari, Firefox and native Capacitor builds need device testing.
 - The deferred Phaser and Three.js production chunks still trigger Vite size advisories. Initial download/startup work remains separate from the village return fix.
 - Income uses the browser clock and saves are local to each device. The reset takes effect when a player loads this release; it cannot replace code already running in an old tab.
+
+## Follow-up playtest review
+
+- Raid controls reserve separate space for the wallet and Skip button on desktop and narrow screens. A new, positive raid loss produces a timed arcade receipt; replaying a seen raid neither credits/debits coins nor repeats the new-loss notice.
+- The village sheriff has a cream hat, gold badge, larger silhouette, and a loop along both main streets. The 3D and fallback versions only appear after the office is complete.
+- Village pause now reacts synchronously to mine entry. Master audio outputs are disconnected and zeroed, pending recordings are invalidated, and mine gestures cannot unlock the village soundscape. Return reconnects its output. Web Audio parameter readback can lag a render quantum; the disconnected graph guarantees silence during that interval.
+- Builder-hammer inventory is visible beside the construction count. Hammer eligibility is independent of the physical parcel list; unaffordable empty parcels keep clickable barriers and hide their floating tags. White/blue/green tags consistently mean constructed/purchasable/action ready, with selection expressed by an outline.
+- House II requires the original Home at level 2; Houses III and IV require a completed House II. Existing built houses and construction projects remain usable. Hammers respect the same prerequisites.
+- The five visual levels retain each building’s identity and add visible structures. The level-2 farm silo was fully occluded from the review camera and now stands beside the barn. Bank/shop early upgrades now add larger architectural details; level 4 adds raised flowers and banners, and level 5 adds a timber entrance pergola. The square’s third tier is substantially taller, with lanterns at level 5. These are batched static additions. The shop’s late gem displays also now wrap their four-color palette instead of requesting undefined colors.
+- An old shuffle/replay test mocked match detection before generating the campaign, forcing all generated levels through their retry limit. Scope the mock after bootstrap so it tests shuffle behavior without wasting time or timing out.
+
+### Rendering measurements and next improvement
+
+Profiled a 390 × 844 viewport at device scale 2, with an empty village and a mature village (11 animated actors / 651 parts). Each sample ran for about 4.5 seconds, with a continuous orbit for camera samples. This headless Chromium environment uses software rendering: these figures locate bottlenecks and compare experiments, **not physical phone frame rates**.
+
+| Baseline sample     | Draws/second | Actor update mean | Render submission mean |
+| ------------------- | -----------: | ----------------: | ---------------------: |
+| Sparse idle         |         14.5 |           0.19 ms |                2.85 ms |
+| Mature idle         |          9.2 |           1.04 ms |                3.38 ms |
+| Mature camera orbit |          1.5 |           0.97 ms |                6.76 ms |
+
+The idle animation had an explicit 30 fps ceiling. Camera frames returned before advancing village time: only 0.10 seconds of animation advanced during a 6.09-second orbit sample. Both scheduling issues are fixed: allow up to 60 fps, advance animation before deferring the draw to the pending camera frame, and preserve pause/reduced-motion behavior.
+
+The expensive camera path redraws the static landscape into a half-float color/depth target with four-sample anti-aliasing, then composites it with animated actors. Runtime experiments at DPR 1 improved the mature orbit from 1.5 to 1.9 draws/second; also removing offscreen MSAA reached 4.3. Actor updates stayed near 1 ms, so reducing actor counts alone would miss the larger rendering cost. The experiments used the same camera orbit and mature fixture, with only these settings changed; software GPU results need confirmation on devices.
+
+**Proposed next optimization:** an adaptive mobile quality tier that reduces offscreen MSAA first and pixel ratio second during slow camera interaction, restoring the sharper stationary view afterward. Verify image quality and frame timing on a representative iPhone and Android device before choosing thresholds. The current patch retains the existing rendering resolution and anti-aliasing; only the measured scheduling bugs are changed. Source-level candidates after that are incremental rebuilding of the changed building and avoiding redundant actor color uploads, rather than deleting scene detail without measurement.
+
+A follow-up sample after the scheduling fix measured 23.8 draws/second in the sparse village, 9.5 in the mature idle village, and 1.6 while orbiting. Camera motion now advanced village time by 3.70 seconds over 5.69 seconds, instead of 0.10 over 6.09; the remaining difference is the existing 0.5-second maximum animation step when software rendering stalls. The mature camera path remains GPU-bound in this environment, so this patch does not claim a mobile 60 fps result.
+
+### Follow-up verification
+
+- `npm run verify` passed: **355 tests across 29 files**, formatting, and production build. Removed unreachable locked/in-progress branches from the purchase-only directory and three obsolete translations introduced by the prior house-unlock and parcel hints; localization validation was rerun afterward.
+- At widths **320, 390 and 1440**, builder-hammer counts updated from 0 to 5 and back to 0 after a real hammer purchase. The counter fit beside the construction count without overlapping Available plots. A saloon tap collected exactly 17 coins with five coin cues and no building popup; a second tap opened details without another credit. Unaffordable empty parcels had no label, retained geometry, and opened details when tapped directly. White and green computed colors matched the action convention.
+- **1536 × 864, 390 × 844, 320 × 568 and 844 × 390**, including French labels: raid coin counter and Skip button did not overlap; completion showed the saved loss once, replay did not repeat it, and the sheriff moved with his badge visible. Mine entry disconnected village audio synchronously, and later mine gestures did not resume it.
+- Mine-flow checks at **390 × 844 and 1440 × 1000** exercised a real match, chest opening (4,564 ms reel), retained scene/audio return, ready scaffolding, completion, fountain, story popup and reduced motion. No application or failed-request errors were recorded.
+- Generated and visually reviewed **55 distinct 3D renders**: all five levels for each of the 11 building types. Extra wells, farms and houses use those same type renderers. The comparison caught and corrected the occluded farm silo.
+- Forced WebGL failure at **390 × 844**: the SVG sheriff traversed the shared patrol path, adding a hammer did not remove parcels, Houses III/IV appeared only after a real hammer purchase of House II, and reduced motion displayed a static coin receipt. No application errors were recorded.

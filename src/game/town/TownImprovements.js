@@ -93,18 +93,27 @@ export function addImprovements(d, parent, kind, stage) {
   if (stage < 2 || kind === 'square') return null;
   if (stage >= 4) {
     for (const x of [-1.15, 1.15]) {
-      d.box(parent, 0.65, 0.22, 0.5, x, 0.2, 2.5, '#b69c70');
-      d.ball(parent, x, 0.4, 2.5, [0.35, 0.2, 0.28], '#81996a');
+      d.box(parent, 0.8, 0.5, 0.65, x, 0.3, 2.5, '#b69c70');
+      d.ball(parent, x, 0.7, 2.5, [0.5, 0.35, 0.4], '#81996a');
+      for (const dx of [-0.22, 0, 0.22]) d.ball(parent, x + dx, 0.96, 2.5, 0.14, '#edbd89');
+      d.rod(parent, [x * 1.35, 0, -1.5], [x * 1.35, 3.5, -1.5], 0.05, '#c3a476');
+      d.box(parent, 0.65, 0.9, 0.045, x * 1.35, 2.9, -1.5, '#9fbca3');
     }
   }
   if (stage >= 5) {
-    d.box(parent, 1.15, 0.13, 0.45, 0, 0.48, 2.65, '#bda071');
-    for (const x of [-0.45, 0.45]) d.box(parent, 0.1, 0.4, 0.35, x, 0.23, 2.65, '#8f886a');
+    // A broad timber entrance pergola changes the silhouette even from the overview.
+    for (const x of [-1.65, 1.65]) {
+      d.box(parent, 0.15, 2.3, 0.15, x, 1.15, 2.6, '#e1cf9e');
+      d.box(parent, 0.35, 0.25, 0.35, x, 2.35, 2.6, '#c9b27d');
+    }
+    d.box(parent, 3.65, 0.22, 0.8, 0, 2.5, 2.6, '#71988a');
+    for (const x of [-1.2, -0.6, 0, 0.6, 1.2])
+      d.box(parent, 0.12, 0.13, 1.1, x, 2.67, 2.6, '#e1cf9e');
   }
   if (kind === 'well') {
-    d.rod(parent, [1, 0.15, 0.55], [1, 1, 0.55], 0.085, '#608985');
-    d.rod(parent, [1, 0.88, 0.55], [1.35, 0.88, 0.55], 0.04, '#608985');
-    d.box(parent, 0.55, 0.24, 0.4, 1.2, 0.15, 0.55, '#bfa477');
+    d.rod(parent, [1, 0.15, 0.55], [1, 1.45, 0.55], 0.085, '#608985');
+    d.rod(parent, [1, 1.3, 0.55], [1.6, 1.3, 0.55], 0.04, '#608985');
+    d.box(parent, 0.8, 0.45, 0.6, 1.35, 0.25, 0.55, '#bfa477');
     if (stage >= 3) tower(d, parent, -1.15, '#b59767');
   } else if (kind === 'home') {
     if (stage >= 3) {
@@ -124,8 +133,8 @@ export function addImprovements(d, parent, kind, stage) {
       }
     }
   } else if (kind === 'farm') {
-    d.mesh(parent, 'cylinder', [0.43, 1.5, 0.43], [-1.7, 0.8, -0.7], '#b3b7a0');
-    d.mesh(parent, 'cone', [0.49, 0.42, 0.49], [-1.7, 1.7, -0.7], '#768d81');
+    d.mesh(parent, 'cylinder', [0.43, 1.5, 0.43], [1.85, 0.8, -0.7], '#b3b7a0');
+    d.mesh(parent, 'cone', [0.49, 0.42, 0.49], [1.85, 1.7, -0.7], '#768d81');
     if (stage >= 3) return tower(d, parent, -1.6, '#b6a279', true);
   } else if (kind === 'sheriff') {
     const annex = d.group(parent, 1.65, 0, -0.15);
@@ -165,6 +174,20 @@ export function addImprovements(d, parent, kind, stage) {
       d.mesh(parent, 'cone', [0.84, 0.6, 0.84], [0, 4.32, -0.1], '#718e82');
       d.ball(parent, 0, 3.52, 0.43, [0.3, 0.3, 0.035], '#ebdec0');
       d.rod(parent, [0, 3.52, 0.48], [0, 3.72, 0.48], 0.018, '#827451');
+    }
+  } else if (kind === 'bank') {
+    d.box(parent, 1.1, 2.1, 2.4, 1.75, 1.1, -0.2, '#9caeaa');
+    d.box(parent, 1.3, 0.18, 2.6, 1.75, 2.24, -0.2, '#d6ccad');
+    if (stage >= 3) {
+      upperRoom(d, parent, '#b2af94');
+      for (const x of [-0.85, 0.85]) d.box(parent, 0.1, 0.7, 0.08, x, 3.12, 1.28, '#617c77');
+    }
+  } else if (kind === 'shop') {
+    for (const x of [-1.55, 1.55]) d.box(parent, 0.12, 1.9, 0.12, x, 0.95, 2.05, '#e0c89c');
+    d.box(parent, 3.5, 0.15, 1.4, 0, 2, 1.75, '#8fb399');
+    if (stage >= 3) {
+      upperRoom(d, parent, '#bd977b');
+      balcony(d, parent, 2.6);
     }
   } else if (kind === 'armory' && stage >= 3) {
     d.box(parent, 2.7, 0.65, 1.7, 0, 3.05, -0.3, '#8b9e8e');

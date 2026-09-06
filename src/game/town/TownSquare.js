@@ -11,16 +11,18 @@ export function buildTownSquare(d, parent, stage) {
   d.mesh(fountain, 'cylinder', [0.81, 0.035, 0.81], [0, 0.54, 0], '#71b8bd');
   d.mesh(fountain, 'cylinder', [0.19, 0.48, 0.19], [0, 0.76, 0], '#b5b09b');
   if (stage >= 3) {
-    d.mesh(fountain, 'cylinder', [0.49, 0.14, 0.49], [0, 1.02, 0], '#d2c9ad');
-    d.mesh(fountain, 'cylinder', [0.4, 0.025, 0.4], [0, 1.1, 0], '#71b8bd');
+    d.mesh(fountain, 'cylinder', [0.18, 0.65, 0.18], [0, 1.28, 0], '#b5b09b');
+    d.mesh(fountain, 'cylinder', [0.66, 0.22, 0.66], [0, 1.55, 0], '#d2c9ad');
+    d.mesh(fountain, 'cylinder', [0.54, 0.035, 0.54], [0, 1.68, 0], '#71b8bd');
   }
-  d.ball(fountain, 0, 1.05, 0, 0.14, '#c9c1a2');
+  const jetHeight = stage >= 3 ? 1.85 : 1.12;
+  d.ball(fountain, 0, jetHeight - 0.07, 0, 0.14, '#c9c1a2');
   for (let n = 0; n < 4; n++) {
     const angle = (n / 4) * Math.PI * 2;
     const points = [
-      [0, 1.12],
-      [0.18, 1.38],
-      [0.44, 1.23],
+      [0, jetHeight],
+      [0.18, jetHeight + 0.3],
+      [0.44, jetHeight + 0.14],
       [0.66, 0.56],
     ].map(([radius, y]) => [Math.cos(angle) * radius, y, Math.sin(angle) * radius]);
     for (let i = 1; i < points.length; i++)
@@ -39,12 +41,18 @@ export function buildTownSquare(d, parent, stage) {
   if (stage >= 4) {
     for (const x of [-1.5, 1.5])
       for (const z of [-2.1, 2.1]) {
-        d.box(parent, 0.7, 0.18, 0.5, x, 0.25, z, '#9c9276');
-        d.ball(parent, x, 0.38, z, [0.4, 0.16, 0.3], '#87a075');
-        for (const dx of [-0.18, 0.18]) d.ball(parent, x + dx, 0.52, z, 0.09, '#d9a380');
+        d.box(parent, 0.9, 0.35, 0.65, x, 0.3, z, '#9c9276');
+        d.ball(parent, x, 0.62, z, [0.5, 0.28, 0.4], '#87a075');
+        for (const dx of [-0.22, 0.22]) d.ball(parent, x + dx, 0.86, z, 0.15, '#d9a380');
       }
   }
   if (stage >= 5) {
+    for (const x of [-2.25, 2.25])
+      for (const z of [-2.15, 2.15]) {
+        d.rod(parent, [x, 0.2, z], [x, 2.65, z], 0.065, '#718b80');
+        d.box(parent, 0.38, 0.55, 0.38, x, 2.65, z, '#f4d58d');
+        d.mesh(parent, 'cone', [0.3, 0.25, 0.3], [x, 3.03, z], '#718b80');
+      }
     for (const z of [-1.8, 1.8]) {
       d.box(parent, 1.5, 0.03, 0.45, 0, 0.18, z, '#b69e72');
       for (const x of [-0.5, 0, 0.5]) d.box(parent, 0.25, 0.02, 0.25, x, 0.21, z, '#7b9c8e');

@@ -13,7 +13,7 @@ import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
 import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
-import { PLOTS, LANE_X, atPlot } from './TownLayout';
+import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL } from './TownLayout';
 export { PLOTS } from './TownLayout';
 const colors = {
   sand: '#c8ad7a',
@@ -377,16 +377,13 @@ export class TownDiorama {
       });
     if (town.buildings.sheriff)
       this.person({
-        color: '#7899a5',
+        color: '#315d83',
         skin: '#c99d74',
-        hat: '#b38f51',
-        route: [
-          atPlot('sheriff', 1.4, 2.1),
-          [LANE_X, PLOTS.sheriff[1] + 2.1],
-          [LANE_X, 7.5],
-          [LANE_X, -0.5],
-        ],
-        seed: 15,
+        hat: '#f0d390',
+        route: SHERIFF_PATROL,
+        seed: 0,
+        sheriff: true,
+        loop: true,
       });
     if (town.buildings.stable) {
       this.horse(...atPlot('stable', 2.25, 0.9), 0.5);
@@ -429,11 +426,11 @@ export class TownDiorama {
     const w = id === 'well' ? 2.1 : 3.05,
       d = id === 'well' ? 2.1 : 2.7;
     for (const x of [-w / 2, w / 2])
-      for (const z of [-d / 2, d / 2]) this.box(parent, 0.08, 0.3, 0.08, x, 0.13, z, '#a58a57');
+      for (const z of [-d / 2, d / 2]) this.box(parent, 0.12, 0.6, 0.12, x, 0.3, z, '#a58a57');
     for (const z of [-d / 2, d / 2])
-      this.rod(parent, [-w / 2, 0.24, z], [w / 2, 0.24, z], 0.012, '#e5cf9b');
+      this.rod(parent, [-w / 2, 0.44, z], [w / 2, 0.44, z], 0.05, '#e5cf9b');
     for (const x of [-w / 2, w / 2])
-      this.rod(parent, [x, 0.24, -d / 2], [x, 0.24, d / 2], 0.012, '#e5cf9b');
+      this.rod(parent, [x, 0.44, -d / 2], [x, 0.44, d / 2], 0.05, '#e5cf9b');
     if (wins < 0) {
       this.box(parent, 0.08, 0.5, 0.08, -w / 2 + 0.25, 0.2, d / 2 - 0.25, '#99805a');
       this.sign(parent, label, 1.05, -w / 2 + 0.25, 0.52, d / 2 - 0.25);
@@ -557,7 +554,7 @@ export class TownDiorama {
           0.77,
           2,
           [0.17, 0.23, 0.17],
-          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n],
+          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n % 4],
           'rock',
         );
       }
@@ -740,13 +737,34 @@ export class TownDiorama {
     parent = this.world,
     manual = false,
     visitor = false,
+    sheriff = false,
+    loop = false,
   }) {
     const root = this.group(parent);
     root.userData.animated = !manual;
+    if (sheriff) {
+      root.name = 'Village sheriff';
+      root.scale.setScalar(1.3);
+    }
     const body = this.group(root, 0, 0.54, 0);
     this.box(body, 0.25, 0.19, 0.16, 0, 0, 0, '#69654d', true);
     const torso = this.group(body, 0, 0.1, 0);
     this.box(torso, 0.3, 0.34, 0.18, 0, 0.13, 0, color, true);
+    if (sheriff) {
+      if (!this.geometries.badge) {
+        const star = new THREE.Shape();
+        for (let i = 0; i < 10; i++) {
+          const angle = Math.PI / 2 + (i * Math.PI) / 5,
+            radius = i % 2 ? 0.45 : 1;
+          star[i ? 'lineTo' : 'moveTo'](Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        star.closePath();
+        this.geometries.badge = new THREE.ShapeGeometry(star);
+      }
+      this.mesh(torso, 'badge', [0.075, 0.075, 1], [-0.065, 0.2, 0.102], '#ffd15b');
+      this.box(torso, 0.31, 0.05, 0.19, 0, -0.01, 0, '#4c4338');
+      this.box(torso, 0.055, 0.04, 0.02, 0, -0.01, 0.105, '#ffd15b');
+    }
     this.rod(torso, [0, 0.29, 0], [0, 0.39, 0], 0.055, skin);
     const head = this.group(torso, 0, 0.46, 0);
     this.ball(head, 0, 0, 0, [0.12, 0.145, 0.115], skin);
@@ -775,12 +793,12 @@ export class TownDiorama {
     if (dress) this.mesh(body, 'cone', [0.2, 0.29, 0.17], [0, -0.085, 0], color);
     const points = route.map(([x, z]) => point(x, 0.07, z));
     const curve = new THREE.CatmullRomCurve3(
-      [...points, ...points.slice(1, -1).reverse()],
+      loop ? points : [...points, ...points.slice(1, -1).reverse()],
       true,
       'catmullrom',
       0.15,
     );
-    const duration = curve.getLength() / 0.55;
+    const duration = curve.getLength() / (sheriff ? 0.8 : 0.55);
     const actor = { root, body, torso, head, arms, legs, curve, duration, seed, work, visitor };
     if (!manual) this.actors.push(actor);
 
@@ -1020,6 +1038,10 @@ export class TownDiorama {
         depth: p.z,
         width: labelWidth,
         visible:
+          (id === 'mine' ||
+            this.town.buildings[id] > 0 ||
+            !!this.town.projects[id] ||
+            this.availablePlots?.has(id)) &&
           p.z > -1 &&
           p.z < 1 &&
           (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
@@ -1061,8 +1083,7 @@ export class TownDiorama {
   }
 
   tick(now) {
-    if (this.cameraFrame) return;
-    if (this.lastFrame && now - this.lastFrame < 1000 / 30 - 1) return;
+    if (this.lastFrame && now - this.lastFrame < 1000 / 60 - 1) return;
     this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
     this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
@@ -1072,6 +1093,8 @@ export class TownDiorama {
       this.raid = null;
       this.rebuildActors();
     }
+    // Advance life during camera motion too; its scheduled render draws the new pose.
+    if (this.cameraFrame) return;
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera);
   }

@@ -591,7 +591,6 @@
   "Build the farm windmill": "Construire l’éolienne de la ferme",
   "Food for eighteen neighbors and a working windmill.": "De la nourriture pour dix-huit habitants et une éolienne en activité.",
   "A home for generations": "Un foyer pour plusieurs générations",
-  "Room for four neighbors. Unlock three more residential plots.": "De la place pour quatre habitants. Débloque trois nouvelles parcelles résidentielles.",
   "Add a second floor": "Ajouter un étage",
   "Room for six neighbors, with a balcony overlooking the street.": "De la place pour six habitants, avec un balcon donnant sur la rue.",
   "Room for the evening crowd": "De la place pour les soirées animées",
@@ -657,7 +656,6 @@
   "Keep pace with the town": "Suivre la croissance du village",
   "Gang: {gang} riders · Protection: {protection} riders": "Bande : {gang} cavaliers · Protection : {protection} cavaliers",
   "Each completed sheriff level protects against two riders. Existing protection stays active during upgrades.": "Chaque niveau terminé du shérif protège contre deux cavaliers. La protection actuelle reste active pendant les améliorations.",
-  "Unlock at {building} level 2": "Débloqué avec {building} au niveau 2",
   "ON THE FRONTIER": "SUR LA FRONTIÈRE",
   "Eyes on the dusty trail": "Un œil sur la piste poussiéreuse",
   "As the town grows, larger gangs may ride in. A sheriff keeps your savings safe.": "En grandissant, le village attire des bandes plus nombreuses. Un shérif protège vos économies.",
@@ -685,7 +683,6 @@
   "Room for {count}": "Place pour {count}",
   "From your neighbors": "Le journal du village",
   "Choose a plot": "Choisissez une parcelle",
-  "Choose what to build next. Improvements unlock new plots.": "Choisissez votre prochain chantier. Les améliorations débloquent de nouvelles parcelles.",
   "Work started at {building}. Play a puzzle to build the next part.": "Chantier lancé : {building}. Jouez un puzzle pour avancer.",
   "Continue": "Continuer",
   "Bank": "Banque",
@@ -952,5 +949,13 @@
   "Earnings stay in the saloon until you tap it to collect. Storage holds up to eight hours of income.": "Les gains restent au saloon jusqu’à ce que vous le touchiez pour les récupérer. Il peut stocker jusqu’à huit heures de revenus.",
   "The saloon stores up to eight hours of earnings. Tap it to collect your coins. Visit the museum to replay old puzzles. Rare builder hammers come only from mine bonus chests and build or improve an unlocked building instantly for free.": "Le saloon stocke jusqu’à huit heures de revenus. Touchez-le pour récupérer vos pièces. Visitez le musée pour rejouer les anciens puzzles. Les rares marteaux de bâtisseur viennent uniquement des coffres bonus de la mine et permettent de construire ou d’améliorer instantanément et gratuitement un bâtiment débloqué.",
   "Buy a random puzzle power. New stock after each completed mine run.": "Achetez un bonus aléatoire. Le stock est renouvelé après chaque puzzle terminé dans la mine.",
-  "Choose from two random bonuses after each completed mine run.": "Choisissez parmi deux bonus aléatoires après chaque puzzle terminé dans la mine."
+  "Choose from two random bonuses after each completed mine run.": "Choisissez parmi deux bonus aléatoires après chaque puzzle terminé dans la mine.",
+  "Close coin loss notice": "Fermer le bilan des pièces volées",
+  "Bandits stole {coins} coins!": "Les bandits ont volé {coins} pièces !",
+  "Build and upgrade the sheriff’s department and bank to protect your savings.": "Construisez et améliorez le bureau du shérif et la banque pour protéger vos économies.",
+  "Collected {coins} coins from the saloon!": "{coins} pièces récupérées au saloon !",
+  "Tap the saloon again to view or upgrade it.": "Touchez à nouveau le saloon pour le consulter ou l’améliorer.",
+  "Only purchases you can afford are listed. A builder hammer also reveals unlocked purchases you can build for free.": "Seuls les achats à votre portée sont affichés. Un marteau de bâtisseur révèle aussi les achats débloqués que vous pouvez construire gratuitement.",
+  "Well level 2 unlocks a second well. Farm level 2 unlocks two more farms. Home level 2 unlocks House II; finish House II to reveal Houses III and IV. Other buildings have one plot each.": "Le puits niveau 2 débloque un second puits. La ferme niveau 2 débloque deux autres fermes. La maison niveau 2 débloque la Maison II ; terminez-la pour révéler les Maisons III et IV. Les autres bâtiments ont chacun une seule parcelle.",
+  "Room for four neighbors. Unlock House II; finish it to reveal Houses III and IV.": "De la place pour quatre voisins. Débloquez la Maison II ; terminez-la pour révéler les Maisons III et IV."
 }

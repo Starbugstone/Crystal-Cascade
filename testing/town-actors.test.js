@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Matrix4, Scene, Vector3 } from 'three';
 import { TownActors } from '../src/game/town/TownActors';
 import { TownDiorama, PLOTS } from '../src/game/town/TownDiorama';
+import { SHERIFF_PATROL } from '../src/game/town/TownLayout';
 import { TownRaid } from '../src/game/town/TownActivity';
 
 // Exercise articulated geometry and its timeline without requiring a GPU.
@@ -24,6 +25,31 @@ function diorama() {
   return d;
 }
 describe('A visible, articulated frontier encounter', () => {
+  it('gives the village sheriff a badge and a visible loop along both main streets', () => {
+    const d = diorama();
+    const sheriff = d.person({
+      color: '#315d83',
+      skin: '#c99d74',
+      hat: '#f0d390',
+      route: SHERIFF_PATROL,
+      seed: 0,
+      sheriff: true,
+      loop: true,
+    });
+    expect(sheriff.root.name).toBe('Village sheriff');
+    expect(d.geometries.badge).toBeDefined();
+    const positions = Array.from({ length: 40 }, (_, i) => sheriff.curve.getPointAt(i / 40));
+    expect(Math.min(...positions.map((p) => p.x))).toBeLessThan(-3);
+    expect(Math.max(...positions.map((p) => p.x))).toBeGreaterThan(3);
+    expect(Math.min(...positions.map((p) => p.z))).toBeLessThan(-8);
+    expect(Math.max(...positions.map((p) => p.z))).toBeGreaterThan(15);
+    d.animatePerson(sheriff, 0);
+    const start = sheriff.root.position.clone();
+    d.animatePerson(sheriff, 4);
+    expect(sheriff.root.visible).toBe(true);
+    expect(sheriff.root.position.distanceTo(start)).toBeGreaterThan(1);
+  });
+
   it('draws shared actor parts together, follows moving joints, and hides indoor visitors', () => {
     const scene = new Scene(),
       root = new Group(),

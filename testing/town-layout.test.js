@@ -19,13 +19,13 @@ describe('Open village lots and usable paths', () => {
     const box = new BoxGeometry(1, 1, 1),
       sphere = new SphereGeometry(1),
       cylinder = new CylinderGeometry(1, 1, 1);
-    d.geometries = { box, sphere, cylinder };
+    d.geometries = { box, sphere, cylinder, cone: cylinder };
     d.materials = new Map();
     for (let stage = 1; stage <= 5; stage++) {
       const group = new Group();
       buildTownSquare(d, group, stage);
       const bounds = new Box3().setFromObject(group);
-      expect(bounds.max.y).toBeLessThan(1.5);
+      expect(bounds.max.y).toBeLessThan(3.5);
       const fountain = group.getObjectByName('Town fountain');
       expect(fountain).toBeDefined();
       const fountainBounds = new Box3().setFromObject(fountain);

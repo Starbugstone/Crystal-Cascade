@@ -261,7 +261,7 @@ const roulette = ref(null);
 const campaign = useCampaignStore();
 const prize = ref(props.reward.items[0]);
 // Two full passes give every reward a repeatable, but still quick, chance to be caught.
-const symbolDurationMs = 310;
+const symbolDurationMs = 326;
 const stopIndex = ref(powers.length * 2);
 const spinDurationMs = stopIndex.value * symbolDurationMs;
 // The fallback is saved at completion. A tap claims the symbol currently on the payline.

@@ -3,6 +3,28 @@ import { Color, PerspectiveCamera, Scene } from 'three';
 import { TownDiorama } from '../src/game/town/TownDiorama';
 import { TownFrameCache } from '../src/game/town/TownFrameCache';
 
+it('keeps villagers and raid time moving while the camera owns the next draw', () => {
+  const actor = {},
+    scene = {
+      cameraFrame: 1,
+      lastFrame: 1000,
+      elapsed: 0,
+      actors: [actor],
+      animatePerson: vi.fn(),
+      motions: [vi.fn()],
+      actorRenderer: { update: vi.fn() },
+      frameCache: { render: vi.fn() },
+    };
+  TownDiorama.prototype.tick.call(scene, 1017);
+  expect(scene.elapsed).toBeCloseTo(0.017);
+  expect(scene.animatePerson).toHaveBeenCalledWith(actor, scene.elapsed);
+  expect(scene.motions[0]).toHaveBeenCalledWith(scene.elapsed);
+  expect(scene.frameCache.render).not.toHaveBeenCalled();
+  scene.cameraFrame = 0;
+  TownDiorama.prototype.tick.call(scene, 1034);
+  expect(scene.frameCache.render).toHaveBeenCalledOnce();
+});
+
 it('reuses scenery between animation frames, refreshing after camera/building changes or resize', () => {
   let width = 390;
   const renders = [],

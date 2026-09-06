@@ -21,6 +21,7 @@ import {
   happiness,
   upgradeOffer,
   buildWithHammer,
+  availablePurchases,
 } from '../src/game/town/TownRules';
 import { bonusCapacity } from '../src/data/rewards';
 import { rollShopStock } from '../src/data/shop';
@@ -47,20 +48,34 @@ afterEach(() => {
 });
 
 describe('Five levels and a growing frontier', () => {
-  it('opens extra plots only after the matching original improvement is complete', () => {
+  it('opens extra plots only after their required building level is complete', () => {
     for (const { id, unlock } of BUILDINGS.filter((b) => b.unlock)) {
-      let town = village();
+      let town = village({ home: 2, [unlock.id]: unlock.level - 1 });
       expect(plotUnlocked(town, id)).toBe(false);
       expect(purchase(town, id, 0)).toBeNull();
-      town = purchase(town, unlock.id, 1);
+      town = purchase(town, unlock.id, unlock.level - 1);
       while (town.projects[unlock.id]) {
         expect(plotUnlocked(town, id)).toBe(false);
         town = advanceConstruction(town);
-        town = finishConstruction(town, unlock.id, 2);
+        town = finishConstruction(town, unlock.id, unlock.level);
       }
       expect(plotUnlocked(town, id)).toBe(true);
       expect(purchase(town, id, 0)?.buildings[id]).toBe(1);
     }
+  });
+  it('keeps later houses locked with hammers until House II is built, and preserves existing homes', () => {
+    const town = village({ home: 2 });
+    for (const id of ['home3', 'home4']) {
+      expect(availablePurchases(town, 5).some((b) => b.id === id)).toBe(false);
+      expect(buildWithHammer(town, id, 0)).toBeNull();
+    }
+    const next = buildWithHammer(town, 'home2', 0);
+    for (const id of ['home3', 'home4']) {
+      expect(plotUnlocked(next, id)).toBe(true);
+      expect(availablePurchases(next, 1).some((b) => b.id === id)).toBe(true);
+    }
+    town.buildings.home3 = 1;
+    expect(plotUnlocked(town, 'home3')).toBe(true);
   });
   it('caps every building at level five and preserves existing benefits during improvements', () => {
     for (const building of BUILDINGS) {

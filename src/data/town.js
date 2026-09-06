@@ -421,7 +421,7 @@ for (const building of ORIGINAL_BUILDINGS) {
   }
 }
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'home').upgrades[1].benefit =
-  'Room for four neighbors. Unlock three more residential plots.';
+  'Room for four neighbors. Unlock House II; finish it to reveal Houses III and IV.';
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
   'Protect half the coins at risk from two riders.';
 
@@ -567,7 +567,7 @@ export const BUILDINGS = [
     shortName,
     x,
     y,
-    unlock: { id: kind, level: 2 },
+    unlock: id === 'home3' || id === 'home4' ? { id: 'home2', level: 1 } : { id: kind, level: 2 },
     upgrades: ORIGINAL_BUILDINGS.find((building) => building.id === kind).upgrades.map(
       (upgrade) => ({
         ...upgrade,

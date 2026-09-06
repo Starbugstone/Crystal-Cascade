@@ -197,7 +197,16 @@
             <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
           </g>
         </g>
-        <g class="map-label" transform="translate(0 35)" aria-hidden="true">
+        <g
+          v-if="
+            town.buildings[building.id] ||
+            town.projects[building.id] ||
+            availableIds.includes(building.id)
+          "
+          class="map-label"
+          transform="translate(0 35)"
+          aria-hidden="true"
+        >
           <rect
             x="-67"
             y="-18"
@@ -205,28 +214,17 @@
             height="34"
             rx="17"
             :fill="
-              constructionReady(town.projects[building.id])
+              constructionReady(town.projects[building.id]) || hasIncome(building.id)
                 ? '#e1f0c0'
-                : hasIncome(building.id)
-                  ? '#fff0b9'
-                  : availableIds.includes(building.id)
-                    ? '#d9f1fa'
-                    : selected === building.id
-                      ? '#4b6559'
-                      : '#fcf5e6'
+                : availableIds.includes(building.id)
+                  ? '#d9f1fa'
+                  : '#ffffff'
             "
           />
           <text
             y="5"
             text-anchor="middle"
-            :fill="
-              selected === building.id &&
-              !hasIncome(building.id) &&
-              !availableIds.includes(building.id) &&
-              !constructionReady(town.projects[building.id])
-                ? '#fff7e6'
-                : '#405b4c'
-            "
+            fill="#405b4c"
             font-size="19"
             font-family="Georgia, serif"
           >
@@ -283,8 +281,16 @@
         >
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="town.buildings.sheriff" class="resident-walk sheriff-walk" color="#6b8190">
-          <use :href="`#${uid}-person`" />
+        <g
+          v-if="town.buildings.sheriff"
+          class="resident-walk sheriff-walk"
+          :style="{ offsetPath: sheriffPath }"
+          color="#315d83"
+        >
+          <g transform="scale(1.3)">
+            <use :href="`#${uid}-person`" />
+            <path d="m-2-15 1 2 2 .3-1.5 1.5.4 2-1.9-1-1.9 1 .4-2L-5-12.7l2-.3Z" fill="#ffd15b" />
+          </g>
         </g>
         <g
           v-if="town.buildings.stable"
@@ -332,7 +338,7 @@ import {
   plotUnlocked,
 } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
-import { PLOTS, TOWN_TRACKS, mapPoint, atPlot } from '../../game/town/TownLayout';
+import { PLOTS, TOWN_TRACKS, mapPoint, atPlot, SHERIFF_PATROL } from '../../game/town/TownLayout';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';
 const props = defineProps({
@@ -363,6 +369,7 @@ watch(
     if (reduced) animatedConstruction.value = null;
   },
 );
+const sheriffPath = `path("M${SHERIFF_PATROL.map((point) => mapPoint(point).join(' ')).join(' L')} Z")`;
 const land = 'M0 148Q197 108 401 144T1000 128V590L550 700 0 620Z';
 function resetView() {
   scene.value?.style.removeProperty('--look-x');

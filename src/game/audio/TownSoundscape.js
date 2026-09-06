@@ -54,7 +54,7 @@ export class TownSoundscape {
   }
 
   async unlock() {
-    if (this.disposed) return;
+    if (this.disposed || this.state.paused) return;
     try {
       if (!this.ctx) {
         this.ctx = this.contextFactory();
@@ -62,8 +62,6 @@ export class TownSoundscape {
         this.sfx = this.ctx.createGain();
         this.music.gain.value = 0;
         this.sfx.gain.value = 0;
-        this.music.connect(this.ctx.destination);
-        this.sfx.connect(this.ctx.destination);
       }
       if (this.ctx.state !== 'running') await this.ctx.resume();
       if (!this.disposed) this.update(this.state);
@@ -82,6 +80,11 @@ export class TownSoundscape {
       return;
     }
     this.running = true;
+    if (!this.outputsConnected) {
+      this.music.connect(this.ctx.destination);
+      this.sfx.connect(this.ctx.destination);
+      this.outputsConnected = true;
+    }
     this.music.gain.setTargetAtTime(
       clamp(state.musicVolume) * VILLAGE_AUDIO.music.volume * (state.raid ? 0.65 : 1),
       this.ctx.currentTime,
@@ -280,6 +283,13 @@ export class TownSoundscape {
     this.pending.clear();
     this.player?.pause();
     this.musicPending = null;
+    // Gate the output too: releasing or delayed voices must never bleed into the mine.
+    for (const bus of [this.music, this.sfx]) {
+      bus?.gain.cancelScheduledValues(this.ctx.currentTime);
+      bus?.gain.setValueAtTime(0, this.ctx.currentTime);
+      bus?.disconnect();
+    }
+    this.outputsConnected = false;
     this.quietSources();
   }
 

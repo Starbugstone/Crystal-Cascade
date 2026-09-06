@@ -1,23 +1,28 @@
 import { onMounted, onBeforeUnmount, watch } from 'vue';
 import { TownSoundscape } from '../game/audio/TownSoundscape';
+import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 export function useTownAudio(readVillage) {
   const settings = useSettingsStore();
+  const game = useGameStore();
   const soundscape = new TownSoundscape();
   const update = () =>
     soundscape.update({
       ...readVillage(),
+      paused: game.sessionActive || readVillage().paused,
       musicVolume: settings.musicVolume,
       sfxVolume: settings.sfxVolume,
     });
   const unlock = () => {
     update();
-    soundscape.unlock();
+    if (!soundscape.state.paused) soundscape.unlock();
   };
   watch(() => [JSON.stringify(readVillage()), settings.musicVolume, settings.sfxVolume], update, {
     immediate: true,
   });
+  // Silence the village before synchronous mine setup or another pointer gesture can run.
+  watch(() => game.sessionActive, update, { flush: 'sync' });
   onMounted(() => {
     document.addEventListener('pointerdown', unlock, { passive: true });
     document.addEventListener('keydown', unlock);

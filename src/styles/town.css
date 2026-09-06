@@ -168,7 +168,7 @@
   color: #7c8565;
   pointer-events: none;
 }
-.town-map-caption span:first-child {
+.town-map-caption > span {
   display: flex;
   gap: 7px;
   align-items: center;
@@ -177,7 +177,7 @@
   width: 17px;
   height: 17px;
 }
-.town-map-caption span:last-child {
+.town-map-caption > span {
   padding: 6px 11px;
   border: 1px solid #9caa7933;
   background: #f9f7e580;
@@ -465,8 +465,9 @@
   animation: town-walk-three 23s ease-in-out infinite;
 }
 .sheriff-walk {
-  transform: translate(584px, 532px);
-  animation: town-patrol 35s ease-in-out infinite;
+  offset-anchor: 0px 0px;
+  offset-rotate: 0deg;
+  animation: town-patrol 80s linear infinite;
 }
 .horse-idle {
   animation: town-horse 5s ease-in-out infinite;
@@ -506,13 +507,11 @@
   }
 }
 @keyframes town-patrol {
-  0%,
-  100% {
-    transform: translate(584px, 532px);
+  from {
+    offset-distance: 0%;
   }
-  40%,
-  55% {
-    transform: translate(584px, 455px);
+  to {
+    offset-distance: 100%;
   }
 }
 @keyframes town-horse {
@@ -955,7 +954,7 @@
   padding: 7px 12px;
   border-radius: 16px;
   border: 1px solid #bba77c;
-  background: #fff8e9ec;
+  background: #ffffff;
   color: #4e5b45;
   font:
     13px Georgia,
@@ -966,11 +965,9 @@
 .town-scene-labels button:active:not(:disabled) {
   transform: translate(-50%, -30%) scale(0.97);
 }
-.town-scene-labels button.selected,
-.town-scene-labels .scene-mine-button {
-  background: #4b6b58;
-  color: #fff6df;
-  border-color: #c2cba4;
+.town-scene-labels button.selected {
+  outline: 2px solid #789788;
+  outline-offset: 2px;
 }
 .town-scene-labels button:focus-visible {
   outline: 3px solid #426654;
@@ -1389,10 +1386,16 @@
   line-height: 1.5;
   color: #f0dbb7;
 }
-.town-raid-banner button {
+.town-raid-actions {
   grid-column: 2;
   grid-row: 1 / span 3;
   align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.town-raid-banner button {
   color: #5d5139;
   background: #f6ebd2;
   width: auto;
@@ -1423,10 +1426,13 @@
   .town-raid-banner {
     grid-template-columns: 1fr;
   }
-  .town-raid-banner button {
+  .town-raid-actions {
     grid-column: 1;
     grid-row: auto;
     justify-self: start;
+    align-items: flex-start;
+  }
+  .town-raid-banner button {
     padding: 0.4rem 0.7rem;
   }
 }
@@ -1530,6 +1536,18 @@
 }
 .town-map-caption {
   right: auto;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.town-map-hammers img {
+  width: 20px;
+  height: 20px;
+}
+.town-map-caption .town-map-hammers {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #705c38;
 }
 .town-plots-button {
   position: absolute;
@@ -1829,9 +1847,13 @@ html:has(.town-museum[open]) {
   .town-raid-banner p {
     display: none;
   }
-  .town-raid-banner button {
+  .town-raid-actions {
     grid-column: 2;
     grid-row: 1 / span 2;
+    align-items: flex-end;
+    max-width: 100px;
+  }
+  .town-raid-banner button {
     font-size: 10px;
     padding: 8px;
     min-height: 44px;
@@ -1934,7 +1956,9 @@ html:has(.town-museum[open]) {
   border-color: #83b7c6;
   color: #345663;
 }
-.town-scene-labels button.is-ready {
+.town-scene-labels button.is-ready,
+.town-scene-labels button.has-income,
+.town-scene-labels .scene-mine-button {
   background: #e1f0c0;
   border-color: #8baa65;
   color: #405b35;
@@ -1968,8 +1992,12 @@ html:has(.town-museum[open]) {
   overflow-wrap: anywhere;
 }
 
-.town-scene-labels button.has-income:not(.is-ready) {
-  background: #fff0b9;
-  border-color: #cfb772;
-  color: #77541f;
+.town-raid-actions .town-map-wallet {
+  position: static;
+  max-width: 100%;
+}
+.town-raid-actions .town-map-wallet strong {
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
 }

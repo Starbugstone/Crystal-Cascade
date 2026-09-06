@@ -53,11 +53,26 @@
         >
           <GameIcon name="book" />
         </button>
-        <div v-if="fullscreen" class="town-map-wallet" :aria-label="t('Town savings')">
+        <div
+          v-if="fullscreen && !activeRaid"
+          class="town-map-wallet"
+          :aria-label="t('Town savings')"
+        >
           <TownIcon name="coin" /><strong>{{ number(town.coins) }}</strong>
         </div>
         <div class="town-map-caption">
           <span>{{ t('{built}/{total} built', { built: built, total: BUILDINGS.length }) }}</span>
+          <span
+            class="town-map-hammers"
+            :aria-label="
+              t('Builder hammers: {count}/{cap}', {
+                count: campaign.builderHammers,
+                cap: HAMMER_CAPACITY,
+              })
+            "
+          >
+            <img src="/art/rewards/builder-hammer.svg" alt="" />{{ campaign.builderHammers }}
+          </span>
         </div>
         <button v-if="!activeRaid" class="town-plots-button" @click="openDirectory">
           {{ t('Available plots') }} <TownIcon name="arrow" />
@@ -77,9 +92,14 @@
               )
             }}
           </p>
-          <button class="town-secondary" @click="finishRaid">
-            {{ t(raidPhase === 'The raid has passed' ? 'Continue' : 'Skip animation') }}
-          </button>
+          <div class="town-raid-actions">
+            <div v-if="fullscreen" class="town-map-wallet" :aria-label="t('Town savings')">
+              <TownIcon name="coin" /><strong>{{ number(town.coins) }}</strong>
+            </div>
+            <button class="town-secondary" @click="finishRaid">
+              {{ t(raidPhase === 'The raid has passed' ? 'Continue' : 'Skip animation') }}
+            </button>
+          </div>
         </div>
         <TownScene
           :active="active"
@@ -101,6 +121,20 @@
           @raid-phase="raidPhase = $event"
           @raid-complete="finishRaid"
           @camera-distance="cameraDistance = $event"
+        />
+        <TownCoinCollection
+          v-if="collection"
+          :key="collection.serial"
+          :coins="collection.coins"
+          :reduced-motion="settings.reducedMotion"
+          @coin="game.audioManager?.playArcadeCue?.('coin', $event)"
+          @close="collection = null"
+        />
+        <TownRaidLoss
+          v-if="raidLoss"
+          :coins="raidLoss.loss"
+          :reduced-motion="settings.reducedMotion"
+          @close="raidLoss = null"
         />
         <p v-if="showConstructionTip" class="town-construction-tip" role="status">
           <GameIcon name="info" />
@@ -224,7 +258,18 @@
       </template>
       <template v-else-if="dialogMode === 'directory'">
         <p class="town-directory-hint">
-          {{ t('Choose what to build next. Improvements unlock new plots.') }}
+          {{
+            t(
+              'Only purchases you can afford are listed. A builder hammer also reveals unlocked purchases you can build for free.',
+            )
+          }}
+        </p>
+        <p class="town-directory-hint">
+          {{
+            t(
+              'Well level 2 unlocks a second well. Farm level 2 unlocks two more farms. Home level 2 unlocks House II; finish House II to reveal Houses III and IV. Other buildings have one plot each.',
+            )
+          }}
         </p>
         <p v-if="!directoryPlots.length" role="status">
           {{
@@ -271,7 +316,7 @@
         @build="repair"
         @hammer="useHammer"
         @finish="finishBuilding(selected)"
-        @collect-income="campaign.collectSaloonIncome()"
+        @collect-income="collectIncome"
         @select="selectBuilding"
         @museum="visitMuseum"
         @mine="goMining"
@@ -305,14 +350,13 @@ import {
   happiness,
   nextGoal,
   availablePurchases,
-  constructionRuns,
   constructionReady,
-  plotUnlocked,
   saloonIncomeRate,
   totalLevels,
   gangSize,
   raidProtection,
 } from '../../game/town/TownRules';
+import { useGameStore } from '../../stores/gameStore';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { HAMMER_CAPACITY } from '../../data/rewards';
@@ -325,11 +369,14 @@ import TownScene from './TownScene.vue';
 import TownDialog from './TownDialog.vue';
 import TownBuildingDetails from './TownBuildingDetails.vue';
 import TownIcon from './TownIcon.vue';
+import TownRaidLoss from './TownRaidLoss.vue';
+import TownCoinCollection from './TownCoinCollection.vue';
 
 const props = defineProps({ openMuseum: Boolean, active: { type: Boolean, default: true } });
 const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
   settings = useSettingsStore();
+const game = useGameStore();
 const town = computed(() => campaign.town);
 const tourOpen = ref(!campaign.town.tourSeen),
   fullscreen = ref(false),
@@ -373,6 +420,9 @@ const paused = ref(false),
   construction = ref(null),
   announcement = ref(''),
   latestMoment = ref(null);
+const raidLoss = ref(null);
+const collection = ref(null);
+let collectionSerial = 0;
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
 const cameraDistance = ref(55);
@@ -450,14 +500,22 @@ function closeDialog() {
 function openDirectory() {
   dialogMode.value = 'directory';
 }
+function collectIncome() {
+  const coins = campaign.collectSaloonIncome();
+  if (!coins) return false;
+  closeDialog();
+  collection.value = { coins, serial: ++collectionSerial };
+  return true;
+}
 async function selectBuilding(id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
   selected.value = id;
-  if (id === 'saloon') campaign.collectSaloonIncome();
   if (constructionReady(town.value.projects[id])) {
     finishBuilding(id);
     return;
   }
+  if (id === 'saloon' && collectIncome()) return;
+  collection.value = null;
   dialogMode.value = 'building';
   await nextTick();
   const dialog = document.querySelector('.town-dialog');
@@ -471,21 +529,13 @@ function visitMuseum() {
   if (campaign.canReplay) museumOpen.value = true;
 }
 function goMining() {
+  collection.value = null;
   closeDialog();
   if (campaign.completedCount < LEVEL_COUNT) emit('mine');
   else if (campaign.canReplay) museumOpen.value = true;
   else selectBuilding('museum');
 }
 function plotStatus(place) {
-  const project = town.value.projects[place.id];
-  if (!plotUnlocked(town.value, place.id))
-    return t('Unlock at {building} level 2', { building: t(BUILDING_BY_ID[place.kind].shortName) });
-  if (constructionReady(project)) return t('Ready · Tap to finish');
-  if (project)
-    return t('Under construction · {wins}/{required}', {
-      wins: project.wins,
-      required: constructionRuns(project),
-    });
   return town.value.buildings[place.id]
     ? t('Level {level} / {max}', {
         level: town.value.buildings[place.id],
@@ -544,13 +594,16 @@ function useHammer(stage) {
 
 function finishRaid() {
   if (!activeRaid.value) return;
-  campaign.markRaidSeen(activeRaid.value.id);
+  const receipt = activeRaid.value;
+  // The wallet was settled before the raid. This only presents its saved loss once.
+  if (campaign.markRaidSeen(receipt.id) && receipt.loss > 0) raidLoss.value = receipt;
   activeRaid.value = null;
   latestMoment.value = banditStory.value;
   announcement.value = banditStory.value.text;
 }
 function replayRaid() {
   closeDialog();
+  raidLoss.value = null;
   if (!event.value || activeRaid.value) return;
   activeRaid.value = { ...event.value };
   raidPhase.value = 'Riders on the ridge';
@@ -583,6 +636,8 @@ watch(
       museumOpen.value = false;
       fullscreen.value = false;
       activeRaid.value = null;
+      raidLoss.value = null;
+      collection.value = null;
     }
   },
   { flush: 'sync' },

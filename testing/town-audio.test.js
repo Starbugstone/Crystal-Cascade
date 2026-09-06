@@ -90,6 +90,31 @@ it('matches recordings to inhabitants, buildings, work, and raid', () => {
 });
 
 describe('Recorded village soundscape', () => {
+  it('silences both output buses immediately and cannot unlock while the mine is active', async () => {
+    const { audio, ctx, update, player } = setup();
+    await audio.unlock();
+    await flush();
+    expect(audio.sources.size).toBeGreaterThan(0);
+    update({ paused: true });
+    for (const bus of [audio.music, audio.sfx]) {
+      expect(bus.gain.cancelScheduledValues).toHaveBeenLastCalledWith(ctx.currentTime);
+      expect(bus.gain.setValueAtTime).toHaveBeenLastCalledWith(0, ctx.currentTime);
+      expect(bus.disconnect).toHaveBeenCalled();
+    }
+    expect(audio.outputsConnected).toBe(false);
+    expect(audio.sources.size).toBe(0);
+    expect(player.paused).toBe(true);
+    ctx.state = 'suspended';
+    await audio.unlock();
+    expect(ctx.resume).not.toHaveBeenCalled();
+    expect(audio.running).toBe(false);
+    update({ paused: false });
+    await audio.unlock();
+    await flush();
+    expect(ctx.resume).toHaveBeenCalledOnce();
+    expect(audio.sources.has('birds')).toBe(true);
+  });
+
   it('plays recorded taps once for an instant build without interrupting the ambience', async () => {
     const { audio, update, fetchAudio } = setup();
     await audio.unlock();
