@@ -322,7 +322,7 @@ const IMPROVEMENTS = {
       1,
       'A barn full of promise',
       'Expand the barn',
-      'Food for twelve neighbors. Unlock Farm II; finish it to reveal Farm III.',
+      'Food for twelve neighbors. Unlock Farm II; upgrade it to level 2 to reveal Farm III.',
     ],
     [
       300,
@@ -421,7 +421,7 @@ for (const building of ORIGINAL_BUILDINGS) {
   }
 }
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'home').upgrades[1].benefit =
-  'Room for four neighbors. Unlock House II; build each extra house to reveal the next.';
+  'Room for four neighbors. Unlock House II; upgrade each extra house to level 2 to reveal the next.';
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
   'Protect half the coins at risk from two riders.';
 
@@ -567,7 +567,7 @@ export const BUILDINGS = [
     shortName,
     x,
     y,
-    unlock: [{ id: kind, level: 2 }, ...(previous ? [{ id: previous, level: 1 }] : [])],
+    unlock: [{ id: kind, level: 2 }, ...(previous ? [{ id: previous, level: 2 }] : [])],
     upgrades: ORIGINAL_BUILDINGS.find((building) => building.id === kind).upgrades.map(
       (upgrade) => ({
         ...upgrade,

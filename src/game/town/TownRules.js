@@ -250,15 +250,10 @@ export function upgradeOffer(town, id) {
       !town.projects[id] &&
       town.completedRuns >= (upgrade.unlockRuns ?? 0),
     reason: requirement
-      ? t(
-          requirement.level === 1
-            ? 'Finish building {building} to unlock this plot.'
-            : 'Unlock by upgrading {building} to level {level}.',
-          {
-            building: t(BUILDING_BY_ID[requirement.id].shortName),
-            level: requirement.level,
-          },
-        )
+      ? t('Unlock by upgrading {building} to level {level}.', {
+          building: t(BUILDING_BY_ID[requirement.id].shortName),
+          level: requirement.level,
+        })
       : town.projects[id]
         ? 'This building is already under construction.'
         : town.completedRuns < (upgrade.unlockRuns ?? 0)

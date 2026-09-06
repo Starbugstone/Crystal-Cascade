@@ -305,7 +305,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Finish upgrading the original well, farm or house to level 2 to unlock its second plot. Build Farm II before Farm III, and build each extra house before the next. Other buildings have one plot each.',
+              'Finish upgrading each well, farm or house to level 2 to unlock the next plot of its type. Farm II must reach level 2 before Farm III, and the same rule applies to extra houses. Other buildings have one plot each.',
             )
           }}
         </p>
