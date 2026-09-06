@@ -121,7 +121,7 @@ const props = defineProps({
   raid: Object,
   construction: Object,
 });
-const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete']);
+const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete', 'camera-distance']);
 const canvas = ref(null),
   anchors = ref([]),
   fallback = ref(false);
@@ -222,9 +222,14 @@ onMounted(async () => {
   try {
     const { TownDiorama } = await import('../../game/town/TownDiorama');
     if (disposed) return;
-    scene = new TownDiorama(canvas.value, choose, (positions) => {
-      anchors.value = positions;
-    });
+    scene = new TownDiorama(
+      canvas.value,
+      choose,
+      (positions) => {
+        anchors.value = positions;
+      },
+      (distance) => emit('camera-distance', distance),
+    );
     update();
     startRaid();
   } catch (error) {

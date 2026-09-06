@@ -26,10 +26,11 @@ const point = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // Original geometry shares static scenery batches and animated actor instances.
 export class TownDiorama {
-  constructor(canvas, onSelect, onLabels) {
+  constructor(canvas, onSelect, onLabels, onCameraDistance) {
     this.canvas = canvas;
     this.onSelect = onSelect;
     this.onLabels = onLabels;
+    this.onCameraDistance = onCameraDistance;
     this.materials = new Map();
     this.geometries = {
       box: new THREE.BoxGeometry(1, 1, 1),
@@ -974,9 +975,14 @@ export class TownDiorama {
   }
   render() {
     if (!this.world) return;
+    const cameraDistance = this.camera.position.distanceTo(this.controls.target);
+    if (Math.abs(cameraDistance - (this.lastAudioDistance ?? 0)) > 0.05) {
+      this.lastAudioDistance = cameraDistance;
+      this.onCameraDistance?.(cameraDistance);
+    }
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera, true);
-    const distant = this.camera.position.distanceTo(this.controls.target) > 66;
+    const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
     const projected = this.anchors.map(({ id, position, width: labelWidth }) => {

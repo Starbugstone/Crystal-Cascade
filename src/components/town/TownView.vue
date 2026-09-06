@@ -85,6 +85,7 @@
           @mine="goMining"
           @raid-phase="raidPhase = $event"
           @raid-complete="finishRaid"
+          @camera-distance="cameraDistance = $event"
         />
         <div class="town-map-footnote" role="status">
           <span
@@ -335,7 +336,9 @@ const paused = ref(false),
   latestMoment = ref(null);
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
+const cameraDistance = ref(55);
 useTownAudio(() => ({
+  cameraDistance: cameraDistance.value,
   population: people.value,
   construction: activeProjects.value.length > 0,
   buildCue: construction.value?.serial,
