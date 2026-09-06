@@ -1,5 +1,6 @@
 <template>
-  <g class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
+  <TownSquare v-if="kind === 'square'" :stage="stage" />
+  <g v-else class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
     <ellipse
       cx="8"
       cy="14"
@@ -302,6 +303,7 @@
 
 <script setup>
 import { BUILDING_BY_ID } from '../../data/town';
+import TownSquare from './TownSquare.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 const props = defineProps({

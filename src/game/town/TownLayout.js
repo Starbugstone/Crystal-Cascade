@@ -3,6 +3,7 @@ export const PLOTS = {
   home: [-7, -4],
   farm: [7, -4],
   well: [0, 2.4],
+  square: [0, -5],
   saloon: [-7, 4],
   stable: [7, 4],
   sheriff: [0, 11],

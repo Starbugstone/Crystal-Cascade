@@ -55,9 +55,14 @@ const steps = [
     text: 'Families need water, food, and room. Tap the water, food, or population indicators to improve the well, farm, or homes. Existing services stay open during upgrades; level 2 unlocks extra plots.',
   },
   {
+    id: 'square',
+    title: 'A happier village',
+    text: 'The open town square adds happiness. Stables and museum galleries attract visitors when food and water are available. More people and more happiness mean more saloon income. Buildings have five levels; the last two unlock after 18 and 36 completed puzzles.',
+  },
+  {
     id: 'saloon',
     title: 'Keep the village growing',
-    text: 'A saloon earns coins while neighbors live here, including up to eight hours away. Visit the museum to replay old puzzles. Use a builder hammer from a chest or the shop to finish a construction immediately.',
+    text: 'A saloon earns coins while neighbors live here, including up to eight hours away. Visit the museum to replay old puzzles. Use a builder hammer from a chest or the shop to build or improve an unlocked building instantly for free.',
   },
   {
     id: 'bank',
@@ -67,7 +72,7 @@ const steps = [
   {
     id: 'shop',
     title: 'Stock up for the next run',
-    text: 'The shop sells a small random selection after each completed mine run. Upgrade it for more choice, and build the armory to raise storage from 3 to 5, 8, then 12 of each bonus. Tap a roulette to stop on the prize you want.',
+    text: 'The shop sells a small random selection after each completed mine run. Upgrade it for more choice, and build the armory to raise storage from 3 to 5, 8, 12, 16, then 20 of each bonus. Tap a roulette to stop on the prize you want.',
   },
 ];
 const step = computed(() => steps[index.value]);

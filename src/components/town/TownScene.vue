@@ -9,6 +9,7 @@
     :next-level="nextLevel"
     :mine-stage="mineStage"
     :fullscreen="fullscreen"
+    :construction="construction"
     @select="$emit('select', $event)"
     @mine="$emit('mine')"
   />
@@ -64,8 +65,12 @@
     </div>
     <div class="town-camera-bar">
       <p class="town-camera-hint">
-        <span class="camera-mouse-hint">{{ t('Drag to rotate · Scroll to zoom') }}</span>
-        <span class="camera-touch-hint">{{ t('Drag to rotate · Pinch to zoom') }}</span>
+        <span class="camera-mouse-hint">{{
+          t('Drag to rotate · Shift-drag or middle-drag to pan · Scroll to zoom')
+        }}</span>
+        <span class="camera-touch-hint">{{
+          t('Drag to rotate · Two fingers to pan · Pinch to zoom')
+        }}</span>
       </p>
       <div
         class="town-camera-controls"
@@ -114,6 +119,7 @@ const props = defineProps({
   nextLevel: Number,
   mineStage: { type: Number, default: 0 },
   raid: Object,
+  construction: Object,
 });
 const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete']);
 const canvas = ref(null),
@@ -127,6 +133,7 @@ const cameraActions = [
   { id: 'reset', label: 'Reset view', path: 'M4 9a8 8 0 1 1 0 6M4 4v5h5M12 9v3l2 2' },
 ];
 let lastVisual = '';
+let lastConstruction;
 let scene,
   disposed = false,
   dragged = false;
@@ -144,7 +151,8 @@ const rememberPointer = (event) => {
     event.clientY,
     event.target.closest('[data-town-plot]')?.dataset.townPlot,
   ]);
-  if (pointers.size > 1 || event.button !== 0) dragged = true;
+  if (pointers.size > 1 || event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey)
+    dragged = true;
 };
 const movePointer = (event) => {
   const start = pointers.get(event.pointerId);
@@ -195,9 +203,16 @@ function update() {
         labels[id],
       ]),
     );
-  if (visual !== lastVisual) {
-    scene.update(props.town, { ...labels, mine: t('Mine') }, props.mineStage);
+  const newConstruction = props.construction?.serial !== lastConstruction;
+  if (visual !== lastVisual || newConstruction) {
+    scene.update(
+      props.town,
+      { ...labels, mine: t('Mine') },
+      props.mineStage,
+      newConstruction && !props.reducedMotion ? props.construction?.id : null,
+    );
     lastVisual = visual;
+    lastConstruction = props.construction?.serial;
   }
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
@@ -240,6 +255,7 @@ watch(() => props.raid, startRaid);
 watch(
   () => props.reducedMotion,
   (reduced) => {
+    if (reduced) scene?.finishConstruction();
     if (reduced && props.raid) {
       scene?.stopRaid();
       emit('raid-phase', 'The raid has passed');
@@ -251,6 +267,7 @@ watch(
     JSON.stringify(props.town.buildings),
     JSON.stringify(props.town.projects),
     props.mineStage,
+    props.construction?.serial,
     locale.value,
   ],
   update,

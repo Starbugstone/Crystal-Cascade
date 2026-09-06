@@ -62,6 +62,7 @@ describe('A village with lasting choices', () => {
       armory: 1,
       bank: 1,
       shop: 1,
+      square: 0,
     });
     const town = normalizeTown({
       ...createTown(),
@@ -74,44 +75,68 @@ describe('A village with lasting choices', () => {
     expect(town.projects.museum).toMatchObject({ wins: 0, required: 1 });
     expect(advanceConstruction(town).buildings.museum).toBe(1);
   });
-  it('spends one hammer on only the selected plot and rejects stale requests', () => {
+  it('builds for free with no coins, grants benefits immediately, and persists exactly once', () => {
     const campaign = useCampaignStore();
-    campaign.town.coins = 300;
-    campaign.upgradeBuilding('museum', 0);
-    campaign.upgradeBuilding('armory', 0);
+    campaign.upgradeBuilding('well', 0);
+    campaign.town.coins = 0;
     award('builder-hammer', 2);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(true);
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(true);
+    expect(campaign.town.coins).toBe(0);
     expect(campaign.town.projects.museum).toBeUndefined();
     expect(campaign.canReplay).toBe(true);
-    expect(campaign.town.projects.armory.wins).toBe(0);
     expect(campaign.builderHammers).toBe(1);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(false);
-    expect(campaign.useBuilderHammer('home', 1, 0)).toBe(false);
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(false);
     setActivePinia(createPinia());
-    expect(useCampaignStore().builderHammers).toBe(1);
-    expect(useCampaignStore().canReplay).toBe(true);
+    const reloaded = useCampaignStore();
+    expect(reloaded.builderHammers).toBe(1);
+    expect(reloaded.canReplay).toBe(true);
+    expect(reloaded.town.coins).toBe(0);
+    expect(reloaded.useBuilderHammer('museum', 0)).toBe(false);
   });
-  it('grants a building benefit on the last hammer step, then cannot spend on it again', () => {
+  it('opens small buildings and upgrades every tier without coins or puzzle progress', () => {
+    const campaign = useCampaignStore();
+    campaign.upgradeBuilding('well', 0);
+    award('builder-hammer', 5);
+    expect(campaign.useBuilderHammer('farm', 0)).toBe(true);
+    for (let stage = 0; stage < 3; stage++) {
+      expect(campaign.useBuilderHammer('armory', stage)).toBe(true);
+      expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage + 1]);
+      expect(campaign.town.projects.armory).toBeUndefined();
+      expect(campaign.town.coins).toBe(0);
+    }
+    expect(campaign.useBuilderHammer('armory', 3)).toBe(false);
+    expect(campaign.builderHammers).toBe(1);
+    expect(campaign.records).toEqual({});
+  });
+  it('rejects locked, unknown, stale, and already funded work without spending a hammer', () => {
     const campaign = useCampaignStore();
     campaign.upgradeBuilding('museum', 0);
-    award('builder-hammer', 1);
-    for (let i = 0; i < 1; i++) {
-      expect(campaign.canReplay).toBe(false);
-      expect(campaign.useBuilderHammer('museum', 1, i)).toBe(true);
+    award('builder-hammer', 3);
+    for (const [id, stage] of [
+      ['home2', 0],
+      ['unknown', 0],
+      ['constructor', 0],
+      ['well', 1],
+      ['museum', 0],
+      ['museum', 1],
+    ]) {
+      expect(campaign.useBuilderHammer(id, stage)).toBe(false);
     }
-    expect(campaign.canReplay).toBe(true);
-    expect(campaign.builderHammers).toBe(0);
-    expect(campaign.useBuilderHammer('museum', 1, 4)).toBe(false);
-    expect(campaign.records).toEqual({});
+    expect(campaign.builderHammers).toBe(3);
+    expect(campaign.town.projects.museum).toMatchObject({ stage: 1, wins: 0 });
+    expect(campaign.useBuilderHammer('well', 0)).toBe(true);
+    expect(campaign.useBuilderHammer('well', 1)).toBe(true);
+    expect(campaign.useBuilderHammer('well2', 0)).toBe(true);
+    expect(campaign.town.projects.museum.wins).toBe(0);
     expect(campaign.town.coins).toBe(0);
   });
-  it('does not use the puzzle hammer as a construction hammer', () => {
+  it('requires a builder hammer even when puzzle hammers are available', () => {
     const campaign = useCampaignStore();
-    campaign.upgradeBuilding('museum', 0);
     award('hammer');
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(false);
     expect(campaign.powers.find((p) => p.id === 'hammer').quantity).toBe(1);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(false);
-    expect(campaign.town.projects.museum.wins).toBe(0);
+    expect(campaign.town.buildings.museum).toBe(0);
+    expect(campaign.town.projects).toEqual({});
   });
   it('raises capacity only on completion at all armory tiers', () => {
     const campaign = useCampaignStore();
