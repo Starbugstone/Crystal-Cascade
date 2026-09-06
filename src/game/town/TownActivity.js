@@ -277,7 +277,8 @@ export class TownRaid {
     this.bandits.forEach((actor, n) => {
       const stop = [-1.2 + (n % 3) * 1.1, -4.35 + Math.floor(n / 3) * 0.95];
       const entry = [13 + n * 0.9, -7.8 - n * 0.4];
-      const caught = n < event.sheriffLevel * 2;
+      const caught =
+        event.outcome === 'protected' || n < Math.min(event.gangSize / 2, event.sheriffLevel);
       const retreat = caught ? 10 : 14;
       let moving = time < 5 || time >= retreat;
       if (time < 5) this.move(actor, entry, stop, time / 5);

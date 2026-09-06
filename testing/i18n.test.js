@@ -6,6 +6,7 @@ import { CHAPTERS, POWERS, CHEST_TIERS } from '../src/data/campaign';
 import { CHEST_DROPS } from '../src/data/rewards';
 import { FUSION_STYLES } from '../src/game/engine/BonusFusion';
 import { BUILDINGS, INITIAL_STORY } from '../src/data/town';
+import { OBSTACLES } from '../src/data/obstacles';
 
 afterEach(() => setLocale('en'));
 describe('One browser language across the game and town', () => {
@@ -35,6 +36,7 @@ describe('One browser language across the game and town', () => {
   it('keeps a translated catalog for all levels, chapters, rewards, and town content', () => {
     const messages = [
       ...LEVEL_NAMES,
+      ...OBSTACLES.flatMap((item) => [item.name, item.instruction]),
       ...CHAPTERS.flatMap((c) => [c.name, c.description]),
       ...POWERS.map((p) => p.label),
       ...CHEST_TIERS.map((c) => c.label),

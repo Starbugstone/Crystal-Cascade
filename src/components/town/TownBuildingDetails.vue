@@ -64,7 +64,12 @@
         <span><TownIcon v-if="offer.cost" name="coin" />{{ t(offer.cost || 'Free') }}</span>
       </button>
       <p class="town-purchase-hint">
-        {{ t(offer.reason || '{count} puzzles to finish', { count: offer.runs }) }}
+        {{
+          t(
+            offer.reason ||
+              (offer.runs === 0 ? 'Ready immediately' : 'Ready after one completed puzzle'),
+          )
+        }}
       </p>
       <button
         v-if="!plotUnlocked(town, id)"
@@ -90,22 +95,23 @@
         t('Last earnings: +{coins} coins', { coins: lastIncome })
       }}</small>
     </section>
-    <section v-if="id === 'sheriff'" class="town-service">
+    <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
       <h3>{{ t('Keep pace with the town') }}</h3>
       <p>
         {{
-          t('Gang: {gang} riders · Protection: {protection} riders', {
+          t('Gang: {gang} riders · Savings protected: {protection}%', {
             gang: gangSize(town),
-            protection: stage * 2,
+            protection: Math.round(raidProtection(town) * 100),
           })
         }}
       </p>
       <small>{{
         t(
-          'Each completed sheriff level protects against two riders. Existing protection stays active during upgrades.',
+          'The bank and sheriff each protect up to half the coins at risk. Upgrade both as gangs grow for full protection. Your last 50 coins are always safe.',
         )
       }}</small>
     </section>
+    <TownShop v-if="id === 'shop' && stage" />
     <section v-if="id === 'museum' && stage" class="town-service">
       <button class="town-primary" @click="$emit('museum')">
         {{ t('Visit the museum') }} <TownIcon name="arrow" />
@@ -141,8 +147,10 @@ import {
   saloonIncomeRate,
   completedHouses,
   gangSize,
+  raidProtection,
 } from '../../game/town/TownRules';
 import TownBuilding from './TownBuilding.vue';
+import TownShop from './TownShop.vue';
 import TownSite from './TownSite.vue';
 import TownIcon from './TownIcon.vue';
 const props = defineProps({

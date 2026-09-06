@@ -150,19 +150,25 @@ export const useAudio = () => {
     const ctx = Howler.ctx;
     if (!ctx || ctx.state !== 'running' || settingsStore.sfxVolume <= 0) return;
     const notes =
-      kind === 'fusion-charge'
-        ? [130.81, 196, 261.63, 392, 523.25, 784]
-        : kind === 'fusion-aftershock'
-          ? [98, 196, 392]
-          : kind === 'fusion-impact'
-            ? [65.41, 130.81, 261.63, 523.25]
-            : kind === 'charge'
-              ? [196, 294, 392, 588, 784]
-              : kind === 'jackpot'
-                ? [523, 659, 784, 1046, 1568]
-                : kind === 'reel-tick'
-                  ? [420 + (index % 5) * 65]
-                  : [660 + index * 110, 990 + index * 110];
+      kind === 'coin'
+        ? [784 + index * 88]
+        : kind === 'chest-charge'
+          ? [392, 493.88, 587.33]
+          : kind === 'chest-open'
+            ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
+            : kind === 'fusion-charge'
+              ? [130.81, 196, 261.63, 392, 523.25, 784]
+              : kind === 'fusion-aftershock'
+                ? [98, 196, 392]
+                : kind === 'fusion-impact'
+                  ? [65.41, 130.81, 261.63, 523.25]
+                  : kind === 'charge'
+                    ? [196, 294, 392, 588, 784]
+                    : kind === 'jackpot'
+                      ? [523, 659, 784, 1046, 1568]
+                      : kind === 'reel-tick'
+                        ? [420 + (index % 5) * 65]
+                        : [660 + index * 110, 990 + index * 110];
     notes.forEach((frequency, i) => {
       const oscillator = ctx.createOscillator(),
         gain = ctx.createGain();

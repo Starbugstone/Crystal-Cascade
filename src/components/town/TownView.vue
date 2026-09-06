@@ -14,6 +14,9 @@
       </div>
     </div>
     <div class="town-tools">
+      <button :aria-label="t('Village tour')" @click="tourOpen = true">
+        <GameIcon name="info" />
+      </button>
       <span class="town-hammer-stock"
         ><img src="/art/rewards/builder-hammer.svg" alt="" />{{
           t('Builder hammers: {count}/{cap}', {
@@ -28,7 +31,20 @@
       <button @click="selectBuilding('armory')">{{ t('Supplies') }} →</button>
     </div>
     <section class="town-world" :aria-label="t('Your town')">
-      <div class="town-map-frame" :class="{ 'town-has-raid': activeRaid }">
+      <div
+        ref="mapFrame"
+        class="town-map-frame"
+        :class="{ 'town-has-raid': activeRaid, 'town-fullscreen': fullscreen }"
+      >
+        <button
+          ref="fullscreenButton"
+          class="town-fullscreen-button"
+          :aria-label="t(fullscreen ? 'Exit full screen village' : 'Full screen village')"
+          :aria-pressed="fullscreen"
+          @click="fullscreen = !fullscreen"
+        >
+          <GameIcon :name="fullscreen ? 'close' : 'expand'" />
+        </button>
         <div class="town-map-caption">
           <span>{{ t('{built}/{total} built', { built: built, total: BUILDINGS.length }) }}</span>
         </div>
@@ -59,8 +75,9 @@
           :selected="selected"
           :population="residents"
           :reduced-motion="settings.reducedMotion"
-          :paused="paused || settings.isSettingsOpen || museumOpen || !!dialogMode"
+          :paused="paused || settings.isSettingsOpen || museumOpen || !!dialogMode || tourOpen"
           :next-level="campaign.nextLevel"
+          :mine-stage="campaign.mineStage"
           :raid="activeRaid"
           @select="selectBuilding"
           @mine="goMining"
@@ -121,14 +138,14 @@
                 t(
                   event
                     ? banditStory.text
-                    : 'As the town grows, larger gangs may ride in. A sheriff keeps your savings safe.',
+                    : 'As the town grows, larger gangs may ride in. Build the bank and sheriff to protect your savings.',
                 )
               }}
             </p>
             <small>{{
-              t('Gang: {gang} riders · Protection: {protection} riders', {
+              t('Gang: {gang} riders · Savings protected: {protection}%', {
                 gang: gangSize(town),
-                protection: town.buildings.sheriff * 2,
+                protection: Math.round(raidProtection(town) * 100),
               })
             }}</small>
             <p>
@@ -197,6 +214,15 @@
         @mine="goMining"
       />
     </TownDialog>
+    <TownTour
+      v-if="tourOpen"
+      :mine-stage="campaign.mineStage"
+      @close="finishTour"
+      @build="
+        finishTour();
+        selectBuilding(goal?.id ?? 'well');
+      "
+    />
     <TownMuseum
       v-if="museumOpen && campaign.canReplay"
       @close="museumOpen = false"
@@ -217,12 +243,16 @@ import {
   saloonIncomeRate,
   totalLevels,
   gangSize,
+  raidProtection,
 } from '../../game/town/TownRules';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { HAMMER_CAPACITY } from '../../data/rewards';
 import { LEVEL_COUNT } from '../../data/campaign';
 import TownMuseum from './TownMuseum.vue';
+import TownTour from './TownTour.vue';
+import GameIcon from '../GameIcon.vue';
+import { useTownAudio } from '../../composables/useTownAudio';
 import TownScene from './TownScene.vue';
 import TownDialog from './TownDialog.vue';
 import TownBuildingDetails from './TownBuildingDetails.vue';
@@ -233,6 +263,29 @@ const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
   settings = useSettingsStore();
 const town = computed(() => campaign.town);
+const tourOpen = ref(!campaign.town.tourSeen),
+  fullscreen = ref(false),
+  mapFrame = ref(null),
+  fullscreenButton = ref(null);
+let previousOverflow;
+function finishTour() {
+  tourOpen.value = false;
+  campaign.finishTownTour();
+}
+watch(fullscreen, (open) => {
+  if (open) {
+    previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = previousOverflow ?? '';
+    fullscreenButton.value?.focus({ preventScroll: true });
+  }
+});
+function leaveFullscreen(event) {
+  if (event.key === 'Escape' && !dialogMode.value && !tourOpen.value && !settings.isSettingsOpen)
+    fullscreen.value = false;
+}
+
 const residents = computed(() => population(town.value));
 const incomeRate = computed(() => saloonIncomeRate(town.value));
 const activeProjects = computed(() => Object.values(town.value.projects));
@@ -246,6 +299,18 @@ const paused = ref(false),
   latestMoment = ref(null);
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
+useTownAudio(() => ({
+  population: residents.value,
+  construction: activeProjects.value.length > 0,
+  stable: town.value.buildings.stable > 0,
+  raid: activeRaid.value ? `${activeRaid.value.id}-${raidPhase.value}` : null,
+  paused:
+    paused.value ||
+    settings.isSettingsOpen ||
+    museumOpen.value ||
+    !!dialogMode.value ||
+    tourOpen.value,
+}));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const banditStory = computed(() =>
   event.value?.outcome === 'protected'
@@ -259,7 +324,7 @@ const banditStory = computed(() =>
           speaker: 'Ada · the caretaker',
           title: 'Trouble rode through town.',
           text: t(
-            'The gang took {coins} coins. Upgrade the sheriff to protect against {gang} riders.',
+            'The gang took {coins} coins. Upgrade both bank and sheriff to protect against {gang} riders.',
             { coins: event.value.loss, gang: event.value.gangSize },
           ),
         }
@@ -339,13 +404,21 @@ function plotStatus(place) {
 function repair(stage) {
   if (!campaign.upgradeBuilding(selected.value, stage)) return;
   closeDialog();
-  announcement.value = t('Work started at {building}. Play a puzzle to build the next part.', {
-    building: t(BUILDING_BY_ID[selected.value].shortName),
-  });
+  const complete = !town.value.projects[selected.value];
+  announcement.value = t(
+    complete
+      ? '{building} is ready!'
+      : 'Work started at {building}. Complete one puzzle to finish.',
+    {
+      building: t(BUILDING_BY_ID[selected.value].shortName),
+    },
+  );
   latestMoment.value = {
     speaker: 'Ada · the caretaker',
-    title: 'The first step is yours.',
-    text: 'The materials are ready. Each completed puzzle will bring this building a little closer to opening day.',
+    title: complete ? 'Building complete!' : 'The first step is yours.',
+    text: complete
+      ? BUILDING_BY_ID[selected.value].upgrades[stage].story
+      : 'The materials are ready. One completed puzzle will finish this building.',
   };
 }
 function useHammer(project) {
@@ -380,6 +453,7 @@ function visibilityChanged() {
 onMounted(() => {
   visibilityChanged();
   document.addEventListener('visibilitychange', visibilityChanged);
+  document.addEventListener('keydown', leaveFullscreen);
   const completed = campaign.lastConstruction.filter((project) => project.complete);
   if (completed.length) {
     const upgrade = BUILDING_BY_ID[completed[0].id].upgrades[completed[0].stage - 1];
@@ -397,5 +471,9 @@ onMounted(() => {
     emit('museum-change', false);
   }
 });
-onBeforeUnmount(() => document.removeEventListener('visibilitychange', visibilityChanged));
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', visibilityChanged);
+  document.removeEventListener('keydown', leaveFullscreen);
+  if (fullscreen.value) document.body.style.overflow = previousOverflow ?? '';
+});
 </script>

@@ -21,6 +21,8 @@ export const PLOTS = {
   museum: [-4.15, 6.2],
   armory: [4.15, 6.2],
   mine: [0, -6.2],
+  bank: [-4.15, -5.5],
+  shop: [4.15, -5.5],
   home2: [-8.6, -3],
   home3: [-8.6, 2.2],
   home4: [-4.15, 10.5],
@@ -250,7 +252,7 @@ export class TownDiorama {
     });
     group.removeFromParent();
   }
-  update(town, labels) {
+  update(town, labels, mineStage = 0) {
     if (!this.world && this.canvas.clientWidth < 600) {
       const grown = Object.values(town.buildings).reduce((sum, level) => sum + level, 0) >= 16;
       this.camera.position.set(...(grown ? [10, 22, 24] : [7, 15, 17]));
@@ -280,7 +282,7 @@ export class TownDiorama {
         position: point(x, 0.2, z + (id === 'mine' ? 1.65 : 1.85)),
       });
       let movingPart;
-      if (id === 'mine') this.mine(group, labels.mine);
+      if (id === 'mine') this.mine(group, labels.mine, mineStage);
       else {
         const stage = town.buildings[id],
           project = town.projects[id],
@@ -472,6 +474,8 @@ export class TownDiorama {
       sheriff: '#7e9b9b',
       museum: '#c9b18a',
       armory: '#8c9e91',
+      bank: '#b2af94',
+      shop: '#bd977b',
     };
     const w = 2.65,
       d = 2.4,
@@ -528,7 +532,7 @@ export class TownDiorama {
     const sidewindow = this.group(parent, 1.38, 0, 0);
     sidewindow.rotation.y = Math.PI / 2;
     this.window(sidewindow, 0, 1.25, 0);
-    if (['saloon', 'sheriff', 'museum', 'armory'].includes(id)) {
+    if (['saloon', 'sheriff', 'museum', 'armory', 'bank', 'shop'].includes(id)) {
       this.box(parent, w + 0.1, 0.88, 0.15, 0, 2.45, 1.28, timber);
       this.box(parent, w + 0.3, 0.12, 0.2, 0, 2.91, 1.3, colors.trim);
       this.sign(parent, label, 2.05, 0, 2.45, 1.39);
@@ -540,6 +544,29 @@ export class TownDiorama {
         this.ball(parent, x, 0.96, 2.05, [0.24, 0.4, 0.24], x < 0 ? '#9b80af' : '#79ab98', 'rock');
       }
       this.box(parent, 3.2, 0.16, 0.95, 0, 1.95, 1.8, '#8b9d91');
+    }
+    if (id === 'bank') {
+      for (const x of [-1.1, 1.1]) this.box(parent, 0.2, 2, 0.25, x, 1.18, 1.5, '#ece0b7');
+      this.box(parent, 0.72, 1.28, 0.14, 0, 0.89, 1.33, '#657783');
+      this.ball(parent, 0, 1, 1.45, [0.23, 0.23, 0.06], '#e3c476');
+      for (let n = 0; n < stage; n++)
+        this.box(parent, 0.25, 0.16, 0.25, -0.4 + n * 0.4, 3.08, 1.25, '#edcc74');
+    }
+    if (id === 'shop') {
+      for (let n = 0; n < 6; n++)
+        this.box(parent, 0.48, 0.1, 1.1, -1.2 + n * 0.48, 1.8, 1.8, n % 2 ? '#f1dfb3' : '#658779');
+      for (let n = 0; n < stage + 1; n++) {
+        this.box(parent, 0.45, 0.45, 0.5, -1.1 + n * 0.65, 0.4, 2, '#a67c52');
+        this.ball(
+          parent,
+          -1.1 + n * 0.65,
+          0.77,
+          2,
+          [0.17, 0.23, 0.17],
+          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n],
+          'rock',
+        );
+      }
     }
     if (id === 'armory') {
       for (let n = 0; n < stage; n++) {
@@ -664,7 +691,7 @@ export class TownDiorama {
     this.rod(parent, [0, 1.75, 0], [0, 0.73, 0], 0.012, '#d6c298');
     this.mesh(parent, 'cone', [0.13, 0.22, 0.13], [0, 0.75, 0], '#aa7748');
   }
-  mine(parent, label) {
+  mine(parent, label, stage = 0) {
     for (const [x, y, z, s] of [
       [-1.5, 1, -0.3, 1.2],
       [1.4, 1, -0.5, 1.3],
@@ -677,6 +704,32 @@ export class TownDiorama {
     for (const x of [-1, 1]) this.box(parent, 0.2, 2.2, 0.25, x, 1.05, 0.67, '#ae8956');
     this.box(parent, 2.4, 0.25, 0.3, 0, 2.17, 0.68, '#997144');
     this.sign(parent, label, 1.9, 0, 2.36, 0.8);
+    const gems = ['#b889ca', '#6dace5', '#6bcbae', '#e8c879', '#e495b3'];
+    for (let n = 0; n < stage; n++) {
+      const side = n % 2 ? 1 : -1;
+      this.ball(
+        parent,
+        side * (1.35 + (n % 3) * 0.22),
+        0.35 + Math.floor(n / 2) * 0.42,
+        0.62,
+        [0.18, 0.3, 0.18],
+        gems[n % gems.length],
+        'rock',
+      );
+    }
+    if (stage >= 1)
+      for (const x of [-1, 1]) this.box(parent, 0.25, 0.18, 0.3, x, 1.45, 0.7, '#b4c2bd');
+    if (stage >= 2) this.box(parent, 2.5, 0.12, 0.38, 0, 2.12, 0.73, '#b2bbb5');
+    if (stage >= 3) this.box(parent, 0.8, 0.55, 0.75, -1.6, 0.4, 1.5, '#a07d57');
+    if (stage >= 4) this.box(parent, 0.75, 0.6, 1, 0.1, 0.46, 1.6, '#748f95');
+    if (stage >= 5) this.box(parent, 3, 0.14, 0.9, 0, 2.62, 0.7, '#658779');
+    if (stage >= 6)
+      for (const x of [-1.7, 1.7]) this.rod(parent, [x, 0, -0.4], [x, 3.65, -0.4], 0.1, '#a38252');
+    if (stage >= 7) this.rod(parent, [-1.7, 3.65, -0.4], [1.7, 3.65, -0.4], 0.14, '#b39260');
+    if (stage >= 8)
+      for (const x of [-1.65, 1.65]) this.box(parent, 0.24, 0.45, 0.25, x, 2.9, 0.2, '#ffe3a0');
+    if (stage >= 9) this.box(parent, 3.8, 0.15, 1.5, 0, 3.9, -0.4, '#78938a');
+    if (stage >= 10) this.ball(parent, 0, 4.3, -0.4, [0.4, 0.6, 0.4], '#edcf76', 'rock');
     for (const x of [-0.38, 0.38]) this.box(parent, 0.06, 0.04, 3.1, x, 0.06, 1.15, '#737b70');
     for (let n = 0; n < 9; n++)
       this.box(parent, 1, 0.065, 0.13, 0, 0.04, -0.1 + n * 0.35, '#9f8157');

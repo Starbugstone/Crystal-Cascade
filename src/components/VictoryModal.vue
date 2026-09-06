@@ -12,6 +12,7 @@
       :reward="rewards[chestIndex]"
       :chest-index="chestIndex"
       :total-chests="rewards.length"
+      @claimed="claimReward(chestIndex, $event)"
       @continue="nextChest"
       @skip="showResults"
     />
@@ -36,17 +37,7 @@
       <div class="result-score">
         {{ number(score) }}<small> {{ t('POINTS') }} </small>
       </div>
-      <div v-if="coins" class="town-run-reward" role="status">
-        <span>✦</span>
-        <div>
-          <strong>+{{ coins }} {{ t('town coins') }} </strong
-          ><small
-            >{{ jewels }} {{ t('jewels sold · 50 completion +') }} {{ coins - 50 }}
-            {{ t('jewel value') }}
-          </small>
-        </div>
-        <button @click="$emit('town')">{{ t('Visit town') }} <GameIcon name="arrow" /></button>
-      </div>
+      <CoinReward :coins="coins" :jewels="jewels" :bonus-gems="bonusGems" />
       <div
         v-for="project in construction"
         :key="project.id"
@@ -97,7 +88,13 @@
           )
         }}
       </p>
-      <button class="result-next" @click="$emit('town')">
+      <button v-if="canContinue" class="result-next" @click="$emit('next')">
+        {{ t('Continue mining') }} <GameIcon name="arrow" />
+      </button>
+      <button
+        :class="canContinue ? 'text-button result-village' : 'result-next'"
+        @click="$emit('town')"
+      >
         {{ t('Back to village') }} <GameIcon name="arrow" />
       </button>
       <div class="victory-actions">
@@ -112,6 +109,7 @@ import { BUILDING_BY_ID } from '../data/town';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
 import RewardChest from './RewardChest.vue';
+import CoinReward from './CoinReward.vue';
 import { getStars, formatTime } from '../data/campaign';
 const props = defineProps({
   score: { type: Number, default: 0 },
@@ -122,11 +120,16 @@ const props = defineProps({
   speedTargetMs: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
+  bonusGems: { type: Number, default: 0 },
   construction: { type: Array, default: () => [] },
   canReplay: Boolean,
+  canContinue: Boolean,
   rewards: { type: Array, default: () => [] },
 });
-defineEmits(['menu', 'replay', 'next', 'town']);
+const emit = defineEmits(['menu', 'replay', 'next', 'town', 'claimed']);
+import { useCampaignStore } from '../stores/campaignStore';
+const campaign = useCampaignStore();
+const claimReward = (index, reward) => emit('claimed', { index, reward });
 const dialog = ref(null),
   chestIndex = ref(0),
   showingChest = ref(props.rewards.length > 0);
@@ -139,6 +142,10 @@ const focusAction = async () => {
     ?.focus({ preventScroll: true });
 };
 const showResults = () => {
+  for (const settled of campaign.settlePendingChests()) {
+    const index = props.rewards.findIndex((chest) => chest.id === settled.id);
+    if (index >= 0 && settled.reward) claimReward(index, settled.reward);
+  }
   showingChest.value = false;
   focusAction();
 };
@@ -163,6 +170,10 @@ const goalText = (source) => {
 };
 </script>
 <style scoped>
+.result-village {
+  display: block;
+  margin: 16px auto;
+}
 .town-construction-reward {
   display: flex;
   justify-content: space-between;
@@ -175,58 +186,6 @@ const goalText = (source) => {
   font-size: 12px;
   text-align: left;
 }
-.town-run-reward {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  margin-top: 18px;
-  border: 1px solid #bb99595c;
-  background: #d6b56810;
-  border-radius: 10px;
-  text-align: left;
-}
-.town-run-reward > span {
-  font-size: 26px;
-  color: #ebcd8d;
-}
-.town-run-reward strong {
-  display: block;
-  font-size: 14px;
-  color: #f4d99b;
-}
-.town-run-reward small {
-  display: block;
-  font-size: 9px;
-  color: #baa9c0;
-  margin-top: 5px;
-  line-height: 1.5;
-}
-.town-run-reward button {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  padding: 10px;
-  border: 1px solid #b99963;
-  border-radius: 6px;
-  background: #8e693840;
-  color: #f4d99b;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.town-run-reward button svg {
-  width: 14px;
-}
-@media (max-width: 360px) {
-  .town-run-reward {
-    flex-wrap: wrap;
-  }
-  .town-run-reward button {
-    margin-left: 36px;
-  }
-}
-
 .arcade-victory {
   position: fixed;
   inset: 0;

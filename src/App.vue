@@ -185,14 +185,39 @@
                     }),
               )
             }}</span
-          ><button
-            class="icon-button"
-            :aria-label="t(focusMode ? 'Exit focus mode' : 'Enter focus mode')"
-            :aria-pressed="focusMode"
-            @click="focusMode = !focusMode"
           >
-            <GameIcon name="expand" />
-          </button>
+          <div class="board-tools">
+            <button
+              class="icon-button"
+              :aria-label="t('Show next move')"
+              :title="t('Show next move')"
+              :disabled="
+                game.animationInProgress ||
+                game.inputPaused ||
+                game.levelCleared ||
+                !!game.activeBonusMode
+              "
+              @click="game.computeHintMove()"
+            >
+              <GameIcon name="hint" />
+            </button>
+            <button
+              class="icon-button"
+              :aria-label="t('Mining guide')"
+              :aria-expanded="guideOpen"
+              @click="openGuide"
+            >
+              <GameIcon name="info" />
+            </button>
+            <button
+              class="icon-button focus-toggle"
+              :aria-label="t(focusMode ? 'Exit focus mode' : 'Enter focus mode')"
+              :aria-pressed="focusMode"
+              @click="focusMode = !focusMode"
+            >
+              <GameIcon name="expand" />
+            </button>
+          </div>
         </div>
         <div
           class="board-frame"
@@ -243,6 +268,7 @@
       :rewards="game.levelRewards"
       :coins="game.coinReward"
       :jewels="game.collectedJewels"
+      :bonus-gems="game.remainingBonusGems"
       :construction="game.constructionReward"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
@@ -251,9 +277,18 @@
       :max-combo="game.maxCascade"
       :score-target="scoreTarget"
       :can-replay="campaign.canReplay"
+      :can-continue="campaign.completedCount < LEVEL_NAMES.length"
+      @next="startLevel(campaign.nextLevel)"
+      @claimed="game.levelRewards[$event.index].items = [$event.reward]"
       @menu="showTown"
       @town="showTown"
       @replay="startLevel(game.currentLevelId)"
+    />
+    <ObstacleGuide
+      v-if="guideOpen && game.sessionActive"
+      :obstacles="guideItems"
+      :introduction="guideIntro"
+      @close="closeGuide"
     />
     <SettingsDrawer
       :open="settings.isSettingsOpen"
@@ -283,6 +318,8 @@ import { useCampaignStore } from './stores/campaignStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useAudio } from './composables/useAudio';
 import { LEVEL_NAMES } from './data/levelNames';
+import { obstaclesInLevel } from './data/obstacles';
+import ObstacleGuide from './components/ObstacleGuide.vue';
 
 const game = useGameStore();
 const campaign = useCampaignStore();
@@ -324,6 +361,33 @@ const settings = useSettingsStore();
 const audio = useAudio();
 const focusMode = ref(false);
 const mobileDetailsOpen = ref(false);
+const guideOpen = ref(false),
+  guideIntro = ref(false),
+  levelObstacles = ref([]),
+  guideItems = ref([]);
+const openGuide = () => {
+  guideItems.value = levelObstacles.value;
+  guideIntro.value = false;
+  guideOpen.value = true;
+};
+const closeGuide = () => {
+  if (guideIntro.value) campaign.markObstaclesSeen(guideItems.value.map((item) => item.id));
+  guideOpen.value = false;
+};
+watch(
+  () => [game.sessionVersion, game.sessionActive],
+  () => {
+    guideOpen.value = false;
+    if (!game.sessionActive) return;
+    levelObstacles.value = obstaclesInLevel(game.tiles);
+    const unseen = levelObstacles.value.filter((item) => !campaign.seenObstacles.includes(item.id));
+    if (unseen.length) {
+      guideItems.value = unseen;
+      guideIntro.value = true;
+      guideOpen.value = true;
+    }
+  },
+);
 let clockInterval, incomeInterval;
 const muted = computed(() => settings.musicVolume === 0 && settings.sfxVolume === 0);
 let previousVolumes = [0.6, 0.8];
@@ -364,8 +428,11 @@ watch(
   { flush: 'sync' },
 );
 const updateInputPause = () => {
-  game.inputPaused = document.hidden || settings.isSettingsOpen || mobileDetailsOpen.value;
+  game.inputPaused =
+    document.hidden || settings.isSettingsOpen || mobileDetailsOpen.value || guideOpen.value;
   game.renderer?.input?.reset();
+  if (game.inputPaused) game.cancelHint(true);
+  else if (game.sessionActive && !game.levelCleared) game.scheduleHint();
 };
 const visibilityChanged = () => {
   updateInputPause();
@@ -392,7 +459,9 @@ watch(
     }
   },
 );
-watch([() => settings.isSettingsOpen, mobileDetailsOpen], updateInputPause, { flush: 'sync' });
+watch([() => settings.isSettingsOpen, mobileDetailsOpen, guideOpen], updateInputPause, {
+  flush: 'sync',
+});
 onBeforeUnmount(() => {
   clearInterval(clockInterval);
   clearInterval(incomeInterval);

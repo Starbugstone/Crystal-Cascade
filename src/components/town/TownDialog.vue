@@ -11,7 +11,7 @@
       <button
         ref="closeButton"
         class="town-dialog-close"
-        :aria-label="t('Close building details')"
+        :aria-label="t(closeLabel)"
         @click="$emit('close')"
       >
         ×
@@ -23,7 +23,7 @@
 <script setup>
 import { useNativeDialog } from '../../composables/useNativeDialog';
 import { t } from '../../i18n';
-defineProps({ title: String });
+defineProps({ title: String, closeLabel: { type: String, default: 'Close building details' } });
 const emit = defineEmits(['close']);
 const { dialog, closeButton, dismissBackdrop } = useNativeDialog(() => emit('close'));
 </script>

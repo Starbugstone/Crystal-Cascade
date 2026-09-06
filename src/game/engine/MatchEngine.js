@@ -5,6 +5,28 @@ import { getBonusFusion } from './BonusFusion.js';
 
 const bonusActivator = new BonusActivator();
 export class MatchEngine {
+  evaluateActivation(board, cols, rows, index, tiles = []) {
+    const empty = {
+      matches: [],
+      board,
+      cols,
+      rows,
+      swap: null,
+      bonusesCreated: [],
+      bonusIndices: [],
+    };
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= board.length ||
+      !['bomb', 'cross', 'rainbow'].includes(board[index]?.type) ||
+      !canSwapGem(board[index], tiles[index])
+    )
+      return empty;
+    const indices = bonusActivator.activate(board, cols, rows, { aIndex: index, bIndex: -1 }, null);
+    return { ...empty, matches: [{ type: 'bonus-activation', indices }] };
+  }
+
   evaluateSwap(board, cols, rows, aIndex, bIndex, tiles = []) {
     if (
       !Number.isInteger(aIndex) ||

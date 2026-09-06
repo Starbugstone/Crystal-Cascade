@@ -109,9 +109,14 @@
           font-weight="bold"
           >{{
             t(
-              { saloon: 'GOLDEN HOUR', sheriff: 'SHERIFF', museum: 'Museum', armory: 'Armory' }[
-                kind
-              ],
+              {
+                saloon: 'GOLDEN HOUR',
+                sheriff: 'SHERIFF',
+                museum: 'Museum',
+                armory: 'Armory',
+                bank: 'Bank',
+                shop: 'Shop',
+              }[kind],
             )
           }}</text
         >
@@ -234,6 +239,31 @@
           fill="#e7c177"
         />
       </g>
+      <g v-if="built && kind === 'bank'" transform="translate(-32 -45)">
+        <rect
+          x="-13"
+          y="-22"
+          width="29"
+          height="43"
+          rx="3"
+          fill="#687d83"
+          stroke="#d9dbb9"
+          stroke-width="3"
+        /><circle cy="-2" r="9" fill="none" stroke="#efd281" stroke-width="3" />
+      </g>
+      <g v-if="built && kind === 'shop'" transform="translate(-40 -15)">
+        <path d="M-46-53h92v19h-92Z" fill="#e5d9ad" /><path
+          d="M-38-53v19m24-19v19m24-19v19m24-19v19"
+          stroke="#658779"
+          stroke-width="12"
+        />
+        <rect x="-36" y="-5" width="70" height="18" fill="#9f8157" /><path
+          d="m-22-22 10 12-10 9-10-9Zm35 0 10 12-10 9-10-9Z"
+          fill="#b495ca"
+          stroke="#ead8e2"
+          stroke-width="2"
+        />
+      </g>
       <g v-if="built && kind === 'museum'" transform="translate(-63 -10)"
         ><path d="m-13 0 25 6v-28l-25-5Z" fill="#b7a17d" /><path
           d="m-5-29-7-13 12-14 12 18-7 14Z"
@@ -290,6 +320,8 @@ const frontColor = computed(
       sheriff: '#93aaa7',
       museum: '#c9b18a',
       armory: '#8c9e91',
+      bank: '#b2af94',
+      shop: '#bd977b',
     })[kind.value],
 );
 const sideColor = computed(
@@ -302,6 +334,8 @@ const sideColor = computed(
       sheriff: '#6f8887',
       museum: '#a58c66',
       armory: '#69877c',
+      bank: '#818e89',
+      shop: '#997b5d',
     })[kind.value],
 );
 const roofColor = computed(() => (kind.value === 'home' ? '#869b90' : '#96764f'));

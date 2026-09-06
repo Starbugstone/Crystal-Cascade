@@ -1,8 +1,13 @@
 import { t } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 
-export const miningPayout = (jewels) =>
-  50 + Math.min(50, Math.floor((Number.isSafeInteger(jewels) && jewels > 0 ? jewels : 0) / 2));
+export const BONUS_GEM_COINS = 10;
+const collectedCount = (value) => (Number.isSafeInteger(value) && value > 0 ? value : 0);
+export const miningPayout = (jewels, bonusGems = 0) =>
+  Math.min(
+    Number.MAX_SAFE_INTEGER,
+    collectedCount(jewels) + collectedCount(bonusGems) * BONUS_GEM_COINS,
+  );
 
 export function normalizeTown(saved) {
   const town = createTown();
@@ -49,6 +54,10 @@ export function normalizeTown(saved) {
         atRun: legacy ? town.completedRuns : event.atRun,
         gangSize: legacy ? 2 : event.gangSize,
         sheriffLevel: legacy ? (event.outcome === 'protected' ? 1 : 0) : event.sheriffLevel,
+        bankLevel:
+          Number.isInteger(event.bankLevel) && event.bankLevel >= 0 && event.bankLevel <= 3
+            ? event.bankLevel
+            : 0,
         outcome: event.outcome,
         loss: event.loss,
         seen: legacy || event.seen === true,
@@ -71,11 +80,11 @@ export function normalizeTown(saved) {
           ? saved.project
           : null
         : saved.projects?.[id];
-    // Preserve the promised duration of projects already funded in the earlier demo.
+    // Validate the old receipt, then apply the shorter construction schedule.
     const required = project?.required ?? (project?.stage === 1 ? 3 : 4);
     if (
       Number.isInteger(required) &&
-      required >= 2 &&
+      required >= 1 &&
       required <= 12 &&
       project?.id === id &&
       project.stage === town.buildings[id] + 1 &&
@@ -84,13 +93,18 @@ export function normalizeTown(saved) {
       project.wins >= 0 &&
       project.wins < required
     ) {
-      town.projects[id] = { id, stage: project.stage, wins: project.wins, required };
+      if (projectRuns(id, project.stage) === 0) town.buildings[id] = project.stage;
+      else town.projects[id] = { id, stage: project.stage, wins: 0, required: 1 };
     }
   }
+  town.tourSeen =
+    saved?.tourSeen === true ||
+    (saved?.tourSeen === undefined &&
+      (development(town) > 0 || Object.keys(town.projects).length > 0));
   return town;
 }
 
-export const projectRuns = (id, stage) => BUILDING_BY_ID[id]?.upgrades[stage - 1]?.runs ?? 3;
+export const projectRuns = (id, stage) => BUILDING_BY_ID[id]?.upgrades[stage - 1]?.runs ?? 1;
 export const constructionRuns = (project) =>
   project.required ?? projectRuns(project.id, project.stage);
 export const constructionVisual = (project) =>
@@ -198,10 +212,14 @@ export function purchase(town, id, expectedStage) {
   return {
     ...town,
     coins: town.coins - offer.cost,
-    projects: {
-      ...town.projects,
-      [id]: { id, stage: expectedStage + 1, wins: 0, required: offer.runs },
-    },
+    buildings: offer.runs === 0 ? { ...town.buildings, [id]: expectedStage + 1 } : town.buildings,
+    projects:
+      offer.runs === 0
+        ? town.projects
+        : {
+            ...town.projects,
+            [id]: { id, stage: expectedStage + 1, wins: 0, required: offer.runs },
+          },
   };
 }
 
@@ -214,15 +232,22 @@ export function raidReady(town) {
     (!previous || (previous.seen && town.completedRuns - previous.atRun >= RAID_INTERVAL))
   );
 }
+export const raidProtection = (town, riders = gangSize(town)) =>
+  (Math.min(riders, town.buildings.sheriff * 2) +
+    Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
+  (riders * 2);
+
 export function banditEncounter(town) {
   if (!raidReady(town)) return null;
   const riders = gangSize(town),
     sheriffLevel = town.buildings.sheriff;
-  const protectedTown = sheriffLevel * 2 >= riders;
+  const bankLevel = town.buildings.bank ?? 0;
+  const protection = raidProtection(town, riders);
+  const protectedTown = protection === 1;
   const loss = protectedTown
     ? 0
     : Math.min(
-        5 * (riders - sheriffLevel * 2),
+        Math.ceil(5 * riders * (1 - protection)),
         Math.floor(town.coins / 10),
         Math.max(0, town.coins - 50),
       );
@@ -232,6 +257,7 @@ export function banditEncounter(town) {
     atRun: town.completedRuns,
     gangSize: riders,
     sheriffLevel,
+    bankLevel,
     targets: ['mine', ...(target ? [target] : [])],
     outcome: protectedTown ? 'protected' : loss ? 'stolen' : 'harmless',
     loss,

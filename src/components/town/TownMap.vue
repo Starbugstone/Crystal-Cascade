@@ -158,7 +158,7 @@
         </g>
       </g>
       <g transform="translate(500 103)">
-        <TownMine :level="nextLevel" @enter="$emit('mine')" />
+        <TownMine :level="nextLevel" :stage="mineStage" @enter="$emit('mine')" />
       </g>
       <g
         v-for="building in orderedBuildings"
@@ -297,6 +297,7 @@ const props = defineProps({
   town: { type: Object, required: true },
   selected: String,
   population: Number,
+  mineStage: { type: Number, default: 0 },
   reducedMotion: Boolean,
   paused: Boolean,
   nextLevel: { type: Number, required: true },

@@ -49,7 +49,7 @@ describe('Three levels and a growing frontier', () => {
         town = advanceConstruction(town);
       }
       expect(plotUnlocked(town, id)).toBe(true);
-      expect(purchase(town, id, 0)?.projects[id]).toMatchObject({ stage: 1, wins: 0 });
+      expect(purchase(town, id, 0)?.buildings[id]).toBe(1);
     }
   });
   it('caps every building at level three and preserves existing benefits during improvements', () => {
@@ -123,10 +123,9 @@ describe('Modest saloon income without a collection chore', () => {
     vi.spyOn(Date, 'now').mockReturnValue(HOUR_MS);
     campaign.collectSaloonIncome();
     campaign.upgradeBuilding('saloon', 1);
-    campaign.town.projects.saloon.wins = 4;
     campaign.builderHammers = 1;
     Date.now.mockReturnValue(HOUR_MS * 2);
-    expect(campaign.useBuilderHammer('saloon', 2, 4)).toBe(true);
+    expect(campaign.useBuilderHammer('saloon', 2, 0)).toBe(true);
     expect(campaign.town.coins).toBe(386); // 600 - 220 + 6 at the old rate
     expect(campaign.town.buildings.saloon).toBe(2);
     setActivePinia(createPinia());
@@ -143,7 +142,9 @@ describe('Visible raids with a single saved outcome', () => {
     [3, 6],
   ])('scales gangs for developed towns and protects them at sheriff level %s', (level, riders) => {
     const town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, level])));
-    // 14 completed levels stays in the first band; 28 in the second; 42 in the third.
+    // Keep the development bands independent of the two new plots.
+    town.buildings.shop = 0;
+    town.buildings.home4 = 0;
     expect(gangSize(town)).toBe(riders);
     const result = banditEncounter(town);
     expect(result.events[BANDIT_EVENT]).toMatchObject({
@@ -158,9 +159,11 @@ describe('Visible raids with a single saved outcome', () => {
   });
   it('retains current protection during sheriff work and never takes the final fifty coins', () => {
     let town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, 2])));
+    town.buildings.shop = 0;
+    town.buildings.home4 = 0;
     town.buildings.sheriff = 1;
     town = purchase(town, 'sheriff', 1);
-    expect(banditEncounter(town).events[BANDIT_EVENT]).toMatchObject({ sheriffLevel: 1, loss: 10 });
+    expect(banditEncounter(town).events[BANDIT_EVENT]).toMatchObject({ sheriffLevel: 1, loss: 5 });
     town.coins = 53;
     expect(banditEncounter(town).coins).toBe(50);
     while (town.projects.sheriff) town = advanceConstruction(town);

@@ -301,7 +301,8 @@
     margin-top: 0;
   }
   .is-playing .board-topline {
-    display: none;
+    display: flex;
+    height: 36px;
   }
   .is-playing .play-area .arcade-announcer {
     height: 40px;
@@ -312,7 +313,7 @@
       100%,
       calc(
         (
-            100dvh - 236px - var(--mode-space, 0px) - env(safe-area-inset-top, 0px) -
+            100dvh - 272px - var(--mode-space, 0px) - env(safe-area-inset-top, 0px) -
               env(safe-area-inset-bottom, 0px)
           ) *
           var(--board-ratio) + 12px
@@ -356,12 +357,20 @@
     align-items: center;
     max-width: calc(
       (
-          100dvh - 176px - var(--mode-space, 0px) - env(safe-area-inset-top) -
+          100dvh - 212px - var(--mode-space, 0px) - env(safe-area-inset-top) -
             env(safe-area-inset-bottom)
         ) *
         var(--board-ratio) + 124px
     );
     margin-inline: auto;
+  }
+  .is-playing .board-topline {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+  .board-tools .focus-toggle {
+    display: none;
   }
   .is-playing .play-area .arcade-announcer {
     grid-column: 1 / -1;
@@ -369,13 +378,13 @@
   }
   .is-playing .board-frame {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 3;
     width: 100%;
     padding: 5px;
   }
   .is-playing .powerup-section {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
   }
   .is-playing .powerup-bar {
     grid-template-columns: repeat(2, 44px);

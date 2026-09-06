@@ -1637,6 +1637,10 @@ p {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
   .is-playing .board-topline {
+    display: flex;
+    height: 36px;
+  }
+  .board-tools .focus-toggle {
     display: none;
   }
   .play-area {
@@ -1657,4 +1661,17 @@ p {
   .score-value {
     line-height: 1.1;
   }
+}
+
+.board-tools {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.board-tools .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+}
+.board-topline > span {
+  min-width: 0;
 }

@@ -1870,3 +1870,55 @@ html:has(.town-museum[open]) {
     max-width: 88px;
   }
 }
+
+/* The village can fill a phone viewport without depending on mobile Fullscreen API support. */
+.town-fullscreen-button {
+  position: absolute;
+  left: 16px;
+  top: 56px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #9c997d;
+  border-radius: 10px;
+  color: #405b4c;
+  background: #fff9e9ee;
+}
+.town-map-frame.town-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100%;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #e1dcc1;
+}
+.town-fullscreen .town-scene,
+.town-fullscreen .town-map-scene {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+  aspect-ratio: auto;
+  width: 100%;
+}
+.town-fullscreen .town-map-footnote {
+  flex: 0 0 auto;
+}
+.town-fullscreen .town-map-scene svg {
+  height: 100%;
+}
+.town-fullscreen .town-fullscreen-button {
+  top: max(60px, calc(env(safe-area-inset-top) + 60px));
+}
+
+.town-has-raid .town-fullscreen-button {
+  top: auto;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}

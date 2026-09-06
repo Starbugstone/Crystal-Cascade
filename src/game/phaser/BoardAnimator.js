@@ -118,7 +118,7 @@ export class BoardAnimator {
       }
     });
     for (const [key, { indices, color }] of [...this.markers])
-      this.showMarkers(key, indices, color);
+      key === 'hint' ? this.showHintMove(indices) : this.showMarkers(key, indices, color);
   }
 
   reset(board, layout) {
@@ -153,6 +153,8 @@ export class BoardAnimator {
   }
 
   syncBonusMotion() {
+    const hint = this.markers.get('hint');
+    if (hint) this.showHintMove(hint.indices);
     this.gemSprites.forEach((sprite) => {
       if (this.textures[sprite.__gemType]?.animation) this.configureGem(sprite, sprite.__gemType);
     });
@@ -498,12 +500,14 @@ export class BoardAnimator {
     const tile = this.tiles[index];
     const sealColor = tile?.health > 0 ? tile.sealColor : null;
     const chained = tile?.chainHealth > 0;
-    const key = `${sealColor ?? ''}-${chained}-${!!tile?.exit}-${this.cellSize}`;
+    const layers = tile?.health > 1 ? tile.health : 0;
+    const frozen = tile?.state === 'FROZEN';
+    const key = `${layers}-${frozen}-${sealColor ?? ''}-${chained}-${!!tile?.exit}-${this.cellSize}`;
     let overlay = this.tileOverlays.get(index);
     if (overlay?.__tileKey === key) return;
     overlay?.destroy();
     this.tileOverlays.delete(index);
-    if (!sealColor && !chained && !tile?.exit) return;
+    if (!sealColor && !chained && !tile?.exit && !layers && !frozen) return;
     const p = this.position(index);
     const size = this.cellSize - 3;
     overlay = this.scene.add.container(p.x, p.y);
@@ -515,16 +519,16 @@ export class BoardAnimator {
     };
     if (tile.exit) addImage('exit');
     if (sealColor) {
-      addImage('seal').setTint(GEM_COLORS[sealColor]);
-      // A letter identifies each color even with color-vision differences.
-      const label = { ruby: 'R', sapphire: 'S', emerald: 'E' }[sealColor];
-      const badge = this.scene.add.text(-size * 0.43, -size * 0.43, label, {
+      addImage(`seal-${sealColor}`);
+    }
+    if (layers || frozen) {
+      const badge = this.scene.add.text(size * 0.23, -size * 0.46, frozen ? '❄' : String(layers), {
         fontFamily: 'Arial, sans-serif',
         fontStyle: 'bold',
-        fontSize: `${Math.max(12, size * 0.24)}px`,
+        fontSize: `${Math.max(12, size * 0.23)}px`,
         color: '#ffffff',
-        backgroundColor: '#161324',
-        padding: { x: 2, y: 0 },
+        backgroundColor: '#24384f',
+        padding: { x: 3, y: 1 },
       });
       overlay.add(badge);
     }
@@ -551,7 +555,10 @@ export class BoardAnimator {
       [...this.markers.keys()].forEach((k) => this.clearMarkers(k));
       return;
     }
-    this.markers.get(key)?.objects.forEach((object) => object.destroy());
+    this.markers.get(key)?.objects.forEach((object) => {
+      this.scene?.tweens?.killTweensOf(object);
+      object.destroy();
+    });
     this.markers.delete(key);
   }
   highlightCell(index, active = true) {
@@ -577,6 +584,20 @@ export class BoardAnimator {
   }
   showHintMove(indices) {
     this.showMarkers('hint', indices, 0x9bf9d7);
+    if (this.reducedMotion) return;
+    this.markers.get('hint')?.objects.forEach((marker, index) => {
+      this.scene.tweens.add({
+        targets: marker,
+        scaleX: 0.88,
+        scaleY: 0.88,
+        alpha: 0.4,
+        duration: 550,
+        delay: index * 130,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
   }
   clearHintMove() {
     this.clearMarkers('hint');

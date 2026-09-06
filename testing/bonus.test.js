@@ -105,6 +105,9 @@ describe('Interactive Bonuses', () => {
     setActivePinia(createPinia());
     gameStore = useGameStore();
     inventoryStore = useInventoryStore();
+    inventoryStore.quickAccessSlots.forEach((slot) => {
+      slot.quantity = 3;
+    });
 
     gameStore.boardCols = 3;
     gameStore.boardRows = 3;
