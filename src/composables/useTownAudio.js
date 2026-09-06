@@ -6,23 +6,35 @@ import { useSettingsStore } from '../stores/settingsStore';
 export function useTownAudio(readVillage) {
   const settings = useSettingsStore();
   const game = useGameStore();
-  const soundscape = new TownSoundscape();
-  const update = () =>
+  let soundscape;
+  const stop = () => {
+    soundscape?.dispose();
+    soundscape = null;
+  };
+  const update = () => {
+    const village = readVillage();
+    if (!village.active || game.sessionActive) {
+      stop();
+      return;
+    }
+    const created = !soundscape;
+    soundscape ??= new TownSoundscape();
     soundscape.update({
-      ...readVillage(),
-      paused: game.sessionActive || readVillage().paused,
+      ...village,
       musicVolume: settings.musicVolume,
       sfxVolume: settings.sfxVolume,
     });
+    if (created && !village.paused) soundscape.unlock();
+  };
   const unlock = () => {
     update();
-    if (!soundscape.state.paused) soundscape.unlock();
+    if (soundscape && !soundscape.state.paused) soundscape.unlock();
   };
   watch(() => [JSON.stringify(readVillage()), settings.musicVolume, settings.sfxVolume], update, {
     immediate: true,
   });
   // Silence the village before synchronous mine setup or another pointer gesture can run.
-  watch(() => game.sessionActive, update, { flush: 'sync' });
+  watch(() => [game.sessionActive, readVillage().active], update, { flush: 'sync' });
   onMounted(() => {
     document.addEventListener('pointerdown', unlock, { passive: true });
     document.addEventListener('keydown', unlock);
@@ -32,6 +44,6 @@ export function useTownAudio(readVillage) {
   onBeforeUnmount(() => {
     document.removeEventListener('pointerdown', unlock);
     document.removeEventListener('keydown', unlock);
-    soundscape.dispose();
+    stop();
   });
 }

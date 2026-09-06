@@ -212,6 +212,31 @@
       @close="closeDialog"
     >
       <template v-if="dialogMode === 'story'">
+        <section class="town-story-stats" :aria-label="t('Village overview')">
+          <h2>{{ t('Village overview') }}</h2>
+          <dl>
+            <div v-for="stat in villageStats" :key="stat.id" :data-town-stat="stat.id">
+              <dt>
+                <img
+                  v-if="stat.id === 'hammers'"
+                  src="/art/rewards/builder-hammer.svg"
+                  alt=""
+                /><TownIcon v-else :name="stat.icon" />{{ stat.label }}
+              </dt>
+              <dd>
+                <strong>{{ stat.value }}</strong
+                ><small v-if="stat.detail">{{ stat.detail }}</small>
+                <meter
+                  v-if="stat.id === 'happiness'"
+                  :value="happiness(town)"
+                  min="0"
+                  max="100"
+                  :aria-label="t('Village happiness')"
+                />
+              </dd>
+            </div>
+          </dl>
+        </section>
         <div class="town-journal-content">
           <p class="town-kicker">{{ t(moment.speaker) }}</p>
           <h2>{{ t(moment.title) }}</h2>
@@ -347,6 +372,7 @@ import {
   population,
   residentPopulation,
   visitorPopulation,
+  visitorCapacity,
   happiness,
   nextGoal,
   availablePurchases,
@@ -413,6 +439,61 @@ const showConstructionTip = computed(
 const goal = computed(() => nextGoal(town.value));
 const directoryPlots = computed(() => availablePurchases(town.value, campaign.builderHammers));
 const built = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
+const villageStats = computed(() => {
+  const demand = totalLevels(town.value, 'home') * 2 + visitorCapacity(town.value);
+  return [
+    {
+      id: 'people',
+      icon: 'people',
+      label: t('Population'),
+      value: number(people.value),
+      detail: t('{residents} residents · {visitors} visitors', {
+        residents: residents.value,
+        visitors: visitors.value,
+      }),
+    },
+    { id: 'coins', icon: 'coin', label: t('Town savings'), value: number(town.value.coins) },
+    {
+      id: 'water',
+      icon: 'water',
+      label: t('Water'),
+      value: number(totalLevels(town.value, 'well') * 6),
+      detail: t('Capacity in people · Demand: {count}', { count: demand }),
+    },
+    {
+      id: 'food',
+      icon: 'food',
+      label: t('Food'),
+      value: number(totalLevels(town.value, 'farm') * 6),
+      detail: t('Capacity in people · Demand: {count}', { count: demand }),
+    },
+    {
+      id: 'happiness',
+      icon: 'happiness',
+      label: t('Happiness'),
+      value: `${happiness(town.value)}%`,
+    },
+    {
+      id: 'saloon',
+      icon: 'coin',
+      label: t('Saloon'),
+      value: t('{rate}/hour', { rate: incomeRate.value }),
+      detail: t('Stored: {coins} coins', { coins: number(town.value.income.stored ?? 0) }),
+    },
+    {
+      id: 'buildings',
+      icon: 'home',
+      label: t('Buildings'),
+      value: `${built.value}/${BUILDINGS.length}`,
+      detail: t('Active construction: {count}', { count: activeProjects.value.length }),
+    },
+    {
+      id: 'hammers',
+      label: t('Builder hammers'),
+      value: `${campaign.builderHammers}/${HAMMER_CAPACITY}`,
+    },
+  ];
+});
 const selected = ref(goal.value?.id ?? 'home');
 const museumOpen = ref(props.openMuseum && campaign.canReplay),
   dialogMode = ref('');
@@ -427,6 +508,7 @@ const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
 const cameraDistance = ref(55);
 useTownAudio(() => ({
+  active: props.active,
   cameraDistance: cameraDistance.value,
   population: people.value,
   construction: activeProjects.value.length > 0,
