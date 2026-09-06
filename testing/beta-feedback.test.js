@@ -187,7 +187,7 @@ describe('Roulette receipts', () => {
       id: 'builder-hammer',
       quantity: 1,
     });
-    expect(campaign.claimChest(rewards[0].id, 'hammer')).toBeNull();
+    expect(campaign.claimChest(rewards[0].id, 'tnt')).toBeNull();
     expect(campaign.builderHammers).toBe(1);
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
@@ -230,7 +230,7 @@ describe('Roulette receipts', () => {
         schemaVersion: 2,
         issuedRun: 1,
         settledRun: 1,
-        powers: [{ id: 'hammer', quantity: 5 }],
+        powers: [{ id: 'tnt', quantity: 5 }],
         pendingChests: [{ id: '1-score', source: 'score', runId: 1, items: [{ id: 'coins' }] }],
       }),
     );
@@ -250,25 +250,25 @@ describe('Shop purchases and refresh', () => {
   it('requires a shop, funds purchases once, rejects full storage, and preserves stock after reload', () => {
     let campaign = useCampaignStore();
     campaign.town.coins = 300;
-    expect(campaign.buyShopItem('hammer', 0)).toBe(false);
+    expect(campaign.buyShopItem('tnt', 0)).toBe(false);
     campaign.town.buildings.shop = 2;
     campaign.shopStock = [
-      { id: 'hammer', sold: false },
+      { id: 'tnt', sold: false },
       { id: 'clear-row', sold: false },
     ];
-    campaign.powers.find((power) => power.id === 'hammer').quantity = 3;
-    expect(campaign.buyShopItem('hammer', 0)).toBe(false);
+    campaign.powers.find((power) => power.id === 'tnt').quantity = 3;
+    expect(campaign.buyShopItem('tnt', 0)).toBe(false);
     expect(campaign.town.coins).toBe(300);
-    campaign.powers.find((power) => power.id === 'hammer').quantity = 2;
-    expect(campaign.buyShopItem('hammer', 0)).toBe(true);
-    expect(campaign.buyShopItem('hammer', 0)).toBe(false);
+    campaign.powers.find((power) => power.id === 'tnt').quantity = 2;
+    expect(campaign.buyShopItem('tnt', 0)).toBe(true);
+    expect(campaign.buyShopItem('tnt', 0)).toBe(false);
     expect(campaign.town.coins).toBe(210);
     const stock = JSON.stringify(campaign.shopStock);
     setActivePinia(createPinia());
     campaign = useCampaignStore();
     campaign.ensureShopStock();
     expect(JSON.stringify(campaign.shopStock)).toBe(stock);
-    expect(campaign.powers.find((power) => power.id === 'hammer').quantity).toBe(3);
+    expect(campaign.powers.find((power) => power.id === 'tnt').quantity).toBe(3);
   });
   it('removes legacy builder hammer offers while preserving purchases and earned hammers', () => {
     let campaign = useCampaignStore();

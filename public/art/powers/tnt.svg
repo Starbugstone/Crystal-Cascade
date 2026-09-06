@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs><linearGradient id="tnt-red" x2="1" y2=".3"><stop stop-color="#ff9270"/><stop offset=".35" stop-color="#e74635"/><stop offset="1" stop-color="#8c1f2c"/></linearGradient></defs>
+  <path d="M65 32C57 14 94 30 91 10" fill="none" stroke="#513629" stroke-width="6"/>
+  <path d="M65 32C57 14 94 30 91 10" fill="none" stroke="#ffdb91" stroke-width="3"/>
+  <rect x="28" y="31" width="28" height="82" rx="12" fill="url(#tnt-red)" stroke="#69252b" stroke-width="3"/><path d="M35 45v52" stroke="#ffb392" stroke-width="3" opacity=".7"/><rect x="48" y="31" width="28" height="82" rx="12" fill="url(#tnt-red)" stroke="#69252b" stroke-width="3"/><path d="M55 45v52" stroke="#ffb392" stroke-width="3" opacity=".7"/><rect x="68" y="31" width="28" height="82" rx="12" fill="url(#tnt-red)" stroke="#69252b" stroke-width="3"/><path d="M75 45v52" stroke="#ffb392" stroke-width="3" opacity=".7"/>
+  <path d="M26 48h72v10H26zm0 39h72v10H26z" fill="#513c36" stroke="#c59465" stroke-width="2"/>
+  <rect x="34" y="59" width="56" height="27" rx="4" fill="#fff0c0" stroke="#792b2a" stroke-width="2"/>
+  <text x="62" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#a52b2c">TNT</text>
+  <path d="M 92 2 L 94.5 9.5 L 102 12 L 94.5 14.5 L 92 22 L 89.5 14.5 L 82 12 L 89.5 9.5 Z" fill="#ffda65"/><path d="M 105 23 L 106 26 L 109 27 L 106 28 L 105 31 L 104 28 L 101 27 L 104 26 Z" fill="#fff2af"/></svg>

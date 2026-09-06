@@ -11,8 +11,7 @@ export const useInventoryStore = defineStore('inventory', {
     availableQuantity(id) {
       const quantity = this.quickAccessSlots.find((entry) => entry.id === id)?.quantity ?? 0;
       return (
-        quantity +
-        (id === 'hammer' && useCampaignStore().hasForgeHammer(useGameStore().runId) ? 1 : 0)
+        quantity + (id === 'tnt' && useCampaignStore().hasForgeTNT(useGameStore().runId) ? 1 : 0)
       );
     },
     async usePowerUp(id) {
@@ -47,12 +46,12 @@ export const useInventoryStore = defineStore('inventory', {
               powerUpExecuted = result !== false;
             }
             break;
-          case 'hammer':
+          case 'tnt':
           case 'color-wand':
           case 'tile-breaker':
             // Map inventory IDs to internal bonus names
             const bonusModeMap = {
-              hammer: 'hammer',
+              tnt: 'tnt',
               'color-wand': 'color_wand',
               'tile-breaker': 'tile_breaker',
             };
@@ -80,13 +79,13 @@ export const useInventoryStore = defineStore('inventory', {
       // The gameStore passes the internal bonus mode name (e.g., 'color_wand')
       // We need to map 'color_wand' -> 'color-wand', 'tile_breaker' -> 'tile-breaker'
       const modeToIdMap = {
-        hammer: 'hammer',
+        tnt: 'tnt',
         color_wand: 'color-wand',
         tile_breaker: 'tile-breaker',
       };
 
       const inventoryId = modeToIdMap[id] || id;
-      if (inventoryId === 'hammer' && useCampaignStore().consumeForgeHammer(useGameStore().runId))
+      if (inventoryId === 'tnt' && useCampaignStore().consumeForgeTNT(useGameStore().runId))
         return true;
       const slot = this.quickAccessSlots.find((entry) => entry.id === inventoryId);
 

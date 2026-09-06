@@ -1,9 +1,9 @@
 <template>
-  <TownDialog :title="t('Take a Forge Hammer?')" :close-label="'Cancel'" @close="$emit('cancel')">
+  <TownDialog :title="t('Take Forge TNT?')" :close-label="'Cancel'" @close="$emit('cancel')">
     <p>
       {{
         t(
-          'Spend your Forge Charge for one temporary puzzle Hammer in this normal run. It is used before inventory Hammers and expires on completion, exit or reload.',
+          'Spend your Forge Charge for one temporary TNT in this normal run. It is used before inventory TNT and expires on completion, exit or reload.',
         )
       }}
     </p>

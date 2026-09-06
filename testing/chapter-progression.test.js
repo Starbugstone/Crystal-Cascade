@@ -84,7 +84,7 @@ it.each(['swap', 'targeted power', 'row power', 'shuffle'])(
       );
       await game.resolveSwap(hint.swap.aIndex, hint.swap.bIndex);
     } else if (action === 'targeted power') {
-      game.setBonusMode('hammer');
+      game.setBonusMode('tnt');
       await game.resolveBonusClick(14);
     } else if (action === 'row power') {
       await game.activateOneTimeBonus('clear_row');

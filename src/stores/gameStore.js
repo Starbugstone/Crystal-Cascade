@@ -297,7 +297,7 @@ export const useGameStore = defineStore('game', {
           if (session !== this.sessionVersion) return false;
         }
 
-        // Consume before committing: a winning Hammer can end its temporary Forge run.
+        // Consume before committing: a winning TNT can end its temporary Forge run.
         const inventoryStore = useInventoryStore();
         inventoryStore.consumeItem(bonusName);
         this.commitResolution(resolution);
@@ -327,7 +327,7 @@ export const useGameStore = defineStore('game', {
       this.renderer?.animator?.clearBonusPreview?.();
     },
     /**
-     * Preview the effect of an interactive power (hammer, color_wand, tile_breaker) at a given tile index.
+     * Preview the effect of an interactive power (tnt, color_wand, tile_breaker) at a given tile index.
      * Shows which tiles will be affected when the power is activated.
      */
     previewPowerEffect(index) {

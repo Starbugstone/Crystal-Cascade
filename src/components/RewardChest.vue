@@ -174,7 +174,7 @@
             <div
               class="slot-strip"
               :class="{ rolling: phase === 'opening' }"
-              :style="{ '--stop': stopIndex - 0.5, '--spin-duration': `${spinDurationMs}ms` }"
+              :style="{ '--stop': stopIndex - 1, '--spin-duration': `${spinDurationMs}ms` }"
               @animationend.self="finish()"
             >
               <div
@@ -266,7 +266,7 @@ const symbolDurationMs = 326 / 1.05;
 const stopIndex = ref(reelOrder.length * 2);
 const spinDurationMs = stopIndex.value * symbolDurationMs;
 // The fallback is saved at completion. A tap claims the symbol currently on the payline.
-const reelSymbols = Array.from({ length: stopIndex.value + 2 }, (_, index) =>
+const reelSymbols = Array.from({ length: stopIndex.value + 3 }, (_, index) =>
   index === stopIndex.value ? prize.value : reelOrder[index % reelOrder.length],
 );
 let timers = [];
@@ -454,6 +454,17 @@ onBeforeUnmount(clearTimers);
   gap: clamp(14px, 3vh, 32px);
   text-align: center;
   padding: 20px 0;
+}
+.opening .chest-stage,
+.opened .chest-stage {
+  justify-content: flex-start;
+  gap: 12px;
+  padding-top: 10px;
+}
+.opening .chest-announcement h2,
+.opened .chest-announcement h2 {
+  font-size: clamp(30px, 5vw, 54px);
+  margin: 8px 0;
 }
 .chest-counter {
   font-size: 10px;
@@ -852,7 +863,7 @@ onBeforeUnmount(clearTimers);
 }
 .slot-window {
   position: relative;
-  height: calc(var(--slot-row) * 2 + 4px);
+  height: calc(var(--slot-row) * 3 + 4px);
   overflow: hidden;
   border: 2px solid #fbdba2;
   border-radius: 10px;
@@ -992,7 +1003,7 @@ onBeforeUnmount(clearTimers);
 }
 @keyframes reel-roll {
   from {
-    transform: translateY(calc(var(--slot-row) * 0.5));
+    transform: translateY(var(--slot-row));
   }
   to {
     transform: translateY(calc(var(--stop) * var(--slot-row) * -1));

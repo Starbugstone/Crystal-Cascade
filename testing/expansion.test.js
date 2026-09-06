@@ -105,7 +105,7 @@ describe('Chains', () => {
       above = state.board[7];
     const result = manager.getResolution({
       ...state,
-      matches: [{ type: 'hammer', indices: [22] }],
+      matches: [{ type: 'tnt', indices: [22] }],
     });
     expect(result.board[12]).toBe(anchored);
     expect(result.board[7]).toBe(above);
@@ -113,7 +113,7 @@ describe('Chains', () => {
     expect(result.steps[0].spawns.some(({ index }) => index === 17)).toBe(false);
   });
 
-  it.each(['ruby', 'hammer'])(
+  it.each(['ruby', 'tnt'])(
     'releases a chain once per step with %s, preserving its gem and underlying ice',
     (type) => {
       singleStep();
@@ -152,7 +152,7 @@ describe('Colored seals', () => {
   it.each([
     ['sapphire', 1],
     ['ruby', 0],
-    ['hammer', 0],
+    ['tnt', 0],
     ['bonus-activation', 0],
   ])('a %s match leaves ruby seal health at %i', (type, health) => {
     singleStep();
@@ -195,7 +195,7 @@ describe('Relics', () => {
     const relic = (state.board[12] = createGem('relic'));
     const result = manager.getResolution({
       ...state,
-      matches: [{ type: 'hammer', indices: [12, 17, 22] }],
+      matches: [{ type: 'tnt', indices: [12, 17, 22] }],
     });
     expect(result.board[22]).toBe(relic);
     expect(result.relicsCollected).toBe(0);
@@ -210,7 +210,7 @@ describe('Relics', () => {
     state.tiles[22].exit = true;
     const result = manager.getResolution({
       ...state,
-      matches: [{ type: 'hammer', indices: [22] }],
+      matches: [{ type: 'tnt', indices: [22] }],
     });
     expect(result.relicsCollected).toBe(2);
     expect(result.steps.filter((step) => step.collectedRelics?.length)).toHaveLength(2);
@@ -254,7 +254,7 @@ describe('Relics', () => {
       boardRows: 5,
       totalRelics: 1,
       remainingLayers: 0,
-      activeBonusMode: 'hammer',
+      activeBonusMode: 'tnt',
       objectives: [{ type: 'collect-relics', target: 1, progress: 0 }],
     });
     expect(await game.resolveBonusClick(22)).toBe(true);

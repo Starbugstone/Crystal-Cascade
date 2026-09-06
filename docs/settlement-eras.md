@@ -20,7 +20,7 @@ Suggested test sequence:
 2. From **Available plots**, build the **Railway station** for 975 coins. The station and railroad share one project. Complete two normal puzzles, then tap the ready station to finish it. Tracks and train activity appear together; there is no additional railroad payment.
 3. Fund the **Bridge** (900 coins, two completions), **Wharf** (750 coins, one completion), and any 300-coin modernization. Work progresses concurrently. Finish the bridge to expose the warehouse, hotel, riverside home and market on the east bank.
 4. Modernize a level-5 landmark. Its original service stays active during its two-completion project and remains unchanged when the new facade opens. Functional levels remain 5.
-5. Enter a normal mine with the stored Forge Charge. Choose whether to keep or spend it. A spent charge provides one temporary puzzle Hammer ahead of persistent inventory; an unused temporary Hammer expires on victory, exit or reload.
+5. Enter a normal mine with the stored Forge Charge. Choose whether to keep or spend it. A spent charge provides one temporary TNT ahead of persistent inventory; an unused temporary TNT expires on victory, exit or reload.
 6. Use `river-rail-complete` to check the final state. The later eras stay unavailable.
 
 The first fixture leaves the Rail Connections chapter (levels 67–72) unfinished, so construction can be tested with new normal puzzles. Museum replay also advances work. Continuous play never advances construction, the era milestone or Forge Charge.
@@ -45,11 +45,11 @@ The river is carved into the existing deterministic landscape with a gradual val
 
 ## Verification
 
-Regression coverage includes v3 migration, duplicate/stale completion receipts, bounded Forge storage and spending, a winning temporary Hammer preserving inventory, failed-save rollback, active-run transition blocking, modernization service preservation, joint station/rail completion, east-bank route permissions, bridge-deck movement, campaign playthroughs and audio lifecycle.
+Regression coverage includes v3 migration, duplicate/stale completion receipts, bounded Forge storage and spending, a winning temporary TNT preserving inventory, failed-save rollback, active-run transition blocking, modernization service preservation, joint station/rail completion, east-bank route permissions, bridge-deck movement, campaign playthroughs and audio lifecycle.
 
 Real Chromium verification uses disposable saves to reach late-game states. Purchases, era advancement, the date card, construction finish and modernization are exercised through the UI; some completed-run receipts are supplied through the store to advance multi-puzzle construction without manually replaying an entire campaign. This checks the flow, while automated deterministic playthroughs cover all authored puzzles. It is not a manual balance playthrough of all 72 levels.
 
-Browser checks ran at `http://127.0.0.1:5174/` in Chromium at 1440×900, 390×844, 320×568 and 844×390. They covered the saved transition across reload, station/rail completion, bridge and wharf, modernization, an actual Forge Hammer board click, French/high contrast/reduced motion, all 29 SVG plot controls and keyboard station selection. Instrumentation confirmed the same Three.js scene and town soundscape survive mine visits, with audio/motion stopped while hidden or in the Forge departure dialog. The fallback checks found no uncaught application errors or failed HTTP responses. Forced WebGL loss/restoration rendered successfully; subsequent development hot-reload teardown emitted WebGL resource deletion warnings.
+Browser checks ran at `http://127.0.0.1:5174/` in Chromium at 1440×900, 390×844, 320×568 and 844×390. They covered the saved transition across reload, station/rail completion, bridge and wharf, modernization, an actual Forge TNT board click, French/high contrast/reduced motion, all 29 SVG plot controls and keyboard station selection. Instrumentation confirmed the same Three.js scene and town soundscape survive mine visits, with audio/motion stopped while hidden or in the Forge departure dialog. The fallback checks found no uncaught application errors or failed HTTP responses. Forced WebGL loss/restoration rendered successfully; subsequent development hot-reload teardown emitted WebGL resource deletion warnings.
 
 ![River and rail expansion in the 3D village](images/river-rail-desktop.png)
 

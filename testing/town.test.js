@@ -236,7 +236,7 @@ describe('Profile and reward integrity', () => {
       schemaVersion: 2,
       records: { 1: { score: 15000, stars: 3, bestTimeMs: 4321 } },
       continuousRecords: { 1: { score: 10000, coins: 50 } },
-      powers: [{ id: 'hammer', quantity: 17 }],
+      powers: [{ id: 'tnt', quantity: 17 }],
       builderHammers: 5,
       pendingChests: [{ runId: 1, source: 'score', items: [{ id: 'coins' }] }],
       issuedRun: 1,
@@ -290,16 +290,16 @@ describe('Profile and reward integrity', () => {
     campaign.recordVictory(victory(currentId));
     expect(campaign.upgradeBuilding('well', 0)).toBe(true);
     expect(campaign.upgradeBuilding('well', 0)).toBe(false);
-    campaign.awardReward({ id: 'hammer', kind: 'power', label: 'Hammer', quantity: 1 });
-    const hammerBefore = campaign.powers.find((power) => power.id === 'hammer').quantity;
-    useInventoryStore().consumeItem('hammer');
+    campaign.awardReward({ id: 'tnt', kind: 'power', label: 'Hammer', quantity: 1 });
+    const hammerBefore = campaign.powers.find((power) => power.id === 'tnt').quantity;
+    useInventoryStore().consumeItem('tnt');
     setActivePinia(createPinia());
     expect(useCampaignStore().town).toMatchObject({
       coins: 140,
       buildings: { well: 1 },
       projects: {},
     });
-    expect(useCampaignStore().powers.find((power) => power.id === 'hammer').quantity).toBe(
+    expect(useCampaignStore().powers.find((power) => power.id === 'tnt').quantity).toBe(
       hammerBefore - 1,
     );
   });
@@ -429,7 +429,7 @@ describe('Jewels come from real removals', () => {
       cols: 3,
       rows: 3,
       matches: [
-        { type: 'hammer', indices: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
+        { type: 'tnt', indices: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
         { type: 'clear_row', indices: [0, 1, 2] },
       ],
       bonusesCreated: ['bomb'],

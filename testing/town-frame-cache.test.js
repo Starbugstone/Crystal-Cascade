@@ -14,6 +14,7 @@ it('keeps villagers and raid time moving while the camera owns the next draw', (
       motions: [vi.fn()],
       actorRenderer: { update: vi.fn() },
       frameCache: { render: vi.fn() },
+      drawFrame: TownDiorama.prototype.drawFrame,
     };
   TownDiorama.prototype.tick.call(scene, 1017);
   expect(scene.elapsed).toBeCloseTo(0.017);
@@ -81,4 +82,65 @@ it('refreshes a village returning at the same size without reallocating its draw
   expect(scene.renderer.setSize).not.toHaveBeenCalled();
   resize();
   expect(scene.render).toHaveBeenCalledOnce();
+});
+
+it('restores renderer state after an interrupted frame so later renders can recover', () => {
+  let fail = true;
+  const renderer = {
+    autoClear: true,
+    getDrawingBufferSize: (size) => size.set(390, 844),
+    setRenderTarget: vi.fn(),
+    render: vi.fn(() => {
+      if (fail) throw new Error('GPU allocation failed');
+    }),
+  };
+  const cache = new TownFrameCache(renderer);
+  const town = new Scene(),
+    camera = new PerspectiveCamera();
+  town.background = new Color('#e9e8da');
+  camera.layers.enable(2);
+  const background = town.background,
+    layers = camera.layers.mask;
+  expect(() => cache.render(town, camera)).toThrow('GPU allocation failed');
+  expect(cache.valid).toBe(false);
+  expect(renderer.setRenderTarget).toHaveBeenLastCalledWith(null);
+  expect(town.background).toBe(background);
+  expect(camera.layers.mask).toBe(layers);
+  expect(renderer.autoClear).toBe(true);
+  fail = false;
+  cache.render(town, camera);
+  expect(cache.valid).toBe(true);
+  cache.dispose();
+});
+
+it('requests a clean rebuild on context loss and stops drawing invalid buffers', () => {
+  const view = {
+    frameCache: { valid: true },
+    renderer: { setAnimationLoop: vi.fn() },
+    onUnavailable: vi.fn(),
+  };
+  const event = { preventDefault: vi.fn() };
+  TownDiorama.prototype.handleContextLoss.call(view, event);
+  expect(event.preventDefault).toHaveBeenCalledOnce();
+  expect(view.contextUnavailable).toBe(true);
+  expect(view.frameCache.valid).toBe(false);
+  expect(view.renderer.setAnimationLoop).toHaveBeenCalledWith(null);
+  expect(view.onUnavailable).toHaveBeenCalledWith(expect.any(Error), true);
+});
+
+it('stops animation and requests the playable fallback when drawing fails', () => {
+  const error = new Error('Town framebuffer unavailable');
+  const view = {
+    frameCache: {
+      render: () => {
+        throw error;
+      },
+    },
+    renderer: { setAnimationLoop: vi.fn() },
+    onUnavailable: vi.fn(),
+  };
+  expect(TownDiorama.prototype.drawFrame.call(view, true)).toBe(false);
+  expect(view.contextUnavailable).toBe(true);
+  expect(view.renderer.setAnimationLoop).toHaveBeenCalledWith(null);
+  expect(view.onUnavailable).toHaveBeenCalledWith(error);
 });

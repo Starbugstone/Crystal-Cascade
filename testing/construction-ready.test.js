@@ -6,6 +6,7 @@ import { SHOP_ITEMS } from '../src/data/shop';
 import {
   advanceConstruction,
   availablePurchases,
+  availableParcels,
   constructionReady,
   finishConstruction,
   normalizeTown,
@@ -111,4 +112,24 @@ it('lists only affordable eligible purchases, or all eligible work when a builde
   expect(choices).not.toContain('museum');
   expect(choices).not.toContain('farm');
   expect(choices).toContain('well');
+});
+
+it('puts ready construction first, affordable purchases next, and hammer-only work last', () => {
+  const town = purchase(createTown(), 'home', 0);
+  town.coins = 75;
+  town.projects.museum = { id: 'museum', stage: 1, required: 1, wins: 1 };
+  town.projects.saloon = { id: 'saloon', stage: 1, required: 1, wins: 0 };
+  const parcels = availableParcels(town, 1);
+  expect(parcels[0]).toMatchObject({ id: 'museum', ready: true });
+  const coinChoices = parcels.filter((p) => p.offer && p.offer.cost <= town.coins);
+  const hammerChoices = parcels.filter((p) => p.offer && p.offer.cost > town.coins);
+  expect(coinChoices.length).toBeGreaterThan(0);
+  expect(hammerChoices.length).toBeGreaterThan(0);
+  expect(parcels).toEqual([parcels[0], ...coinChoices, ...hammerChoices]);
+  expect(parcels.some((p) => p.id === 'saloon')).toBe(false);
+  expect(new Set(parcels.map((p) => p.id)).size).toBe(parcels.length);
+  expect(availableParcels(town).map((p) => p.id)).toEqual([
+    'museum',
+    ...coinChoices.map((p) => p.id),
+  ]);
 });

@@ -63,7 +63,8 @@ const load = () => {
     if (Number.isSafeInteger(saved?.shopVisit) && saved.shopVisit >= 0)
       state.shopVisit = saved.shopVisit;
     if (Array.isArray(saved?.shopStock)) {
-      for (const offer of saved.shopStock) {
+      for (const savedOffer of saved.shopStock) {
+        const offer = savedOffer?.id === 'hammer' ? { ...savedOffer, id: 'tnt' } : savedOffer;
         if (
           !SHOP_ITEMS.some((item) => item.id === offer?.id) ||
           state.shopStock.some((item) => item.id === offer?.id)
@@ -120,7 +121,9 @@ const load = () => {
       (Number.isSafeInteger(saved?.builderHammers) ? saved.builderHammers : 0) - HAMMER_CAPACITY,
     );
     state.powers.forEach((power) => {
-      const savedPower = saved?.powers?.find?.((entry) => entry.id === power.id);
+      const savedPower =
+        saved?.powers?.find?.((entry) => entry.id === power.id) ??
+        (power.id === 'tnt' ? saved?.powers?.find?.((entry) => entry.id === 'hammer') : null);
       if (Number.isSafeInteger(savedPower?.quantity) && savedPower.quantity >= 0) {
         power.quantity = Math.min(bonusCapacity(state.town), savedPower.quantity);
         overflow += savedPower.quantity - power.quantity;
@@ -138,7 +141,8 @@ const load = () => {
     for (const chest of recovered) {
       if (recoveredSources.has(chest.source)) continue;
       recoveredSources.add(chest.source);
-      const drop = CHEST_DROPS.find((drop) => drop.id === chest.items?.[0]?.id);
+      const savedId = chest.items?.[0]?.id;
+      const drop = CHEST_DROPS.find((drop) => drop.id === (savedId === 'hammer' ? 'tnt' : savedId));
       if (drop) grantReward(state, drop);
     }
     if (overflow) {
@@ -258,7 +262,7 @@ export const useCampaignStore = defineStore('campaign', {
       else if (spend) this.town.forge = previousForge;
       return this.issuedRun;
     },
-    hasForgeHammer(runId) {
+    hasForgeTNT(runId) {
       return (
         this.forgeRun?.runId === runId &&
         this.forgeRun.available &&
@@ -267,8 +271,8 @@ export const useCampaignStore = defineStore('campaign', {
         !this.continuousRun
       );
     },
-    consumeForgeHammer(runId) {
-      if (!this.hasForgeHammer(runId)) return false;
+    consumeForgeTNT(runId) {
+      if (!this.hasForgeTNT(runId)) return false;
       this.forgeRun.available = false;
       return true;
     },

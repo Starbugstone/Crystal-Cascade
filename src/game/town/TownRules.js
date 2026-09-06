@@ -344,9 +344,16 @@ export function upgradeOffer(town, id) {
 }
 
 export const availablePurchases = (town, builderHammers = 0) =>
-  BUILDINGS.map((place) => ({ ...place, offer: upgradeOffer(town, place.id) })).filter(
-    ({ offer }) => offer?.available && (town.coins >= offer.cost || builderHammers > 0),
-  );
+  BUILDINGS.map((place) => ({ ...place, offer: upgradeOffer(town, place.id) }))
+    .filter(({ offer }) => offer?.available && (town.coins >= offer.cost || builderHammers > 0))
+    .sort((a, b) => Number(town.coins < a.offer.cost) - Number(town.coins < b.offer.cost));
+
+export const availableParcels = (town, builderHammers = 0) => [
+  ...BUILDINGS.filter(({ id }) => plotInEra(town, id) && constructionReady(town.projects[id])).map(
+    (place) => ({ ...place, ready: true }),
+  ),
+  ...availablePurchases(town, builderHammers),
+];
 
 export function nextGoal(town) {
   const available = BUILDINGS.filter(

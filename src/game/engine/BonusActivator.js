@@ -9,7 +9,7 @@ export class BonusActivator {
       'clear_row',
       'transform_gems',
       'unfreeze_all',
-      'hammer',
+      'tnt',
       'color_wand',
       'tile_breaker',
     ]);
@@ -129,8 +129,8 @@ export class BonusActivator {
         return this.activateTransformGems(board, cols, rows, index, context);
       case 'unfreeze_all':
         return this.activateUnfreezeAll(board);
-      case 'hammer':
-        return this.activateHammer(board, cols, rows, index);
+      case 'tnt':
+        return this.activateTNT(board, cols, rows, index);
       case 'color_wand':
         return this.activateColorWand(board, cols, rows, index);
       case 'tile_breaker':
@@ -153,8 +153,8 @@ export class BonusActivator {
     const clonedBoard = board.map((cell) => (cell ? { ...cell } : null));
 
     switch (type) {
-      case 'hammer':
-        // Hammer acts like a bomb (3x3 area)
+      case 'tnt':
+        // TNT acts like a bomb (3x3 area)
         return this._previewBomb(clonedBoard, cols, rows, index);
       case 'color_wand':
         // Color wand clears all gems of the same type
@@ -363,7 +363,7 @@ export class BonusActivator {
     return [...cleared];
   }
 
-  activateHammer(board, cols, rows, index) {
+  activateTNT(board, cols, rows, index) {
     return this.activateBomb(board, cols, rows, index);
   }
 

@@ -2110,3 +2110,65 @@ html:has(.town-museum[open]) {
   padding: 6px;
   min-height: 32px;
 }
+
+.town-sparkles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.town-upgrade-sparkles {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.town-upgrade-sparkles i {
+  position: absolute;
+  left: calc((var(--i) - 2) * 18px);
+  top: -24px;
+  font: normal 20px/1 sans-serif;
+  color: #fff1a4;
+  text-shadow:
+    0 0 4px #a56c1e,
+    0 0 8px #ffdd85;
+  animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
+}
+.map-upgrade-sparkles {
+  pointer-events: none;
+}
+.map-upgrade-sparkles text {
+  fill: #fff2a5;
+  stroke: #aa7d38;
+  stroke-width: 1px;
+  font-size: 36px;
+  animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
+}
+@keyframes town-upgrade-shimmer {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  45% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+.still .town-upgrade-sparkles i,
+.town-map-still .map-upgrade-sparkles text,
+.town-map-paused .map-upgrade-sparkles text {
+  animation: none;
+}
+.town-plot-ready {
+  color: #426654;
+  font-weight: 800;
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-upgrade-sparkles i,
+  .map-upgrade-sparkles text {
+    animation: none;
+  }
+}

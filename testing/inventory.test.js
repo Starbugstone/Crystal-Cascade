@@ -13,12 +13,12 @@ describe('InventoryStore awardPower', () => {
   });
 
   it('should increase power quantity when awarding known power', () => {
-    const initialQty = inventoryStore.quickAccessSlots.find((s) => s.id === 'hammer').quantity;
+    const initialQty = inventoryStore.quickAccessSlots.find((s) => s.id === 'tnt').quantity;
 
-    const result = inventoryStore.awardPower('hammer');
+    const result = inventoryStore.awardPower('tnt');
 
     expect(result).toBe(true);
-    expect(inventoryStore.quickAccessSlots.find((s) => s.id === 'hammer').quantity).toBe(
+    expect(inventoryStore.quickAccessSlots.find((s) => s.id === 'tnt').quantity).toBe(
       initialQty + 1,
     );
   });

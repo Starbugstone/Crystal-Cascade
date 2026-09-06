@@ -49,6 +49,10 @@ export class TownFrameCache {
   render(scene, camera, refresh = false) {
     const renderer = this.renderer;
     renderer.getDrawingBufferSize(this.size);
+    if (!this.size.x || !this.size.y || renderer.getContext?.().isContextLost()) {
+      this.valid = false;
+      return;
+    }
     if (this.target.width !== this.size.x || this.target.height !== this.size.y) {
       this.target.setSize(this.size.x, this.size.y);
       this.valid = false;
@@ -56,21 +60,38 @@ export class TownFrameCache {
     const layers = camera.layers.mask,
       background = scene.background,
       autoClear = renderer.autoClear;
-    if (refresh || !this.valid) {
-      camera.layers.set(0);
-      renderer.setRenderTarget(this.target);
+    const previousTarget = renderer.getRenderTarget?.() ?? null;
+    try {
+      if (refresh || !this.valid) {
+        const validateTarget = !this.valid;
+        this.valid = false;
+        camera.layers.set(0);
+        renderer.setRenderTarget(this.target);
+        const gl = renderer.getContext?.();
+        if (
+          validateTarget &&
+          gl &&
+          gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE
+        )
+          throw new Error('Town framebuffer unavailable');
+        renderer.render(scene, camera);
+        this.valid = true;
+      }
+      renderer.setRenderTarget(previousTarget);
+      renderer.render(this.scene, this.camera);
+      renderer.autoClear = false;
+      camera.layers.set(2);
+      scene.background = null;
       renderer.render(scene, camera);
-      renderer.setRenderTarget(null);
-      this.valid = true;
+    } catch (error) {
+      this.valid = false;
+      throw error;
+    } finally {
+      renderer.setRenderTarget(previousTarget);
+      scene.background = background;
+      camera.layers.mask = layers;
+      renderer.autoClear = autoClear;
     }
-    renderer.render(this.scene, this.camera);
-    renderer.autoClear = false;
-    camera.layers.set(2);
-    scene.background = null;
-    renderer.render(scene, camera);
-    scene.background = background;
-    camera.layers.mask = layers;
-    renderer.autoClear = autoClear;
   }
   dispose() {
     this.target.dispose();

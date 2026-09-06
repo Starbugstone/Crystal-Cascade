@@ -54,7 +54,7 @@ export const FRONTIER_BUILDINGS = [
       'Complete the frontier workshop',
     ],
     benefit:
-      'Every five normal puzzles earns one Forge Charge, capped at one. Spend it before a normal run for one temporary puzzle Hammer.',
+      'Every five normal puzzles earns one Forge Charge, capped at one. Spend it before a normal run for one temporary TNT.',
     costs: [120, 220, 350, 700, 1750],
   },
   {

@@ -29,11 +29,12 @@ const point = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // Original geometry shares static scenery batches and animated actor instances.
 export class TownDiorama {
-  constructor(canvas, onSelect, onLabels, onCameraDistance) {
+  constructor(canvas, onSelect, onLabels, onCameraDistance, onUnavailable) {
     this.canvas = canvas;
     this.onSelect = onSelect;
     this.onLabels = onLabels;
     this.onCameraDistance = onCameraDistance;
+    this.onUnavailable = onUnavailable;
     this.materials = new Map();
     this.geometries = {
       box: new THREE.BoxGeometry(1, 1, 1),
@@ -147,12 +148,28 @@ export class TownDiorama {
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(canvas);
     this.resize();
-    this.contextRestored = () => {
-      this.frameCache.valid = false;
-      this.renderer.shadowMap.needsUpdate = true;
-      if (this.canvas.clientWidth && this.canvas.clientHeight) this.render();
-    };
-    canvas.addEventListener('webglcontextrestored', this.contextRestored);
+    this.contextLost = this.handleContextLoss.bind(this);
+    canvas.addEventListener('webglcontextlost', this.contextLost);
+  }
+  handleContextLoss(event) {
+    event.preventDefault();
+    this.contextUnavailable = true;
+    this.frameCache.valid = false;
+    this.renderer.setAnimationLoop(null);
+    // The owner disposes this scene while the context is lost, then rebuilds on
+    // a fresh canvas. No buffers or cached attachments cross graphics contexts.
+    this.onUnavailable?.(new Error('Town graphics context lost'), true);
+  }
+  drawFrame(refresh = false) {
+    try {
+      this.frameCache.render(this.scene, this.camera, refresh);
+      return true;
+    } catch (error) {
+      this.contextUnavailable = true;
+      this.renderer.setAnimationLoop(null);
+      this.onUnavailable?.(error);
+      return false;
+    }
   }
   material(color) {
     if (!this.materials.has(color))
@@ -908,14 +925,20 @@ export class TownDiorama {
     );
   }
   render() {
-    if (!this.world || !this.canvas.clientWidth || !this.canvas.clientHeight) return;
+    if (
+      this.contextUnavailable ||
+      !this.world ||
+      !this.canvas.clientWidth ||
+      !this.canvas.clientHeight
+    )
+      return;
     const cameraDistance = this.camera.position.distanceTo(this.controls.target);
     if (Math.abs(cameraDistance - (this.lastAudioDistance ?? 0)) > 0.05) {
       this.lastAudioDistance = cameraDistance;
       this.onCameraDistance?.(cameraDistance);
     }
     this.actorRenderer.update();
-    this.frameCache.render(this.scene, this.camera, true);
+    if (!this.drawFrame(true)) return;
     const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
@@ -926,6 +949,7 @@ export class TownDiorama {
         x: (p.x + 1) * 50,
         y: (1 - p.y) * 50,
         depth: p.z,
+        inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
         width: labelWidth,
         visible:
           (id === 'mine' ||
@@ -973,6 +997,7 @@ export class TownDiorama {
   }
 
   tick(now) {
+    if (this.contextUnavailable) return;
     if (this.lastFrame && now - this.lastFrame < 1000 / 60 - 1) return;
     this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
@@ -987,7 +1012,7 @@ export class TownDiorama {
     // Advance life during camera motion too; its scheduled render draws the new pose.
     if (this.cameraFrame) return;
     this.actorRenderer.update();
-    this.frameCache.render(this.scene, this.camera);
+    this.drawFrame();
   }
   finishConstruction() {
     if (!this.construction) return;
@@ -1032,10 +1057,10 @@ export class TownDiorama {
     if (this.motionEnabled === enabled) return;
     this.motionEnabled = enabled;
     this.lastFrame = 0;
-    this.renderer.setAnimationLoop(enabled ? this.tick : null);
+    this.renderer.setAnimationLoop(enabled && !this.contextUnavailable ? this.tick : null);
   }
   dispose() {
-    this.canvas.removeEventListener('webglcontextrestored', this.contextRestored);
+    this.canvas.removeEventListener('webglcontextlost', this.contextLost);
     cancelAnimationFrame(this.cameraFrame);
     this.frameCache.dispose();
     this.actorRenderer.dispose();
@@ -1059,6 +1084,6 @@ export class TownDiorama {
     this.contactShadowMaterial.dispose();
     this.sun.shadow.map?.dispose();
     this.renderer.dispose();
-    this.renderer.forceContextLoss();
+    if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
   }
 }
