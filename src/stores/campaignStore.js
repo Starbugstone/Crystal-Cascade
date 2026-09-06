@@ -1,3 +1,4 @@
+import { miningDepthBonus } from '../data/economy';
 import { defineStore } from 'pinia';
 import { SHOP_ITEMS, rollShopStock, shopSlots, shopSpace } from '../data/shop';
 import { LEVEL_COUNT, POWERS, getChestTier, getSpeedChestTier, getStars } from '../data/campaign';
@@ -21,7 +22,9 @@ import {
   banditEncounter,
   advanceConstruction,
   constructionRuns,
-  accelerateConstruction,
+  constructionReady,
+  finishConstruction,
+  buildWithHammer,
 } from '../game/town/TownRules';
 export { SAVE_KEY };
 
@@ -237,7 +240,8 @@ export const useCampaignStore = defineStore('campaign', {
       if (!Number.isSafeInteger(jewels) || jewels < 0 || !Number.isFinite(score) || score < 0)
         return false;
       const previous = this.continuousRecords[id] ?? { coins: 0, score: 0 };
-      const earned = Math.min(CONTINUOUS_COIN_CAP, Math.floor(jewels / 10));
+      const baseCoins = Math.floor(jewels / 10);
+      const earned = Math.min(CONTINUOUS_COIN_CAP, baseCoins + miningDepthBonus(baseCoins, id));
       const delta = Math.min(
         CONTINUOUS_COIN_CAP - previous.coins,
         Math.max(0, earned - run.credited),
@@ -254,16 +258,28 @@ export const useCampaignStore = defineStore('campaign', {
       this.$patch((state) => Object.assign(state, defaults()));
       return this.save();
     },
-    collectSaloonIncome(now = Date.now(), persist = true) {
+    accrueSaloonIncome(now = Date.now(), persist = true) {
       const result = settleSaloonIncome(this.town, now);
       if (result.town === this.town) return 0;
       this.town = result.town;
-      if (result.earned) this.lastSaloonIncome = result.earned;
       if (persist) this.save();
       return result.earned;
     },
+    collectSaloonIncome(now = Date.now()) {
+      if (!this.town.buildings.saloon) return 0;
+      this.accrueSaloonIncome(now, false);
+      const coins = Math.min(
+        this.town.income.stored ?? 0,
+        Number.MAX_SAFE_INTEGER - this.town.coins,
+      );
+      this.town.income.stored = (this.town.income.stored ?? 0) - coins;
+      this.town.coins += coins;
+      this.lastSaloonIncome = coins;
+      this.save();
+      return coins;
+    },
     upgradeBuilding(id, expectedStage) {
-      this.collectSaloonIncome(Date.now(), false);
+      this.accrueSaloonIncome(Date.now(), false);
       const next = purchase(this.town, id, expectedStage);
       if (!next) return false;
       this.town = next;
@@ -271,11 +287,22 @@ export const useCampaignStore = defineStore('campaign', {
       this.save();
       return true;
     },
-    useBuilderHammer(id, expectedStage, expectedWins) {
-      if (this.builderHammers < 1) return false;
-      const next = accelerateConstruction(this.town, id, expectedStage, expectedWins);
+    finishConstruction(id, expectedStage) {
+      const next = finishConstruction(this.town, id, expectedStage);
       if (!next) return false;
-      this.collectSaloonIncome(Date.now(), false);
+      this.accrueSaloonIncome(Date.now(), false);
+      next.coins = this.town.coins;
+      next.income = this.town.income;
+      this.town = next;
+      this.ensureShopStock();
+      this.save();
+      return true;
+    },
+    useBuilderHammer(id, expectedStage) {
+      if (this.builderHammers < 1) return false;
+      const next = buildWithHammer(this.town, id, expectedStage);
+      if (!next) return false;
+      this.accrueSaloonIncome(Date.now(), false);
       // Keep the settled balance/checkpoint when applying this construction result.
       next.coins = this.town.coins;
       next.income = this.town.income;
@@ -291,7 +318,7 @@ export const useCampaignStore = defineStore('campaign', {
       return granted;
     },
     resolveBandits() {
-      this.collectSaloonIncome(Date.now(), false);
+      this.accrueSaloonIncome(Date.now(), false);
       const next = banditEncounter(this.town);
       if (!next) return false;
       this.town = next;
@@ -369,6 +396,8 @@ export const useCampaignStore = defineStore('campaign', {
       runId,
       jewels = 0,
       bonusGems = 0,
+      comboCounts = {},
+      multiMatchCounts = {},
       chooseRewards = false,
     }) {
       if (
@@ -390,17 +419,19 @@ export const useCampaignStore = defineStore('campaign', {
         validTime ? elapsedMs : Infinity,
       );
       if (Number.isFinite(bestTimeMs)) this.records[id].bestTimeMs = bestTimeMs;
-      this.collectSaloonIncome(Date.now(), false);
+      this.accrueSaloonIncome(Date.now(), false);
       this.town.completedRuns = Math.min(Number.MAX_SAFE_INTEGER, this.town.completedRuns + 1);
-      const projects = Object.values(this.town.projects);
+      const projects = Object.values(this.town.projects).filter(
+        (project) => !constructionReady(project),
+      );
       this.town = advanceConstruction(this.town);
       this.ensureShopStock(true);
       this.lastConstruction = projects.map((project) => ({
         id: project.id,
         stage: project.stage,
-        wins: project.wins + 1,
+        wins: Math.min(constructionRuns(project), project.wins + 1),
         required: constructionRuns(project),
-        complete: !this.town.projects[project.id],
+        ready: constructionReady(this.town.projects[project.id]),
       }));
       const rewards = [];
       for (const [source, tier] of [
@@ -423,7 +454,7 @@ export const useCampaignStore = defineStore('campaign', {
       }
       this.town.coins = Math.min(
         Number.MAX_SAFE_INTEGER,
-        this.town.coins + miningPayout(jewels, bonusGems),
+        this.town.coins + miningPayout(jewels, bonusGems, comboCounts, multiMatchCounts, id),
       );
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.

@@ -31,6 +31,10 @@ export class BoardInput {
   }
   setLayout(layout) {
     this.layout = layout;
+    this.focusIndex = Math.min(
+      this.focusIndex,
+      Math.max(0, layout.boardCols * layout.boardRows - 1),
+    );
   }
   reset() {
     this.lastTap = null;

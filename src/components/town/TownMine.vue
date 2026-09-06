@@ -97,11 +97,11 @@
           width="186"
           height="35"
           rx="17"
-          fill="#506e5c"
+          fill="#e1f0c0"
           stroke="#e7d1a0"
           stroke-width="2"
         />
-        <text y="6" text-anchor="middle" fill="#fff5d9" font-family="Georgia, serif" font-size="18">
+        <text y="6" text-anchor="middle" fill="#405b35" font-family="Georgia, serif" font-size="18">
           {{ t('Mine · Level') }} {{ level }} →</text
         >
       </g>

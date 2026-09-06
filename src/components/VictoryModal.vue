@@ -33,11 +33,26 @@
       <div class="victory-stars" :aria-label="t('{value0} of 3 stars', { value0: t(earnedStars) })">
         <span v-for="i in 3" :key="i" :class="{ earned: i <= earnedStars }">✦</span>
       </div>
-      <h2 id="victory-title">{{ t('LEVEL CLEAR!') }}</h2>
+      <h2 id="victory-title" tabindex="-1" autofocus>{{ t('LEVEL CLEAR!') }}</h2>
       <div class="result-score">
         {{ number(score) }}<small> {{ t('POINTS') }} </small>
       </div>
-      <CoinReward :coins="coins" :jewels="jewels" :bonus-gems="bonusGems" />
+      <div class="result-destinations">
+        <button v-if="canContinue" class="result-next" @click="$emit('next')">
+          <GameIcon name="pickaxe" /> <span>{{ t('Continue mining') }}</span>
+        </button>
+        <button class="result-next result-village" @click="$emit('town')">
+          <GameIcon name="home" /> <span>{{ t('Back to village') }}</span>
+        </button>
+      </div>
+      <CoinReward
+        :level-id="levelId"
+        :coins="coins"
+        :jewels="jewels"
+        :bonus-gems="bonusGems"
+        :combo-counts="comboCounts"
+        :multi-match-counts="multiMatchCounts"
+      />
       <div
         v-for="project in construction"
         :key="project.id"
@@ -45,7 +60,11 @@
         role="status"
       >
         <strong>{{
-          t(project.complete ? 'Building complete!' : 'Your building is taking shape')
+          t(
+            project.ready
+              ? 'Ready · Tap the building in your village to finish'
+              : 'Your building is taking shape',
+          )
         }}</strong>
         <span
           >{{ t(BUILDING_BY_ID[project.id].shortName) }} · {{ project.wins }}/{{
@@ -88,14 +107,6 @@
           )
         }}
       </p>
-      <div class="result-destinations">
-        <button v-if="canContinue" class="result-next" @click="$emit('next')">
-          <GameIcon name="pickaxe" /> <span>{{ t('Continue mining') }}</span>
-        </button>
-        <button class="result-next result-village" @click="$emit('town')">
-          <GameIcon name="home" /> <span>{{ t('Back to village') }}</span>
-        </button>
-      </div>
       <div class="victory-actions">
         <button v-if="canReplay" @click="$emit('replay')">{{ t('Play again') }}</button>
       </div>
@@ -111,6 +122,7 @@ import RewardChest from './RewardChest.vue';
 import CoinReward from './CoinReward.vue';
 import { getStars, formatTime } from '../data/campaign';
 const props = defineProps({
+  levelId: { type: Number, default: 1 },
   score: { type: Number, default: 0 },
   moves: { type: Number, default: 0 },
   maxCombo: { type: Number, default: 1 },
@@ -120,6 +132,8 @@ const props = defineProps({
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   bonusGems: { type: Number, default: 0 },
+  comboCounts: { type: Object, default: () => ({}) },
+  multiMatchCounts: { type: Object, default: () => ({}) },
   construction: { type: Array, default: () => [] },
   canReplay: Boolean,
   canContinue: Boolean,
@@ -132,13 +146,18 @@ const claimReward = (index, reward) => emit('claimed', { index, reward });
 const dialog = ref(null),
   chestIndex = ref(0),
   showingChest = ref(props.rewards.length > 0);
-onMounted(() => dialog.value.showModal());
+onMounted(() => {
+  dialog.value.showModal();
+  focusAction();
+});
 const focusAction = async () => {
   await nextTick();
-  dialog.value.scrollTop = 0;
   dialog.value
-    .querySelector('.chest-trigger, .arcade-button, .result-next, .victory-actions button')
+    .querySelector(
+      '#victory-title, .chest-trigger, .arcade-button, .result-next, .victory-actions button',
+    )
     ?.focus({ preventScroll: true });
+  dialog.value.scrollTop = 0;
 };
 const showResults = () => {
   for (const settled of campaign.settlePendingChests()) {
@@ -171,7 +190,9 @@ const goalText = (source) => {
 <style scoped>
 .result-destinations {
   display: grid;
-  gap: 14px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 10px;
 }
 .town-construction-reward {
   display: flex;
@@ -326,17 +347,23 @@ const goalText = (source) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   width: 100%;
-  padding: 16px 20px;
+  min-width: 0;
+  padding: 12px 8px;
   min-height: 52px;
   border: 1px solid #ffeaa1;
   border-radius: 8px;
   background: linear-gradient(#ffe89c, #ffc458);
   color: #321144;
+  font-size: clamp(12px, 2.8vw, 14px);
   font-weight: 900;
-  letter-spacing: 1px;
+  line-height: 1.3;
   box-shadow: 0 4px #926239;
+}
+.result-next svg {
+  width: 18px;
+  height: 18px;
 }
 .result-next.result-village {
   background: linear-gradient(#4d345f, #34213f);

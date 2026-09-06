@@ -241,20 +241,20 @@ describe('Roulette receipts', () => {
 });
 
 describe('Shop purchases and refresh', () => {
-  it.each([1, 2, 3])('offers %i + 1 distinct items without exceeding the catalog', (level) => {
+  it.each([1, 2, 3, 4, 5])('offers level %i stock without exceeding the catalog', (level) => {
     const stock = rollShopStock(level, () => 0);
-    expect(stock).toHaveLength(level + 1);
-    expect(new Set(stock.map((item) => item.id)).size).toBe(level + 1);
+    expect(stock).toHaveLength(level);
+    expect(new Set(stock.map((item) => item.id)).size).toBe(level);
     expect(stock.every((offer) => SHOP_ITEMS.some((item) => item.id === offer.id))).toBe(true);
   });
   it('requires a shop, funds purchases once, rejects full storage, and preserves stock after reload', () => {
     let campaign = useCampaignStore();
     campaign.town.coins = 300;
     expect(campaign.buyShopItem('hammer', 0)).toBe(false);
-    campaign.town.buildings.shop = 1;
+    campaign.town.buildings.shop = 2;
     campaign.shopStock = [
       { id: 'hammer', sold: false },
-      { id: 'builder-hammer', sold: false },
+      { id: 'clear-row', sold: false },
     ];
     campaign.powers.find((power) => power.id === 'hammer').quantity = 3;
     expect(campaign.buyShopItem('hammer', 0)).toBe(false);
@@ -262,15 +262,36 @@ describe('Shop purchases and refresh', () => {
     campaign.powers.find((power) => power.id === 'hammer').quantity = 2;
     expect(campaign.buyShopItem('hammer', 0)).toBe(true);
     expect(campaign.buyShopItem('hammer', 0)).toBe(false);
-    expect(campaign.town.coins).toBe(240);
+    expect(campaign.town.coins).toBe(210);
     const stock = JSON.stringify(campaign.shopStock);
     setActivePinia(createPinia());
     campaign = useCampaignStore();
     campaign.ensureShopStock();
     expect(JSON.stringify(campaign.shopStock)).toBe(stock);
     expect(campaign.powers.find((power) => power.id === 'hammer').quantity).toBe(3);
-    campaign.builderHammers = 5;
-    expect(campaign.buyShopItem('builder-hammer', 0)).toBe(false);
+  });
+  it('removes legacy builder hammer offers while preserving purchases and earned hammers', () => {
+    let campaign = useCampaignStore();
+    campaign.town.buildings.shop = 5;
+    campaign.town.coins = 300;
+    campaign.builderHammers = 2;
+    campaign.shopStock = [
+      { id: 'builder-hammer', sold: false },
+      { id: 'clear-row', sold: true },
+    ];
+    expect(campaign.buyShopItem('builder-hammer', campaign.shopVisit)).toBe(false);
+    campaign.save();
+    setActivePinia(createPinia());
+    campaign = useCampaignStore();
+    campaign.ensureShopStock();
+    expect(campaign.shopStock).toHaveLength(5);
+    expect(campaign.shopStock.some((offer) => offer.id === 'builder-hammer')).toBe(false);
+    expect(campaign.shopStock.find((offer) => offer.id === 'clear-row').sold).toBe(true);
+    expect(campaign.builderHammers).toBe(2);
+    expect(campaign.town.coins).toBe(300);
+    expect(rollShopStock(5, () => 0, [{ id: 'builder-hammer', sold: false }])).toEqual(
+      expect.not.arrayContaining([expect.objectContaining({ id: 'builder-hammer' })]),
+    );
   });
   it('refreshes on a completed normal mine only; stale purchases and duplicate victories cannot reroll', () => {
     const campaign = useCampaignStore();
@@ -300,7 +321,7 @@ describe('Shop purchases and refresh', () => {
     const sold = campaign.shopStock[0].id;
     campaign.town.buildings.shop = 2;
     campaign.ensureShopStock();
-    expect(campaign.shopStock).toHaveLength(3);
+    expect(campaign.shopStock).toHaveLength(2);
     expect(campaign.shopStock.find((offer) => offer.id === sold).sold).toBe(true);
   });
 });

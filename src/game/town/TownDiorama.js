@@ -6,12 +6,14 @@ import { BUILDING_BY_ID } from '../../data/town';
 import { TownFrameCache } from './TownFrameCache';
 import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
+import { TownConstruction } from './TownConstruction';
+import { buildTownSquare } from './TownSquare';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
-import { constructionVisual, plotUnlocked, population } from './TownRules';
+import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
-import { PLOTS, LANE_X, atPlot } from './TownLayout';
+import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL } from './TownLayout';
 export { PLOTS } from './TownLayout';
 const colors = {
   sand: '#c8ad7a',
@@ -24,10 +26,11 @@ const point = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // Original geometry shares static scenery batches and animated actor instances.
 export class TownDiorama {
-  constructor(canvas, onSelect, onLabels) {
+  constructor(canvas, onSelect, onLabels, onCameraDistance) {
     this.canvas = canvas;
     this.onSelect = onSelect;
     this.onLabels = onLabels;
+    this.onCameraDistance = onCameraDistance;
     this.materials = new Map();
     this.geometries = {
       box: new THREE.BoxGeometry(1, 1, 1),
@@ -101,7 +104,9 @@ export class TownDiorama {
     this.controls = new OrbitControls(this.camera, canvas.parentElement);
     this.controls.cursorStyle = 'grab';
     this.controls.target.set(0, 0.7, 0);
-    this.controls.enablePan = false;
+    this.controls.enablePan = true;
+    this.controls.screenSpacePanning = false;
+    this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
     this.controls.enableDamping = false;
     this.controls.minDistance = 13;
     this.controls.maxDistance = 110;
@@ -109,14 +114,21 @@ export class TownDiorama {
     this.controls.maxPolarAngle = Math.PI / 2 - 0.24;
     this.controls.rotateSpeed = 0.7;
     this.controls.zoomSpeed = 0.85;
-    this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    this.controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     this.controls.update();
     this.overview = true;
-    this.leaveOverview = () => {
-      this.overview = false;
+    this.beginCameraGesture = () => {
+      this.cameraGesture = true;
     };
-    this.controls.addEventListener('start', this.leaveOverview);
+    this.endCameraGesture = () => {
+      this.cameraGesture = false;
+    };
+    this.controls.addEventListener('start', this.beginCameraGesture);
+    this.controls.addEventListener('end', this.endCameraGesture);
     this.cameraChanged = () => {
+      // A building tap also starts an OrbitControls gesture. Only camera movement
+      // should stop framing the town when a newly unlocked parcel expands it.
+      if (this.cameraGesture && !this.framingTown) this.overview = false;
       if (keepCameraAboveTerrain(this.camera.position, this.controls.target))
         this.controls.update();
       // Pointer events can arrive faster than frames. Render only the latest pose.
@@ -132,6 +144,12 @@ export class TownDiorama {
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(canvas);
     this.resize();
+    this.contextRestored = () => {
+      this.frameCache.valid = false;
+      this.renderer.shadowMap.needsUpdate = true;
+      if (this.canvas.clientWidth && this.canvas.clientHeight) this.render();
+    };
+    canvas.addEventListener('webglcontextrestored', this.contextRestored);
   }
   material(color) {
     if (!this.materials.has(color))
@@ -239,7 +257,9 @@ export class TownDiorama {
     });
     group.removeFromParent();
   }
-  update(town, labels, mineStage = 0) {
+  update(town, labels, mineStage = 0, constructionId = null) {
+    this.construction?.finish();
+    this.construction = null;
     this.actorRenderer.clear();
     this.buildingRenderer.clear();
     this.clearGroup(this.world);
@@ -268,9 +288,10 @@ export class TownDiorama {
         const stage = town.buildings[id],
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
-        if (!stage) this.plot(group, kind, constructionVisual(project) ?? -1, labels[id]);
+        if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
-          if (kind === 'well') this.well(group);
+          if (kind === 'square') buildTownSquare(this, group, stage);
+          else if (kind === 'well') this.well(group);
           else this.building(group, kind, stage, labels[id]);
           movingPart = addImprovements(this, group, kind, stage);
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
@@ -283,7 +304,9 @@ export class TownDiorama {
         this.world.attach(movingPart.rotor);
         movingPart.rotor.userData.animated = true;
       }
-      this.batch(group);
+      if (id === constructionId)
+        this.construction = new TownConstruction(this, group, movingPart?.rotor);
+      else this.batch(group);
       if (movingPart) this.motions.push(movingPart.update);
     }
     const household = population(town);
@@ -361,16 +384,13 @@ export class TownDiorama {
       });
     if (town.buildings.sheriff)
       this.person({
-        color: '#7899a5',
+        color: '#315d83',
         skin: '#c99d74',
-        hat: '#b38f51',
-        route: [
-          atPlot('sheriff', 1.4, 2.1),
-          [LANE_X, PLOTS.sheriff[1] + 2.1],
-          [LANE_X, 7.5],
-          [LANE_X, -0.5],
-        ],
-        seed: 15,
+        hat: '#f0d390',
+        route: SHERIFF_PATROL,
+        seed: 0,
+        sheriff: true,
+        loop: true,
       });
     if (town.buildings.stable) {
       this.horse(...atPlot('stable', 2.25, 0.9), 0.5);
@@ -413,11 +433,11 @@ export class TownDiorama {
     const w = id === 'well' ? 2.1 : 3.05,
       d = id === 'well' ? 2.1 : 2.7;
     for (const x of [-w / 2, w / 2])
-      for (const z of [-d / 2, d / 2]) this.box(parent, 0.08, 0.3, 0.08, x, 0.13, z, '#a58a57');
+      for (const z of [-d / 2, d / 2]) this.box(parent, 0.12, 0.6, 0.12, x, 0.3, z, '#a58a57');
     for (const z of [-d / 2, d / 2])
-      this.rod(parent, [-w / 2, 0.24, z], [w / 2, 0.24, z], 0.012, '#e5cf9b');
+      this.rod(parent, [-w / 2, 0.44, z], [w / 2, 0.44, z], 0.05, '#e5cf9b');
     for (const x of [-w / 2, w / 2])
-      this.rod(parent, [x, 0.24, -d / 2], [x, 0.24, d / 2], 0.012, '#e5cf9b');
+      this.rod(parent, [x, 0.44, -d / 2], [x, 0.44, d / 2], 0.05, '#e5cf9b');
     if (wins < 0) {
       this.box(parent, 0.08, 0.5, 0.08, -w / 2 + 0.25, 0.2, d / 2 - 0.25, '#99805a');
       this.sign(parent, label, 1.05, -w / 2 + 0.25, 0.52, d / 2 - 0.25);
@@ -541,7 +561,7 @@ export class TownDiorama {
           0.77,
           2,
           [0.17, 0.23, 0.17],
-          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n],
+          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n % 4],
           'rock',
         );
       }
@@ -724,13 +744,34 @@ export class TownDiorama {
     parent = this.world,
     manual = false,
     visitor = false,
+    sheriff = false,
+    loop = false,
   }) {
     const root = this.group(parent);
     root.userData.animated = !manual;
+    if (sheriff) {
+      root.name = 'Village sheriff';
+      root.scale.setScalar(1.3);
+    }
     const body = this.group(root, 0, 0.54, 0);
     this.box(body, 0.25, 0.19, 0.16, 0, 0, 0, '#69654d', true);
     const torso = this.group(body, 0, 0.1, 0);
     this.box(torso, 0.3, 0.34, 0.18, 0, 0.13, 0, color, true);
+    if (sheriff) {
+      if (!this.geometries.badge) {
+        const star = new THREE.Shape();
+        for (let i = 0; i < 10; i++) {
+          const angle = Math.PI / 2 + (i * Math.PI) / 5,
+            radius = i % 2 ? 0.45 : 1;
+          star[i ? 'lineTo' : 'moveTo'](Math.cos(angle) * radius, Math.sin(angle) * radius);
+        }
+        star.closePath();
+        this.geometries.badge = new THREE.ShapeGeometry(star);
+      }
+      this.mesh(torso, 'badge', [0.075, 0.075, 1], [-0.065, 0.2, 0.102], '#ffd15b');
+      this.box(torso, 0.31, 0.05, 0.19, 0, -0.01, 0, '#4c4338');
+      this.box(torso, 0.055, 0.04, 0.02, 0, -0.01, 0.105, '#ffd15b');
+    }
     this.rod(torso, [0, 0.29, 0], [0, 0.39, 0], 0.055, skin);
     const head = this.group(torso, 0, 0.46, 0);
     this.ball(head, 0, 0, 0, [0.12, 0.145, 0.115], skin);
@@ -759,12 +800,12 @@ export class TownDiorama {
     if (dress) this.mesh(body, 'cone', [0.2, 0.29, 0.17], [0, -0.085, 0], color);
     const points = route.map(([x, z]) => point(x, 0.07, z));
     const curve = new THREE.CatmullRomCurve3(
-      [...points, ...points.slice(1, -1).reverse()],
+      loop ? points : [...points, ...points.slice(1, -1).reverse()],
       true,
       'catmullrom',
       0.15,
     );
-    const duration = curve.getLength() / 0.55;
+    const duration = curve.getLength() / (sheriff ? 0.8 : 0.55);
     const actor = { root, body, torso, head, arms, legs, curve, duration, seed, work, visitor };
     if (!manual) this.actors.push(actor);
 
@@ -857,6 +898,13 @@ export class TownDiorama {
     shadow.position.y = -0.04;
     parent.add(shadow);
   }
+  setAvailable(ids) {
+    const key = ids.join(',');
+    if (this.availableKey === key) return;
+    this.availableKey = key;
+    this.availablePlots = new Set(ids);
+    this.render();
+  }
   select(id) {
     if (this.selected === id && this.selection?.parent === this.world) return;
     this.selected = id;
@@ -943,18 +991,36 @@ export class TownDiorama {
     this.camera.position
       .copy(target)
       .addScaledVector(direction, Math.min(distance, this.controls.maxDistance));
-    this.controls.update();
+    this.framingTown = true;
+    try {
+      this.controls.update();
+    } finally {
+      this.framingTown = false;
+    }
   }
   resize() {
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
-    if (!width || !height) return;
+    if (!width || !height) {
+      this.wasHidden = true;
+      return;
+    }
+    if (width === this.width && height === this.height) {
+      if (!this.wasHidden) return;
+      this.wasHidden = false;
+      this.render();
+      return true;
+    }
+    this.wasHidden = false;
+    this.width = width;
+    this.height = height;
     this.camera.aspect = width / height;
     this.camera.fov = width / height < 0.7 ? 62 : width / height < 1.1 ? 48 : 40;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     if (this.overview) this.frameTown();
     this.render();
+    return true;
   }
   rebuildActors() {
     this.actorRenderer.rebuild(
@@ -964,10 +1030,15 @@ export class TownDiorama {
     );
   }
   render() {
-    if (!this.world) return;
+    if (!this.world || !this.canvas.clientWidth || !this.canvas.clientHeight) return;
+    const cameraDistance = this.camera.position.distanceTo(this.controls.target);
+    if (Math.abs(cameraDistance - (this.lastAudioDistance ?? 0)) > 0.05) {
+      this.lastAudioDistance = cameraDistance;
+      this.onCameraDistance?.(cameraDistance);
+    }
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera, true);
-    const distant = this.camera.position.distanceTo(this.controls.target) > 66;
+    const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
     const projected = this.anchors.map(({ id, position, width: labelWidth }) => {
@@ -979,16 +1050,33 @@ export class TownDiorama {
         depth: p.z,
         width: labelWidth,
         visible:
+          (id === 'mine' ||
+            this.town.buildings[id] > 0 ||
+            !!this.town.projects[id] ||
+            this.availablePlots?.has(id)) &&
           p.z > -1 &&
           p.z < 1 &&
           (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
           p.y < 0.84 &&
           p.y > (width < 600 ? -0.42 : -0.78) &&
-          (!distant || id === 'mine' || id === this.selected),
+          (!distant ||
+            id === 'mine' ||
+            id === this.selected ||
+            constructionReady(this.town.projects[id]) ||
+            this.availablePlots?.has(id)),
       };
     });
     const shown = [];
-    const priority = (id) => (id === this.selected ? 0 : id === 'mine' ? 1 : 2);
+    const priority = (id) =>
+      id === this.selected
+        ? 0
+        : constructionReady(this.town.projects[id])
+          ? 1
+          : id === 'mine'
+            ? 2
+            : this.availablePlots?.has(id)
+              ? 3
+              : 4;
     for (const anchor of [...projected].sort(
       (a, b) => priority(a.id) - priority(b.id) || a.depth - b.depth,
     )) {
@@ -1007,18 +1095,31 @@ export class TownDiorama {
   }
 
   tick(now) {
-    if (this.cameraFrame) return;
-    if (this.lastFrame && now - this.lastFrame < 1000 / 30 - 1) return;
+    if (this.lastFrame && now - this.lastFrame < 1000 / 60 - 1) return;
     this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
     this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
     this.motions?.forEach((motion) => motion(this.elapsed));
+    if (this.construction?.update(this.elapsed)) this.finishConstruction();
     if (this.raid?.update(this.elapsed)) {
       this.raid = null;
       this.rebuildActors();
     }
+    // Advance life during camera motion too; its scheduled render draws the new pose.
+    if (this.cameraFrame) return;
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera);
+  }
+  finishConstruction() {
+    if (!this.construction) return;
+    const { group } = this.construction;
+    this.construction.finish();
+    this.construction = null;
+    this.batch(group);
+    this.rebuildActors();
+    this.buildingRenderer.rebuild(this.world.children.filter((child) => child.userData.static));
+    this.renderer.shadowMap.needsUpdate = true;
+    this.render();
   }
   playRaid(event, onPhase, onComplete) {
     this.raid?.dispose();
@@ -1028,7 +1129,8 @@ export class TownDiorama {
     this.render();
   }
   stopRaid() {
-    this.raid?.dispose();
+    if (!this.raid) return;
+    this.raid.dispose();
     this.raid = null;
     this.rebuildActors();
     this.render();
@@ -1054,6 +1156,7 @@ export class TownDiorama {
     this.renderer.setAnimationLoop(enabled ? this.tick : null);
   }
   dispose() {
+    this.canvas.removeEventListener('webglcontextrestored', this.contextRestored);
     cancelAnimationFrame(this.cameraFrame);
     this.frameCache.dispose();
     this.actorRenderer.dispose();
@@ -1063,7 +1166,8 @@ export class TownDiorama {
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
     this.controls.removeEventListener('change', this.cameraChanged);
-    this.controls.removeEventListener('start', this.leaveOverview);
+    this.controls.removeEventListener('start', this.beginCameraGesture);
+    this.controls.removeEventListener('end', this.endCameraGesture);
     this.controls.dispose();
     if (this.selection) {
       this.selection.geometry.dispose();

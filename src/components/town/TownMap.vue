@@ -181,30 +181,62 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
-        <g :key="town.buildings[building.id]" aria-hidden="true" transform="scale(.88)">
-          <TownSite
-            :id="building.id"
-            :stage="town.buildings[building.id]"
-            :wins="constructionVisual(town.projects[building.id])"
-          />
+        <g
+          :key="`${town.buildings[building.id]}-${construction?.id === building.id ? construction.serial : 0}`"
+          aria-hidden="true"
+          transform="scale(.88)"
+        >
+          <g :class="{ 'town-site-assembling': animatedConstruction?.id === building.id }">
+            <TownSite
+              :id="building.id"
+              :stage="town.buildings[building.id]"
+              :wins="constructionVisual(town.projects[building.id])"
+            />
+          </g>
+          <g v-if="animatedConstruction?.id === building.id" class="town-build-hammer">
+            <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
+          </g>
         </g>
-        <g class="map-label" transform="translate(0 35)" aria-hidden="true">
+        <g
+          v-if="
+            town.buildings[building.id] ||
+            town.projects[building.id] ||
+            availableIds.includes(building.id)
+          "
+          class="map-label"
+          transform="translate(0 35)"
+          aria-hidden="true"
+        >
           <rect
             x="-67"
             y="-18"
             width="134"
             height="34"
             rx="17"
-            :fill="selected === building.id ? '#4b6559' : '#fcf5e6'"
+            :fill="
+              constructionReady(town.projects[building.id]) || hasIncome(building.id)
+                ? '#e1f0c0'
+                : availableIds.includes(building.id)
+                  ? '#d9f1fa'
+                  : '#ffffff'
+            "
           />
           <text
             y="5"
             text-anchor="middle"
-            :fill="selected === building.id ? '#fff7e6' : '#716347'"
+            fill="#405b4c"
             font-size="19"
             font-family="Georgia, serif"
           >
-            {{ t(building.shortName) }}
+            {{
+              t(
+                constructionReady(town.projects[building.id])
+                  ? 'Tap to finish'
+                  : hasIncome(building.id)
+                    ? t('Collect {coins} coins', { coins: town.income.stored })
+                    : building.shortName,
+              )
+            }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
           </text>
         </g>
@@ -249,8 +281,16 @@
         >
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="town.buildings.sheriff" class="resident-walk sheriff-walk" color="#6b8190">
-          <use :href="`#${uid}-person`" />
+        <g
+          v-if="town.buildings.sheriff"
+          class="resident-walk sheriff-walk"
+          :style="{ offsetPath: sheriffPath }"
+          color="#315d83"
+        >
+          <g transform="scale(1.3)">
+            <use :href="`#${uid}-person`" />
+            <path d="m-2-15 1 2 2 .3-1.5 1.5.4 2-1.9-1-1.9 1 .4-2L-5-12.7l2-.3Z" fill="#ffd15b" />
+          </g>
         </g>
         <g
           v-if="town.buildings.stable"
@@ -289,17 +329,21 @@
   </div>
 </template>
 <script setup>
-import { computed } from 'vue';
 import { t } from '../../i18n';
-import { nextTick, ref, useId, watch } from 'vue';
-import { constructionVisual } from '../../game/town/TownRules';
-import { plotUnlocked } from '../../game/town/TownRules';
+import { computed, nextTick, ref, useId, watch } from 'vue';
+import {
+  constructionVisual,
+  constructionReady,
+  availablePurchases,
+  plotUnlocked,
+} from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
-import { PLOTS, TOWN_TRACKS, mapPoint, atPlot } from '../../game/town/TownLayout';
+import { PLOTS, TOWN_TRACKS, mapPoint, atPlot, SHERIFF_PATROL } from '../../game/town/TownLayout';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';
 const props = defineProps({
   town: { type: Object, required: true },
+  builderHammers: { type: Number, default: 0 },
   selected: String,
   population: Number,
   mineStage: { type: Number, default: 0 },
@@ -307,9 +351,25 @@ const props = defineProps({
   reducedMotion: Boolean,
   paused: Boolean,
   nextLevel: { type: Number, required: true },
+  construction: Object,
 });
 defineEmits(['select', 'mine']);
 const scene = ref(null);
+const animatedConstruction = ref(null);
+watch(
+  () => props.construction,
+  (construction) => {
+    animatedConstruction.value = props.reducedMotion ? null : construction;
+  },
+  { immediate: true },
+);
+watch(
+  () => props.reducedMotion,
+  (reduced) => {
+    if (reduced) animatedConstruction.value = null;
+  },
+);
+const sheriffPath = `path("M${SHERIFF_PATROL.map((point) => mapPoint(point).join(' ')).join(' L')} Z")`;
 const land = 'M0 148Q197 108 401 144T1000 128V590L550 700 0 620Z';
 function resetView() {
   scene.value?.style.removeProperty('--look-x');
@@ -337,6 +397,10 @@ watch(
     if (scene.value)
       scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
   },
+);
+const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
+const availableIds = computed(() =>
+  availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const uid = `town-${useId().replaceAll(':', '')}`;
 const orderedBuildings = computed(() =>
@@ -366,3 +430,47 @@ const cacti = [
   [690, 681],
 ];
 </script>
+<style scoped>
+.town-site-assembling {
+  animation: town-assemble 1s ease-out both;
+}
+.town-build-hammer {
+  transform-box: fill-box;
+  transform-origin: bottom right;
+  animation: town-hammer-tap 1s ease-in-out both;
+}
+@keyframes town-assemble {
+  0% {
+    clip-path: inset(100% 0 0);
+    transform: translateY(-12px);
+  }
+  75%,
+  100% {
+    clip-path: inset(0);
+    transform: translateY(0);
+  }
+}
+@keyframes town-hammer-tap {
+  0%,
+  22%,
+  44% {
+    opacity: 1;
+    transform: rotate(-35deg);
+  }
+  11%,
+  33%,
+  55% {
+    opacity: 1;
+    transform: rotate(15deg);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: rotate(-35deg);
+  }
+}
+.town-map-paused .town-site-assembling,
+.town-map-paused .town-build-hammer {
+  animation-play-state: paused;
+}
+</style>

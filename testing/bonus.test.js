@@ -254,8 +254,9 @@ describe('GameStore bonus preview highlighting', () => {
     };
   });
 
-  it('computes preview indices when dragging a bomb', () => {
-    gameStore.previewBonusSwap(4, 5);
+  it('computes the active hammer power footprint', () => {
+    gameStore.activeBonusMode = 'hammer';
+    gameStore.previewPowerEffect(4);
     expect(gameStore.bonusPreview.indices.length).toBeGreaterThan(0);
     expect(gameStore.renderer.animator.showBonusPreview).toHaveBeenCalledWith(
       gameStore.bonusPreview.indices,
@@ -263,7 +264,8 @@ describe('GameStore bonus preview highlighting', () => {
   });
 
   it('clears preview state when requested', () => {
-    gameStore.previewBonusSwap(4, 5);
+    gameStore.activeBonusMode = 'hammer';
+    gameStore.previewPowerEffect(4);
     gameStore.clearBonusPreview(true);
     expect(gameStore.bonusPreview.indices).toHaveLength(0);
     expect(gameStore.renderer.animator.clearBonusPreview).toHaveBeenCalled();

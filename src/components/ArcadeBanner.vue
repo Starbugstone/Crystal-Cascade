@@ -4,10 +4,15 @@
       v-if="banner"
       :key="banner.id"
       class="arcade-banner-art"
-      :class="{ 'fusion-banner': banner.kind === 'fusion' }"
+      :class="{
+        'fusion-banner': banner.kind === 'fusion',
+        'multi-match-banner': banner.kind === 'multi-match',
+      }"
       viewBox="0 0 520 72"
       role="img"
-      :aria-label="t(banner.label)"
+      :aria-label="
+        banner.kind === 'multi-match' ? `${t(banner.label)} ${multiMatchDetail}` : t(banner.label)
+      "
       :style="{ '--banner-color': banner.color }"
     >
       <g class="banner-streaks" fill="var(--banner-color)">
@@ -53,8 +58,17 @@
             </text>
           </template>
           <text
+            v-if="banner.kind === 'multi-match'"
+            class="multi-match-kicker"
+            x="260"
+            y="55"
+            fill="var(--banner-color)"
+          >
+            {{ multiMatchDetail }}
+          </text>
+          <text
             x="263"
-            :y="banner.kind === 'fusion' ? 40 : 53"
+            :y="hasDetail ? 40 : 53"
             :font-size="fontSize"
             :textLength="textLength"
             lengthAdjust="spacingAndGlyphs"
@@ -66,7 +80,7 @@
           </text>
           <text
             x="260"
-            :y="banner.kind === 'fusion' ? 37 : 49"
+            :y="hasDetail ? 37 : 49"
             :font-size="fontSize"
             :textLength="textLength"
             lengthAdjust="spacingAndGlyphs"
@@ -80,17 +94,24 @@
         <path class="banner-glint" d="M119 12L139 12L110 58L90 58Z" fill="#ffffff" opacity=".12" />
       </g>
     </svg>
-    <span v-else class="announcer-ready" aria-hidden="true">
-      {{ t('✦ MATCH. BLAST. GO MEGA. ✦') }}
-    </span>
+    <slot v-else>
+      <span class="announcer-ready" aria-hidden="true">{{ t('✦ MATCH. BLAST. GO MEGA. ✦') }}</span>
+    </slot>
   </div>
 </template>
 <script setup>
-import { t } from '../i18n';
+import { t, number } from '../i18n';
 import { computed } from 'vue';
 const props = defineProps({ banner: Object });
+const hasDetail = computed(() => ['fusion', 'multi-match'].includes(props.banner?.kind));
+const multiMatchDetail = computed(() =>
+  t(props.banner?.coins != null ? '{count} LINES · +{coins} COINS' : '{count} LINES AT ONCE', {
+    count: number(props.banner?.count ?? 0),
+    coins: number(props.banner?.coins ?? 0),
+  }),
+);
 const fontSize = computed(() =>
-  props.banner?.kind === 'fusion' ? 30 : t(props.banner?.label)?.length > 15 ? 32 : 38,
+  hasDetail.value ? 30 : t(props.banner?.label)?.length > 15 ? 32 : 38,
 );
 const textLength = computed(() =>
   props.banner?.kind === 'fusion' ? 270 : t(props.banner?.label)?.length > 15 ? 358 : undefined,
@@ -122,7 +143,8 @@ const textLength = computed(() =>
   transform-origin: center;
   animation: banner-punch 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.arcade-banner-art .fusion-kicker {
+.arcade-banner-art .fusion-kicker,
+.arcade-banner-art .multi-match-kicker {
   font-family: 'Arial Black', sans-serif;
   font-size: 10px;
   font-style: normal;

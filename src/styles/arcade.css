@@ -436,12 +436,12 @@
 
 @media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
   .is-playing .play-area:has(.continuous-banner) {
-    --mode-space: 48px;
+    --mode-space: 62px;
   }
   .is-playing .continuous-banner {
     box-sizing: border-box;
     flex-wrap: nowrap;
-    height: 42px;
+    min-height: 56px;
     padding: 6px 9px;
     margin-bottom: 6px;
     gap: 8px;
@@ -451,21 +451,21 @@
     font-size: 12px;
     white-space: nowrap;
   }
-  .is-playing .continuous-banner > div > span {
+  .is-playing .continuous-banner .continuous-description {
     display: none;
   }
-  .is-playing .continuous-banner > span {
-    max-width: 145px;
+  .is-playing .continuous-coins {
     font-size: 9px;
-    text-align: right;
   }
 }
 @media (max-height: 500px) and (min-width: 480px) and (max-width: 1000px) {
   .is-playing .play-area:has(.continuous-banner) {
-    --mode-space: 12px;
+    --mode-space: 26px;
   }
   .is-playing .continuous-banner {
     grid-column: 1 / -1;
+    justify-self: center;
+    width: min(400px, calc(100vw - 16px));
   }
   .is-playing .play-area:has(.continuous-banner) .arcade-announcer {
     display: none;

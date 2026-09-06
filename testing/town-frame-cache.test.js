@@ -1,6 +1,29 @@
 import { expect, it, vi } from 'vitest';
 import { Color, PerspectiveCamera, Scene } from 'three';
+import { TownDiorama } from '../src/game/town/TownDiorama';
 import { TownFrameCache } from '../src/game/town/TownFrameCache';
+
+it('keeps villagers and raid time moving while the camera owns the next draw', () => {
+  const actor = {},
+    scene = {
+      cameraFrame: 1,
+      lastFrame: 1000,
+      elapsed: 0,
+      actors: [actor],
+      animatePerson: vi.fn(),
+      motions: [vi.fn()],
+      actorRenderer: { update: vi.fn() },
+      frameCache: { render: vi.fn() },
+    };
+  TownDiorama.prototype.tick.call(scene, 1017);
+  expect(scene.elapsed).toBeCloseTo(0.017);
+  expect(scene.animatePerson).toHaveBeenCalledWith(actor, scene.elapsed);
+  expect(scene.motions[0]).toHaveBeenCalledWith(scene.elapsed);
+  expect(scene.frameCache.render).not.toHaveBeenCalled();
+  scene.cameraFrame = 0;
+  TownDiorama.prototype.tick.call(scene, 1034);
+  expect(scene.frameCache.render).toHaveBeenCalledOnce();
+});
 
 it('reuses scenery between animation frames, refreshing after camera/building changes or resize', () => {
   let width = 390;
@@ -36,4 +59,26 @@ it('reuses scenery between animation frames, refreshing after camera/building ch
   const dispose = vi.spyOn(cache.target, 'dispose');
   cache.dispose();
   expect(dispose).toHaveBeenCalledOnce();
+});
+
+it('refreshes a village returning at the same size without reallocating its drawing buffer', () => {
+  const scene = {
+    canvas: { clientWidth: 390, clientHeight: 844 },
+    width: 390,
+    height: 844,
+    renderer: { setSize: vi.fn() },
+    render: vi.fn(),
+  };
+  const resize = () => TownDiorama.prototype.resize.call(scene);
+  resize();
+  expect(scene.render).not.toHaveBeenCalled();
+  scene.canvas.clientWidth = scene.canvas.clientHeight = 0;
+  resize();
+  expect(scene.render).not.toHaveBeenCalled();
+  Object.assign(scene.canvas, { clientWidth: 390, clientHeight: 844 });
+  resize();
+  expect(scene.render).toHaveBeenCalledOnce();
+  expect(scene.renderer.setSize).not.toHaveBeenCalled();
+  resize();
+  expect(scene.render).toHaveBeenCalledOnce();
 });

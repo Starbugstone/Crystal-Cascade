@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { browserLocale, locale, setLocale, t, number } from '../src/i18n';
 import fr from '../src/i18n/fr.json';
+import { generateLevelConfigs } from '../src/game/engine/LevelGenerator';
 import { LEVEL_NAMES } from '../src/data/levelNames';
 import { CHAPTERS, POWERS, CHEST_TIERS } from '../src/data/campaign';
 import { CHEST_DROPS } from '../src/data/rewards';
@@ -36,6 +37,7 @@ describe('One browser language across the game and town', () => {
   it('keeps a translated catalog for all levels, chapters, rewards, and town content', () => {
     const messages = [
       ...LEVEL_NAMES,
+      ...generateLevelConfigs().map((level) => level.tip),
       ...OBSTACLES.flatMap((item) => [item.name, item.instruction]),
       ...CHAPTERS.flatMap((c) => [c.name, c.description]),
       ...POWERS.map((p) => p.label),

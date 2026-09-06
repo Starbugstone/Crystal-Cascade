@@ -1,5 +1,6 @@
 <template>
-  <g class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
+  <TownSquare v-if="kind === 'square'" :stage="stage" />
+  <g v-else class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
     <ellipse
       cx="8"
       cy="14"
@@ -216,7 +217,7 @@
           />
         </g>
       </g>
-      <g v-if="kind === 'home' && stage === 2" transform="translate(-107 6)">
+      <g v-if="kind === 'home' && stage >= 2" transform="translate(-107 6)">
         <path d="M-25-66 17-58 17-5-25-13Z" fill="#e4b494" /><path
           d="m17-58 28-17v54L17-5Z"
           fill="#b78b70"
@@ -297,11 +298,34 @@
       <path d="m-36-40 40-35 41 18-18 19-28-6Z" fill="#6c8b80" />
       <path d="m-17-21 14 4v-15l-14-4Z" fill="#ecd29a" />
     </g>
+    <g v-if="stage >= 4">
+      <g v-for="x in [-80, 85]" :key="x" :transform="`translate(${x} 10)`">
+        <path d="M-18 0h36v-19h-36Z" fill="#b69c70" />
+        <ellipse cy="-21" rx="24" ry="13" fill="#81996a" />
+        <circle v-for="dx in [-12, 0, 12]" :key="dx" :cx="dx" cy="-29" r="5" fill="#edbd89" />
+      </g>
+      <path
+        d="M-100-10v-150m0 5h26v35h-26M100-26v-150m0 5H74v35h26"
+        stroke="#c3a476"
+        stroke-width="3"
+        fill="#9fbca3"
+      />
+    </g>
+    <g v-if="stage >= 5">
+      <path d="M-105 18v-80M105 5v-80" stroke="#e1cf9e" stroke-width="7" />
+      <path d="m-119-66 225-14 20 13-225 14Z" fill="#71988a" stroke="#c9d3ad" stroke-width="3" />
+      <path
+        d="m-95-77 18 23m20-25 18 23m20-25 18 23m20-25 18 23m20-25 18 23m20-25 18 23"
+        stroke="#e1cf9e"
+        stroke-width="4"
+      />
+    </g>
   </g>
 </template>
 
 <script setup>
 import { BUILDING_BY_ID } from '../../data/town';
+import TownSquare from './TownSquare.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 const props = defineProps({

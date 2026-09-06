@@ -27,6 +27,7 @@ const gameStore = useGameStore();
 const settings = useSettingsStore();
 // Phaser owns its mutable object graph. Never put it in a deep reactive ref.
 let game;
+let disposed = false;
 let observer;
 let resizeFrame;
 const resize = () => {
@@ -63,6 +64,10 @@ watch(
 onMounted(() => {
   const scene = new BoardScene();
   scene.onReady = (payload) => {
+    if (disposed || !gameStore.sessionActive) {
+      payload.particles.destroy();
+      return;
+    }
     gameStore.attachRenderer({ ...payload, game });
     payload.particles.setReducedMotion(settings.reducedMotion);
     gameStore.animationInProgress = true;
@@ -92,6 +97,7 @@ onMounted(() => {
   observer.observe(canvasRoot.value);
 });
 onBeforeUnmount(() => {
+  disposed = true;
   observer?.disconnect();
   cancelAnimationFrame(resizeFrame);
   gameStore.renderer?.input?.destroy();

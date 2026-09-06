@@ -2,7 +2,7 @@
   <section class="hud-panel" :aria-label="t('Level progress')">
     <div class="score-card">
       <span class="eyebrow"> {{ t('YOUR BRILLIANCE') }} </span>
-      <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
+      <div class="score-value" :key="game.score">
         {{ number(game.score) }}<span> {{ t('pts') }} </span>
       </div>
       <div
@@ -81,7 +81,7 @@
           t(
             game.playMode === 'continuous'
               ? 'The objectives are just a starting point. Keep matching for as long as you like.'
-              : 'Two ways to win: score high and finish fast. Speed pauses during cascades.',
+              : 'Clear the obstacles to finish. Score and time earn optional chests.',
           )
         }}
       </p>

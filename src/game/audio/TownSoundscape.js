@@ -1,4 +1,16 @@
-// Original, quiet procedural village audio: no downloaded recordings or extra asset requests.
+// Recorded village audio. Provenance and edits: public/sound/village/credits.html.
+const asset = (name) => `${import.meta.env.BASE_URL}sound/village/${name}.mp3`;
+export const VILLAGE_AUDIO = Object.freeze({
+  music: { src: asset('porch-swing'), volume: 0.45 },
+  birds: { src: asset('birds'), volume: 0.5, loop: true },
+  chatter: { src: asset('chatter'), volume: 0.32, loop: true },
+  building: { src: asset('building'), volume: 0.32 },
+  mining: { src: asset('mining'), volume: 0.35 },
+  horse: { src: asset('horse'), volume: 0.34 },
+  hooves: { src: asset('hooves'), volume: 0.45 },
+  warning: { src: asset('warning'), volume: 0.28 },
+});
+
 export const villageSounds = (state) =>
   state.raid
     ? ['hooves']
@@ -11,175 +23,290 @@ export const villageSounds = (state) =>
       ];
 const clamp = (value) => Math.min(1, Math.max(0, Number(value) || 0));
 
+// Gentle distance attenuation across the camera's 13–110 unit zoom range.
+// The fallback map uses a comfortable middle distance.
+export const villageAmbienceGain = (distance = 55) => {
+  const proximity = clamp((110 - (Number(distance) || 55)) / 97);
+  return 0.3 + 0.7 * proximity * proximity * (3 - 2 * proximity);
+};
+
 export class TownSoundscape {
   constructor({
     contextFactory = () => new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
+    mediaFactory = () => new Audio(),
+    fetchAudio = (...args) => fetch(...args),
     random = Math.random,
   } = {}) {
     this.contextFactory = contextFactory;
+    this.mediaFactory = mediaFactory;
+    this.fetchAudio = fetchAudio;
     this.random = random;
     this.state = { paused: true, musicVolume: 0, sfxVolume: 0 };
-    this.sources = new Set();
-    this.beat = 0;
+    this.sources = new Map();
+    this.pending = new Map();
+    this.buffers = new Map();
+    this.retryAfter = new Map();
+    this.abort = new AbortController();
+    this.generation = 0;
     this.disposed = false;
     this.running = false;
     this.lastSound = '';
   }
+
   async unlock() {
-    if (this.disposed) return;
+    if (this.disposed || this.state.paused) return;
     try {
       if (!this.ctx) {
         this.ctx = this.contextFactory();
         this.music = this.ctx.createGain();
         this.sfx = this.ctx.createGain();
-        this.music.connect(this.ctx.destination);
-        this.sfx.connect(this.ctx.destination);
+        this.music.gain.value = 0;
+        this.sfx.gain.value = 0;
       }
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      if (this.ctx.state !== 'running') await this.ctx.resume();
       if (!this.disposed) this.update(this.state);
     } catch {
-      /* Audio is optional on devices that cannot create or resume a context. */
+      // Unsupported audio or autoplay denial: retry on the next user gesture.
     }
   }
+
   update(state) {
-    const newRaid = state.raid && state.raid !== this.state.raid;
+    const raidChanged = state.raid !== this.state.raid;
+    const newBuild = state.buildCue && state.buildCue !== this.state.buildCue;
     this.state = { ...state };
     if (!this.ctx || this.disposed) return;
-    this.music.gain.setTargetAtTime(clamp(state.musicVolume) * 0.18, this.ctx.currentTime, 0.08);
-    this.sfx.gain.setTargetAtTime(clamp(state.sfxVolume) * 0.22, this.ctx.currentTime, 0.05);
     if (state.paused || this.ctx.state !== 'running') {
       this.stop();
       return;
     }
-    if (!this.running) {
-      this.running = true;
-      this.playMusic();
-      this.scheduleLife(1800);
+    this.running = true;
+    if (!this.outputsConnected) {
+      this.music.connect(this.ctx.destination);
+      this.sfx.connect(this.ctx.destination);
+      this.outputsConnected = true;
     }
-    if (newRaid && state.sfxVolume > 0) {
+    this.music.gain.setTargetAtTime(
+      clamp(state.musicVolume) * VILLAGE_AUDIO.music.volume * (state.raid ? 0.65 : 1),
+      this.ctx.currentTime,
+      0.4,
+    );
+    this.sfx.gain.setTargetAtTime(
+      clamp(state.sfxVolume) * villageAmbienceGain(state.cameraDistance) * 0.9,
+      this.ctx.currentTime,
+      0.3,
+    );
+    this.syncMusic();
+
+    if (raidChanged) {
+      // Cancel pending ordinary cues as well as voices already playing.
+      this.generation++;
+      this.pending.clear();
+      this.quietSources();
       clearTimeout(this.lifeTimer);
-      this.quietSources('sfx');
-      this.playLife(String(state.raid).includes('Warning shots') ? 'warning' : 'hooves');
-      this.scheduleLife();
+      this.lifeTimer = null;
+    }
+    for (const [kind] of this.sources) {
+      if (!this.canPlay(kind)) this.quietSource(kind);
+    }
+    for (const kind of this.pending.keys()) {
+      if (!this.canPlay(kind)) this.pending.delete(kind);
+    }
+    for (const kind of ['birds', 'chatter']) {
+      if (this.canPlay(kind)) this.playLife(kind);
+    }
+    const chatter = this.sources.get('chatter');
+    if (chatter) {
+      chatter.gain.gain.setTargetAtTime(this.level('chatter'), this.ctx.currentTime, 1.2);
+    }
+    if (clamp(state.sfxVolume) === 0) {
+      clearTimeout(this.lifeTimer);
+      this.lifeTimer = null;
+    } else {
+      // Load short, eligible cues ahead of their visible events. Never load music as a buffer.
+      for (const kind of villageSounds(state)) this.loadBuffer(kind);
+      if (state.raid) this.loadBuffer('warning');
+      if (newBuild && !state.raid) this.playConstruction();
+      if (raidChanged && state.raid) {
+        this.playLife(String(state.raid).includes('Warning shots') ? 'warning' : 'hooves');
+      }
+      if (!this.lifeTimer) this.scheduleLife();
     }
   }
-  tone(
-    frequency,
-    duration,
-    offset = 0,
-    volume = 0.2,
-    type = 'sine',
-    channel = 'sfx',
-    endFrequency = frequency,
-  ) {
-    const ctx = this.ctx;
-    if (!ctx || !this.running) return;
-    const source = ctx.createOscillator(),
-      gain = ctx.createGain();
-    const start = ctx.currentTime + offset;
-    source.type = type;
-    source.frequency.setValueAtTime(frequency, start);
-    source.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), start + duration);
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(volume, start + Math.min(0.025, duration / 5));
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  playConstruction() {
+    // Instant builds have no active project; their serial triggers this recording once.
+    this.pending.delete('building');
+    this.quietSource('building');
+    return this.playLife('building');
+  }
+
+  syncMusic() {
+    if (!this.running || clamp(this.state.musicVolume) === 0) {
+      this.player?.pause();
+      this.musicPending = null;
+      return;
+    }
+    if (!this.player) {
+      // Stream the complete performance instead of decoding minutes of stereo PCM on phones.
+      this.player = this.mediaFactory();
+      this.player.preload = 'none';
+      this.player.loop = true;
+      this.player.src = VILLAGE_AUDIO.music.src;
+      this.musicSource = this.ctx.createMediaElementSource(this.player);
+      this.musicSource.connect(this.music);
+    }
+    if (!this.player.paused || this.musicPending) return;
+    const request = {};
+    this.musicPending = request;
+    this.music.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.music.gain.setTargetAtTime(
+      clamp(this.state.musicVolume) * VILLAGE_AUDIO.music.volume * (this.state.raid ? 0.65 : 1),
+      this.ctx.currentTime,
+      0.5,
+    );
+    Promise.resolve(this.player.play())
+      .then(() => {
+        // A slow media load must not resurrect music after leaving, pausing or muting.
+        if (this.disposed || !this.running || clamp(this.state.musicVolume) === 0)
+          this.player.pause();
+      })
+      .catch(() => {
+        // Autoplay/load failure is isolated to music; a later gesture can retry.
+      })
+      .finally(() => {
+        if (this.musicPending === request) this.musicPending = null;
+      });
+  }
+
+  canPlay(kind) {
+    if (!this.running || this.disposed || clamp(this.state.sfxVolume) === 0) return false;
+    if (kind === 'warning') return String(this.state.raid).includes('Warning shots');
+    if (kind === 'building' && this.state.buildCue && !this.state.raid) return true;
+    return villageSounds(this.state).includes(kind);
+  }
+
+  level(kind) {
+    const population = Math.max(0, Number(this.state.population) || 0);
+    return (
+      VILLAGE_AUDIO[kind].volume * (kind === 'chatter' ? 0.55 + Math.min(0.45, population / 24) : 1)
+    );
+  }
+
+  loadBuffer(kind) {
+    if (this.disposed || !this.ctx || kind === 'music') return Promise.resolve(null);
+    if (this.buffers.has(kind)) return this.buffers.get(kind);
+    if ((this.retryAfter.get(kind) || 0) > Date.now()) return Promise.resolve(null);
+    const pending = (async () => {
+      try {
+        const response = await this.fetchAudio(VILLAGE_AUDIO[kind].src, {
+          signal: this.abort.signal,
+        });
+        if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        if (this.disposed) return null;
+        return await this.ctx.decodeAudioData(bytes);
+      } catch {
+        this.buffers.delete(kind);
+        this.retryAfter.set(kind, Date.now() + 30000);
+        return null;
+      }
+    })();
+    this.buffers.set(kind, pending);
+    return pending;
+  }
+
+  async playLife(kind) {
+    if (!this.canPlay(kind) || this.sources.has(kind) || this.pending.has(kind)) return;
+    const request = { generation: this.generation };
+    this.pending.set(kind, request);
+    const buffer = await this.loadBuffer(kind);
+    if (this.pending.get(kind) !== request) return;
+    this.pending.delete(kind);
+    if (!buffer || request.generation !== this.generation || !this.canPlay(kind)) return;
+    const source = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    source.buffer = buffer;
+    source.loop = !!VILLAGE_AUDIO[kind].loop;
+    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(
+      this.level(kind),
+      this.ctx.currentTime + (source.loop ? 1.8 : 0.015),
+    );
     source.connect(gain);
-    gain.connect(this[channel]);
-    source.channel = channel;
-    this.sources.add(source);
+    gain.connect(this.sfx);
+    const voice = { source, gain };
+    this.sources.set(kind, voice);
     source.onended = () => {
-      this.sources.delete(source);
+      if (this.sources.get(kind) === voice) this.sources.delete(kind);
       source.disconnect();
       gain.disconnect();
     };
-    source.start(start);
-    source.stop(start + duration + 0.02);
+    // Different start positions keep the two recorded ambience loops from moving in lockstep.
+    source.start(0, source.loop ? this.random() * buffer.duration : 0);
   }
-  playMusic() {
-    if (!this.running) return;
-    if (this.state.musicVolume > 0) {
-      const roots = [130.81, 174.61, 146.83, 196];
-      const root = roots[Math.floor(this.beat / 4) % roots.length];
-      // A slow, soft pentatonic phrase over a warm bass; no busy percussion.
-      this.tone(root * [2, 3, 2.5, 3][this.beat % 4], 2.5, 0, 0.15, 'triangle', 'music');
-      if (this.beat % 4 === 0) this.tone(root, 3.8, 0, 0.16, 'sine', 'music');
-      this.beat++;
-    }
-    this.musicTimer = setTimeout(() => this.playMusic(), 2800);
-  }
-  scheduleLife(delay = 9000 + this.random() * 8000) {
-    if (!this.running) return;
+
+  scheduleLife(delay = 11000 + this.random() * 9000) {
+    if (!this.running || clamp(this.state.sfxVolume) === 0) return;
     this.lifeTimer = setTimeout(() => {
-      const choices = villageSounds(this.state).filter((kind) => kind !== this.lastSound);
-      const kind = choices[Math.floor(this.random() * choices.length)] ?? 'hooves';
-      if (this.state.sfxVolume > 0) {
+      this.lifeTimer = null;
+      const eligible = villageSounds(this.state).filter((kind) => !VILLAGE_AUDIO[kind].loop);
+      const alternatives = eligible.filter((kind) => kind !== this.lastSound);
+      const choices = alternatives.length ? alternatives : eligible;
+      const kind = choices[Math.floor(this.random() * choices.length)];
+      if (kind) {
         this.playLife(kind);
         this.lastSound = kind;
       }
       this.scheduleLife();
     }, delay);
   }
-  playLife(kind) {
-    if (kind === 'birds') {
-      for (let n = 0; n < 3; n++)
-        this.tone(1800 + n * 240, 0.15, n * 0.23, 0.11, 'sine', 'sfx', 2800 - n * 130);
-    } else if (kind === 'building' || kind === 'mining') {
-      for (let n = 0; n < 3; n++) {
-        this.tone(
-          kind === 'building' ? 230 : 1100,
-          0.1,
-          n * 0.42,
-          0.32,
-          'triangle',
-          'sfx',
-          kind === 'building' ? 75 : 780,
-        );
-        if (kind === 'mining') this.tone(1860, 0.24, n * 0.42, 0.06);
-      }
-    } else if (kind === 'chatter') {
-      // Low, overlapping vowel-like murmurs, with no intelligible speech.
-      for (let n = 0; n < 8; n++) {
-        const pitch = 125 + (n % 3) * 35;
-        this.tone(pitch, 0.16 + (n % 2) * 0.1, n * 0.19, 0.14, 'triangle', 'sfx', pitch * 1.18);
-        this.tone(pitch * 3.4, 0.14, n * 0.19, 0.045, 'sine', 'sfx', pitch * 2.7);
-      }
-    } else if (kind === 'horse') {
-      for (let n = 0; n < 5; n++)
-        this.tone(540 - n * 45, 0.2, n * 0.11, 0.12, 'triangle', 'sfx', 380 - n * 30);
-    } else if (kind === 'warning') {
-      for (let n = 0; n < 2; n++) this.tone(170, 0.13, n * 0.9, 0.18, 'triangle', 'sfx', 45);
-    } else if (kind === 'hooves') {
-      for (let n = 0; n < 8; n++)
-        this.tone(
-          n % 2 ? 180 : 135,
-          0.075,
-          n * 0.15 + (n % 2) * 0.035,
-          0.28,
-          'triangle',
-          'sfx',
-          55,
-        );
-    }
+
+  quietSource(kind) {
+    const voice = this.sources.get(kind);
+    if (!voice) return;
+    this.sources.delete(kind);
+    // Short release avoids a click when a dialog or raid interrupts a recording.
+    voice.gain.gain.cancelScheduledValues(this.ctx.currentTime);
+    voice.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.015);
+    voice.source.stop(this.ctx.currentTime + 0.08);
   }
-  quietSources(channel) {
-    for (const source of this.sources)
-      if (!channel || source.channel === channel) {
-        try {
-          source.stop();
-        } catch {
-          /* Already ended. */
-        }
-      }
+
+  quietSources() {
+    for (const kind of this.sources.keys()) this.quietSource(kind);
   }
+
   stop() {
     clearTimeout(this.lifeTimer);
-    clearTimeout(this.musicTimer);
+    this.lifeTimer = null;
     this.running = false;
+    this.generation++;
+    this.pending.clear();
+    this.player?.pause();
+    this.musicPending = null;
+    // Gate the output too: releasing or delayed voices must never bleed into the mine.
+    for (const bus of [this.music, this.sfx]) {
+      bus?.gain.cancelScheduledValues(this.ctx.currentTime);
+      bus?.gain.setValueAtTime(0, this.ctx.currentTime);
+      bus?.disconnect();
+    }
+    this.outputsConnected = false;
     this.quietSources();
   }
+
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     this.stop();
+    this.abort.abort();
+    this.buffers.clear();
+    this.retryAfter.clear();
+    if (this.player) {
+      this.player.removeAttribute('src');
+      this.player.load();
+    }
+    this.musicSource?.disconnect();
+    this.music?.disconnect();
+    this.sfx?.disconnect();
     this.ctx?.close().catch(() => {});
   }
 }

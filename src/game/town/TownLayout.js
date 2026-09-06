@@ -3,6 +3,7 @@ export const PLOTS = {
   home: [-7, -4],
   farm: [7, -4],
   well: [0, 2.4],
+  square: [0, -5],
   saloon: [-7, 4],
   stable: [7, 4],
   sheriff: [0, 11],
@@ -24,6 +25,14 @@ export const plotStreet = (id) => {
   const [x, z] = PLOTS[id];
   return x === 0 && id !== 'mine' ? [LANE_X, z + 2] : [x, z + (id === 'mine' ? 4.5 : 3.5)];
 };
+// The sheriff patrols both main streets, passing the bank, mine and department.
+export const SHERIFF_PATROL = [
+  plotStreet('sheriff'),
+  [LANE_X, 15.5],
+  [-LANE_X, 15.5],
+  [-LANE_X, -8.5],
+  [LANE_X, -8.5],
+];
 const road = (from, to, width = 0.85) => ({ from, to, width });
 export const TOWN_TRACKS = [
   ...[-LANE_X, LANE_X].map((x) => road([x, -18], [x, 27], 1.05)),

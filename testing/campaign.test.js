@@ -5,7 +5,7 @@ import { generateLevelConfigs } from '../src/game/engine/LevelGenerator';
 import { useGameStore } from '../src/stores/gameStore';
 import { useCampaignStore, SAVE_KEY } from '../src/stores/campaignStore';
 import { useInventoryStore } from '../src/stores/inventoryStore';
-import { getChestTier, rollChestPower } from '../src/data/campaign';
+import { getChestTier } from '../src/data/campaign';
 
 let saved;
 beforeEach(() => {
@@ -28,39 +28,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('provides 36 levels with steadily increasing objectives and staged obstacles', () => {
-  const levels = generateLevelConfigs(36);
-  expect(levels).toHaveLength(36);
-  levels.forEach((level, index) => {
-    if (index > 0) {
-      expect(level.objectives[0].target).toBeGreaterThan(levels[index - 1].objectives[0].target);
-      expect(level.chestTarget).toBeGreaterThan(levels[index - 1].chestTarget);
-    }
-    expect(level.tiles.filter((tile) => tile.type === 'blocker').length > 0).toBe(level.id >= 7);
-    expect(level.tiles.some((tile) => tile.type === 'blocker' && tile.health === 2)).toBe(
-      level.id >= 19,
+it('stages obstacles while leaving a lighter fifth puzzle in every chapter', () => {
+  const levels = generateLevelConfigs();
+  expect(levels).toHaveLength(60);
+  for (let start = 0; start < levels.length; start += 6) {
+    const chapter = levels.slice(start, start + 6);
+    const workload = chapter.map((level) => level.objectives[0].target);
+    expect(workload[4]).toBeLessThan(workload[3]);
+    expect(workload[5]).toBeGreaterThan(workload[4]);
+    expect(chapter[4].chestTarget).toBeLessThan(chapter[3].chestTarget);
+    if (start) expect(workload[0]).toBeLessThan(levels[start - 1].objectives[0].target);
+  }
+  for (const level of levels.slice(0, 36)) {
+    const blockers = level.tiles.filter((tile) => tile.type === 'blocker');
+    expect(blockers.length > 0).toBe(level.id >= 7);
+    expect(blockers.some((tile) => tile.health === 2)).toBe(
+      level.id >= 19 && level.pace !== 'rest',
     );
-    expect(level.tiles.some((tile) => tile.type === 'standard' && tile.health === 2)).toBe(
-      level.id >= 13,
-    );
+    expect(level.tiles.some((tile) => tile.state === 'FROZEN')).toBe(level.id >= 31);
     level.tiles.forEach((tile, i) => expect(level.board[i] === null).toBe(tile.type === 'blocker'));
-  });
+  }
 });
 
-it('gives early levels more ice targets before introducing layered ice on larger boards', () => {
-  const levels = generateLevelConfigs(36);
-  expect(levels[0].objectives[0].target).toBe(20);
+it('gives the four-color opening enough ice to play and keeps the first two chapters single-layered', () => {
+  const levels = generateLevelConfigs();
+  expect(levels[0].objectives[0].target).toBe(32);
   for (const level of levels.slice(0, 12)) {
-    const ice = level.tiles.filter((tile) => tile.type === 'standard' && tile.health > 0);
-    expect(ice.every((tile) => tile.health === 1)).toBe(true);
+    level.tiles.forEach((tile) => {
+      expect(tile.health).toBeLessThanOrEqual(1);
+    });
   }
-  for (const level of levels) {
-    const iceLayers = level.tiles.reduce(
-      (sum, tile) => sum + (tile.type === 'standard' ? tile.health : 0),
-      0,
-    );
-    expect(iceLayers).toBeGreaterThan(12 + (level.id - 1) * 2);
-  }
+  for (const level of levels) expect(level.tiles.every((tile) => tile.health <= 2)).toBe(true);
 });
 it('enforces sequential unlocks in the game action, saves completion and awards only once', () => {
   const game = useGameStore();
@@ -69,7 +67,7 @@ it('enforces sequential unlocks in the game action, saves completion and awards 
   expect(game.startLevel(3)).toBe(false);
   expect(game.sessionActive).toBe(false);
   game.startLevel(1);
-  game.score = 6000;
+  game.score = game.objectives.find((objective) => objective.type === 'score').target;
   game.completeLevel();
   expect(campaign.completedCount).toBe(0);
   game.remainingLayers = 0;
@@ -128,22 +126,6 @@ it('recovers from malformed saves and unavailable storage', () => {
   ).not.toThrow();
 });
 
-it('gives Clear Row and Shuffle 35% each, and each other power 10%', () => {
-  const counts = {};
-  for (let i = 0; i < 100; i++) {
-    const power = rollChestPower(() => (i + 0.5) / 100);
-    counts[power.id] = (counts[power.id] ?? 0) + 1;
-  }
-  expect(counts).toEqual({
-    'clear-row': 35,
-    shuffle: 35,
-    hammer: 10,
-    'color-wand': 10,
-    'tile-breaker': 10,
-  });
-  expect(rollChestPower(() => 0).id).toBe('clear-row');
-  expect(rollChestPower(() => 0.999999).id).toBe('tile-breaker');
-});
 it('makes one weighted roll per earned chest and saves exactly those awards', () => {
   chestRewards.rollChestReward.mockRestore();
   const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValueOnce(0.7);

@@ -11,8 +11,9 @@ import {
   CONTINUOUS_COIN_CAP,
   HAMMER_CAPACITY,
   rollChestReward,
+  shuffleChestDrops,
 } from '../src/data/rewards';
-import { advanceConstruction, normalizeTown, purchase } from '../src/game/town/TownRules';
+import { advanceConstruction, purchase } from '../src/game/town/TownRules';
 let saved;
 beforeEach(() => {
   saved = new Map();
@@ -44,11 +45,13 @@ describe('A village with lasting choices', () => {
     expect(campaign.canPlay(2)).toBe(true);
     expect(campaign.canReplay).toBe(false);
     campaign.town = advanceConstruction(campaign.town);
+    expect(campaign.canReplay).toBe(false);
+    expect(campaign.finishConstruction('museum', 1)).toBe(true);
     expect(campaign.canPlay(1)).toBe(true);
     expect(campaign.canPlay(2, 'continuous')).toBe(true);
     expect(game.startLevel(3, 'continuous')).toBe(false);
   });
-  it('opens small buildings immediately and shortens funded legacy construction', () => {
+  it('opens small buildings immediately and requires one run for larger buildings', () => {
     expect(
       Object.fromEntries(BUILDINGS.filter((b) => !b.unlock).map((b) => [b.id, b.upgrades[0].runs])),
     ).toEqual({
@@ -62,56 +65,71 @@ describe('A village with lasting choices', () => {
       armory: 1,
       bank: 1,
       shop: 1,
+      square: 0,
     });
-    const town = normalizeTown({
-      ...createTown(),
-      projects: {
-        well: { id: 'well', stage: 1, wins: 1 },
-        museum: { id: 'museum', stage: 1, wins: 2, required: 4 },
-      },
-    });
-    expect(town.buildings.well).toBe(1);
-    expect(town.projects.museum).toMatchObject({ wins: 0, required: 1 });
-    expect(advanceConstruction(town).buildings.museum).toBe(1);
   });
-  it('spends one hammer on only the selected plot and rejects stale requests', () => {
+  it('builds for free with no coins, grants benefits immediately, and persists exactly once', () => {
     const campaign = useCampaignStore();
-    campaign.town.coins = 300;
-    campaign.upgradeBuilding('museum', 0);
-    campaign.upgradeBuilding('armory', 0);
+    campaign.upgradeBuilding('well', 0);
+    campaign.town.coins = 0;
     award('builder-hammer', 2);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(true);
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(true);
+    expect(campaign.town.coins).toBe(0);
     expect(campaign.town.projects.museum).toBeUndefined();
     expect(campaign.canReplay).toBe(true);
-    expect(campaign.town.projects.armory.wins).toBe(0);
     expect(campaign.builderHammers).toBe(1);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(false);
-    expect(campaign.useBuilderHammer('home', 1, 0)).toBe(false);
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(false);
     setActivePinia(createPinia());
-    expect(useCampaignStore().builderHammers).toBe(1);
-    expect(useCampaignStore().canReplay).toBe(true);
+    const reloaded = useCampaignStore();
+    expect(reloaded.builderHammers).toBe(1);
+    expect(reloaded.canReplay).toBe(true);
+    expect(reloaded.town.coins).toBe(0);
+    expect(reloaded.useBuilderHammer('museum', 0)).toBe(false);
   });
-  it('grants a building benefit on the last hammer step, then cannot spend on it again', () => {
+  it('opens small buildings and upgrades every tier without coins or puzzle progress', () => {
+    const campaign = useCampaignStore();
+    campaign.upgradeBuilding('well', 0);
+    award('builder-hammer', 5);
+    expect(campaign.useBuilderHammer('farm', 0)).toBe(true);
+    for (let stage = 0; stage < 3; stage++) {
+      expect(campaign.useBuilderHammer('armory', stage)).toBe(true);
+      expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage + 1]);
+      expect(campaign.town.projects.armory).toBeUndefined();
+      expect(campaign.town.coins).toBe(0);
+    }
+    expect(campaign.useBuilderHammer('armory', 3)).toBe(false);
+    expect(campaign.builderHammers).toBe(1);
+    expect(campaign.records).toEqual({});
+  });
+  it('rejects locked, unknown, stale, and already funded work without spending a hammer', () => {
     const campaign = useCampaignStore();
     campaign.upgradeBuilding('museum', 0);
-    award('builder-hammer', 1);
-    for (let i = 0; i < 1; i++) {
-      expect(campaign.canReplay).toBe(false);
-      expect(campaign.useBuilderHammer('museum', 1, i)).toBe(true);
+    award('builder-hammer', 3);
+    for (const [id, stage] of [
+      ['home2', 0],
+      ['unknown', 0],
+      ['constructor', 0],
+      ['well', 1],
+      ['museum', 0],
+      ['museum', 1],
+    ]) {
+      expect(campaign.useBuilderHammer(id, stage)).toBe(false);
     }
-    expect(campaign.canReplay).toBe(true);
-    expect(campaign.builderHammers).toBe(0);
-    expect(campaign.useBuilderHammer('museum', 1, 4)).toBe(false);
-    expect(campaign.records).toEqual({});
+    expect(campaign.builderHammers).toBe(3);
+    expect(campaign.town.projects.museum).toMatchObject({ stage: 1, wins: 0 });
+    expect(campaign.useBuilderHammer('well', 0)).toBe(true);
+    expect(campaign.useBuilderHammer('well', 1)).toBe(true);
+    expect(campaign.useBuilderHammer('well2', 0)).toBe(true);
+    expect(campaign.town.projects.museum.wins).toBe(0);
     expect(campaign.town.coins).toBe(0);
   });
-  it('does not use the puzzle hammer as a construction hammer', () => {
+  it('requires a builder hammer even when puzzle hammers are available', () => {
     const campaign = useCampaignStore();
-    campaign.upgradeBuilding('museum', 0);
     award('hammer');
+    expect(campaign.useBuilderHammer('museum', 0)).toBe(false);
     expect(campaign.powers.find((p) => p.id === 'hammer').quantity).toBe(1);
-    expect(campaign.useBuilderHammer('museum', 1, 0)).toBe(false);
-    expect(campaign.town.projects.museum.wins).toBe(0);
+    expect(campaign.town.buildings.museum).toBe(0);
+    expect(campaign.town.projects).toEqual({});
   });
   it('raises capacity only on completion at all armory tiers', () => {
     const campaign = useCampaignStore();
@@ -123,6 +141,8 @@ describe('A village with lasting choices', () => {
         expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage]);
         campaign.town = advanceConstruction(campaign.town);
       }
+      expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage]);
+      expect(campaign.finishConstruction('armory', stage + 1)).toBe(true);
       expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage + 1]);
       award('shuffle', 100);
       expect(campaign.powers.find((p) => p.id === 'shuffle').quantity).toBe(campaign.bonusLimit);
@@ -131,13 +151,34 @@ describe('A village with lasting choices', () => {
 });
 
 describe('Bounded, saved chest rewards', () => {
+  it('randomizes each visual order while preserving every reward and the weighted catalog', () => {
+    const catalog = CHEST_DROPS.map((drop) => ({ ...drop }));
+    const first = shuffleChestDrops(() => 0);
+    const second = shuffleChestDrops(() => 0.999);
+    expect(first).not.toEqual(second);
+    const sorted = (drops) => [...drops].sort((a, b) => a.id.localeCompare(b.id));
+    for (const order of [first, second]) {
+      expect(order).not.toBe(CHEST_DROPS);
+      expect(sorted(order)).toEqual(sorted(catalog));
+    }
+    expect(CHEST_DROPS).toEqual(catalog);
+  });
   it('rolls 70% powers, 20% coins and 10% builder hammers', () => {
-    const counts = {};
+    const counts = {},
+      powers = {};
     for (let i = 0; i < 1000; i++) {
       const r = rollChestReward(() => (i + 0.5) / 1000);
       counts[r.kind] = (counts[r.kind] ?? 0) + 1;
+      if (r.kind === 'power') powers[r.id] = (powers[r.id] ?? 0) + 1;
     }
     expect(counts).toEqual({ power: 700, coins: 200, 'builder-hammer': 100 });
+    expect(powers).toEqual({
+      'clear-row': 245,
+      shuffle: 245,
+      hammer: 70,
+      'color-wand': 70,
+      'tile-breaker': 70,
+    });
   });
   it.each(['clear-row', 'hammer', 'color-wand', 'shuffle', 'tile-breaker'])(
     'caps %s and converts excess from every award route',
@@ -189,7 +230,7 @@ describe('Bounded, saved chest rewards', () => {
     expect(useCampaignStore().recordVictory(input)).toEqual([]);
     expect(useCampaignStore().builderHammers).toBe(1);
   });
-  it('uses newly completed armory space for chests from that same victory', () => {
+  it('keeps the old armory capacity for victory chests until the building is opened', () => {
     const campaign = useCampaignStore();
     campaign.upgradeBuilding('armory', 0);
     campaign.powers.find((p) => p.id === 'clear-row').quantity = 3;
@@ -201,9 +242,11 @@ describe('Bounded, saved chest rewards', () => {
       target: 6000,
       combo: 1,
     });
+    expect(campaign.bonusLimit).toBe(3);
+    expect(rewards[0].items[0].kind).toBe('coins');
+    expect(campaign.powers.find((p) => p.id === 'clear-row').quantity).toBe(3);
+    expect(campaign.finishConstruction('armory', 1)).toBe(true);
     expect(campaign.bonusLimit).toBe(5);
-    expect(rewards[0].items[0].kind).toBe('power');
-    expect(campaign.powers.find((p) => p.id === 'clear-row').quantity).toBe(4);
   });
   it('migrates over-cap saved inventory once, preserving its value as coins', () => {
     saved.set(

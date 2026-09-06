@@ -17,13 +17,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('generates sixty settled six-color boards with at least three legal opening moves', () => {
+it('generates settled chapter palettes with plenty of legal opening moves', () => {
   for (const level of generateLevelConfigs()) {
     const { board, tiles, boardCols: cols, boardRows: rows } = level;
-    expect(level.boardLayout.gemTypeCount).toBe(6);
+    expect(level.boardLayout.gemTypeCount).toBe(level.id <= 12 ? 4 : 5);
     expect(
       new Set(board.filter((gem) => gem && gem.type !== 'relic').map((gem) => gem.type)),
-    ).toEqual(new Set(['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone']));
+    ).toEqual(new Set(level.boardLayout.gemTypes));
     expect(engine.findMatches(board, cols, rows, tiles)).toEqual([]);
     let moves = 0;
     for (let a = 0; a < board.length; a++) {
@@ -31,7 +31,7 @@ it('generates sixty settled six-color boards with at least three legal opening m
         if (engine.evaluateSwap(board, cols, rows, a, b, tiles).matches.length) moves++;
       }
     }
-    expect(moves).toBeGreaterThanOrEqual(3);
+    expect(moves).toBeGreaterThanOrEqual(level.id <= 12 ? 6 : 3);
   }
 });
 
@@ -203,4 +203,32 @@ it('buffers input during a rejected swap and drains it after the bounce', async 
   await pending;
   expect(store.animationInProgress).toBe(false);
   expect(drain).toHaveBeenCalledOnce();
+});
+
+it('holds buffered moves through a pause and resumes them only when play resumes', () => {
+  const game = useGameStore();
+  game.sessionActive = true;
+  game.queuedSwap = { aIndex: 0, bIndex: 1 };
+  game.inputPaused = true;
+  const swap = vi.spyOn(game, 'resolveSwap').mockResolvedValue(true);
+  game.processQueuedInput();
+  expect(swap).not.toHaveBeenCalled();
+  expect(game.queuedSwap).toEqual({ aIndex: 0, bIndex: 1 });
+  game.inputPaused = false;
+  game.processQueuedInput();
+  expect(swap).toHaveBeenCalledExactlyOnceWith(0, 1);
+  expect(game.queuedSwap).toBeNull();
+});
+
+it('keeps keyboard focus usable when replaying a smaller board', () => {
+  const input = new BoardInput({
+    scene: {},
+    gameStore: { sessionActive: true, notifyPlayerActivity: vi.fn() },
+  });
+  input.setLayout({ boardCols: 7, boardRows: 9, cellSize: 40 });
+  input.focusIndex = 62;
+  input.setLayout({ boardCols: 6, boardRows: 7, cellSize: 40 });
+  expect(input.focusIndex).toBe(41);
+  input.handleKey({ key: 'ArrowLeft', preventDefault: vi.fn() });
+  expect(input.focusIndex).toBe(40);
 });

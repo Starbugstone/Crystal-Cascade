@@ -30,20 +30,78 @@
         <span>{{ t('Bonuses left on the board') }}</span
         ><b>{{ bonusGems }} × {{ BONUS_GEM_COINS }}</b>
       </div>
+      <template v-if="comboRewards.length">
+        <h3>{{ t('COMBO BONUSES') }}</h3>
+        <div v-for="reward in comboRewards" :key="`combo-${reward.tier}`">
+          <span
+            >{{ t('Combo ×{tier}', { tier: number(reward.tier) }) }}
+            <small>{{
+              t('{count} × {coins} coins', {
+                count: number(reward.count),
+                coins: number(reward.coinsEach),
+              })
+            }}</small>
+          </span>
+          <b>+{{ number(reward.coins) }}</b>
+        </div>
+      </template>
+      <template v-if="multiMatchRewards.length">
+        <h3 class="multi-match-heading">{{ t('SIMULTANEOUS MATCH BONUSES') }}</h3>
+        <div
+          v-for="reward in multiMatchRewards"
+          :key="`multi-${reward.tier}`"
+          class="multi-match-reward"
+        >
+          <span
+            >{{ t('{count} lines at once', { count: number(reward.tier) }) }}
+            <small>{{
+              t('{count} × {coins} coins', {
+                count: number(reward.count),
+                coins: number(reward.coinsEach),
+              })
+            }}</small>
+          </span>
+          <b>+{{ number(reward.coins) }}</b>
+        </div>
+      </template>
+      <div v-if="depthPercent" class="coin-depth-bonus">
+        <span>{{ t('Depth bonus · +{percent}%', { percent: depthPercent }) }}</span>
+        <b>+{{ number(depthCoins) }}</b>
+      </div>
     </div>
   </div>
 </template>
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../i18n';
-import { BONUS_GEM_COINS } from '../game/town/TownRules';
+import { depthBonusPercent, miningDepthBonus } from '../data/economy';
+import { BONUS_GEM_COINS, miningPayout } from '../game/town/TownRules';
+import {
+  COMBO_COIN_STEP,
+  MULTI_MATCH_COIN_STEP,
+  matchRewardBreakdown,
+} from '../game/engine/MatchRewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 const props = defineProps({
+  levelId: { type: Number, default: 1 },
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   bonusGems: { type: Number, default: 0 },
+  comboCounts: { type: Object, default: () => ({}) },
+  multiMatchCounts: { type: Object, default: () => ({}) },
 });
+const depthPercent = computed(() => depthBonusPercent(props.levelId));
+const depthCoins = computed(() =>
+  miningDepthBonus(
+    miningPayout(props.jewels, props.bonusGems, props.comboCounts, props.multiMatchCounts),
+    props.levelId,
+  ),
+);
+const comboRewards = computed(() => matchRewardBreakdown(props.comboCounts, COMBO_COIN_STEP));
+const multiMatchRewards = computed(() =>
+  matchRewardBreakdown(props.multiMatchCounts, MULTI_MATCH_COIN_STEP),
+);
 const settings = useSettingsStore(),
   game = useGameStore();
 const displayedCoins = ref(settings.reducedMotion ? props.coins : 0),
@@ -142,6 +200,31 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 .coin-breakdown b {
   color: #ffdf97;
   white-space: nowrap;
+}
+.coin-breakdown h3 {
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #f8c64a30;
+  color: #ffe19a;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-align: left;
+}
+.coin-depth-bonus {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #f8c64a30;
+  color: #ffe19a;
+}
+.coin-breakdown small {
+  display: block;
+  margin-top: 2px;
+  color: #cbb7ce;
+  font-size: 10px;
+}
+.coin-breakdown .multi-match-heading,
+.multi-match-reward b {
+  color: #8bf7ff;
 }
 .coin-burst {
   position: absolute;

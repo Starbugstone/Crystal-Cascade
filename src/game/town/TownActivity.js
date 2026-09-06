@@ -164,7 +164,7 @@ export function addTownVisitors(d, town) {
     for (let n = 0; n < town.buildings.stable; n++) {
       const mounted = mountedRider(d, d.world, {
         seed: n + 3,
-        color: ['#7f9191', '#a77a66', '#879667'][n],
+        color: ['#7f9191', '#a77a66', '#879667'][n % 3],
       });
       const curve = new THREE.CatmullRomCurve3(
         [
@@ -181,7 +181,7 @@ export function addTownVisitors(d, town) {
         0.08,
       );
       d.motions.push((time) => {
-        const progress = (time / 65 + n / 3) % 1,
+        const progress = (time / 65 + n / town.buildings.stable) % 1,
           tangent = curve.getTangentAt(progress);
         mounted.root.position.copy(curve.getPointAt(progress));
         mounted.root.rotation.y = Math.atan2(tangent.x, tangent.z);

@@ -1,6 +1,7 @@
 <template>
   <div
     class="app-shell"
+    :data-mine-theme="game.sessionActive ? currentConfig?.theme : undefined"
     :class="{
       'is-playing': game.sessionActive,
       'is-town': !game.sessionActive,
@@ -9,6 +10,7 @@
       'high-contrast': settings.highContrastMode,
     }"
   >
+    <MineBackdrop v-if="game.sessionActive" :theme="currentConfig?.theme" />
     <div
       v-if="
         game.arcadeImpact && game.sessionActive && !game.levelCleared && !settings.reducedMotion
@@ -85,7 +87,9 @@
 
     <LandingView v-if="!game.sessionActive && view === 'landing'" @enter="showTown" />
     <TownView
-      v-else-if="!game.sessionActive"
+      v-if="townVisited"
+      v-show="townActive"
+      :active="townActive"
       :key="townVisit"
       :open-museum="returnToMuseum"
       @museum-change="returnToMuseum = $event"
@@ -94,7 +98,7 @@
       @continuous="startLevel($event, 'continuous')"
     />
 
-    <main v-else class="game-layout">
+    <main v-if="game.sessionActive" class="game-layout">
       <aside class="game-sidebar">
         <button class="text-button back-button" @click="showTown">
           <GameIcon name="back" /> {{ t('Back to village') }}
@@ -129,21 +133,14 @@
               >
             </div>
           </div>
-          <p>
-            {{
-              t(
-                'Break the ice beneath your matches. Match beside stone to release the gems above. Gold bands take two hits.',
-              )
-            }}
-          </p>
-          <p class="fusion-tip">
+          <p>{{ t(currentConfig?.tip) }}</p>
+          <p v-if="game.currentLevelId >= 4" class="fusion-tip">
             {{
               t(
                 'Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a whole color into bombs or lasers.',
               )
             }}
           </p>
-          <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
           <span v-if="game.playMode !== 'continuous'" class="guide-footnote">{{
             t('Beat the score. Beat the clock. Win both chests.')
           }}</span>
@@ -157,21 +154,56 @@
           '--fusion-color': game.arcadeImpact?.color,
         }"
       >
-        <div v-if="game.playMode === 'continuous'" class="continuous-banner" role="status">
+        <div v-if="game.playMode === 'continuous'" class="continuous-banner">
           <div>
             <strong>∞ {{ t('Continuous play') }}</strong
-            ><span>{{
+            ><span class="continuous-description">{{
               t('Keep matching after the objectives. No chests or construction steps.')
             }}</span>
+            <span class="continuous-coins" role="status">{{
+              t('{earned}/{cap} coins saved for this level', {
+                earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
+                cap: CONTINUOUS_COIN_CAP,
+              })
+            }}</span>
           </div>
-          <span>{{
-            t('{earned}/{cap} coins saved for this level', {
-              earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
-              cap: CONTINUOUS_COIN_CAP,
-            })
-          }}</span>
+          <button class="continuous-exit" :disabled="game.animationInProgress" @click="showVillage">
+            <GameIcon name="home" /> {{ t('Exit mine') }}
+          </button>
         </div>
-        <ArcadeBanner :banner="game.arcadeBanner" />
+        <ArcadeBanner :banner="game.arcadeBanner">
+          <div class="mine-seam">
+            <span class="mine-seam-copy">
+              <span>{{
+                t('{cols} × {rows} · {count} jewel types', {
+                  cols: game.boardCols,
+                  rows: game.boardRows,
+                  count: currentConfig?.boardLayout.gemTypeCount,
+                })
+              }}</span>
+              <small
+                >{{
+                  t(
+                    currentConfig?.pace === 'rest'
+                      ? 'Quiet chamber'
+                      : currentConfig?.pace === 'finale'
+                        ? 'Chapter finale'
+                        : 'Explore the seam',
+                  )
+                }}
+                · {{ t('No move limit') }}</small
+              >
+            </span>
+            <span class="mine-jewels" :aria-label="t('Jewels in this seam')">
+              <img
+                v-for="gem in currentConfig?.boardLayout.gemTypes"
+                :key="gem"
+                :src="`/art/${gem}.svg`"
+                :alt="t(gem)"
+              />
+            </span>
+          </div>
+        </ArcadeBanner>
         <div class="board-topline">
           <span
             ><i class="live-dot"></i
@@ -265,10 +297,13 @@
     </footer>
     <VictoryModal
       v-if="game.levelCleared"
+      :level-id="game.currentLevelId"
       :rewards="game.levelRewards"
       :coins="game.coinReward"
       :jewels="game.collectedJewels"
       :bonus-gems="game.remainingBonusGems"
+      :combo-counts="game.comboCounts"
+      :multi-match-counts="game.multiMatchCounts"
       :construction="game.constructionReward"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
@@ -303,6 +338,7 @@ import { t } from './i18n';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
+import MineBackdrop from './components/MineBackdrop.vue';
 import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
 import MobileGameHeader from './components/MobileGameHeader.vue';
@@ -325,12 +361,14 @@ const game = useGameStore();
 const campaign = useCampaignStore();
 const view = ref('landing');
 const townVisit = ref(0);
+const townVisited = ref(false);
+const townActive = computed(() => !game.sessionActive && view.value === 'town');
 const returnToMuseum = ref(false);
 const showTown = () => {
   returnToMuseum.value = game.playMode === 'continuous';
   game.exitLevel();
   view.value = 'town';
-  townVisit.value++;
+  townVisited.value = true;
 };
 const showVillage = () => {
   if (game.sessionActive || view.value !== 'town') showTown();
@@ -355,6 +393,7 @@ const resetProgress = () => {
   campaign.resetProgress();
   returnToMuseum.value = false;
   townVisit.value++;
+  townVisited.value = true;
   view.value = 'town';
 };
 const settings = useSettingsStore();
@@ -432,19 +471,22 @@ const updateInputPause = () => {
     document.hidden || settings.isSettingsOpen || mobileDetailsOpen.value || guideOpen.value;
   game.renderer?.input?.reset();
   if (game.inputPaused) game.cancelHint(true);
-  else if (game.sessionActive && !game.levelCleared) game.scheduleHint();
+  else if (game.sessionActive && !game.levelCleared) {
+    game.processQueuedInput();
+    game.scheduleHint();
+  }
 };
 const visibilityChanged = () => {
   updateInputPause();
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   if (document.hidden) audio.stopAmbientLoop({ fadeMs: 0 });
   else if (game.sessionActive) audio.playAmbientLoop();
 };
 onMounted(() => {
   game.bootstrap();
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   incomeInterval = setInterval(() => {
-    if (!document.hidden) campaign.collectSaloonIncome();
+    if (!document.hidden) campaign.accrueSaloonIncome();
   }, 30000);
   clockInterval = setInterval(() => game.syncRunClock(), 100);
   game.setAudioManager(audio);
@@ -465,7 +507,7 @@ watch([() => settings.isSettingsOpen, mobileDetailsOpen, guideOpen], updateInput
 onBeforeUnmount(() => {
   clearInterval(clockInterval);
   clearInterval(incomeInterval);
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   document.removeEventListener('visibilitychange', visibilityChanged);
   game.exitLevel();
   game.setAudioManager(null);

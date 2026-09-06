@@ -174,7 +174,7 @@
             <div
               class="slot-strip"
               :class="{ rolling: phase === 'opening' }"
-              :style="{ '--stop': stopIndex - 0.5 }"
+              :style="{ '--stop': stopIndex - 0.5, '--spin-duration': `${spinDurationMs}ms` }"
               @animationend.self="finish()"
             >
               <div
@@ -244,7 +244,7 @@
 <script setup>
 import { t } from '../i18n';
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { CHEST_DROPS as powers, rewardArt } from '../data/rewards';
+import { shuffleChestDrops, rewardArt } from '../data/rewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 import { useCampaignStore } from '../stores/campaignStore';
@@ -260,10 +260,14 @@ const phase = ref('closed');
 const roulette = ref(null);
 const campaign = useCampaignStore();
 const prize = ref(props.reward.items[0]);
-const stopIndex = ref(30);
+// Each chest gets a fresh order, with two chances to catch every reward.
+const reelOrder = shuffleChestDrops();
+const symbolDurationMs = 326 / 1.05;
+const stopIndex = ref(reelOrder.length * 2);
+const spinDurationMs = stopIndex.value * symbolDurationMs;
 // The fallback is saved at completion. A tap claims the symbol currently on the payline.
 const reelSymbols = Array.from({ length: stopIndex.value + 2 }, (_, index) =>
-  index === stopIndex.value ? prize.value : powers[(index * 3 + props.chestIndex) % powers.length],
+  index === stopIndex.value ? prize.value : reelOrder[index % reelOrder.length],
 );
 let timers = [];
 const clearTimers = () => {
@@ -310,15 +314,17 @@ const open = () => {
       phase.value = 'opening';
       game.audioManager?.playArcadeCue?.('chest-open');
       nextTick(() => roulette.value?.focus({ preventScroll: true }));
-      // Mechanical clicks spread out as the reel slows to its final stop.
-      [60, 135, 220, 320, 440, 580, 750, 940, 1170, 1450, 1800, 2240, 2760, 3120].forEach(
-        (delay, index) =>
-          timers.push(
-            setTimeout(() => game.audioManager?.playArcadeCue?.('reel-tick', index), delay),
+      // Keep the mechanical clicks in step with the steady, readable reel.
+      for (let index = 0; index < stopIndex.value; index++) {
+        timers.push(
+          setTimeout(
+            () => game.audioManager?.playArcadeCue?.('reel-tick', index),
+            (index + 1) * symbolDurationMs,
           ),
-      );
+        );
+      }
       // Fallback for background tabs or a browser that suppresses animation events.
-      timers.push(setTimeout(finish, 3400));
+      timers.push(setTimeout(finish, spinDurationMs + 200));
     }, 850),
   );
 };
@@ -866,7 +872,7 @@ onBeforeUnmount(clearTimers);
   transform: translateY(calc(var(--stop) * var(--slot-row) * -1));
 }
 .slot-strip.rolling {
-  animation: reel-roll 3200ms cubic-bezier(0.12, 0.72, 0.16, 1) both;
+  animation: reel-roll var(--spin-duration) linear both;
   will-change: transform;
 }
 .slot-symbol {
@@ -987,14 +993,9 @@ onBeforeUnmount(clearTimers);
 @keyframes reel-roll {
   from {
     transform: translateY(calc(var(--slot-row) * 0.5));
-    filter: blur(2px);
-  }
-  80% {
-    filter: blur(0);
   }
   to {
     transform: translateY(calc(var(--stop) * var(--slot-row) * -1));
-    filter: blur(0);
   }
 }
 @keyframes machine-arrive {

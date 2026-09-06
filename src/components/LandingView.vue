@@ -148,7 +148,7 @@ const steps = [
     number: '03',
     icon: 'home',
     title: 'Make it your village',
-    text: 'Choose your next building. Each completed puzzle advances every active construction. A builder hammer adds a step to one plot.',
+    text: 'Choose your next building. Spend coins or use a builder hammer to build instantly for free.',
   },
 ];
 </script>
