@@ -64,4 +64,4 @@ Phaser loads when a chapter opens. Vue never wraps the renderer's internal objec
 
 See [the analysis and verification report](docs/analysis.md) for the performance findings, changes and testing limits. Capacitor configuration and the existing Azure deployment workflow are retained; native platforms need their usual platform setup before using the `cap:*` commands.
 
-Run `npm run verify` for formatting, the complete regression suite, and a production build. Vercel runs the same command before deployment.
+Run `npm run verify` for formatting, the complete regression suite, and a production build. GitHub Quality checks runs the same command for pull requests and main; verify it and the Vercel preview before merging a release.
