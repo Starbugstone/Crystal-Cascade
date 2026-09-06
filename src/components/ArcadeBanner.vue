@@ -80,9 +80,9 @@
         <path class="banner-glint" d="M119 12L139 12L110 58L90 58Z" fill="#ffffff" opacity=".12" />
       </g>
     </svg>
-    <span v-else class="announcer-ready" aria-hidden="true">
-      {{ t('✦ MATCH. BLAST. GO MEGA. ✦') }}
-    </span>
+    <slot v-else>
+      <span class="announcer-ready" aria-hidden="true">{{ t('✦ MATCH. BLAST. GO MEGA. ✦') }}</span>
+    </slot>
   </div>
 </template>
 <script setup>

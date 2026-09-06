@@ -1,6 +1,7 @@
 <template>
   <div
     class="app-shell"
+    :data-mine-theme="game.sessionActive ? currentConfig?.theme : undefined"
     :class="{
       'is-playing': game.sessionActive,
       'is-town': !game.sessionActive,
@@ -9,6 +10,7 @@
       'high-contrast': settings.highContrastMode,
     }"
   >
+    <MineBackdrop v-if="game.sessionActive" :theme="currentConfig?.theme" />
     <div
       v-if="
         game.arcadeImpact && game.sessionActive && !game.levelCleared && !settings.reducedMotion
@@ -129,21 +131,14 @@
               >
             </div>
           </div>
-          <p>
-            {{
-              t(
-                'Break the ice beneath your matches. Match beside stone to release the gems above. Gold bands take two hits.',
-              )
-            }}
-          </p>
-          <p class="fusion-tip">
+          <p>{{ t(currentConfig?.tip) }}</p>
+          <p v-if="game.currentLevelId >= 4" class="fusion-tip">
             {{
               t(
                 'Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a whole color into bombs or lasers.',
               )
             }}
           </p>
-          <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
           <span v-if="game.playMode !== 'continuous'" class="guide-footnote">{{
             t('Beat the score. Beat the clock. Win both chests.')
           }}</span>
@@ -174,7 +169,39 @@
             <GameIcon name="home" /> {{ t('Exit mine') }}
           </button>
         </div>
-        <ArcadeBanner :banner="game.arcadeBanner" />
+        <ArcadeBanner :banner="game.arcadeBanner">
+          <div class="mine-seam">
+            <span class="mine-seam-copy">
+              <span>{{
+                t('{cols} × {rows} · {count} jewel types', {
+                  cols: game.boardCols,
+                  rows: game.boardRows,
+                  count: currentConfig?.boardLayout.gemTypeCount,
+                })
+              }}</span>
+              <small
+                >{{
+                  t(
+                    currentConfig?.pace === 'rest'
+                      ? 'Quiet chamber'
+                      : currentConfig?.pace === 'finale'
+                        ? 'Chapter finale'
+                        : 'Explore the seam',
+                  )
+                }}
+                · {{ t('No move limit') }}</small
+              >
+            </span>
+            <span class="mine-jewels" :aria-label="t('Jewels in this seam')">
+              <img
+                v-for="gem in currentConfig?.boardLayout.gemTypes"
+                :key="gem"
+                :src="`/art/${gem}.svg`"
+                :alt="t(gem)"
+              />
+            </span>
+          </div>
+        </ArcadeBanner>
         <div class="board-topline">
           <span
             ><i class="live-dot"></i
@@ -306,6 +333,7 @@ import { t } from './i18n';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
+import MineBackdrop from './components/MineBackdrop.vue';
 import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
 import MobileGameHeader from './components/MobileGameHeader.vue';

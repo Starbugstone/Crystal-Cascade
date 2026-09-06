@@ -1,6 +1,6 @@
 import { POWERS } from './campaign';
 
-export const BONUS_CAPACITIES = [3, 5, 8, 12];
+export const BONUS_CAPACITIES = [3, 5, 8, 12, 16, 20];
 export const CONTINUOUS_COIN_CAP = 25;
 export const HAMMER_CAPACITY = 5;
 export const OVERFLOW_COINS = 10;

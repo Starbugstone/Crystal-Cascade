@@ -74,12 +74,13 @@
           :fullscreen="fullscreen"
           :town="town"
           :selected="selected"
-          :population="residents"
+          :population="people"
           :reduced-motion="settings.reducedMotion"
           :paused="paused || settings.isSettingsOpen || museumOpen || !!dialogMode || tourOpen"
           :next-level="campaign.nextLevel"
           :mine-stage="campaign.mineStage"
           :raid="activeRaid"
+          :construction="construction"
           @select="selectBuilding"
           @mine="goMining"
           @raid-phase="raidPhase = $event"
@@ -97,7 +98,7 @@
           <TownIcon name="water" /><span
             >{{ t('Water')
             }}<small>{{
-              t('Water for {count} neighbors', { count: totalLevels(town, 'well') * 6 })
+              t('Water for {count} people', { count: totalLevels(town, 'well') * 6 })
             }}</small></span
           >
         </button>
@@ -105,19 +106,30 @@
           <TownIcon name="food" /><span
             >{{ t('Food')
             }}<small>{{
-              t('Food for {count} neighbors', { count: totalLevels(town, 'farm') * 6 })
+              t('Food for {count} people', { count: totalLevels(town, 'farm') * 6 })
             }}</small></span
           >
         </button>
         <button @click="selectBuilding('home')">
           <TownIcon name="people" /><span
-            >{{ t('{count} neighbors', { count: residents })
+            >{{ t('{count} people', { count: people })
             }}<small>{{
-              t('Room for {count}', { count: totalLevels(town, 'home') * 2 })
+              t('{residents} residents · {visitors} visitors', { residents, visitors })
             }}</small></span
           >
         </button>
       </div>
+      <button class="town-happiness" @click="selectBuilding('square')">
+        <TownIcon name="happiness" />
+        <span
+          >{{ t('Happiness') }} <strong>{{ happiness(town) }}%</strong>
+          <meter :value="happiness(town)" min="0" max="100" :aria-label="t('Village happiness')" />
+          <small>{{
+            t('Saloon income +{bonus}% · Improve the town square', { bonus: happiness(town) })
+          }}</small>
+        </span>
+        <TownIcon name="arrow" />
+      </button>
       <p v-if="activeProjects.length" class="town-construction-summary">
         {{ t('Active construction: {count}', { count: activeProjects.length }) }} ·
         {{ t('Each completed puzzle advances every building in progress.') }}
@@ -187,7 +199,7 @@
         </p>
         <section class="town-building-list" :aria-label="t('All town buildings')">
           <button
-            v-for="place in BUILDINGS"
+            v-for="place in directoryPlots"
             :key="place.id"
             :class="{ 'town-plot-locked': !plotUnlocked(town, place.id) }"
             @click="selectBuilding(place.id)"
@@ -195,7 +207,20 @@
             <span class="building-list-dot" :style="{ background: place.color }"></span>
             <span
               >{{ t(place.shortName) }}<small>{{ plotStatus(place) }}</small></span
-            ><TownIcon :name="town.buildings[place.id] ? 'check' : 'arrow'" />
+            >
+            <span
+              v-if="place.offer && !town.projects[place.id]"
+              class="town-plot-price"
+              :aria-label="
+                t(town.buildings[place.id] ? 'Upgrade: {coins} coins' : 'Build: {coins} coins', {
+                  coins: place.offer.cost,
+                })
+              "
+            >
+              <TownIcon v-if="place.offer.cost" name="coin" />
+              {{ place.offer.cost ? number(place.offer.cost) : t('Free') }}
+            </span>
+            <TownIcon v-else :name="town.buildings[place.id] ? 'check' : 'arrow'" />
           </button>
         </section>
       </template>
@@ -238,7 +263,11 @@ import { t, number } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
 import {
   population,
+  residentPopulation,
+  visitorPopulation,
+  happiness,
   nextGoal,
+  upgradeOffer,
   constructionRuns,
   plotUnlocked,
   saloonIncomeRate,
@@ -287,22 +316,29 @@ function leaveFullscreen(event) {
     fullscreen.value = false;
 }
 
-const residents = computed(() => population(town.value));
+const residents = computed(() => residentPopulation(town.value));
+const visitors = computed(() => visitorPopulation(town.value));
+const people = computed(() => population(town.value));
 const incomeRate = computed(() => saloonIncomeRate(town.value));
 const activeProjects = computed(() => Object.values(town.value.projects));
 const goal = computed(() => nextGoal(town.value));
+const directoryPlots = computed(() =>
+  BUILDINGS.map((place) => ({ ...place, offer: upgradeOffer(town.value, place.id) })),
+);
 const built = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
 const selected = ref(goal.value?.id ?? 'home');
 const museumOpen = ref(props.openMuseum && campaign.canReplay),
   dialogMode = ref('');
 const paused = ref(false),
+  construction = ref(null),
   announcement = ref(''),
   latestMoment = ref(null);
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
 useTownAudio(() => ({
-  population: residents.value,
+  population: people.value,
   construction: activeProjects.value.length > 0,
+  buildCue: construction.value?.serial,
   stable: town.value.buildings.stable > 0,
   raid: activeRaid.value ? `${activeRaid.value.id}-${raidPhase.value}` : null,
   paused:
@@ -399,12 +435,15 @@ function plotStatus(place) {
       required: constructionRuns(project),
     });
   return town.value.buildings[place.id]
-    ? t('Level {level} / 3', { level: town.value.buildings[place.id] })
+    ? t('Level {level} / {max}', {
+        level: town.value.buildings[place.id],
+        max: place.upgrades.length,
+      })
     : t('Empty plot');
 }
 function repair(stage) {
   if (!campaign.upgradeBuilding(selected.value, stage)) return;
-  closeDialog();
+  showConstruction();
   const complete = !town.value.projects[selected.value];
   announcement.value = t(
     complete
@@ -422,16 +461,23 @@ function repair(stage) {
       : 'The materials are ready. One completed puzzle will finish this building.',
   };
 }
-function useHammer(project) {
-  if (!campaign.useBuilderHammer(selected.value, project.stage, project.wins)) return;
-  const completed = !town.value.projects[selected.value];
-  const upgrade = BUILDING_BY_ID[selected.value].upgrades[project.stage - 1];
+function showConstruction() {
+  closeDialog();
+  construction.value = { id: selected.value, serial: (construction.value?.serial ?? 0) + 1 };
+  mapFrame.value?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+}
+function useHammer(stage) {
+  if (!campaign.useBuilderHammer(selected.value, stage)) return;
+  showConstruction();
+  const upgrade = BUILDING_BY_ID[selected.value].upgrades[town.value.buildings[selected.value] - 1];
   latestMoment.value = {
     speaker: upgrade.speaker,
-    title: completed ? 'Building complete!' : 'A helping hand.',
-    text: completed ? upgrade.story : 'One builder hammer, one step closer to opening day.',
+    title: 'Building complete!',
+    text: upgrade.story,
   };
-  announcement.value = latestMoment.value.title;
+  announcement.value = t('{building} is ready!', {
+    building: t(BUILDING_BY_ID[selected.value].shortName),
+  });
 }
 function finishRaid() {
   if (!activeRaid.value) return;
