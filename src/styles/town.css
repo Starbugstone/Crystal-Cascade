@@ -326,6 +326,9 @@
   display: flex;
   gap: 5px;
   align-items: center;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .town-purchase-hint {
   min-height: 14px;
@@ -1732,6 +1735,13 @@
 .town-building-details .town-purchase {
   margin-top: 16px;
   min-height: 48px;
+}
+.town-building-details .town-purchase:disabled {
+  opacity: 1;
+  color: #696650;
+}
+.town-building-details .town-purchase:disabled > span:last-child {
+  color: #42543f;
 }
 .town-building-details .town-purchase-hint {
   margin: 10px 0 2px;
