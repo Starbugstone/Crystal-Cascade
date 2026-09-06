@@ -5,7 +5,9 @@
         <p class="town-kicker">{{ t(building.purpose) }}</p>
         <h2 id="building-title">{{ t(building.name) }}</h2>
       </div>
-      <span class="town-level-badge">{{ t('Level {level} / 3', { level: stage }) }}</span>
+      <span class="town-level-badge">{{
+        t('Level {level} / {max}', { level: stage, max: building.upgrades.length })
+      }}</span>
     </div>
     <div class="town-building-preview" :style="{ '--building-tint': building.color }">
       <svg viewBox="-160 -200 320 245" aria-hidden="true">
@@ -41,16 +43,6 @@
           )
         }}
       </p>
-      <button
-        class="town-secondary builder-hammer-action"
-        :disabled="!hammers"
-        @click="$emit('hammer', project)"
-      >
-        <img src="/art/rewards/builder-hammer.svg" alt="" />{{
-          t('Use a builder hammer · +1 step')
-        }}
-      </button>
-      <small>{{ t('{count} builder hammers available', { count: hammers }) }}</small>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
       <h3>{{ t(offer.title) }}</h3>
@@ -71,6 +63,17 @@
           )
         }}
       </p>
+      <template v-if="plotUnlocked(town, id)">
+        <button
+          class="town-secondary builder-hammer-action"
+          :disabled="!hammers || !offer.available"
+          @click="$emit('hammer', offer.stage)"
+        >
+          <img src="/art/rewards/builder-hammer.svg" alt="" />
+          {{ t('Build instantly for free · 1 builder hammer') }}
+        </button>
+        <small>{{ t('{count} builder hammers available', { count: hammers }) }}</small>
+      </template>
       <button
         v-if="!plotUnlocked(town, id)"
         class="town-secondary"
@@ -86,14 +89,38 @@
       <h3>{{ t('Saloon · {rate} coins/hour', { rate: saloonIncomeRate(town) }) }}</h3>
       <p>
         {{
-          t('With {count} completed houses · Up to 8 hours saved while away', {
-            count: completedHouses(town),
+          t('{residents} residents + {visitors} visitors · Happiness bonus: {bonus}%', {
+            residents: residentPopulation(town),
+            visitors: visitorPopulation(town),
+            bonus: happiness(town),
           })
         }}
       </p>
+      <small>{{ t('Up to 8 hours of income saved while away.') }}</small>
       <small v-if="lastIncome">{{
         t('Last earnings: +{coins} coins', { coins: lastIncome })
       }}</small>
+    </section>
+    <section v-if="id === 'stable' || id === 'museum'" class="town-service">
+      <h3>{{ t('{count} visitors in town', { count: visitorPopulation(town) }) }}</h3>
+      <p>
+        {{
+          t(
+            'Stables and museum galleries attract visitors. Spare food and water let them stay, and they spend coins at the saloon.',
+          )
+        }}
+      </p>
+      <small>{{ t('Visitor capacity: {count}', { count: visitorCapacity(town) }) }}</small>
+    </section>
+    <section v-if="id === 'square'" class="town-service">
+      <h3>{{ t('Happiness: {value}%', { value: happiness(town) }) }}</h3>
+      <p>
+        {{
+          t(
+            'Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. Happiness boosts saloon income by the same percentage.',
+          )
+        }}
+      </p>
     </section>
     <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
       <h3>{{ t('Keep pace with the town') }}</h3>
@@ -145,7 +172,10 @@ import {
   constructionVisual,
   plotUnlocked,
   saloonIncomeRate,
-  completedHouses,
+  residentPopulation,
+  visitorPopulation,
+  visitorCapacity,
+  happiness,
   gangSize,
   raidProtection,
 } from '../../game/town/TownRules';

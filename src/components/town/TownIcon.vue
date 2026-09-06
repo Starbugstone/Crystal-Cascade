@@ -13,6 +13,10 @@
       <circle cx="12" cy="12" r="6" opacity=".5" />
       <path d="m12 8 3 4-3 4-3-4Z" />
     </template>
+    <template v-else-if="name === 'happiness'">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 9h.01M16 9h.01M7.5 14a5 5 0 0 0 9 0" />
+    </template>
     <template v-else-if="name === 'water'">
       <path d="M12 3C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-12Z" />
       <path d="M8 15a4 4 0 0 0 4 4" />

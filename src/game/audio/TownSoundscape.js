@@ -43,6 +43,7 @@ export class TownSoundscape {
   }
   update(state) {
     const newRaid = state.raid && state.raid !== this.state.raid;
+    const newBuild = state.buildCue && state.buildCue !== this.state.buildCue;
     this.state = { ...state };
     if (!this.ctx || this.disposed) return;
     this.music.gain.setTargetAtTime(clamp(state.musicVolume) * 0.18, this.ctx.currentTime, 0.08);
@@ -56,12 +57,25 @@ export class TownSoundscape {
       this.playMusic();
       this.scheduleLife(1800);
     }
+    if (newBuild && state.sfxVolume > 0) {
+      this.quietSources('sfx');
+      this.playConstruction();
+    }
     if (newRaid && state.sfxVolume > 0) {
       clearTimeout(this.lifeTimer);
       this.quietSources('sfx');
       this.playLife(String(state.raid).includes('Warning shots') ? 'warning' : 'hooves');
       this.scheduleLife();
     }
+  }
+  playConstruction() {
+    // Three timber taps, then a short rising chime as the last pieces settle.
+    for (const offset of [0, 0.22, 0.44]) {
+      this.tone(260, 0.1, offset, 0.55, 'triangle', 'sfx', 65);
+      this.tone(820, 0.06, offset, 0.12, 'sine', 'sfx', 360);
+    }
+    this.tone(660, 0.18, 0.68, 0.2);
+    this.tone(990, 0.18, 0.8, 0.16);
   }
   tone(
     frequency,

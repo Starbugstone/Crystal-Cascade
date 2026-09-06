@@ -85,7 +85,8 @@ const ORIGINAL_BUILDINGS = [
         cost: 100,
         runs: 1,
         title: 'Bring back the good times',
-        benefit: 'Music, warm lamps, and a place for neighbors to meet.',
+        benefit:
+          'Earn 3 coins per person each hour, plus the happiness bonus. Adds 2 happiness points.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
         speaker: 'Nell · the saloon keeper',
       },
@@ -105,7 +106,8 @@ const ORIGINAL_BUILDINGS = [
         cost: 100,
         runs: 1,
         title: 'Welcome weary travelers',
-        benefit: 'Horses and a wagon bring life to the edge of town.',
+        benefit:
+          'Room for two visitors, once food and water are ready. Visitors spend coins at the saloon.',
         story: 'A dry stall and some good hay. Word of this place will travel faster than we do.',
         speaker: 'Kit · the stable keeper',
       },
@@ -145,7 +147,7 @@ const ORIGINAL_BUILDINGS = [
         cost: 120,
         runs: 1,
         title: 'Open the museum',
-        benefit: 'Replay completed levels to improve your score, stars, and best time.',
+        benefit: 'Replay completed levels and add 2 happiness points.',
         story:
           'Your first discoveries belong here. Come back to an old adventure and see how far you’ve come.',
         speaker: 'Ellis · the curator',
@@ -263,6 +265,37 @@ ORIGINAL_BUILDINGS.push({
   })),
 });
 
+ORIGINAL_BUILDINGS.push({
+  id: 'square',
+  name: 'Prospect town square',
+  shortName: 'Town square',
+  purpose: 'A place to gather',
+  x: 500,
+  y: 280,
+  color: '#b3a878',
+  stages: ['Empty plot', 'A meeting place', 'Benches in the sunshine', 'A welcoming town square'],
+  upgrades: [
+    [80, 'Lay out the town square', 'A low paved square adds 8 happiness points.'],
+    [
+      160,
+      'Set out the benches',
+      'Benches and flower beds raise the square to 16 happiness points.',
+    ],
+    [
+      320,
+      'Finish the gathering place',
+      'A decorative mosaic raises the square to 24 happiness points.',
+    ],
+  ].map(([cost, title, benefit], index) => ({
+    cost,
+    title,
+    benefit,
+    runs: index ? 1 : 0,
+    story: benefit,
+    speaker: 'June · your neighbor',
+  })),
+});
+
 // Completed levels are permanent; improvements keep the previous service open.
 const IMPROVEMENTS = {
   well: [
@@ -312,14 +345,14 @@ const IMPROVEMENTS = {
       1,
       'Room for the evening crowd',
       'Open the upstairs lounge',
-      'Earn 12 coins per hour for each completed house.',
+      'Earn 6 coins per person each hour, plus the happiness bonus. Adds 4 happiness points.',
     ],
     [
       350,
       1,
       'The heart of the frontier',
       'Complete the grand saloon',
-      'Earn 18 coins per hour for each completed house.',
+      'Earn 9 coins per person each hour, plus the happiness bonus. Adds 6 happiness points.',
     ],
   ],
   stable: [
@@ -328,14 +361,14 @@ const IMPROVEMENTS = {
       1,
       'More saddles on the trail',
       'Add covered stalls',
-      'Two mounted travelers wander through town.',
+      'Room for four visitors, once food and water are ready.',
     ],
     [
       330,
       1,
       'A busy frontier stop',
       'Open the carriage yard',
-      'Three mounted travelers and a carriage yard bring the trail to life.',
+      'Room for six visitors, once food and water are ready.',
     ],
   ],
   sheriff: [
@@ -360,14 +393,14 @@ const IMPROVEMENTS = {
       1,
       'The discovery gallery',
       'Add the discovery gallery',
-      'A new gallery and gem exhibits celebrate your adventures.',
+      'Attract two visitors and add 4 happiness points.',
     ],
     [
       330,
       1,
       'A frontier landmark',
       'Complete the museum tower',
-      'A landmark tower and a grand entrance for your collection.',
+      'Attract four visitors and add 6 happiness points.',
     ],
   ],
 };
@@ -387,12 +420,134 @@ for (const building of ORIGINAL_BUILDINGS) {
 }
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'home').upgrades[1].benefit =
   'Room for four neighbors. Unlock three more residential plots.';
-ORIGINAL_BUILDINGS.find(({ id }) => id === 'saloon').upgrades[0].benefit =
-  'Earn 6 coins per hour for each completed house. Neighbors stop by for company.';
-ORIGINAL_BUILDINGS.find(({ id }) => id === 'stable').upgrades[0].benefit =
-  'A mounted traveler wanders through town, with horses resting in the stalls.';
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
   'Protect half the coins at risk from two riders.';
+
+const LATE_IMPROVEMENTS = {
+  well: [
+    ['A dependable waterworks', 'Improve the waterworks', 'Water for twenty-four people.'],
+    ['Water for the frontier', 'Complete the waterworks', 'Water for thirty people.'],
+  ],
+  farm: [
+    ['An abundant harvest', 'Expand the irrigated fields', 'Food for twenty-four people.'],
+    ['A thriving farmstead', 'Complete the farmstead', 'Food for thirty people.'],
+  ],
+  home: [
+    ['A welcoming household', 'Furnish the guest rooms', 'Room for eight residents.'],
+    ['A home full of life', 'Complete the family home', 'Room for ten residents.'],
+  ],
+  saloon: [
+    [
+      'Music on the terrace',
+      'Open the garden terrace',
+      'Earn 12 coins per person each hour, plus the happiness bonus.',
+    ],
+    [
+      'The frontier gathering place',
+      'Complete the grand terrace',
+      'Earn 15 coins per person each hour, plus the happiness bonus.',
+    ],
+  ],
+  stable: [
+    [
+      'The stagecoach stop',
+      'Open the stagecoach stop',
+      'Room for eight visitors, once food and water are ready.',
+    ],
+    [
+      'A crossroads for travelers',
+      'Complete the coaching yard',
+      'Room for ten visitors, once food and water are ready.',
+    ],
+  ],
+  sheriff: [
+    [
+      'A frontier patrol',
+      'Organize the frontier patrol',
+      'Protect half the coins at risk from eight riders.',
+    ],
+    [
+      'A watchful frontier',
+      'Complete the patrol headquarters',
+      'Protect half the coins at risk from ten riders.',
+    ],
+  ],
+  museum: [
+    [
+      'The traveling exhibition',
+      'Welcome the traveling exhibition',
+      'Attract six visitors and add 8 happiness points.',
+    ],
+    [
+      'A celebrated collection',
+      'Complete the frontier collection',
+      'Attract eight visitors and add 10 happiness points.',
+    ],
+  ],
+  armory: [
+    [
+      'Supplies for an expedition',
+      'Equip the expedition depot',
+      'Carry up to 16 of each puzzle bonus.',
+    ],
+    [
+      'Ready for any adventure',
+      'Complete the expedition depot',
+      'Carry up to 20 of each puzzle bonus.',
+    ],
+  ],
+  bank: [
+    [
+      'A secure frontier treasury',
+      'Expand the treasury',
+      'Protect half the coins at risk from eight riders.',
+    ],
+    [
+      'The town treasury',
+      'Complete the treasury',
+      'Protect half the coins at risk from ten riders.',
+    ],
+  ],
+  shop: [
+    [
+      'The frontier market',
+      'Expand the market shelves',
+      'Choose from five random bonuses after each completed mine run.',
+    ],
+    [
+      'Every tool within reach',
+      'Complete the frontier market',
+      'Choose from all six bonuses after each completed mine run.',
+    ],
+  ],
+  square: [
+    [
+      'Flowers around the square',
+      'Plant the border gardens',
+      'Low flower beds raise the square to 32 happiness points.',
+    ],
+    [
+      'The pride of Prospect Hollow',
+      'Complete the town square',
+      'An open gathering place with 40 happiness points.',
+    ],
+  ],
+};
+for (const building of ORIGINAL_BUILDINGS) {
+  const cost = building.upgrades.at(-1).cost;
+  for (const [index, [stage, title, benefit]] of LATE_IMPROVEMENTS[building.id].entries()) {
+    building.stages.push(stage);
+    building.upgrades.push({
+      cost: Math.ceil((cost * (index ? 5 : 2)) / 10) * 10,
+      runs: 1,
+      unlockRuns: index ? 36 : 18,
+      title,
+      benefit,
+      story: benefit,
+      speaker: building.upgrades[0].speaker,
+    });
+  }
+}
 export const BUILDINGS = [
   ...ORIGINAL_BUILDINGS,
   ...[
