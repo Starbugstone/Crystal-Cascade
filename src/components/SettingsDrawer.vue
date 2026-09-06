@@ -55,6 +55,9 @@
         :checked="settings.highContrastMode"
         @change="settings.setHighContrast($event.target.checked)"
     /></label>
+    <p class="audio-credits">
+      <a :href="audioCreditsUrl" target="_blank" rel="noopener">{{ t('Audio credits') }}</a>
+    </p>
     <div class="keyboard-guide">
       <span class="eyebrow"> {{ t('PLAY YOUR WAY') }} </span>
       <p>
@@ -98,6 +101,7 @@ function resetProgress() {
 }
 const dialog = ref(null);
 const settings = useSettingsStore();
+const audioCreditsUrl = `${import.meta.env.BASE_URL}sound/village/credits.html`;
 watch(
   () => props.open,
   (open) => {
@@ -121,6 +125,11 @@ const closeBackdrop = (event) => {
 };
 </script>
 <style scoped>
+.audio-credits a {
+  color: inherit;
+  font-size: 12px;
+  text-underline-offset: 3px;
+}
 .testing-reset {
   margin-top: 24px;
   padding-top: 20px;
