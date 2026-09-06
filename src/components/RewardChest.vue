@@ -244,7 +244,7 @@
 <script setup>
 import { t } from '../i18n';
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { CHEST_DROPS as powers, rewardArt } from '../data/rewards';
+import { shuffleChestDrops, rewardArt } from '../data/rewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 import { useCampaignStore } from '../stores/campaignStore';
@@ -260,13 +260,14 @@ const phase = ref('closed');
 const roulette = ref(null);
 const campaign = useCampaignStore();
 const prize = ref(props.reward.items[0]);
-// Two full passes give every reward a repeatable, but still quick, chance to be caught.
-const symbolDurationMs = 326;
-const stopIndex = ref(powers.length * 2);
+// Each chest gets a fresh order, with two chances to catch every reward.
+const reelOrder = shuffleChestDrops();
+const symbolDurationMs = 326 / 1.05;
+const stopIndex = ref(reelOrder.length * 2);
 const spinDurationMs = stopIndex.value * symbolDurationMs;
 // The fallback is saved at completion. A tap claims the symbol currently on the payline.
 const reelSymbols = Array.from({ length: stopIndex.value + 2 }, (_, index) =>
-  index === stopIndex.value ? prize.value : powers[(index * 3 + props.chestIndex) % powers.length],
+  index === stopIndex.value ? prize.value : reelOrder[index % reelOrder.length],
 );
 let timers = [];
 const clearTimers = () => {

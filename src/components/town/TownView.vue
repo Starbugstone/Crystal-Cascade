@@ -143,11 +143,13 @@
           @coin="game.audioManager?.playArcadeCue?.('coin', $event)"
           @close="collection = null"
         />
-        <TownRaidLoss
-          v-if="raidLoss"
-          :coins="raidLoss.loss"
+        <TownRaidNotice
+          v-if="raidNotice"
+          :key="raidNotice.id"
+          :coins="raidNotice.loss"
+          :defended="raidNotice.outcome === 'protected'"
           :reduced-motion="settings.reducedMotion"
-          @close="raidLoss = null"
+          @close="raidNotice = null"
         />
         <p v-if="showConstructionTip" class="town-construction-tip" role="status">
           <GameIcon name="info" />
@@ -408,7 +410,7 @@ import TownScene from './TownScene.vue';
 import TownDialog from './TownDialog.vue';
 import TownBuildingDetails from './TownBuildingDetails.vue';
 import TownIcon from './TownIcon.vue';
-import TownRaidLoss from './TownRaidLoss.vue';
+import TownRaidNotice from './TownRaidNotice.vue';
 import TownCoinCollection from './TownCoinCollection.vue';
 
 const props = defineProps({ openMuseum: Boolean, active: { type: Boolean, default: true } });
@@ -514,7 +516,7 @@ const paused = ref(false),
   construction = ref(null),
   announcement = ref(''),
   latestMoment = ref(null);
-const raidLoss = ref(null);
+const raidNotice = ref(null);
 const collection = ref(null);
 let collectionSerial = 0;
 const activeRaid = ref(null),
@@ -690,15 +692,18 @@ function useHammer(stage) {
 function finishRaid() {
   if (!activeRaid.value) return;
   const receipt = activeRaid.value;
-  // The wallet was settled before the raid. This only presents its saved loss once.
-  if (campaign.markRaidSeen(receipt.id) && receipt.loss > 0) raidLoss.value = receipt;
+  // Present the saved outcome once; replaying a raid cannot repeat its receipt.
+  if (campaign.markRaidSeen(receipt.id)) {
+    if (receipt.outcome === 'protected' || receipt.loss > 0) raidNotice.value = receipt;
+    if (receipt.outcome === 'protected') game.audioManager?.playArcadeCue?.('jackpot');
+  }
   activeRaid.value = null;
   latestMoment.value = banditStory.value;
   announcement.value = banditStory.value.text;
 }
 function replayRaid() {
   closeDialog();
-  raidLoss.value = null;
+  raidNotice.value = null;
   if (!event.value || activeRaid.value) return;
   activeRaid.value = { ...event.value };
   raidPhase.value = 'Riders on the ridge';
@@ -731,7 +736,7 @@ watch(
       museumOpen.value = false;
       fullscreen.value = false;
       activeRaid.value = null;
-      raidLoss.value = null;
+      raidNotice.value = null;
       collection.value = null;
     }
   },

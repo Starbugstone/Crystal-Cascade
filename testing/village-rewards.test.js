@@ -11,6 +11,7 @@ import {
   CONTINUOUS_COIN_CAP,
   HAMMER_CAPACITY,
   rollChestReward,
+  shuffleChestDrops,
 } from '../src/data/rewards';
 import { advanceConstruction, purchase } from '../src/game/town/TownRules';
 let saved;
@@ -150,6 +151,18 @@ describe('A village with lasting choices', () => {
 });
 
 describe('Bounded, saved chest rewards', () => {
+  it('randomizes each visual order while preserving every reward and the weighted catalog', () => {
+    const catalog = CHEST_DROPS.map((drop) => ({ ...drop }));
+    const first = shuffleChestDrops(() => 0);
+    const second = shuffleChestDrops(() => 0.999);
+    expect(first).not.toEqual(second);
+    const sorted = (drops) => [...drops].sort((a, b) => a.id.localeCompare(b.id));
+    for (const order of [first, second]) {
+      expect(order).not.toBe(CHEST_DROPS);
+      expect(sorted(order)).toEqual(sorted(catalog));
+    }
+    expect(CHEST_DROPS).toEqual(catalog);
+  });
   it('rolls 70% powers, 20% coins and 10% builder hammers', () => {
     const counts = {},
       powers = {};

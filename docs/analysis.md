@@ -120,3 +120,11 @@ The earlier sequential-parcel change required only level 1 of the previous extra
 Updated regression cases failed against the old rule for both homes and farms. They now check the level-1 state, in-progress and ready upgrades (including save/reload), explicit completion, and instant hammer upgrades before allowing the next parcel.
 
 Verification: `npm run verify` passes all **376 tests across 31 files**, formatting, and production build. Chromium checks at **320 × 844 and 1440 × 950 (3D)** and **390 × 844 (SVG fallback)** confirm that level 1, upgrading, and ready-after-reload states keep Farm III unavailable and reject coin/hammer attempts without spending. Completing Farm II level 2 reveals it; hammer upgrades of House II and III reveal the next houses only at level 2. No application or unexpected request errors were recorded.
+
+## Shuffled chest reels and defended-village celebration
+
+Chest reels run 5% faster than the 326 ms revision: about 310.5 ms per symbol and 4.347 seconds for two full passes. Each chest gets a fresh shuffled reward order without mutating the weighted reward catalog or the saved automatic fallback. The shared timing still drives movement, mechanical clicks and fallback settlement.
+
+A newly seen protected raid shows a gold badge, rising stars, “Village defended!” and a victory chime. The existing loss notice is now a shared raid notice with defense/loss variants and the same dismissal timer. A zero-loss harmless visit is not a defended outcome. Replays and seen receipts do not repeat the celebration, and leaving the village clears the notice. Reduced motion uses a static presentation.
+
+Verification: **377 tests across 31 files**, formatting and production build pass. Browser checks at 320/1440 widths confirm independently shuffled chest orders, the exact faster animation duration, tap selection and saved automatic rewards. Raid checks at 320 × 568 (French), 1440 × 1000, and 390 × 844 (SVG/reduced motion) confirm the protected notice, one chime, unchanged savings, dismissal, replay/reload suppression, retained partial-loss feedback and no victory for harmless visits. No application or unexpected request errors were recorded.

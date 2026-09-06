@@ -21,6 +21,15 @@ export const CHEST_DROPS = [
     weight: 10,
   },
 ];
+// Shuffle the visual reel without changing the catalog used by weighted awards.
+export function shuffleChestDrops(random = Math.random) {
+  const drops = [...CHEST_DROPS];
+  for (let index = drops.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [drops[index], drops[other]] = [drops[other], drops[index]];
+  }
+  return drops;
+}
 export function rollChestReward(random = Math.random) {
   let roll = random() * 100;
   const drop = CHEST_DROPS.find((item) => (roll -= item.weight) < 0) ?? CHEST_DROPS.at(-1);
