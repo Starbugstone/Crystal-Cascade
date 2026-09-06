@@ -7,6 +7,7 @@ import { defineStore } from 'pinia';
 import { generateLevelConfigs } from '../game/engine/LevelGenerator';
 import { GEM_TYPES } from '../game/engine/GemFactory';
 import { MatchEngine } from '../game/engine/MatchEngine';
+import { cascadeTier, simultaneousMatchCount } from '../game/engine/MatchRewards';
 import { TileManager } from '../game/engine/TileManager';
 import { useInventoryStore } from './inventoryStore';
 import { BonusActivator } from '../game/engine/BonusActivator';
@@ -104,6 +105,8 @@ export const useGameStore = defineStore('game', {
     runId: null,
     coinReward: 0,
     remainingBonusGems: 0,
+    comboCounts: {},
+    multiMatchCounts: {},
     playMode: 'normal',
     constructionReward: [],
     arcadeImpact: null,
@@ -136,12 +139,20 @@ export const useGameStore = defineStore('game', {
   actions: {
     showArcadeBanner(banner) {
       if (!this.sessionActive || this.levelCleared) return;
-      if (this.arcadeBanner?.kind === 'fusion' && banner.kind !== 'fusion') return;
+      if (
+        ['fusion', 'multi-match'].includes(this.arcadeBanner?.kind) &&
+        !['fusion', 'multi-match'].includes(banner.kind)
+      )
+        return;
       clearTimeout(arcadeBannerTimeout);
-      this.arcadeBanner = { ...banner, id: (this.arcadeBanner?.id ?? 0) + 1 };
+      this.arcadeBanner = {
+        ...banner,
+        ...(this.playMode === 'continuous' ? { coins: undefined } : {}),
+        id: (this.arcadeBanner?.id ?? 0) + 1,
+      };
       arcadeBannerTimeout = setTimeout(
         () => (this.arcadeBanner = null),
-        banner.kind === 'fusion' ? 3200 : 2000,
+        ['fusion', 'multi-match'].includes(banner.kind) ? 3200 : 2000,
       );
     },
     showArcadeImpact(effect) {
@@ -645,6 +656,8 @@ export const useGameStore = defineStore('game', {
       this.collectedJewels = 0;
       this.coinReward = 0;
       this.remainingBonusGems = 0;
+      this.comboCounts = {};
+      this.multiMatchCounts = {};
       this.constructionReward = [];
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
@@ -1018,6 +1031,8 @@ export const useGameStore = defineStore('game', {
       this.collectedJewels = 0;
       this.coinReward = 0;
       this.remainingBonusGems = 0;
+      this.comboCounts = {};
+      this.multiMatchCounts = {};
       this.constructionReward = [];
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
@@ -1058,10 +1073,17 @@ export const useGameStore = defineStore('game', {
       this.remainingBonusGems = this.board.filter((gem) =>
         ['bomb', 'cross', 'rainbow'].includes(gem?.type),
       ).length;
-      this.coinReward = miningPayout(this.collectedJewels, this.remainingBonusGems);
+      this.coinReward = miningPayout(
+        this.collectedJewels,
+        this.remainingBonusGems,
+        this.comboCounts,
+        this.multiMatchCounts,
+      );
       this.levelRewards = useCampaignStore().recordVictory({
         chooseRewards: true,
         bonusGems: this.remainingBonusGems,
+        comboCounts: this.comboCounts,
+        multiMatchCounts: this.multiMatchCounts,
         runId: this.runId,
         jewels: this.collectedJewels,
         elapsedMs: this.playClock.started ? this.elapsedMs : null,
@@ -1225,9 +1247,16 @@ export const useGameStore = defineStore('game', {
         if (!clearedCount) {
           return;
         }
-        const cascadeBonus = Math.max(1, index + 1);
+        const cascadeBonus = cascadeTier(step, index);
         total += clearedCount * 100 * cascadeBonus;
         deepestCascade = Math.max(deepestCascade, cascadeBonus);
+        if (this.playMode === 'normal') {
+          if (cascadeBonus >= 2)
+            this.comboCounts[cascadeBonus] = (this.comboCounts[cascadeBonus] ?? 0) + 1;
+          const matchCount = simultaneousMatchCount(step);
+          if (matchCount >= 2)
+            this.multiMatchCounts[matchCount] = (this.multiMatchCounts[matchCount] ?? 0) + 1;
+        }
       });
 
       this.cascadeMultiplier = deepestCascade;

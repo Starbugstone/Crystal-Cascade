@@ -791,5 +791,15 @@
   "Ready after one completed puzzle": "Prêt après un puzzle terminé",
   "{coins} town coins earned": "{coins} pièces gagnées pour le village",
   "Gems collected": "Gemmes récoltées",
-  "Bonuses left on the board": "Bonus restants sur le plateau"
+  "Bonuses left on the board": "Bonus restants sur le plateau",
+  "COMBO BONUSES": "BONUS DE COMBO",
+  "Combo ×{tier}": "Combo ×{tier}",
+  "{count} × {coins} coins": "{count} × {coins} pièces",
+  "SIMULTANEOUS MATCH BONUSES": "BONUS D’ALIGNEMENTS SIMULTANÉS",
+  "{count} lines at once": "{count} alignements simultanés",
+  "DOUBLE MATCH!": "DOUBLE ALIGNEMENT !",
+  "TRIPLE MATCH!": "TRIPLE ALIGNEMENT !",
+  "MULTI MATCH!": "MULTI ALIGNEMENT !",
+  "{count} LINES · +{coins} COINS": "{count} ALIGNEMENTS · +{coins} PIÈCES",
+  "{count} LINES AT ONCE": "{count} ALIGNEMENTS SIMULTANÉS"
 }

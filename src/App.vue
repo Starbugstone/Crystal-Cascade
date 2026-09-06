@@ -269,6 +269,8 @@
       :coins="game.coinReward"
       :jewels="game.collectedJewels"
       :bonus-gems="game.remainingBonusGems"
+      :combo-counts="game.comboCounts"
+      :multi-match-counts="game.multiMatchCounts"
       :construction="game.constructionReward"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
