@@ -121,7 +121,7 @@
       <p>
         {{
           t(
-            'Choose whether to spend your charge before entering a normal mine run. This is a puzzle Hammer, separate from builder hammers.',
+            'Choose whether to spend your charge before entering a normal mine run. This is a mine bonus, separate from builder hammers.',
           )
         }}
       </p>

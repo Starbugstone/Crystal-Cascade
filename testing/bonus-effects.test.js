@@ -45,7 +45,7 @@ it('cancels a special during its wind-up without a late impact or unresolved pro
   effects.highlightTargets = vi.fn();
   effects.charge = vi.fn();
   effects.impact = vi.fn();
-  const play = effects.play({ cleared: [0], bonusEffect: { type: 'hammer', originIndex: 0 } });
+  const play = effects.play({ cleared: [0], bonusEffect: { type: 'tnt', originIndex: 0 } });
   expect(effects.charge).toHaveBeenCalledOnce();
   animator.clear();
   await play;
@@ -57,7 +57,7 @@ it('keeps the bonus sound but skips decorative work and wind-up in reduced motio
   const audio = { playBomb: vi.fn() };
   const animator = new BoardAnimator({ settings: { reducedMotion: true }, audio });
   const tween = vi.spyOn(animator, 'tween');
-  await animator.bonuses.play({ cleared: [0], bonusEffect: { type: 'hammer', originIndex: 0 } });
+  await animator.bonuses.play({ cleared: [0], bonusEffect: { type: 'tnt', originIndex: 0 } });
   expect(audio.playBomb).toHaveBeenCalledOnce();
   expect(tween).not.toHaveBeenCalled();
   expect(animator.effects.size).toBe(0);

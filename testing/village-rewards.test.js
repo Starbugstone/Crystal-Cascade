@@ -123,11 +123,11 @@ describe('A village with lasting choices', () => {
     expect(campaign.town.projects.museum.wins).toBe(0);
     expect(campaign.town.coins).toBe(0);
   });
-  it('requires a builder hammer even when puzzle hammers are available', () => {
+  it('requires a builder hammer even when TNT bonuses are available', () => {
     const campaign = useCampaignStore();
-    award('hammer');
+    award('tnt');
     expect(campaign.useBuilderHammer('museum', 0)).toBe(false);
-    expect(campaign.powers.find((p) => p.id === 'hammer').quantity).toBe(1);
+    expect(campaign.powers.find((p) => p.id === 'tnt').quantity).toBe(1);
     expect(campaign.town.buildings.museum).toBe(0);
     expect(campaign.town.projects).toEqual({});
   });
@@ -175,12 +175,12 @@ describe('Bounded, saved chest rewards', () => {
     expect(powers).toEqual({
       'clear-row': 245,
       shuffle: 245,
-      hammer: 70,
+      tnt: 70,
       'color-wand': 70,
       'tile-breaker': 70,
     });
   });
-  it.each(['clear-row', 'hammer', 'color-wand', 'shuffle', 'tile-breaker'])(
+  it.each(['clear-row', 'tnt', 'color-wand', 'shuffle', 'tile-breaker'])(
     'caps %s and converts excess from every award route',
     (id) => {
       const campaign = useCampaignStore(),
@@ -251,7 +251,7 @@ describe('Bounded, saved chest rewards', () => {
   it('migrates over-cap saved inventory once, preserving its value as coins', () => {
     saved.set(
       SAVE_KEY,
-      JSON.stringify({ powers: [{ id: 'hammer', quantity: 20 }], builderHammers: 8 }),
+      JSON.stringify({ powers: [{ id: 'tnt', quantity: 20 }], builderHammers: 8 }),
     );
     const campaign = useCampaignStore();
     expect(campaign.town.coins).toBe(200);

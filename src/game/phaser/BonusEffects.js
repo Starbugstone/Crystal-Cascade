@@ -5,7 +5,7 @@ import { BonusComboEffects, describeBonusCombo } from './BonusComboEffects';
 const RAINBOW = [0xff658c, 0xffc85b, 0xffffad, 0x74ffc3, 0x7defff, 0xa39aff, 0xf293ff];
 const POWER_COLOR = {
   bomb: 0xffbb64,
-  hammer: 0xffcc84,
+  tnt: 0xff7655,
   rainbow: 0xe0afff,
   color_wand: 0xe0afff,
   cross: 0x93efff,
@@ -70,7 +70,7 @@ export class BonusEffects {
     this.boardBurst(color);
     const labels = {
       bomb: 'BOOM!',
-      hammer: 'SMASH!',
+      tnt: 'BOOM!',
       rainbow: 'RAINBOW RUSH!',
       color_wand: 'COLOR RUSH!',
       cross: 'CROSS FIRE!',
@@ -112,9 +112,9 @@ export class BonusEffects {
       );
     }
     a.effect(pull, { scale: 0.05, rotation: 0.3, alpha: 0, duration: 230, ease: 'Cubic.easeIn' });
-    if (type === 'hammer') {
-      icon.setPosition(p.x + size * 0.7, p.y - size * 1.5).setAngle(40);
-      a.effect(icon, { x: p.x, y: p.y, angle: -25, duration: 230, ease: 'Cubic.easeIn' });
+    if (type === 'tnt') {
+      icon.setPosition(p.x, p.y - size * 1.2).setAngle(-12);
+      a.effect(icon, { x: p.x, y: p.y, angle: 0, duration: 230, ease: 'Cubic.easeIn' });
     } else {
       a.effect(icon, {
         scaleX: icon.scaleX * 2.2,
@@ -133,7 +133,7 @@ export class BonusEffects {
 
   sound(type) {
     const audio = this.a.audio;
-    if (type === 'bomb' || type === 'hammer') audio?.playBomb?.();
+    if (type === 'bomb' || type === 'tnt') audio?.playBomb?.();
     else if (type === 'rainbow' || type === 'color_wand') audio?.playRainbowLaser?.();
     else audio?.playCrossFire?.();
   }
@@ -142,7 +142,7 @@ export class BonusEffects {
     const a = this.a;
     const p = a.position(index);
     this.sound(type);
-    if (type === 'bomb' || type === 'hammer') this.explosion(p);
+    if (type === 'bomb' || type === 'tnt') this.explosion(p);
     else if (type === 'rainbow' || type === 'color_wand') this.rainbow(p, targets);
     else this.cross(p, type === 'clear_row');
   }

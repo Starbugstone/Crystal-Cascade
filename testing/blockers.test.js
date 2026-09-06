@@ -50,7 +50,7 @@ describe('Stone barriers', () => {
     manager.getResolution({ ...state, matches: [{ type: 'ruby', indices: [0, 5, 10] }] });
     expect(state.tiles[12].health).toBe(2);
   });
-  it.each(['hammer', 'tile_breaker', 'bonus-activation', 'clear_row'])(
+  it.each(['tnt', 'tile_breaker', 'bonus-activation', 'clear_row'])(
     'takes one hit from a direct %s blast and its overlapping neighbors',
     (type) => {
       const state = makeBoard();
@@ -68,7 +68,7 @@ describe('Stone barriers', () => {
     const lower = state.board[17];
     const result = manager.getResolution({
       ...state,
-      matches: [{ type: 'hammer', indices: [22] }],
+      matches: [{ type: 'tnt', indices: [22] }],
     });
     expect(result.board[7]).toBe(above);
     expect(result.board[22]).toBe(lower);
@@ -84,7 +84,7 @@ describe('Stone barriers', () => {
     state.board[17] = null;
     const result = manager.getResolution({
       ...state,
-      matches: [{ type: 'hammer', indices: [12] }],
+      matches: [{ type: 'tnt', indices: [12] }],
     });
     expect(state.tiles[12]).toMatchObject({ type: 'standard', health: 0 });
     expect(result.board.every(Boolean)).toBe(true);

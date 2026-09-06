@@ -134,12 +134,12 @@ describe('Interactive Bonuses', () => {
   });
 
   it('activates hammer mode and clears its 3 by 3 area', async () => {
-    const hammerSlot = inventoryStore.quickAccessSlots.find((slot) => slot.id === 'hammer');
+    const hammerSlot = inventoryStore.quickAccessSlots.find((slot) => slot.id === 'tnt');
     expect(hammerSlot.quantity).toBeGreaterThan(0);
 
-    const activated = await inventoryStore.usePowerUp('hammer');
+    const activated = await inventoryStore.usePowerUp('tnt');
     expect(activated).toBe(true);
-    expect(gameStore.activeBonusMode).toBe('hammer');
+    expect(gameStore.activeBonusMode).toBe('tnt');
 
     // Count should NOT decrease yet
     expect(hammerSlot.quantity).toBe(3);
@@ -152,7 +152,7 @@ describe('Interactive Bonuses', () => {
     const cleared = gameStore.renderer.animator.playSteps.mock.calls[0][0][0].cleared;
     expect(cleared).toEqual(expect.arrayContaining([0, 1, 3, 4]));
     expect(gameStore.renderer.animator.playSteps.mock.calls[0][0][0].bonusEffect).toEqual({
-      type: 'hammer',
+      type: 'tnt',
       originIndex: 0,
     });
     expect(gameStore.board.every(Boolean)).toBe(true);
@@ -255,7 +255,7 @@ describe('GameStore bonus preview highlighting', () => {
   });
 
   it('computes the active hammer power footprint', () => {
-    gameStore.activeBonusMode = 'hammer';
+    gameStore.activeBonusMode = 'tnt';
     gameStore.previewPowerEffect(4);
     expect(gameStore.bonusPreview.indices.length).toBeGreaterThan(0);
     expect(gameStore.renderer.animator.showBonusPreview).toHaveBeenCalledWith(
@@ -264,7 +264,7 @@ describe('GameStore bonus preview highlighting', () => {
   });
 
   it('clears preview state when requested', () => {
-    gameStore.activeBonusMode = 'hammer';
+    gameStore.activeBonusMode = 'tnt';
     gameStore.previewPowerEffect(4);
     gameStore.clearBonusPreview(true);
     expect(gameStore.bonusPreview.indices).toHaveLength(0);

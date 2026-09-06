@@ -93,10 +93,10 @@ describe('Frontier additions preserve bounded services and saves', () => {
         schemaVersion: 2,
         town,
         records: { 1: { score: 500, stars: 2 } },
-        powers: [{ id: 'hammer', quantity: 3 }],
+        powers: [{ id: 'tnt', quantity: 3 }],
         builderHammers: 2,
         shopVisit: 8,
-        shopStock: [{ id: 'hammer', sold: true }],
+        shopStock: [{ id: 'tnt', sold: true }],
       }),
     );
     const campaign = useCampaignStore();
@@ -116,10 +116,10 @@ describe('Frontier additions preserve bounded services and saves', () => {
       railDepot: 0,
     });
     expect(campaign.records[1]).toEqual({ score: 500, stars: 2 });
-    expect(campaign.powers.find((p) => p.id === 'hammer').quantity).toBe(3);
+    expect(campaign.powers.find((p) => p.id === 'tnt').quantity).toBe(3);
     expect(campaign.builderHammers).toBe(2);
     expect(campaign.shopVisit).toBe(8);
-    expect(campaign.shopStock).toContainEqual({ id: 'hammer', sold: true });
+    expect(campaign.shopStock).toContainEqual({ id: 'tnt', sold: true });
   });
   it('activates fisherman food exactly once after finishing, and keeps school happiness capped', () => {
     let town = frontier();
@@ -146,14 +146,14 @@ describe('Frontier additions preserve bounded services and saves', () => {
   });
 });
 
-describe('One Forge Charge, one temporary puzzle Hammer', () => {
-  it('settles a winning Forge Hammer without consuming a persistent inventory Hammer', async () => {
+describe('One Forge Charge, one temporary TNT', () => {
+  it('settles a winning Forge TNT without consuming a persistent inventory TNT', async () => {
     const c = useCampaignStore(),
       g = useGameStore(),
       inventory = useInventoryStore();
     c.town.buildings.blacksmith = 1;
     c.town.forge.charge = 1;
-    c.powers.find((p) => p.id === 'hammer').quantity = 2;
+    c.powers.find((p) => p.id === 'tnt').quantity = 2;
     g.bootstrap();
     g.startLevel(1, 'normal', { spendForge: true });
     g.tiles.forEach((tile, i) => {
@@ -161,11 +161,11 @@ describe('One Forge Charge, one temporary puzzle Hammer', () => {
       tile.state = 'PLAYABLE';
     });
     g.remainingLayers = 1;
-    expect(await inventory.usePowerUp('hammer')).toBe(true);
+    expect(await inventory.usePowerUp('tnt')).toBe(true);
     expect(await g.resolveBonusClick(14)).toBe(true);
     expect(g.levelCleared).toBe(true);
     expect(c.records[1]).toBeDefined();
-    expect(c.powers.find((p) => p.id === 'hammer').quantity).toBe(2);
+    expect(c.powers.find((p) => p.id === 'tnt').quantity).toBe(2);
     expect(c.forgeRun).toBeNull();
     expect(c.activeRun).toBeNull();
   });
@@ -197,28 +197,28 @@ describe('One Forge Charge, one temporary puzzle Hammer', () => {
     expect(c.town.forge).toEqual({ progress: 0, charge: 0 });
     expect(c.forgeRun).toBeNull();
   });
-  it('persists the spend, uses the temporary Hammer before inventory and cannot spend twice', () => {
+  it('persists the spend, uses the temporary TNT before inventory and cannot spend twice', () => {
     const c = useCampaignStore(),
       g = useGameStore(),
       inventory = useInventoryStore();
     c.town.buildings.blacksmith = 1;
     c.town.forge.charge = 1;
-    c.powers.find((p) => p.id === 'hammer').quantity = 2;
+    c.powers.find((p) => p.id === 'tnt').quantity = 2;
     const coins = c.town.coins,
       hammers = c.builderHammers;
     g.runId = c.beginRun('normal', 1, { spendForge: true });
     expect(JSON.parse(saves.get(SAVE_KEY)).town.forge.charge).toBe(0);
-    expect(inventory.availableQuantity('hammer')).toBe(3);
-    expect(inventory.consumeItem('hammer')).toBe(true);
-    expect(c.powers.find((p) => p.id === 'hammer').quantity).toBe(2);
-    expect(c.consumeForgeHammer(g.runId)).toBe(false);
+    expect(inventory.availableQuantity('tnt')).toBe(3);
+    expect(inventory.consumeItem('tnt')).toBe(true);
+    expect(c.powers.find((p) => p.id === 'tnt').quantity).toBe(2);
+    expect(c.consumeForgeTNT(g.runId)).toBe(false);
     expect(c.town.coins).toBe(coins);
     expect(c.builderHammers).toBe(hammers);
     c.beginRun('normal', 1, { spendForge: true });
     expect(c.forgeRun).toBeNull();
   });
   it.each(['exit', 'win', 'reload', 'replace'])(
-    'drops an unused temporary Hammer on %s without refund or inventory overflow',
+    'drops an unused temporary TNT on %s without refund or inventory overflow',
     (action) => {
       const c = useCampaignStore(),
         g = useGameStore();

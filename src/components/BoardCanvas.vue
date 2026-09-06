@@ -21,6 +21,7 @@ import Phaser from 'phaser';
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { BoardScene } from '../game/phaser/BoardScene';
+import { releaseContextOnDestroy } from '../game/phaser/RendererLifecycle';
 
 const canvasRoot = ref(null);
 const gameStore = useGameStore();
@@ -93,6 +94,7 @@ onMounted(() => {
     render: { roundPixels: false, powerPreference: 'high-performance' },
     input: { activePointers: 1, touch: true },
   });
+  releaseContextOnDestroy(game);
   observer = new ResizeObserver(resize);
   observer.observe(canvasRoot.value);
 });

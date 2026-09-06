@@ -38,8 +38,8 @@
         ><span class="powerup-name">{{ t(item.label) }}</span>
       </button>
     </div>
-    <p v-if="campaign.hasForgeHammer(game.runId)" class="forge-run-note" role="status">
-      {{ t('Forge Hammer: one temporary use, spent first. Expires when this run ends.') }}
+    <p v-if="campaign.hasForgeTNT(game.runId)" class="forge-run-note" role="status">
+      {{ t('Forge TNT: one temporary use, spent first. Expires when this run ends.') }}
     </p>
   </section>
 </template>
@@ -55,7 +55,7 @@ const game = useGameStore();
 const activeId = computed(() => game.activeBonusMode?.replaceAll('_', '-'));
 const descriptions = {
   'clear-row': 'Clear a random row.',
-  hammer: 'Shatter a 3 by 3 area around the chosen gem.',
+  tnt: 'Shatter a 3 by 3 area around the chosen gem.',
   'color-wand': 'Clear every gem of the chosen color.',
   shuffle: 'Mix the board for new possibilities.',
   'tile-breaker': 'Clear a row and column through your chosen gem.',

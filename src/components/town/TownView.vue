@@ -141,6 +141,7 @@
           </div>
         </div>
         <TownScene
+          ref="townScene"
           :active="active"
           :fullscreen="fullscreen"
           :town="town"
@@ -172,6 +173,7 @@
           v-if="collection"
           :key="collection.serial"
           :coins="collection.coins"
+          :origin="collection.origin"
           :reduced-motion="settings.reducedMotion"
           @coin="game.audioManager?.playArcadeCue?.('coin', $event)"
           @close="collection = null"
@@ -338,7 +340,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Only purchases you can afford are listed. A builder hammer also reveals unlocked purchases you can build for free.',
+              'Ready buildings come first: tap to finish construction. Coin purchases follow, then buildings you can complete with a builder hammer.',
             )
           }}
         </p>
@@ -360,8 +362,11 @@
             <span
               >{{ t(place.shortName) }}<small>{{ plotStatus(place) }}</small></span
             >
+            <span v-if="place.ready" class="town-plot-price town-plot-ready">
+              ✦ {{ t('Tap to finish') }}
+            </span>
             <span
-              v-if="town.coins < place.offer.cost"
+              v-else-if="town.coins < place.offer.cost"
               class="town-plot-price"
               :aria-label="t('1 builder hammer')"
             >
@@ -470,7 +475,7 @@ import {
   happiness,
   nextGoal,
   upgradeOffer,
-  availablePurchases,
+  availableParcels,
   constructionReady,
   saloonIncomeRate,
   totalLevels,
@@ -539,7 +544,8 @@ const showConstructionTip = computed(
 );
 const goal = computed(() => nextGoal(town.value));
 const gate = computed(() => eraGate(town.value, campaign.records));
-const directoryPlots = computed(() => availablePurchases(town.value, campaign.builderHammers));
+const directoryPlots = computed(() => availableParcels(town.value, campaign.builderHammers));
+const townScene = ref(null);
 const currentEraPlots = computed(() => BUILDINGS.filter(({ id }) => plotInEra(town.value, id)));
 const built = computed(
   () => currentEraPlots.value.filter(({ id }) => town.value.buildings[id]).length,
@@ -696,7 +702,11 @@ function collectIncome() {
   const coins = campaign.collectSaloonIncome();
   if (!coins) return false;
   closeDialog();
-  collection.value = { coins, serial: ++collectionSerial };
+  collection.value = {
+    coins,
+    serial: ++collectionSerial,
+    origin: townScene.value?.collectionOrigin('saloon'),
+  };
   return true;
 }
 async function selectBuilding(id) {
@@ -728,6 +738,7 @@ function goMining() {
   else selectBuilding('museum');
 }
 function plotStatus(place) {
+  if (place.ready) return t('Construction complete');
   return town.value.buildings[place.id]
     ? t('Level {level} / {max}', {
         level: town.value.buildings[place.id],

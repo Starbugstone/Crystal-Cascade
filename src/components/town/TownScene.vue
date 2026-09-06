@@ -1,6 +1,7 @@
 <template>
   <TownMap
     v-if="fallback"
+    ref="map"
     :town="town"
     :builder-hammers="builderHammers"
     :selected="selected"
@@ -26,11 +27,21 @@
     @lostpointercapture="cancelPointer"
   >
     <canvas
+      :key="canvasVersion"
       ref="canvas"
       tabindex="0"
       :aria-label="t('Town camera. Arrow keys rotate, plus and minus zoom, Home resets the view.')"
       @keydown="cameraKey"
     />
+    <div class="town-sparkles" :class="{ still: reducedMotion || paused }" aria-hidden="true">
+      <span
+        v-for="anchor in sparkleAnchors"
+        :key="anchor.id"
+        class="town-upgrade-sparkles"
+        :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
+        ><i v-for="i in 3" :key="i" :style="{ '--i': i }">✦</i></span
+      >
+    </div>
     <div class="town-scene-labels" role="group" :aria-label="t('Choose a plot or enter the mine')">
       <button
         v-for="anchor in anchors"
@@ -112,7 +123,7 @@
   </div>
 </template>
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
 import {
   constructionRuns,
@@ -138,11 +149,37 @@ const props = defineProps({
 });
 const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete', 'camera-distance']);
 const canvas = ref(null),
+  canvasVersion = ref(0),
+  map = ref(null),
   anchors = ref([]),
   fallback = ref(false);
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
+const sparkleAnchors = computed(() =>
+  anchors.value.filter((anchor) => anchor.inView && availableIds.value.includes(anchor.id)),
+);
+function collectionOrigin(id) {
+  if (fallback.value) {
+    const element = map.value?.$el.querySelector(`[data-town-plot="${id}"]`);
+    const frame = element?.closest('.town-map-frame').getBoundingClientRect();
+    const bounds = element?.getBoundingClientRect();
+    if (frame && bounds)
+      return {
+        x: Math.max(8, Math.min(92, ((bounds.x + bounds.width / 2 - frame.x) / frame.width) * 100)),
+        y: Math.max(
+          20,
+          Math.min(90, ((bounds.y + bounds.height / 2 - frame.y) / frame.height) * 100),
+        ),
+      };
+  }
+  const anchor = anchors.value.find((anchor) => anchor.id === id);
+  return {
+    x: Math.max(8, Math.min(92, anchor?.x ?? 50)),
+    y: Math.max(20, Math.min(90, anchor?.y ?? 50)),
+  };
+}
+defineExpose({ collectionOrigin });
 const cameraActions = [
   { id: 'out', label: 'Zoom out', path: 'M6 12h12' },
   { id: 'in', label: 'Zoom in', path: 'M6 12h12M12 6v12' },
@@ -240,8 +277,46 @@ function update() {
   scene.setPaused(props.paused);
 }
 let initializing = false;
+let recovering = false;
+let recoveryAttempts = 0;
+let recoveryPose;
+async function recoverGraphics(error, contextLost = false) {
+  if (disposed || fallback.value || recovering) return;
+  if (!contextLost || recoveryAttempts++ >= 2) {
+    useFallback(error);
+    return;
+  }
+  recovering = true;
+  if (scene) {
+    recoveryPose = {
+      position: scene.camera.position.toArray(),
+      target: scene.controls.target.toArray(),
+      overview: scene.overview,
+    };
+    scene.dispose();
+    scene = null;
+  }
+  lastVisual = '';
+  lastConstruction = undefined;
+  anchors.value = [];
+  canvasVersion.value++;
+  await nextTick();
+  recovering = false;
+  initialize();
+}
+function useFallback(error) {
+  if (disposed || fallback.value) return;
+  fallback.value = true;
+  // Let an in-progress render finish unwinding before releasing its resources.
+  nextTick(() => {
+    scene?.dispose();
+    scene = null;
+  });
+  if (props.raid) emit('raid-phase', 'The raid has passed');
+  console.warn('3D town unavailable; using the accessible SVG scene.', error);
+}
 async function initialize() {
-  if (scene || initializing || disposed || !props.active || fallback.value) return;
+  if (scene || initializing || recovering || disposed || !props.active || fallback.value) return;
   initializing = true;
   try {
     const { TownDiorama } = await import('../../game/town/TownDiorama');
@@ -253,17 +328,20 @@ async function initialize() {
         anchors.value = positions;
       },
       (distance) => emit('camera-distance', distance),
+      recoverGraphics,
     );
     update();
+    if (recoveryPose) {
+      scene.camera.position.fromArray(recoveryPose.position);
+      scene.controls.target.fromArray(recoveryPose.target);
+      scene.overview = recoveryPose.overview;
+      scene.controls.update();
+      scene.render();
+      recoveryPose = null;
+    }
     startRaid();
   } catch (error) {
-    scene?.dispose();
-    scene = null;
-    if (!disposed) {
-      fallback.value = true;
-      if (props.raid) emit('raid-phase', 'The raid has passed');
-    }
-    console.warn('3D town unavailable; using the accessible SVG scene.', error);
+    useFallback(error);
   } finally {
     initializing = false;
   }
@@ -349,5 +427,6 @@ watch(
 onBeforeUnmount(() => {
   disposed = true;
   scene?.dispose();
+  scene = null;
 });
 </script>

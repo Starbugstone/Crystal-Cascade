@@ -127,7 +127,7 @@ export const getLevelGemTypes = (id) => {
 
 export const POWERS = [
   { id: 'clear-row', label: 'Clear Row', dropWeight: 35 },
-  { id: 'hammer', label: 'Hammer', dropWeight: 10 },
+  { id: 'tnt', label: 'TNT', dropWeight: 10 },
   { id: 'color-wand', label: 'Color Wand', dropWeight: 10 },
   { id: 'shuffle', label: 'Shuffle', dropWeight: 35 },
   { id: 'tile-breaker', label: 'Tile Breaker', dropWeight: 10 },

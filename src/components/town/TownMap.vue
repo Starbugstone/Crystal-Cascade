@@ -197,6 +197,7 @@
         :aria-pressed="selected === building.id"
         :transform="`translate(${building.x} ${building.y}) scale(.48)`"
         class="map-building"
+        :data-town-plot="building.id"
         :class="{
           selected: selected === building.id,
           'is-repaired': town.buildings[building.id] > 0,
@@ -231,6 +232,21 @@
           <g v-if="animatedConstruction?.id === building.id" class="town-build-hammer">
             <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
           </g>
+        </g>
+        <g
+          v-if="availableIds.includes(building.id)"
+          class="map-upgrade-sparkles"
+          aria-hidden="true"
+        >
+          <text
+            v-for="i in 3"
+            :key="i"
+            :x="(i - 2) * 45"
+            :y="-115 - (i % 2) * 22"
+            :style="{ '--i': i }"
+          >
+            ✦
+          </text>
         </g>
         <g
           v-if="

@@ -53,8 +53,15 @@ function cross(frame = 0, id = 'c') {
   <circle cx="64" cy="64" r="29" fill="none" stroke="#c6ffff" stroke-width="1.6" stroke-dasharray="8 15" transform="rotate(${frame * 11} 64 64)"/>${star(91, 43, 3 + alpha * 2, '#fff')}`;
 }
 
-function hammer() {
-  return `<defs><linearGradient id="wood" x2="1" y2=".4"><stop stop-color="#824423"/><stop offset=".45" stop-color="#e9ac5f"/><stop offset="1" stop-color="#653620"/></linearGradient><linearGradient id="steel" x2=".7" y2="1"><stop stop-color="#eaf6ff"/><stop offset=".35" stop-color="#adc7dc"/><stop offset=".65" stop-color="#607f9b"/><stop offset="1" stop-color="#263f59"/></linearGradient></defs><g transform="rotate(-37 64 64)"><rect x="55" y="45" width="19" height="75" rx="7" fill="url(#wood)" stroke="#422b28" stroke-width="3"/><path d="m57 78 15-5m-15 16 15-5m-15 16 15-5m-15 16 15-5" stroke="#73412b" stroke-width="3"/><path d="M18 20Q62 12 109 22v30Q90 48 75 59H22Z" fill="url(#steel)" stroke="#263950" stroke-width="3" stroke-linejoin="round"/><path d="M24 24 98 27M27 28v24" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="4" stroke-linecap="round"/><circle cx="59" cy="38" r="5" fill="#304d66" stroke="#d9f4ff" stroke-width="2"/></g>${star(25, 24, 7, '#ffeabe')}`;
+function tnt() {
+  return `<defs><linearGradient id="tnt-red" x2="1" y2=".3"><stop stop-color="#ff9270"/><stop offset=".35" stop-color="#e74635"/><stop offset="1" stop-color="#8c1f2c"/></linearGradient></defs>
+  <path d="M65 32C57 14 94 30 91 10" fill="none" stroke="#513629" stroke-width="6"/>
+  <path d="M65 32C57 14 94 30 91 10" fill="none" stroke="#ffdb91" stroke-width="3"/>
+  ${[28, 48, 68].map((x) => `<rect x="${x}" y="31" width="28" height="82" rx="12" fill="url(#tnt-red)" stroke="#69252b" stroke-width="3"/><path d="M${x + 7} 45v52" stroke="#ffb392" stroke-width="3" opacity=".7"/>`).join('')}
+  <path d="M26 48h72v10H26zm0 39h72v10H26z" fill="#513c36" stroke="#c59465" stroke-width="2"/>
+  <rect x="34" y="59" width="56" height="27" rx="4" fill="#fff0c0" stroke="#792b2a" stroke-width="2"/>
+  <text x="62" y="79" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#a52b2c">TNT</text>
+  ${star(92, 12, 10, '#ffda65')}${star(105, 27, 4, '#fff2af')}`;
 }
 function wand() {
   return `<defs><linearGradient id="wand" x2="1" y2="1"><stop stop-color="#ffe8ff"/><stop offset=".5" stop-color="#e197fa"/><stop offset="1" stop-color="#724acd"/></linearGradient></defs><path d="m26 110 64-72" stroke="#261741" stroke-width="14" stroke-linecap="round"/><path d="m26 110 64-72" stroke="url(#wand)" stroke-width="9" stroke-linecap="round"/><path d="m30 103 10 3m3-19 10 3m3-19 10 3" stroke="#f7ddfa" stroke-width="3"/><path d="m87 9 8 18 21 2-15 14 4 21-18-11-19 11 4-21-15-14 21-2Z" fill="#ffe4a1" stroke="#fffcde" stroke-width="2.5"/><path d="m87 19 3 14 15 1-12 9 1 11-7-8-11 6 4-13-10-7 14-1Z" fill="#fff6d5"/>${star(43, 24, 8, '#df94ff')}${star(110, 78, 6, '#89f4ff')}${star(29, 62, 5, '#ffd487')}`;
@@ -77,7 +84,7 @@ Object.entries(types).forEach(([name, draw], row) => {
 });
 writeFileSync(`${out}/bonuses/atlas.svg`, svg(atlas, 1024, 384));
 for (const [name, art] of Object.entries({
-  hammer: hammer(),
+  tnt: tnt(),
   'color-wand': wand(),
   'clear-row': row(),
   shuffle: shuffle(),
