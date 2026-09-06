@@ -8,6 +8,8 @@ import { CHEST_DROPS } from '../src/data/rewards';
 import { FUSION_STYLES } from '../src/game/engine/BonusFusion';
 import { BUILDINGS, INITIAL_STORY } from '../src/data/town';
 import { OBSTACLES } from '../src/data/obstacles';
+import { ERAS } from '../src/data/eras';
+import { RIVER_RAIL_VARIANTS } from '../src/data/riverRail';
 
 afterEach(() => setLocale('en'));
 describe('One browser language across the game and town', () => {
@@ -43,6 +45,8 @@ describe('One browser language across the game and town', () => {
       ...POWERS.map((p) => p.label),
       ...CHEST_TIERS.map((c) => c.label),
       ...Object.values(INITIAL_STORY),
+      ...ERAS.flatMap((era) => [era.label, era.yearLabel, ...(era.story ? [era.story] : [])]),
+      ...Object.values(RIVER_RAIL_VARIANTS).flat(),
       ...CHEST_DROPS.map((drop) => drop.label),
       ...Object.values(FUSION_STYLES).flatMap((style) => [style.label, style.detail]),
     ];

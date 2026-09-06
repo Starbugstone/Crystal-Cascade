@@ -34,11 +34,11 @@ afterEach(() => {
 });
 
 describe('Expansion campaign', () => {
-  it('provides 24 authored 7 × 9 puzzles, matching chapter metadata and reachable relic exits', () => {
+  it('provides 36 authored 7 × 9 puzzles, matching chapter metadata and reachable relic exits', () => {
     const levels = generateLevelConfigs();
-    expect(levels).toHaveLength(60);
+    expect(levels).toHaveLength(72);
     expect(LEVEL_COUNT).toBe(LEVEL_NAMES.length);
-    expect(CHAPTERS).toHaveLength(10);
+    expect(CHAPTERS).toHaveLength(12);
     const repeat = generateLevelConfigs();
     for (const [offset, spec] of EXPANSION_LEVELS.entries()) {
       expect(spec.map.split('/')).toHaveLength(9);
@@ -84,7 +84,7 @@ describe('Expansion campaign', () => {
     }
     setActivePinia(createPinia());
     expect(useCampaignStore().completedCount).toBe(60);
-    expect(useCampaignStore().isUnlocked(61)).toBe(false);
+    expect(useCampaignStore().isUnlocked(61)).toBe(true);
   });
 });
 

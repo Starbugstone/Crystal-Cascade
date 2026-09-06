@@ -9,6 +9,9 @@ export const VILLAGE_AUDIO = Object.freeze({
   horse: { src: asset('horse'), volume: 0.34 },
   hooves: { src: asset('hooves'), volume: 0.45 },
   warning: { src: asset('warning'), volume: 0.28 },
+  river: { src: `${import.meta.env.BASE_URL}sound/village/river.wav`, volume: 0.12, loop: true },
+  train: { src: `${import.meta.env.BASE_URL}sound/village/train.wav`, volume: 0.1 },
+  steamboat: { src: `${import.meta.env.BASE_URL}sound/village/steamboat.wav`, volume: 0.1 },
 });
 
 export const villageSounds = (state) =>
@@ -16,7 +19,10 @@ export const villageSounds = (state) =>
     ? ['hooves']
     : [
         'birds',
+        ...(state.river ? ['river'] : []),
         'mining',
+        ...(state.railDepot ? ['train'] : []),
+        ...(state.riverPort ? ['steamboat'] : []),
         ...(state.population ? ['chatter'] : []),
         ...(state.construction ? ['building'] : []),
         ...(state.stable ? ['horse', 'hooves'] : []),
@@ -111,7 +117,7 @@ export class TownSoundscape {
     for (const kind of this.pending.keys()) {
       if (!this.canPlay(kind)) this.pending.delete(kind);
     }
-    for (const kind of ['birds', 'chatter']) {
+    for (const kind of ['birds', 'chatter', 'river']) {
       if (this.canPlay(kind)) this.playLife(kind);
     }
     const chatter = this.sources.get('chatter');

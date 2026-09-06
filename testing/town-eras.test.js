@@ -1,0 +1,409 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
+import { BUILDINGS, createTown, BANDIT_EVENT } from '../src/data/town';
+import { CHAPTERS } from '../src/data/campaign';
+import { ERAS, FORGE_COMPLETIONS } from '../src/data/eras';
+import { campaignMilestoneReached } from '../src/data/campaignMilestones';
+import {
+  normalizeTown,
+  purchase,
+  advanceConstruction,
+  finishConstruction,
+  foodCapacity,
+  residentPopulation,
+  visitorPopulation,
+  happiness,
+  saloonIncomeRate,
+  plotUnlocked,
+  upgradeOffer,
+  advanceForge,
+  buildWithHammer,
+} from '../src/game/town/TownRules';
+import { advanceEra, eraGate, isEraComplete } from '../src/game/town/TownEras';
+import { useCampaignStore, SAVE_KEY } from '../src/stores/campaignStore';
+import { useInventoryStore } from '../src/stores/inventoryStore';
+import { useGameStore } from '../src/stores/gameStore';
+import {
+  PLOTS,
+  visiblePlots,
+  townTracks,
+  railEdges,
+  routeBetween,
+  plotStreet,
+} from '../src/game/town/TownLayout';
+import { RIVER, riverDistance, riverCenterX, wetBank } from '../src/game/town/TownRiver';
+import { groundHeight } from '../src/game/town/TownLandscape';
+
+const frontier = () => {
+  const town = createTown();
+  town.coins = 30000;
+  town.completedRuns = 70;
+  for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
+    town.buildings[b.id] = b.upgrades.length;
+  return town;
+};
+const milestoneRecords = () =>
+  Object.fromEntries(
+    Array.from(
+      { length: (CHAPTERS.findIndex((c) => c.id === 'river-discovery') + 1) * 6 },
+      (_, i) => [i + 1, { score: 100, stars: 1 }],
+    ),
+  );
+const victory = (runId) => ({ id: 1, runId, score: 0, target: 1000, combo: 1 });
+let saves;
+beforeEach(() => {
+  saves = new Map();
+  vi.stubGlobal('localStorage', {
+    getItem: (k) => saves.get(k) ?? null,
+    setItem: (k, v) => saves.set(k, v),
+  });
+  setActivePinia(createPinia());
+});
+afterEach(() => {
+  useGameStore().cancelHint();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe('Frontier additions preserve bounded services and saves', () => {
+  it('loads a v3 receipt without losing its coins, construction, income, stock or inventory', () => {
+    const town = frontier();
+    delete town.era;
+    delete town.buildingEras;
+    delete town.forge;
+    delete town.infrastructure;
+    for (const id of ['fisherman', 'blacksmith', 'school', 'doctor']) delete town.buildings[id];
+    town.buildings.saloon = 2;
+    town.projects.saloon = { id: 'saloon', stage: 3, wins: 1, required: 1 };
+    town.income = { at: 1000, stored: 73, remainder: 800 };
+    town.events[BANDIT_EVENT] = {
+      id: 1,
+      atRun: 60,
+      gangSize: 10,
+      sheriffLevel: 5,
+      bankLevel: 5,
+      outcome: 'protected',
+      loss: 0,
+      seen: true,
+      targets: ['mine'],
+    };
+    saves.set(
+      SAVE_KEY,
+      JSON.stringify({
+        schemaVersion: 2,
+        town,
+        records: { 1: { score: 500, stars: 2 } },
+        powers: [{ id: 'hammer', quantity: 3 }],
+        builderHammers: 2,
+        shopVisit: 8,
+        shopStock: [{ id: 'hammer', sold: true }],
+      }),
+    );
+    const campaign = useCampaignStore();
+    expect(campaign.town).toMatchObject({
+      era: 'frontier',
+      coins: 30000,
+      forge: { charge: 0, progress: 0 },
+      income: town.income,
+      projects: town.projects,
+      events: town.events,
+    });
+    expect(campaign.town.buildings).toMatchObject({
+      fisherman: 0,
+      blacksmith: 0,
+      school: 0,
+      doctor: 0,
+      railDepot: 0,
+    });
+    expect(campaign.records[1]).toEqual({ score: 500, stars: 2 });
+    expect(campaign.powers.find((p) => p.id === 'hammer').quantity).toBe(3);
+    expect(campaign.builderHammers).toBe(2);
+    expect(campaign.shopVisit).toBe(8);
+    expect(campaign.shopStock).toContainEqual({ id: 'hammer', sold: true });
+  });
+  it('activates fisherman food exactly once after finishing, and keeps school happiness capped', () => {
+    let town = frontier();
+    town.buildings.fisherman = 0;
+    town.buildings.farm = 1;
+    town.buildings.farm2 = town.buildings.farm3 = 0;
+    expect(foodCapacity(town)).toBe(6);
+    for (let stage = 0; stage < 5; stage++) {
+      town = purchase(town, 'fisherman', stage);
+      expect(purchase(town, 'fisherman', stage)).toBeNull();
+      town = advanceConstruction(town);
+      expect(foodCapacity(town)).toBe(6 + stage);
+      town = finishConstruction(normalizeTown(town), 'fisherman', stage + 1);
+      expect(foodCapacity(town)).toBe(7 + stage);
+      expect(finishConstruction(town, 'fisherman', stage + 1)).toBeNull();
+    }
+    expect(residentPopulation(town)).toBe(11);
+    expect(visitorPopulation(town)).toBe(0);
+    const empty = createTown();
+    empty.buildings.school = 5;
+    expect(happiness(empty)).toBe(5);
+    empty.buildings.doctor = 5;
+    expect(happiness(empty)).toBe(5);
+  });
+});
+
+describe('One Forge Charge, one temporary puzzle Hammer', () => {
+  it('settles a winning Forge Hammer without consuming a persistent inventory Hammer', async () => {
+    const c = useCampaignStore(),
+      g = useGameStore(),
+      inventory = useInventoryStore();
+    c.town.buildings.blacksmith = 1;
+    c.town.forge.charge = 1;
+    c.powers.find((p) => p.id === 'hammer').quantity = 2;
+    g.bootstrap();
+    g.startLevel(1, 'normal', { spendForge: true });
+    g.tiles.forEach((tile, i) => {
+      tile.health = i === 14 ? 1 : 0;
+      tile.state = 'PLAYABLE';
+    });
+    g.remainingLayers = 1;
+    expect(await inventory.usePowerUp('hammer')).toBe(true);
+    expect(await g.resolveBonusClick(14)).toBe(true);
+    expect(g.levelCleared).toBe(true);
+    expect(c.records[1]).toBeDefined();
+    expect(c.powers.find((p) => p.id === 'hammer').quantity).toBe(2);
+    expect(c.forgeRun).toBeNull();
+    expect(c.activeRun).toBeNull();
+  });
+  it('counts only settled normal completions, caps at one and rejects repeat or stale victories', () => {
+    const c = useCampaignStore();
+    c.town.buildings.blacksmith = 1;
+    c.town.buildings.museum = 1;
+    for (let i = 0; i < FORGE_COMPLETIONS; i++) {
+      const run = c.beginRun('normal', 1);
+      c.recordVictory(victory(run));
+      c.recordVictory(victory(run));
+    }
+    expect(c.town.forge).toEqual({ progress: 0, charge: 1 });
+    for (let i = 0; i < 8; i++) c.recordVictory(victory(c.beginRun('normal', 1)));
+    expect(c.town.forge).toEqual({ progress: 0, charge: 1 });
+    setActivePinia(createPinia());
+    expect(useCampaignStore().town.forge.charge).toBe(1);
+  });
+  it('does not charge a closed or ready blacksmith or Continuous play', () => {
+    const c = useCampaignStore();
+    c.town.buildings.museum = 1;
+    c.town.projects.blacksmith = { id: 'blacksmith', stage: 1, required: 1, wins: 1 };
+    c.recordVictory(victory(c.beginRun('normal', 1)));
+    expect(c.town.forge.progress).toBe(0);
+    c.town.buildings.blacksmith = 1;
+    const run = c.beginRun('continuous', 1, { spendForge: true });
+    c.recordContinuous({ id: 1, runId: run, jewels: 300, score: 500 });
+    expect(c.recordVictory(victory(run))).toEqual([]);
+    expect(c.town.forge).toEqual({ progress: 0, charge: 0 });
+    expect(c.forgeRun).toBeNull();
+  });
+  it('persists the spend, uses the temporary Hammer before inventory and cannot spend twice', () => {
+    const c = useCampaignStore(),
+      g = useGameStore(),
+      inventory = useInventoryStore();
+    c.town.buildings.blacksmith = 1;
+    c.town.forge.charge = 1;
+    c.powers.find((p) => p.id === 'hammer').quantity = 2;
+    const coins = c.town.coins,
+      hammers = c.builderHammers;
+    g.runId = c.beginRun('normal', 1, { spendForge: true });
+    expect(JSON.parse(saves.get(SAVE_KEY)).town.forge.charge).toBe(0);
+    expect(inventory.availableQuantity('hammer')).toBe(3);
+    expect(inventory.consumeItem('hammer')).toBe(true);
+    expect(c.powers.find((p) => p.id === 'hammer').quantity).toBe(2);
+    expect(c.consumeForgeHammer(g.runId)).toBe(false);
+    expect(c.town.coins).toBe(coins);
+    expect(c.builderHammers).toBe(hammers);
+    c.beginRun('normal', 1, { spendForge: true });
+    expect(c.forgeRun).toBeNull();
+  });
+  it.each(['exit', 'win', 'reload', 'replace'])(
+    'drops an unused temporary Hammer on %s without refund or inventory overflow',
+    (action) => {
+      const c = useCampaignStore(),
+        g = useGameStore();
+      c.town.buildings.blacksmith = 1;
+      c.town.forge.charge = 1;
+      g.runId = c.beginRun('normal', 1, { spendForge: true });
+      if (action === 'exit') g.exitLevel();
+      if (action === 'win') c.recordVictory(victory(g.runId));
+      if (action === 'reload') setActivePinia(createPinia());
+      if (action === 'replace') c.beginRun('normal', 1);
+      expect(useCampaignStore().forgeRun).toBeNull();
+      expect(useCampaignStore().town.forge.charge).toBe(0);
+      expect(useCampaignStore().powers.every((p) => p.quantity === 0)).toBe(true);
+    },
+  );
+  it('does not grant an exploitable temporary use when persisting the spend fails', () => {
+    const c = useCampaignStore();
+    c.town.buildings.blacksmith = 1;
+    c.town.forge.charge = 1;
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw Error('full');
+    });
+    c.beginRun('normal', 1, { spendForge: true });
+    expect(c.forgeRun).toBeNull();
+    expect(c.town.forge.charge).toBe(1);
+    expect(advanceForge({ ...createTown(), forge: { charge: 0, progress: 4 } }).forge.charge).toBe(
+      0,
+    );
+  });
+});
+
+describe('Two eras and explicit modernization', () => {
+  it('blocks advancement during a mine run and permits it after exiting either mode', () => {
+    const c = useCampaignStore(),
+      g = useGameStore();
+    c.town = frontier();
+    c.records = milestoneRecords();
+    for (const mode of ['normal', 'continuous']) {
+      g.runId = c.beginRun(mode, 1);
+      expect(c.advanceEra('frontier')).toBe(false);
+      g.exitLevel();
+      expect(c.activeRun).toBeNull();
+    }
+    expect(c.advanceEra('frontier')).toBe(true);
+  });
+  it('rolls back an era change when its transition receipt cannot be saved', () => {
+    const c = useCampaignStore();
+    c.town = frontier();
+    c.records = milestoneRecords();
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw Error('full');
+    });
+    expect(c.advanceEra('frontier')).toBe(false);
+    expect(c.town.era).toBe('frontier');
+    expect(c.town.transition).toBeUndefined();
+  });
+  it('requires every frontier parcel plus the configured normal campaign milestone', () => {
+    const town = frontier(),
+      records = milestoneRecords();
+    expect(campaignMilestoneReached(records, 'river-discovery')).toBe(true);
+    expect(eraGate(town, {}).available).toBe(false);
+    expect(eraGate(town, records).available).toBe(true);
+    for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier')) {
+      const incomplete = structuredClone(town);
+      incomplete.buildings[b.id]--;
+      expect(advanceEra(incomplete, records, 'frontier'), b.id).toBeNull();
+    }
+    expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual(['frontier', 'river-rail']);
+  });
+  it('saves the transition before presenting it and cannot advance twice across reload', () => {
+    const c = useCampaignStore();
+    c.town = frontier();
+    c.records = milestoneRecords();
+    expect(c.advanceEra('frontier')).toBe(true);
+    expect(JSON.parse(saves.get(SAVE_KEY)).town.transition.pending).toBe(true);
+    expect(c.advanceEra('frontier')).toBe(false);
+    setActivePinia(createPinia());
+    const reloaded = useCampaignStore();
+    expect(reloaded.town.era).toBe('river-rail');
+    expect(reloaded.town.transition.pending).toBe(true);
+    reloaded.acknowledgeEra();
+    expect(reloaded.town.eraTransitionSeen['river-rail']).toBe(true);
+    expect(reloaded.advanceEra('frontier')).toBe(false);
+  });
+  it('retains services until modernization finishes and rejects duplicate purchases and finishes', () => {
+    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+    const rate = saloonIncomeRate(town);
+    expect(isEraComplete(town)).toBe(false);
+    town = purchase(town, 'saloon', 5);
+    expect(town.projects.saloon).toMatchObject({
+      type: 'modernization',
+      stage: 5,
+      required: 2,
+      cost: 300,
+    });
+    expect(town.buildingEras.saloon).toBe('frontier');
+    expect(saloonIncomeRate(town)).toBe(rate);
+    expect(purchase(town, 'saloon', 5)).toBeNull();
+    town = normalizeTown(advanceConstruction(town));
+    expect(finishConstruction(town, 'saloon', 5)).toBeNull();
+    town = finishConstruction(advanceConstruction(town), 'saloon', 5);
+    expect(town.buildings.saloon).toBe(5);
+    expect(town.buildingEras.saloon).toBe('river-rail');
+    expect(saloonIncomeRate(town)).toBe(rate);
+    expect(upgradeOffer(town, 'saloon')).toBeNull();
+    expect(finishConstruction(town, 'saloon', 5)).toBeNull();
+  });
+  it('builds the station and railway in one receipt and enables both only on its first finish', () => {
+    let town = frontier();
+    expect(plotUnlocked(town, 'railDepot')).toBe(false);
+    expect(railEdges(town)).toEqual([]);
+    expect(purchase(town, 'railDepot', 0)).toBeNull();
+    town = advanceEra(town, milestoneRecords(), 'frontier');
+    const coins = town.coins;
+    town = purchase(town, 'railDepot', 0);
+    const cost = coins - town.coins;
+    expect(cost).toBeGreaterThan(0);
+    expect(town.infrastructure.rail).toBe(0);
+    town = advanceConstruction(advanceConstruction(town));
+    expect(railEdges(town)).toEqual([]);
+    expect(town.buildings.railDepot).toBe(0);
+    town = finishConstruction(normalizeTown(town), 'railDepot', 1);
+    expect(town.infrastructure.rail).toBe(1);
+    expect(railEdges(town)).toHaveLength(1);
+    expect(town.coins).toBe(coins - cost);
+    expect(purchase(town, 'railDepot', 0)).toBeNull();
+    expect(railEdges(normalizeTown(town))).toHaveLength(1);
+  });
+  it('completes River & Rail without changing landmark service levels or exceeding 1200 coins/hour', () => {
+    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+    town.transition.pending = false;
+    for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
+      town = buildWithHammer(town, b.id, 5);
+    for (const id of [
+      'bridge',
+      'riverPort',
+      'railDepot',
+      'post',
+      'warehouse',
+      'hotel',
+      'home5',
+      'market',
+    ])
+      town = buildWithHammer(town, id, 0);
+    expect(isEraComplete(town)).toBe(true);
+    expect(eraGate(town, milestoneRecords()).available).toBe(false);
+    expect(residentPopulation(town)).toBe(50);
+    expect(visitorPopulation(town)).toBe(10);
+    expect(saloonIncomeRate(town)).toBe(1188);
+    expect(saloonIncomeRate(town)).toBeLessThanOrEqual(1200);
+  });
+});
+
+describe('River, gated parcels and permitted crossings', () => {
+  it('keeps the river valley below water and banks free of frontier foundations', () => {
+    for (let z = -80; z <= 80; z += 2) {
+      const x = riverCenterX(z);
+      expect(groundHeight(x, z)).toBeLessThan(RIVER.waterHeight);
+      expect(wetBank(x, z)).toBe(true);
+      expect(wetBank(x + 5, z)).toBe(false);
+    }
+    for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier')) {
+      const [x, z] = PLOTS[b.id];
+      expect(wetBank(x, z, 2)).toBe(false);
+    }
+  });
+  it('hides future lots from framing and adds pedestrian edges only after finishing the bridge', () => {
+    let town = frontier();
+    expect(visiblePlots(town).some((p) => p.id === 'railDepot' || p.district === 'east-bank')).toBe(
+      false,
+    );
+    town = advanceEra(town, milestoneRecords(), 'frontier');
+    expect(visiblePlots(town).some((p) => p.district === 'east-bank')).toBe(false);
+    expect(routeBetween(town, plotStreet('home5'), plotStreet('saloon'))).toEqual([]);
+    town = buildWithHammer(town, 'bridge', 0);
+    expect(visiblePlots(town).some((p) => p.id === 'home5')).toBe(true);
+    const path = routeBetween(town, plotStreet('home5'), plotStreet('saloon'));
+    expect(path.length).toBeGreaterThan(3);
+    expect(path).toContainEqual([24, 7.5]);
+    expect(path).toContainEqual([38, 7.5]);
+    for (const edge of townTracks(town))
+      for (let n = 0; n <= 20; n++) {
+        const x = edge.from[0] + ((edge.to[0] - edge.from[0]) * n) / 20;
+        const z = edge.from[1] + ((edge.to[1] - edge.from[1]) * n) / 20;
+        if (riverDistance(x, z) < RIVER.halfWidth) expect(edge.crossing).toBe('bridge');
+      }
+  });
+});

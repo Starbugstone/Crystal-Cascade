@@ -2078,3 +2078,35 @@ html:has(.town-museum[open]) {
 .town-labels-hidden .mine-label {
   display: none;
 }
+.town-era-goal {
+  margin: 0.6rem 0;
+  padding: 0.65rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.8rem;
+  color: var(--town-ink, #574b37);
+  background: #f3e8cf;
+}
+.forge-run-note {
+  font-size: 0.75rem;
+  margin: 0.35rem 0;
+  color: var(--text-primary, #fff4d3);
+}
+.town-era-control {
+  position: absolute;
+  top: 112px;
+  left: 16px;
+  z-index: 4;
+  max-width: calc(100% - 32px);
+  border-radius: 10px;
+  background: #fbf5e3;
+  color: #40593f;
+  padding: 6px 9px;
+  font-size: 11px;
+  box-shadow: 0 2px 8px #7c633218;
+}
+.town-era-control button {
+  color: inherit;
+  background: transparent;
+  padding: 6px;
+  min-height: 32px;
+}
