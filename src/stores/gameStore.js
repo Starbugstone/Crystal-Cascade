@@ -103,6 +103,7 @@ export const useGameStore = defineStore('game', {
     collectedJewels: 0,
     runId: null,
     coinReward: 0,
+    remainingBonusGems: 0,
     playMode: 'normal',
     constructionReward: [],
     arcadeImpact: null,
@@ -203,7 +204,7 @@ export const useGameStore = defineStore('game', {
         return true;
       }
 
-      if (!this.sessionActive || this.levelCleared) {
+      if (!this.sessionActive || this.levelCleared || this.inputPaused) {
         return false;
       }
 
@@ -559,7 +560,7 @@ export const useGameStore = defineStore('game', {
       }
     },
     computeHintMove() {
-      if (!this.sessionActive) {
+      if (!this.sessionActive || this.inputPaused || this.levelCleared || this.activeBonusMode) {
         return;
       }
 
@@ -643,6 +644,7 @@ export const useGameStore = defineStore('game', {
       this.levelRewards = [];
       this.collectedJewels = 0;
       this.coinReward = 0;
+      this.remainingBonusGems = 0;
       this.constructionReward = [];
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
@@ -798,7 +800,11 @@ export const useGameStore = defineStore('game', {
         animator.syncToBoard(this.board);
       }
     },
-    async resolveSwap(aIndex, bIndex) {
+    activateBonusGem(index) {
+      if (this.animationInProgress || this.inputPaused || this.activeBonusMode) return false;
+      return this.resolveSwap(index, index, { activateInPlace: true });
+    },
+    async resolveSwap(aIndex, bIndex, { activateInPlace = false } = {}) {
       const session = this.sessionVersion;
       if (!this.sessionActive || this.levelCleared) {
         return false;
@@ -837,7 +843,9 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      const evaluation = matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex, tiles);
+      const evaluation = activateInPlace
+        ? matchEngine.evaluateActivation(this.board, cols, rows, aIndex, tiles)
+        : matchEngine.evaluateSwap(this.board, cols, rows, aIndex, bIndex, tiles);
       const isAdjacent = matchEngine.areAdjacent(aIndex, bIndex, cols);
 
       if (!evaluation.matches.length) {
@@ -863,7 +871,7 @@ export const useGameStore = defineStore('game', {
       this.animationInProgress = true;
 
       try {
-        const swapPayload = evaluation.swap ?? { aIndex, bIndex };
+        const swapPayload = activateInPlace ? null : (evaluation.swap ?? { aIndex, bIndex });
         if (animator && swapPayload) {
           await animator.animateSwap(swapPayload);
           if (session !== this.sessionVersion) return false;
@@ -972,6 +980,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      useCampaignStore().settlePendingChests();
       this.syncContinuous();
       this.playMode = 'normal';
       this.syncRunClock(false);
@@ -1008,6 +1017,7 @@ export const useGameStore = defineStore('game', {
       this.levelRewards = [];
       this.collectedJewels = 0;
       this.coinReward = 0;
+      this.remainingBonusGems = 0;
       this.constructionReward = [];
       clearTimeout(arcadeImpactTimeout);
       this.arcadeImpact = null;
@@ -1045,8 +1055,13 @@ export const useGameStore = defineStore('game', {
       )
         return;
       this.syncRunClock(false);
-      this.coinReward = miningPayout(this.collectedJewels);
+      this.remainingBonusGems = this.board.filter((gem) =>
+        ['bomb', 'cross', 'rainbow'].includes(gem?.type),
+      ).length;
+      this.coinReward = miningPayout(this.collectedJewels, this.remainingBonusGems);
       this.levelRewards = useCampaignStore().recordVictory({
+        chooseRewards: true,
+        bonusGems: this.remainingBonusGems,
         runId: this.runId,
         jewels: this.collectedJewels,
         elapsedMs: this.playClock.started ? this.elapsedMs : null,

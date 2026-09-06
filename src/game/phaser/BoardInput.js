@@ -3,6 +3,7 @@ export class BoardInput {
     Object.assign(this, { scene, boardContainer, gameStore });
     this.layout = { boardCols: 0, boardRows: 0, cellSize: 0 };
     this.selectedCell = null;
+    this.lastTap = null;
     this.startCell = null;
     this.focusIndex = 0;
     this.activePointer = null;
@@ -32,6 +33,7 @@ export class BoardInput {
     this.layout = layout;
   }
   reset() {
+    this.lastTap = null;
     this.startCell = null;
     this.selectedCell = null;
     this.activePointer = null;
@@ -76,6 +78,7 @@ export class BoardInput {
       nextRow >= this.layout.boardRows
     )
       return;
+    this.lastTap = null;
     const from = this.startCell;
     this.startCell = null; // Commit at the swipe threshold, once per gesture.
     this.selectedCell = null;
@@ -96,7 +99,26 @@ export class BoardInput {
     this.activateCell(index);
   }
   activateCell(index) {
+    if (!this.enabled) return;
+    const now = Date.now();
+    const gem = this.gameStore.board?.[index];
+    const doubleTap =
+      this.lastTap?.index === index &&
+      this.lastTap.gemId === gem?.id &&
+      this.lastTap.version === this.gameStore.boardVersion &&
+      now - this.lastTap.at <= 350;
+    this.lastTap = { index, gemId: gem?.id, version: this.gameStore.boardVersion, at: now };
+    if (
+      doubleTap &&
+      ['bomb', 'cross', 'rainbow'].includes(gem?.type) &&
+      !this.gameStore.activeBonusMode
+    ) {
+      this.reset();
+      this.gameStore.activateBonusGem(index);
+      return;
+    }
     if (this.gameStore.activeBonusMode) {
+      this.lastTap = null;
       this.selectedCell = null;
       this.clearHighlights();
       this.gameStore.resolveBonusClick(index);
@@ -108,6 +130,7 @@ export class BoardInput {
       return;
     }
     if (this.selectedCell !== null && this.adjacent(this.selectedCell, index)) {
+      this.lastTap = null;
       const first = this.selectedCell;
       this.selectedCell = null;
       this.clearHighlights();
@@ -128,7 +151,10 @@ export class BoardInput {
     if (!this.enabled) return;
     const { boardCols: cols, boardRows: rows } = this.layout;
     const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols };
+    if (event.repeat && (event.key === 'Enter' || event.key === ' ')) return;
+    this.gameStore.notifyPlayerActivity();
     if (event.key in offsets) {
+      this.lastTap = null;
       event.preventDefault();
       const next = this.focusIndex + offsets[event.key];
       if (next >= 0 && next < cols * rows && this.adjacent(this.focusIndex, next)) {

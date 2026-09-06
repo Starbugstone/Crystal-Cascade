@@ -11,7 +11,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 50,
-        runs: 2,
+        runs: 0,
         title: 'Let the water flow',
         benefit: 'Fresh drinking water for the town.',
         story: 'Hear that? Fresh water. This old place has a little life in it yet.',
@@ -31,7 +31,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 50,
-        runs: 3,
+        runs: 0,
         title: 'Plant the first seeds',
         benefit: 'A little harvest to feed our future neighbors.',
         story:
@@ -52,7 +52,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 50,
-        runs: 3,
+        runs: 0,
         title: 'Make a home for a family',
         benefit: 'Two new neighbors, once food and water are ready.',
         story:
@@ -61,7 +61,7 @@ const ORIGINAL_BUILDINGS = [
       },
       {
         cost: 150,
-        runs: 4,
+        runs: 1,
         title: 'Make a little more room',
         benefit:
           'A new wing and a garden make room for two more neighbors, once food and water are ready.',
@@ -83,7 +83,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 100,
-        runs: 4,
+        runs: 1,
         title: 'Bring back the good times',
         benefit: 'Music, warm lamps, and a place for neighbors to meet.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
@@ -103,7 +103,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 100,
-        runs: 4,
+        runs: 1,
         title: 'Welcome weary travelers',
         benefit: 'Horses and a wagon bring life to the edge of town.',
         story: 'A dry stall and some good hay. Word of this place will travel faster than we do.',
@@ -123,7 +123,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 100,
-        runs: 5,
+        runs: 1,
         title: 'Pin up the badge',
         benefit: 'A sheriff to keep an eye on town and turn bandits away.',
         story: 'No need to worry, folks. I’ll take the evening walk from here.',
@@ -143,7 +143,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 120,
-        runs: 4,
+        runs: 1,
         title: 'Open the museum',
         benefit: 'Replay completed levels to improve your score, stars, and best time.',
         story:
@@ -169,7 +169,7 @@ const ORIGINAL_BUILDINGS = [
     upgrades: [
       {
         cost: 120,
-        runs: 4,
+        runs: 1,
         title: 'Build the armory',
         benefit: 'Carry up to 5 of each puzzle bonus.',
         story:
@@ -178,7 +178,7 @@ const ORIGINAL_BUILDINGS = [
       },
       {
         cost: 220,
-        runs: 5,
+        runs: 1,
         title: 'Expand the storeroom',
         benefit: 'Carry up to 8 of each puzzle bonus.',
         story: 'New shelves, more supplies. There’s room for eight of each puzzle bonus now.',
@@ -186,7 +186,7 @@ const ORIGINAL_BUILDINGS = [
       },
       {
         cost: 350,
-        runs: 6,
+        runs: 1,
         title: 'Complete the supply depot',
         benefit: 'Carry up to 12 of each puzzle bonus.',
         story:
@@ -197,19 +197,85 @@ const ORIGINAL_BUILDINGS = [
   },
 ];
 
+ORIGINAL_BUILDINGS.push({
+  id: 'bank',
+  name: 'Prospect bank',
+  shortName: 'Bank',
+  purpose: 'A safe place for your savings',
+  x: 340,
+  y: 115,
+  color: '#b3a47b',
+  stages: ['Empty plot', 'The vault is open', 'A reinforced vault', 'The frontier reserve'],
+  upgrades: [
+    {
+      cost: 100,
+      title: 'Open the bank',
+      benefit: 'Protect half the coins at risk from two riders.',
+    },
+    {
+      cost: 230,
+      title: 'Reinforce the vault',
+      benefit: 'Protect half the coins at risk from four riders.',
+    },
+    {
+      cost: 360,
+      title: 'Complete the frontier reserve',
+      benefit: 'Protect half the coins at risk from six riders.',
+    },
+  ].map((upgrade) => ({
+    ...upgrade,
+    runs: 1,
+    story: upgrade.benefit,
+    speaker: 'Morgan · the banker',
+  })),
+});
+
+ORIGINAL_BUILDINGS.push({
+  id: 'shop',
+  name: 'Prairie trading post',
+  shortName: 'Shop',
+  purpose: 'Supplies for your next descent',
+  x: 650,
+  y: 115,
+  color: '#b08b6c',
+  stages: ['Empty plot', 'Open for trade', 'A wider selection', 'The grand trading post'],
+  upgrades: [
+    {
+      cost: 100,
+      title: 'Open the shop',
+      benefit: 'Buy from two random bonuses. New stock after each completed mine run.',
+    },
+    {
+      cost: 220,
+      title: 'Expand the shop',
+      benefit: 'Choose from three random bonuses after each completed mine run.',
+    },
+    {
+      cost: 350,
+      title: 'Complete the trading post',
+      benefit: 'Choose from four random bonuses after each completed mine run.',
+    },
+  ].map((upgrade) => ({
+    ...upgrade,
+    runs: 1,
+    story: upgrade.benefit,
+    speaker: 'Robin · the shopkeeper',
+  })),
+});
+
 // Completed levels are permanent; improvements keep the previous service open.
 const IMPROVEMENTS = {
   well: [
     [
       140,
-      3,
+      1,
       'A reliable town pump',
       'Install the town pump',
       'Water for twelve neighbors. Unlock a second well plot.',
     ],
     [
       260,
-      4,
+      1,
       'Water above the rooftops',
       'Raise the water tower',
       'Water for eighteen neighbors, with a tank above the town.',
@@ -218,14 +284,14 @@ const IMPROVEMENTS = {
   farm: [
     [
       170,
-      4,
+      1,
       'A barn full of promise',
       'Expand the barn',
       'Food for twelve neighbors. Unlock two more farm plots.',
     ],
     [
       300,
-      5,
+      1,
       'Fields of plenty',
       'Build the farm windmill',
       'Food for eighteen neighbors and a working windmill.',
@@ -234,7 +300,7 @@ const IMPROVEMENTS = {
   home: [
     [
       280,
-      5,
+      1,
       'A home for generations',
       'Add a second floor',
       'Room for six neighbors, with a balcony overlooking the street.',
@@ -243,14 +309,14 @@ const IMPROVEMENTS = {
   saloon: [
     [
       220,
-      5,
+      1,
       'Room for the evening crowd',
       'Open the upstairs lounge',
       'Earn 12 coins per hour for each completed house.',
     ],
     [
       350,
-      6,
+      1,
       'The heart of the frontier',
       'Complete the grand saloon',
       'Earn 18 coins per hour for each completed house.',
@@ -259,14 +325,14 @@ const IMPROVEMENTS = {
   stable: [
     [
       210,
-      5,
+      1,
       'More saddles on the trail',
       'Add covered stalls',
       'Two mounted travelers wander through town.',
     ],
     [
       330,
-      6,
+      1,
       'A busy frontier stop',
       'Open the carriage yard',
       'Three mounted travelers and a carriage yard bring the trail to life.',
@@ -275,30 +341,30 @@ const IMPROVEMENTS = {
   sheriff: [
     [
       230,
-      6,
+      1,
       'A deputy on duty',
       'Make room for a deputy',
-      'The sheriff and deputy can turn away a gang of four riders.',
+      'Protect half the coins at risk from four riders.',
     ],
     [
       360,
-      7,
+      1,
       'Watch over the whole town',
       'Build the frontier watchtower',
-      'A full patrol can turn away the largest gang of six riders.',
+      'Protect half the coins at risk from six riders.',
     ],
   ],
   museum: [
     [
       210,
-      5,
+      1,
       'The discovery gallery',
       'Add the discovery gallery',
       'A new gallery and gem exhibits celebrate your adventures.',
     ],
     [
       330,
-      6,
+      1,
       'A frontier landmark',
       'Complete the museum tower',
       'A landmark tower and a grand entrance for your collection.',
@@ -326,7 +392,7 @@ ORIGINAL_BUILDINGS.find(({ id }) => id === 'saloon').upgrades[0].benefit =
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'stable').upgrades[0].benefit =
   'A mounted traveler wanders through town, with horses resting in the stalls.';
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
-  'The sheriff can turn away a gang of two riders. Upgrade as the town grows.';
+  'Protect half the coins at risk from two riders.';
 export const BUILDINGS = [
   ...ORIGINAL_BUILDINGS,
   ...[
@@ -363,11 +429,12 @@ export const BANDIT_EVENT = 'dusty-trail-visitors';
 export const INITIAL_STORY = {
   speaker: 'Ada · the caretaker',
   title: 'A town starts with your first choice.',
-  text: 'Choose any empty plot. The first building’s materials are on us. Complete puzzles to bring it to life, one part at a time. Smaller buildings open sooner.',
+  text: 'Choose any empty plot. The first building’s materials are on us. Small buildings open immediately. Larger buildings and improvements need one completed puzzle.',
 };
 
 export const createTown = () => ({
   coins: 0,
+  tourSeen: false,
   buildings: Object.fromEntries(BUILDINGS.map(({ id }) => [id, 0])),
   events: {},
   projects: {},

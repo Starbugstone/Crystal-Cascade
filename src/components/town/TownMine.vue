@@ -18,6 +18,13 @@
       fill="transparent"
     />
     <g aria-hidden="true">
+      <g v-if="stage >= 6" stroke="#91714f" stroke-width="6" fill="none"
+        ><path d="M-80 40V-90M80 40V-90" /><path v-if="stage >= 7" d="M-85-90H85" /><path
+          v-if="stage >= 9"
+          d="M-92-96H92"
+          stroke="#6c8b7b"
+          stroke-width="13"
+      /></g>
       <ellipse cy="68" rx="101" ry="20" fill="#625037" opacity=".22" />
       <path d="M-105 57-87 1-56-38-7-53 49-32 78 8 106 58 27 78Z" fill="#aa9c77" />
       <path d="m-105 57 49-95 16 44-15 51Zm98-110 33 55 52 6-29-40Z" fill="#c7b58c" />
@@ -57,6 +64,32 @@
         <path d="M-6-4H6V12H-6Z" fill="#efc575" stroke="#69593b" stroke-width="3" />
         <path d="M-4-5v-6h8v6" fill="none" stroke="#69593b" stroke-width="2" />
       </g>
+      <g
+        v-for="n in stage"
+        :key="n"
+        :transform="`translate(${(n % 2 ? -1 : 1) * (68 + (n % 3) * 7)} ${48 - Math.floor((n - 1) / 2) * 19})`"
+      >
+        <path
+          d="M0-12 8-3 5 9-5 9-8-3Z"
+          :fill="['#d4a3de', '#7abcea', '#8ad9b7', '#eacf80', '#e8a7c3'][(n - 1) % 5]"
+          stroke="#f6e9c6"
+          stroke-width="1.5"
+        />
+      </g>
+      <path
+        v-if="stage >= 2"
+        d="M-48 20h13m69 0h14M-48 49h13m69 0h14"
+        stroke="#b9c8c0"
+        stroke-width="7"
+      />
+      <path v-if="stage >= 5" d="M-67-38H65" stroke="#6c8b7b" stroke-width="12" />
+      <path
+        v-if="stage >= 10"
+        d="M0-128 15-112 0-96-15-112Z"
+        fill="#f1d178"
+        stroke="#fff3bb"
+        stroke-width="3"
+      />
       <g v-if="!decorative" class="mine-label" transform="translate(0 103)">
         <rect
           x="-93"
@@ -77,6 +110,10 @@
 </template>
 <script setup>
 import { t } from '../../i18n';
-defineProps({ level: { type: Number, default: 1 }, decorative: Boolean });
+defineProps({
+  level: { type: Number, default: 1 },
+  decorative: Boolean,
+  stage: { type: Number, default: 0 },
+});
 defineEmits(['enter']);
 </script>

@@ -45,7 +45,7 @@
         >
           <path d="M0 0v-36m0 23h-11v-12m11 5h11v-14" />
         </g>
-        <g :id="`${uid}-person`">
+        <g :id="`${uid}-person`" transform="scale(.65)">
           <ellipse cy="4" rx="7" ry="3" fill="#596242" opacity=".23" />
           <path class="walker-leg leg-left" d="m-3-6-1 9" stroke="#6e6552" stroke-width="3" />
           <path class="walker-leg leg-right" d="m3-6 2 9" stroke="#6e6552" stroke-width="3" />
@@ -103,23 +103,12 @@
       <g aria-hidden="true" :clip-path="`url(#${uid}-land)`">
         <path :d="land" :fill="`url(#${uid}-grain)`" />
         <path
-          d="M541 184Q423 286 533 391T503 735"
-          stroke="#c3a67c"
-          stroke-width="91"
-          fill="none"
-          opacity=".2"
-        />
-        <path d="M541 184Q423 286 533 391T503 735" stroke="#f0dfb7" stroke-width="80" fill="none" />
-        <path
-          d="M111 350Q255 302 485 350T940 329M126 553Q291 518 505 563T956 535"
-          stroke="#e9d5a8"
-          stroke-width="38"
-          fill="none"
-        />
-        <path
-          d="M215 236 207 326m489-95 12 119M226 449l-3 88m490-73 14 93"
-          stroke="#e9d5a8"
-          stroke-width="21"
+          v-for="(track, index) in TOWN_TRACKS"
+          :key="`track-${index}`"
+          :d="`M${mapPoint(track.from).join(' ')} L${mapPoint(track.to).join(' ')}`"
+          :stroke-width="track.width * 14"
+          stroke="#c8ac7f"
+          stroke-linecap="round"
           fill="none"
         />
         <path
@@ -157,8 +146,8 @@
           />
         </g>
       </g>
-      <g transform="translate(500 103)">
-        <TownMine :level="nextLevel" @enter="$emit('mine')" />
+      <g :transform="`translate(${mapPoint(PLOTS.mine).join(' ')}) scale(.68)`">
+        <TownMine :level="nextLevel" :stage="mineStage" @enter="$emit('mine')" />
       </g>
       <g
         v-for="building in orderedBuildings"
@@ -172,7 +161,7 @@
           })
         "
         :aria-pressed="selected === building.id"
-        :transform="`translate(${building.x} ${building.y})`"
+        :transform="`translate(${building.x} ${building.y}) scale(.48)`"
         class="map-building"
         :class="{
           selected: selected === building.id,
@@ -192,14 +181,14 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
-        <g :key="town.buildings[building.id]" aria-hidden="true">
+        <g :key="town.buildings[building.id]" aria-hidden="true" transform="scale(.88)">
           <TownSite
             :id="building.id"
             :stage="town.buildings[building.id]"
             :wins="constructionVisual(town.projects[building.id])"
           />
         </g>
-        <g class="map-label" transform="translate(0 55)" aria-hidden="true">
+        <g class="map-label" transform="translate(0 35)" aria-hidden="true">
           <rect
             x="-67"
             y="-18"
@@ -239,19 +228,34 @@
         <g v-if="population > 2" class="resident-walk resident-three" color="#9a8b58">
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="population > 2" transform="translate(320 301) scale(.8)" color="#a97777">
+        <g
+          v-if="population > 2"
+          :transform="`translate(${mapPoint(atPlot('home', 1, 2)).join(' ')})`"
+          color="#a97777"
+        >
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="town.buildings.farm" transform="translate(814 283)" color="#87945b">
+        <g
+          v-if="town.buildings.farm"
+          :transform="`translate(${mapPoint(atPlot('farm', 1.4, 2)).join(' ')})`"
+          color="#87945b"
+        >
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="town.buildings.saloon" transform="translate(305 481)" color="#8c7891">
+        <g
+          v-if="town.buildings.saloon"
+          :transform="`translate(${mapPoint(atPlot('saloon', 0.8, 2)).join(' ')})`"
+          color="#8c7891"
+        >
           <use :href="`#${uid}-person`" />
         </g>
         <g v-if="town.buildings.sheriff" class="resident-walk sheriff-walk" color="#6b8190">
           <use :href="`#${uid}-person`" />
         </g>
-        <g v-if="town.buildings.stable">
+        <g
+          v-if="town.buildings.stable"
+          :transform="`translate(${mapPoint(PLOTS.stable).join(' ')}) scale(.48) translate(-735 -455)`"
+        >
           <g transform="translate(802 461)">
             <g class="horse-idle"><use :href="`#${uid}-horse`" /></g>
           </g>
@@ -287,29 +291,33 @@
 <script setup>
 import { computed } from 'vue';
 import { t } from '../../i18n';
-import { ref, useId, watch } from 'vue';
+import { nextTick, ref, useId, watch } from 'vue';
 import { constructionVisual } from '../../game/town/TownRules';
 import { plotUnlocked } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
+import { PLOTS, TOWN_TRACKS, mapPoint, atPlot } from '../../game/town/TownLayout';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';
 const props = defineProps({
   town: { type: Object, required: true },
   selected: String,
   population: Number,
+  mineStage: { type: Number, default: 0 },
+  fullscreen: Boolean,
   reducedMotion: Boolean,
   paused: Boolean,
   nextLevel: { type: Number, required: true },
 });
 defineEmits(['select', 'mine']);
 const scene = ref(null);
-const land = 'M0 242Q197 159 401 226T1000 203V590L550 700 0 620Z';
+const land = 'M0 148Q197 108 401 144T1000 128V590L550 700 0 620Z';
 function resetView() {
   scene.value?.style.removeProperty('--look-x');
   scene.value?.style.removeProperty('--look-y');
 }
 function lookAround(event) {
-  if (event.pointerType !== 'mouse' || props.paused || props.reducedMotion) return;
+  if (event.pointerType !== 'mouse' || props.paused || props.reducedMotion || props.fullscreen)
+    return;
   const bounds = event.currentTarget.getBoundingClientRect();
   scene.value.style.setProperty(
     '--look-x',
@@ -321,27 +329,40 @@ function lookAround(event) {
   );
 }
 watch(() => props.paused || props.reducedMotion, resetView);
+watch(
+  () => props.fullscreen,
+  async (open) => {
+    resetView();
+    await nextTick();
+    if (scene.value)
+      scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
+  },
+);
 const uid = `town-${useId().replaceAll(':', '')}`;
 const orderedBuildings = computed(() =>
-  BUILDINGS.filter((b) => plotUnlocked(props.town, b.id)).sort((a, b) => a.y - b.y),
+  BUILDINGS.filter((b) => plotUnlocked(props.town, b.id))
+    .map((b) => {
+      const [x, y] = mapPoint(PLOTS[b.id]);
+      return { ...b, x, y };
+    })
+    .sort((a, b) => a.y - b.y),
 );
 const trees = [
-  [78, 316, 1.25],
-  [124, 272, 0.8],
-  [929, 255, 1.2],
-  [922, 321, 0.9],
-  [65, 490, 0.9],
-  [105, 553, 1.4],
-  [845, 605, 1.1],
-  [907, 585, 1.4],
-  [354, 171, 0.85],
-  [346, 659, 0.8],
+  [45, 230, 0.85],
+  [85, 180, 0.65],
+  [944, 175, 0.9],
+  [971, 260, 0.7],
+  [38, 420, 0.75],
+  [55, 535, 0.9],
+  [850, 627, 0.8],
+  [926, 585, 0.95],
+  [220, 660, 0.65],
+  [785, 685, 0.7],
 ];
 const cacti = [
-  [76, 414],
-  [350, 442],
-  [651, 641],
-  [904, 387],
-  [405, 279],
+  [40, 330],
+  [960, 380],
+  [315, 670],
+  [690, 681],
 ];
 </script>

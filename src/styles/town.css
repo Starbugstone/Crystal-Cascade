@@ -471,19 +471,19 @@
   }
 }
 .resident-one {
-  transform: translate(357px, 332px);
+  transform: translate(416px, 231px);
   animation: town-walk-one 26s ease-in-out infinite;
 }
 .resident-two {
-  transform: translate(576px, 404px);
+  transform: translate(584px, 343px);
   animation: town-walk-two 32s ease-in-out infinite;
 }
 .resident-three {
-  transform: translate(304px, 328px);
+  transform: translate(140px, 455px);
   animation: town-walk-three 23s ease-in-out infinite;
 }
 .sheriff-walk {
-  transform: translate(530px, 581px);
+  transform: translate(584px, 532px);
   animation: town-patrol 35s ease-in-out infinite;
 }
 .horse-idle {
@@ -494,43 +494,43 @@
   0%,
   15%,
   100% {
-    transform: translate(357px, 332px);
+    transform: translate(416px, 231px);
   }
   45%,
   65% {
-    transform: translate(455px, 373px);
+    transform: translate(416px, 567px);
   }
 }
 @keyframes town-walk-two {
   0%,
   12%,
   100% {
-    transform: translate(576px, 404px);
+    transform: translate(584px, 343px);
   }
   45%,
   65% {
-    transform: translate(682px, 337px);
+    transform: translate(584px, 455px);
   }
 }
 @keyframes town-walk-three {
   0%,
   20%,
   100% {
-    transform: translate(304px, 328px);
+    transform: translate(140px, 455px);
   }
   45%,
   60% {
-    transform: translate(327px, 476px);
+    transform: translate(332px, 455px);
   }
 }
 @keyframes town-patrol {
   0%,
   100% {
-    transform: translate(530px, 581px);
+    transform: translate(584px, 532px);
   }
   40%,
   55% {
-    transform: translate(587px, 455px);
+    transform: translate(584px, 455px);
   }
 }
 @keyframes town-horse {
@@ -1869,4 +1869,70 @@ html:has(.town-museum[open]) {
     min-height: 44px;
     max-width: 88px;
   }
+}
+
+/* The village can fill a phone viewport without depending on mobile Fullscreen API support. */
+.town-fullscreen-button {
+  position: absolute;
+  left: 16px;
+  top: 56px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #9c997d;
+  border-radius: 10px;
+  color: #405b4c;
+  background: #fff9e9ee;
+}
+.town-map-frame.town-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  width: 100%;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #e1dcc1;
+}
+.town-fullscreen .town-scene,
+.town-fullscreen .town-map-scene {
+  flex: 1;
+  height: 0;
+  min-height: 0;
+  aspect-ratio: auto;
+  width: 100%;
+}
+.town-fullscreen .town-map-footnote {
+  flex: 0 0 auto;
+}
+.town-fullscreen .town-map-scene svg {
+  height: 100%;
+}
+.town-fullscreen .town-map {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  overflow: auto;
+  background: #e9ecdf;
+}
+.town-fullscreen .town-map > svg {
+  flex: 0 0 auto;
+  width: max(100%, 900px);
+  height: auto;
+  margin-block: auto;
+}
+.town-fullscreen .town-fullscreen-button {
+  top: max(60px, calc(env(safe-area-inset-top) + 60px));
+}
+
+.town-has-raid .town-fullscreen-button {
+  top: auto;
+  bottom: calc(96px + env(safe-area-inset-bottom));
 }

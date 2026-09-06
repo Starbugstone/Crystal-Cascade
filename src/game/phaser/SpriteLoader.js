@@ -10,7 +10,7 @@ export function preloadSpriteAssets(scene) {
     scene.load.svg(`gem-${type}`, `/art/${type}.svg`, { width: 160, height: 160 }),
   );
   scene.load.svg('gem-relic', '/art/relic.svg', { width: 160, height: 160 });
-  for (const type of ['chain', 'seal', 'exit'])
+  for (const type of ['chain', 'seal', 'exit', 'seal-ruby', 'seal-sapphire', 'seal-emerald'])
     scene.load.svg(`tile-${type}`, `/art/obstacles/${type}.svg`, { width: 160, height: 160 });
   scene.load.svg('bonus-atlas', '/art/bonuses/atlas.svg', {
     width: BONUS_FRAME_SIZE * BONUS_FRAME_COUNT,

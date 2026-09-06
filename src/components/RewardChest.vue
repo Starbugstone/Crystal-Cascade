@@ -148,9 +148,19 @@
           >
         </div>
       </div>
-      <div
+      <button
         v-else
+        ref="roulette"
+        type="button"
         class="slot-machine"
+        :aria-label="
+          t(
+            phase === 'opening'
+              ? 'Tap the roulette to stop on an item'
+              : 'Collect reward and continue',
+          )
+        "
+        @click="phase === 'opening' ? stopRoulette() : $emit('continue')"
         :class="{ landed: phase === 'opened' }"
         :aria-busy="phase === 'opening'"
       >
@@ -165,7 +175,7 @@
               class="slot-strip"
               :class="{ rolling: phase === 'opening' }"
               :style="{ '--stop': stopIndex - 0.5 }"
-              @animationend.self="finish"
+              @animationend.self="finish()"
             >
               <div
                 v-for="(power, index) in reelSymbols"
@@ -204,31 +214,21 @@
             ><span> {{ t('ONE SPIN. ONE SURPRISE.') }} </span></template
           >
         </div>
-        <button
-          v-if="phase === 'opened'"
-          ref="continueButton"
-          class="prize-continue"
-          :aria-label="
-            t('{value0}: {value1}', {
-              value0: t(prize.label),
-              value1: t(chestIndex + 1 < totalChests ? 'open next chest' : 'see your results'),
-            })
-          "
-          @click="$emit('continue')"
-        ></button>
-      </div>
+      </button>
     </div>
     <footer class="chest-controls">
       <p v-if="phase === 'closed'" class="chest-open-hint">
         {{ t('Puzzle bonuses, coins, or a builder hammer await.') }}
       </p>
-      <button
-        v-else-if="phase === 'charging' || phase === 'opening'"
-        class="arcade-button secondary"
-        @click="finish"
-      >
-        {{ t('REVEAL BONUS') }} <span>»</span>
-      </button>
+      <p v-else-if="phase === 'charging' || phase === 'opening'" class="chest-open-hint">
+        {{
+          t(
+            phase === 'opening'
+              ? 'Tap the roulette to stop on an item'
+              : 'Your roulette is getting ready…',
+          )
+        }}
+      </p>
       <p v-else class="chest-next-hint">
         {{ t('TAP YOUR BONUS') }} <span>→</span>
         <small>{{
@@ -247,43 +247,69 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { CHEST_DROPS as powers, rewardArt } from '../data/rewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
+import { useCampaignStore } from '../stores/campaignStore';
 const props = defineProps({
   reward: { type: Object, required: true },
   chestIndex: Number,
   totalChests: Number,
 });
-defineEmits(['continue', 'skip']);
+const emit = defineEmits(['continue', 'skip', 'claimed']);
 const settings = useSettingsStore();
 const game = useGameStore();
 const phase = ref('closed');
-const continueButton = ref(null);
-const prize = props.reward.items[0];
-const stopIndex = 30;
-// The saved award determines the stop. The reel never rolls or awards another item.
-const reelSymbols = Array.from({ length: stopIndex + 2 }, (_, index) =>
-  index === stopIndex ? prize : powers[(index * 3 + props.chestIndex) % powers.length],
+const roulette = ref(null);
+const campaign = useCampaignStore();
+const prize = ref(props.reward.items[0]);
+const stopIndex = ref(30);
+// The fallback is saved at completion. A tap claims the symbol currently on the payline.
+const reelSymbols = Array.from({ length: stopIndex.value + 2 }, (_, index) =>
+  index === stopIndex.value ? prize.value : powers[(index * 3 + props.chestIndex) % powers.length],
 );
 let timers = [];
 const clearTimers = () => {
   timers.forEach(clearTimeout);
   timers = [];
 };
-const finish = () => {
+const finish = (selection) => {
   if (phase.value === 'opened') return;
   clearTimers();
+  const granted = campaign.claimChest(props.reward.id, selection);
+  if (granted) {
+    prize.value = granted;
+    emit('claimed', granted);
+  }
   phase.value = 'opened';
   game.audioManager?.playArcadeCue?.('jackpot');
-  nextTick(() => continueButton.value?.focus({ preventScroll: true }));
+  nextTick(() => roulette.value?.focus({ preventScroll: true }));
+};
+const stopRoulette = () => {
+  if (phase.value !== 'opening') return;
+  const windowBounds = roulette.value.querySelector('.slot-window').getBoundingClientRect();
+  const center = (windowBounds.top + windowBounds.bottom) / 2;
+  const symbols = [...roulette.value.querySelectorAll('.slot-symbol')];
+  let nearest = 0,
+    distance = Infinity;
+  symbols.forEach((symbol, index) => {
+    const bounds = symbol.getBoundingClientRect();
+    const delta = Math.abs((bounds.top + bounds.bottom) / 2 - center);
+    if (delta < distance) {
+      distance = delta;
+      nearest = index;
+    }
+  });
+  stopIndex.value = nearest;
+  finish(reelSymbols[nearest].id);
 };
 const open = () => {
   if (phase.value !== 'closed') return;
-  game.audioManager?.playArcadeCue?.('charge');
+  game.audioManager?.playArcadeCue?.('chest-charge');
   if (settings.reducedMotion) return finish();
   phase.value = 'charging';
   timers.push(
     setTimeout(() => {
       phase.value = 'opening';
-      game.audioManager?.playBomb?.();
+      game.audioManager?.playArcadeCue?.('chest-open');
+      nextTick(() => roulette.value?.focus({ preventScroll: true }));
       // Mechanical clicks spread out as the reel slows to its final stop.
       [60, 135, 220, 320, 440, 580, 750, 940, 1170, 1450, 1800, 2240, 2760, 3120].forEach(
         (delay, index) =>
@@ -764,7 +790,16 @@ onBeforeUnmount(clearTimers);
   font-size: 12px;
   color: #d4b9e7;
 }
+.slot-machine:focus-visible {
+  outline: 3px solid #fff0ad;
+  outline-offset: 5px;
+}
 .slot-machine {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: center;
   --slot-row: 118px;
   position: relative;
   flex-shrink: 0;
@@ -929,25 +964,6 @@ onBeforeUnmount(clearTimers);
 }
 .landed .slot-lights {
   animation-duration: 1000ms;
-}
-.prize-continue {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-.prize-continue:focus-visible {
-  outline: 3px dashed var(--prize);
-  outline-offset: 8px;
-}
-.prize-continue:hover {
-  box-shadow: inset 0 0 28px #ffe6a926;
 }
 .chest-next-hint {
   min-height: 58px;

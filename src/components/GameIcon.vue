@@ -14,6 +14,10 @@
 <script setup>
 defineProps({ name: { type: String, default: 'spark' } });
 const paths = {
+  pickaxe: 'm13 10-8 11-2-2 9-10M5 3c7-1 13 5 15 12-4-5-8-9-15-12Zm7 1 3-2 3 3-3 3',
+  home: 'm3 11 9-8 9 8M5 9v12h5v-7h4v7h5V9',
+  info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 8v6m0-10v.5',
+  hint: 'M9 18h6m-5 3h4M9 15c0-2-3-3-3-6a6 6 0 1 1 12 0c0 3-3 4-3 6ZM12 1v1M2 9H1m22 0h-1',
   spark: 'M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z',
   arrow: 'M5 12h14m-5-5 5 5-5 5',
   back: 'M19 12H5m5-5-5 5 5 5',

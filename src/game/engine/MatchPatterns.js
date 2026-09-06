@@ -14,7 +14,7 @@ const uniqueIndices = (a, b) => {
   return Array.from(new Set(combined));
 };
 
-const findCrossCandidate = (matches, swapIndices) => {
+const findCrossCandidates = (matches, swapIndices) => {
   const horizontals = matches.filter((match) => match.orientation === 'horizontal');
   const verticals = matches.filter((match) => match.orientation === 'vertical');
   const candidates = [];
@@ -50,7 +50,7 @@ const findCrossCandidate = (matches, swapIndices) => {
   });
 
   if (!candidates.length) {
-    return null;
+    return [];
   }
 
   candidates.sort((a, b) => {
@@ -63,7 +63,7 @@ const findCrossCandidate = (matches, swapIndices) => {
     return b.weight - a.weight;
   });
 
-  return candidates[0];
+  return candidates;
 };
 
 const determineSwapIndex = (match, swapIndices) => {
@@ -101,16 +101,17 @@ export const detectBonusFromMatches = (matches, { swap } = {}) => {
   const bonuses = [];
   const swapIndices = toSwapIndices(swap);
 
-  const crossCandidate = findCrossCandidate(normalMatches, swapIndices);
-  if (crossCandidate) {
-    bonuses.push({
-      type: 'cross',
-      index: crossCandidate.centerIndex,
-    });
+  const used = new Set();
+  for (const candidate of findCrossCandidates(normalMatches, swapIndices)) {
+    if (candidate.indices.some((index) => used.has(index))) continue;
+    bonuses.push({ type: 'cross', index: candidate.centerIndex });
+    candidate.indices.forEach((index) => used.add(index));
   }
 
   const lineCandidates = findLineCandidates(normalMatches, swapIndices);
   lineCandidates.forEach((lineCandidate) => {
+    // A T/L earns its cross once; a longer arm must not overwrite it with a bomb.
+    if (lineCandidate.match.indices.some((index) => used.has(index))) return;
     const lineLength = lineCandidate.match.indices.length;
     if (lineLength >= 5) {
       bonuses.push({ type: 'rainbow', index: lineCandidate.swapIndex });

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { roadLevel, population } from './TownRules';
+import { LANE_X, TOWN_TRACKS, atPlot, plotStreet } from './TownLayout';
 
 // Actors share the town's geometry cache; only their joints move each frame.
 export function mountedRider(
@@ -103,28 +104,32 @@ export function mountedRider(
 
 export function addTownRoads(d, town, plots) {
   const level = roadLevel(town);
-  if (!level) return;
   const roads = d.group(d.world);
-  const strip = (a, b, width) => {
-    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const road = d.box(
-      roads,
-      width,
-      0.015,
-      length,
-      (a[0] + b[0]) / 2,
-      0.025,
-      (a[1] + b[1]) / 2,
-      level === 1 ? '#c5af80' : '#b99c70',
-    );
-    road.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1]);
-  };
-  // Two lanes leave room for the well and sheriff in the central square.
-  for (const x of [-1.85, 1.85]) strip([x, -4.4], [x, 9.2], level === 1 ? 0.75 : 1.05);
+  // Slightly uneven edges keep the tracks narrow and worn, with prairie between lots.
+  for (const [index, { from, to, width }] of TOWN_TRACKS.entries()) {
+    const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const steps = Math.max(2, Math.ceil(length * 2));
+    const shape = new THREE.Shape();
+    for (const side of [-1, 1])
+      for (let n = 0; n <= steps; n++) {
+        const i = side < 0 ? n : steps - n;
+        const edge = side * width * (0.5 + Math.sin(i * 1.7 + index) * 0.055);
+        const along = (i / steps - 0.5) * length;
+        if (side < 0 && n === 0) shape.moveTo(edge, along);
+        else shape.lineTo(edge, along);
+      }
+    shape.closePath();
+    const geometry = new THREE.ShapeGeometry(shape);
+    geometry.rotateX(-Math.PI / 2);
+    geometry.userData.owned = true;
+    const track = new THREE.Mesh(geometry, d.material('#c3a477'));
+    track.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
+    track.position.set((from[0] + to[0]) / 2, 0.028 + index * 0.0002, (from[1] + to[1]) / 2);
+    track.receiveShadow = true;
+    roads.add(track);
+  }
   for (const [id, [x, z]] of Object.entries(plots)) {
     if (id === 'mine' || !town.buildings[id]) continue;
-    const lane = x < 0 ? -1.85 : 1.85;
-    strip([x, z + 1.95], [lane, z + 1.95], 0.72 + level * 0.1);
     if (level >= 2 && id !== 'well' && id !== 'well2') {
       for (let i = 0; i < 16; i++)
         d.box(
@@ -141,10 +146,10 @@ export function addTownRoads(d, town, plots) {
   }
   if (level >= 3)
     for (const [x, z] of [
-      [-2.3, -0.2],
-      [2.3, 4],
-      [-2.3, 8.5],
-      [2.3, -4.5],
+      [-4.35, -0.5],
+      [4.35, 7.5],
+      [-4.35, 15.5],
+      [4.35, -8.5],
     ]) {
       d.rod(roads, [x, 0, z], [x, 2.3, z], 0.045, '#63726a');
       d.box(roads, 0.18, 0.26, 0.18, x, 2.35, z, '#e8c583', true);
@@ -163,13 +168,13 @@ export function addTownVisitors(d, town) {
       });
       const curve = new THREE.CatmullRomCurve3(
         [
-          new THREE.Vector3(1.85, 0.07, 3.9),
-          new THREE.Vector3(1.85, 0.07, -0.8),
-          new THREE.Vector3(1.85, 0.07, -4.35),
-          new THREE.Vector3(-1.85, 0.07, -4.35),
-          new THREE.Vector3(-1.85, 0.07, -0.8),
-          new THREE.Vector3(-1.85, 0.07, 8.5),
-          new THREE.Vector3(1.85, 0.07, 8.5),
+          new THREE.Vector3(LANE_X, 0.07, 7.5),
+          new THREE.Vector3(LANE_X, 0.07, -0.5),
+          new THREE.Vector3(LANE_X, 0.07, -8.5),
+          new THREE.Vector3(-LANE_X, 0.07, -8.5),
+          new THREE.Vector3(-LANE_X, 0.07, -0.5),
+          new THREE.Vector3(-LANE_X, 0.07, 23.5),
+          new THREE.Vector3(LANE_X, 0.07, 23.5),
         ],
         true,
         'catmullrom',
@@ -189,12 +194,7 @@ export function addTownVisitors(d, town) {
         color: ['#aa795f', '#879c88', '#967f95', '#c1a274'][n],
         skin: n % 2 ? '#976f50' : '#d8ae83',
         hat: '#baa06d',
-        route: [
-          [-1.7, -0.6],
-          [-1.9, 3.95],
-          [-4.15, 3.95],
-          [-4.15, 3.45],
-        ],
+        route: [[-LANE_X, -0.5], [-LANE_X, 7.5], plotStreet('saloon'), atPlot('saloon', 0, 1.25)],
         seed: n * 7,
         visitor: true,
       });
@@ -233,7 +233,11 @@ export class TownRaid {
     this.patrol = Array.from({ length: event.sheriffLevel }, (_, n) =>
       mountedRider(d, this.root, { seed: n + 1, color: '#688d98', hat: '#c3a05a' }),
     );
-    const target = plots[event.targets[1]] ?? plots.mine;
+    const targetId = plots[event.targets[1]] ? event.targets[1] : 'mine';
+    const target = plots[targetId];
+    this.targetStreet = plotStreet(targetId);
+    this.mine = plots.mine;
+    this.sheriff = plots.sheriff;
     this.target = [target[0], target[1] + 2.1];
     this.dust = Array.from({ length: event.gangSize * 3 }, () =>
       d.ball(this.root, 0, 0.2, 0, 0.2, '#cbb78d', 'rock'),
@@ -275,31 +279,42 @@ export class TownRaid {
       this.onPhase(phase);
     }
     this.bandits.forEach((actor, n) => {
-      const stop = [-1.2 + (n % 3) * 1.1, -4.35 + Math.floor(n / 3) * 0.95];
-      const entry = [13 + n * 0.9, -7.8 - n * 0.4];
-      const caught = n < event.sheriffLevel * 2;
+      const stop = [-1.2 + (n % 3) * 1.1, this.mine[1] + 4.5 + Math.floor(n / 3) * 0.95];
+      const entry = [26 + n * 0.9, -18 - n * 0.4];
+      const caught =
+        event.outcome === 'protected' || n < Math.min(event.gangSize / 2, event.sheriffLevel);
       const retreat = caught ? 10 : 14;
       let moving = time < 5 || time >= retreat;
-      if (time < 5) this.move(actor, entry, stop, time / 5);
+      if (time < 5) this.travel(actor, [entry, [18, -8.5], [11, -8.5], stop], time / 5);
       else if (time < 9) this.move(actor, stop, stop, 0);
       else if (time < retreat && !caught) {
         // Half the gang circles to the second completed building.
         const target = n % 2 ? [this.target[0] + (n - 2) * 0.35, this.target[1]] : stop;
-        const lane = target[0] < 0 ? -1.95 : 1.95;
-        this.travel(actor, [stop, [lane, stop[1]], [lane, target[1]], target], (time - 9) / 3);
+        const lane = target[0] < 0 ? -LANE_X : LANE_X;
+        this.travel(
+          actor,
+          [stop, [lane, stop[1]], [lane, this.targetStreet[1]], this.targetStreet, target],
+          (time - 9) / 3,
+        );
         moving = time < 12 && n % 2 === 1;
       } else if (time >= retreat) {
         const start = !caught && n % 2 ? [this.target[0] + (n - 2) * 0.35, this.target[1]] : stop;
         // Leave by the front of town, away from the residential plots.
-        const corner = [1.9 + n * 0.35, 9.8 + n * 0.2];
-        const lane = start[0] < -2 ? -1.95 : 1.95;
+        const corner = [LANE_X + n * 0.15, 26.5 + n * 0.1];
+        const lane = start[0] < -2 ? -LANE_X : LANE_X;
         if (time < retreat + 3)
           this.travel(
             actor,
-            [start, [lane, start[1]], [lane, corner[1]], corner],
+            [
+              start,
+              ...(!caught && n % 2 ? [this.targetStreet] : []),
+              [lane, !caught && n % 2 ? this.targetStreet[1] : start[1]],
+              [lane, corner[1]],
+              corner,
+            ],
             (time - retreat) / 3,
           );
-        else this.move(actor, corner, [17 + n, 11], (time - retreat - 3) / 4);
+        else this.move(actor, corner, [28 + n, 27], (time - retreat - 3) / 4);
       }
       actor.root.visible = time < retreat + 7;
       const aiming = time >= 5 && time < 9;
@@ -325,11 +340,12 @@ export class TownRaid {
     });
     this.patrol.forEach((actor, n) => {
       actor.root.visible = time >= 6 && time < 19;
-      const home = [0.65 + n * 0.6, 6.1],
-        line = [-1.5 + n * 1.4, -2.25];
-      if (time < 10) this.travel(actor, [home, [1.95, 6.8], [1.95, -2.25], line], (time - 6) / 4);
+      const home = [this.sheriff[0] + 0.65 + n * 0.6, this.sheriff[1] + 2.1],
+        line = [-1.5 + n * 1.4, this.mine[1] + 7.75];
+      if (time < 10)
+        this.travel(actor, [home, [LANE_X, home[1]], [LANE_X, line[1]], line], (time - 6) / 4);
       else if (time < 15) this.move(actor, line, line, 0);
-      else this.travel(actor, [line, [1.95, -2.25], [1.95, 6.8], home], (time - 15) / 4);
+      else this.travel(actor, [line, [LANE_X, line[1]], [LANE_X, home[1]], home], (time - 15) / 4);
       if (time >= 10 && time < 15) actor.root.rotation.y = Math.PI;
       actor.animate(time, time < 10 || time >= 15, time >= 10 && time < 14);
     });

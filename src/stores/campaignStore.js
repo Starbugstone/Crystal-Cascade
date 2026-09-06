@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { SHOP_ITEMS, rollShopStock, shopSlots, shopSpace } from '../data/shop';
 import { LEVEL_COUNT, POWERS, getChestTier, getSpeedChestTier, getStars } from '../data/campaign';
 
 import { localProfile, SAVE_KEY } from '../services/localProfile';
@@ -9,6 +10,7 @@ import {
   OVERFLOW_COINS,
   grantReward,
   rollChestReward,
+  CHEST_DROPS,
 } from '../data/rewards';
 import { createTown, BANDIT_EVENT } from '../data/town';
 import {
@@ -34,9 +36,14 @@ const defaults = () => ({
   readOnly: false,
   lastConstruction: [],
   builderHammers: 0,
+  chestsWithoutBuilderHammer: 0,
+  pendingChests: [],
+  shopStock: [],
+  shopVisit: 0,
+  seenObstacles: [],
   inventoryNotice: '',
   lastSaloonIncome: 0,
-  powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
+  powers: POWERS.map((power) => ({ ...power, quantity: 0 })),
 });
 const load = () => {
   const state = defaults();
@@ -46,6 +53,24 @@ const load = () => {
     state.saveWarning = loaded.warning ?? '';
     state.readOnly = !!loaded.readOnly;
     state.town = normalizeTown(saved?.town);
+    if (Number.isSafeInteger(saved?.shopVisit) && saved.shopVisit >= 0)
+      state.shopVisit = saved.shopVisit;
+    if (Array.isArray(saved?.shopStock)) {
+      for (const offer of saved.shopStock) {
+        if (
+          !SHOP_ITEMS.some((item) => item.id === offer?.id) ||
+          state.shopStock.some((item) => item.id === offer?.id)
+        )
+          continue;
+        state.shopStock.push({ id: offer.id, sold: offer.sold === true });
+      }
+      state.shopStock = state.shopStock.slice(0, shopSlots(state.town.buildings.shop));
+    }
+    state.seenObstacles = Array.isArray(saved?.seenObstacles)
+      ? saved.seenObstacles.filter((id) => typeof id === 'string')
+      : [];
+    if (Number.isInteger(saved?.chestsWithoutBuilderHammer))
+      state.chestsWithoutBuilderHammer = Math.max(0, Math.min(9, saved.chestsWithoutBuilderHammer));
     if (Number.isSafeInteger(saved?.issuedRun) && saved.issuedRun >= 0)
       state.issuedRun = saved.issuedRun;
     if (
@@ -94,6 +119,21 @@ const load = () => {
         overflow += savedPower.quantity - power.quantity;
       }
     });
+    // An interrupted reveal automatically claims its saved fallback once. Inventory and
+    // pending receipts are written together before another run can start.
+    const recovered = (Array.isArray(saved?.pendingChests) ? saved.pendingChests : []).filter(
+      (chest) =>
+        chest?.runId > 0 &&
+        chest.runId === state.settledRun &&
+        ['score', 'speed'].includes(chest.source),
+    );
+    const recoveredSources = new Set();
+    for (const chest of recovered) {
+      if (recoveredSources.has(chest.source)) continue;
+      recoveredSources.add(chest.source);
+      const drop = CHEST_DROPS.find((drop) => drop.id === chest.items?.[0]?.id);
+      if (drop) grantReward(state, drop);
+    }
     if (overflow) {
       state.town.coins = Math.min(
         Number.MAX_SAFE_INTEGER,
@@ -102,6 +142,18 @@ const load = () => {
       state.inventoryNotice =
         'Bonus storage now has a limit. Extra saved bonuses were exchanged for 10 coins each.';
     }
+    if (
+      recovered.length &&
+      !state.readOnly &&
+      !localProfile.save({
+        ...saved,
+        powers: state.powers,
+        town: state.town,
+        builderHammers: state.builderHammers,
+        pendingChests: [],
+      })
+    )
+      state.saveWarning = 'Your progress is not saving. Keep this page open to continue.';
   } catch {
     /* Unavailable or invalid storage starts a fresh in-memory journey. */
   }
@@ -111,6 +163,15 @@ const load = () => {
 export const useCampaignStore = defineStore('campaign', {
   state: load,
   getters: {
+    mineStage: (state) => {
+      let chapters = 0;
+      while (
+        chapters < LEVEL_COUNT / 6 &&
+        Array.from({ length: 6 }, (_, i) => chapters * 6 + i + 1).every((id) => state.records[id])
+      )
+        chapters++;
+      return chapters;
+    },
     bonusLimit: (state) => bonusCapacity(state.town),
     canReplay: (state) => state.town.buildings.museum > 0,
     nextLevel(state) {
@@ -139,6 +200,11 @@ export const useCampaignStore = defineStore('campaign', {
         continuousRecords: this.continuousRecords,
         powers: this.powers,
         builderHammers: this.builderHammers,
+        chestsWithoutBuilderHammer: this.chestsWithoutBuilderHammer,
+        pendingChests: this.pendingChests,
+        shopStock: this.shopStock,
+        shopVisit: this.shopVisit,
+        seenObstacles: this.seenObstacles,
         town: this.town,
         issuedRun: this.issuedRun,
         settledRun: this.settledRun,
@@ -149,6 +215,7 @@ export const useCampaignStore = defineStore('campaign', {
       return saved;
     },
     beginRun(mode = 'normal', id = null) {
+      this.settlePendingChests();
       this.issuedRun += 1;
       this.continuousRun =
         mode === 'continuous' ? { runId: this.issuedRun, id, credited: 0 } : null;
@@ -200,6 +267,7 @@ export const useCampaignStore = defineStore('campaign', {
       const next = purchase(this.town, id, expectedStage);
       if (!next) return false;
       this.town = next;
+      this.ensureShopStock();
       this.save();
       return true;
     },
@@ -213,6 +281,7 @@ export const useCampaignStore = defineStore('campaign', {
       next.income = this.town.income;
       this.builderHammers--;
       this.town = next;
+      this.ensureShopStock();
       this.save();
       return true;
     },
@@ -236,7 +305,72 @@ export const useCampaignStore = defineStore('campaign', {
       this.save();
       return true;
     },
-    recordVictory({ id, score, target, combo, elapsedMs, speedTargetMs, runId, jewels = 0 }) {
+    ensureShopStock(refresh = false) {
+      if (!this.town.buildings.shop) return;
+      if (refresh || this.shopStock.length < shopSlots(this.town.buildings.shop)) {
+        this.shopStock = rollShopStock(
+          this.town.buildings.shop,
+          Math.random,
+          refresh ? [] : this.shopStock,
+        );
+        this.shopVisit++;
+      }
+    },
+    buyShopItem(id, visit) {
+      const offer = this.shopStock.find((entry) => entry.id === id);
+      const item = SHOP_ITEMS.find((entry) => entry.id === id);
+      if (
+        !this.town.buildings.shop ||
+        visit !== this.shopVisit ||
+        !offer ||
+        offer.sold ||
+        !item ||
+        shopSpace(this, item) < 1 ||
+        this.town.coins < item.price
+      )
+        return false;
+      this.town.coins -= item.price;
+      grantReward(this, item);
+      offer.sold = true;
+      this.save();
+      return true;
+    },
+    markObstaclesSeen(ids) {
+      this.seenObstacles = [...new Set([...this.seenObstacles, ...ids])];
+      this.save();
+    },
+    finishTownTour() {
+      this.town.tourSeen = true;
+      this.save();
+    },
+    claimChest(id, selection) {
+      const chest = this.pendingChests.find((entry) => entry.id === id);
+      if (!chest) return null;
+      const chosen = CHEST_DROPS.find((drop) => drop.id === selection);
+      const fallback = CHEST_DROPS.find((drop) => drop.id === chest.items[0].id);
+      const granted = grantReward(this, chosen ?? fallback);
+      this.pendingChests = this.pendingChests.filter((entry) => entry.id !== id);
+      this.save();
+      return granted;
+    },
+    settlePendingChests() {
+      return this.pendingChests.map((chest) => ({
+        id: chest.id,
+        reward: this.claimChest(chest.id),
+      }));
+    },
+    recordVictory({
+      id,
+      score,
+      target,
+      combo,
+      elapsedMs,
+      speedTargetMs,
+      runId,
+      jewels = 0,
+      bonusGems = 0,
+      chooseRewards = false,
+    }) {
       if (
         !this.isUnlocked(id) ||
         (this.continuousRun && (runId == null || this.continuousRun.runId === runId))
@@ -260,6 +394,7 @@ export const useCampaignStore = defineStore('campaign', {
       this.town.completedRuns = Math.min(Number.MAX_SAFE_INTEGER, this.town.completedRuns + 1);
       const projects = Object.values(this.town.projects);
       this.town = advanceConstruction(this.town);
+      this.ensureShopStock(true);
       this.lastConstruction = projects.map((project) => ({
         id: project.id,
         stage: project.stage,
@@ -273,10 +408,23 @@ export const useCampaignStore = defineStore('campaign', {
         ['speed', getSpeedChestTier(elapsedMs, speedTargetMs)],
       ]) {
         if (!tier) continue;
-        const drop = grantReward(this, rollChestReward());
-        rewards.push({ ...tier, count: 1, source, items: [drop] });
+        const rolled =
+          this.chestsWithoutBuilderHammer >= 9
+            ? CHEST_DROPS.find((drop) => drop.id === 'builder-hammer')
+            : rollChestReward();
+        this.chestsWithoutBuilderHammer =
+          rolled.kind === 'builder-hammer' ? 0 : this.chestsWithoutBuilderHammer + 1;
+        const drop = chooseRewards
+          ? { id: rolled.id, kind: rolled.kind, label: rolled.label, quantity: rolled.quantity }
+          : grantReward(this, rolled);
+        const chest = { ...tier, id: `${runId}-${source}`, runId, count: 1, source, items: [drop] };
+        if (chooseRewards) this.pendingChests.push(chest);
+        rewards.push(chest);
       }
-      this.town.coins = Math.min(Number.MAX_SAFE_INTEGER, this.town.coins + miningPayout(jewels));
+      this.town.coins = Math.min(
+        Number.MAX_SAFE_INTEGER,
+        this.town.coins + miningPayout(jewels, bonusGems),
+      );
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.
       this.save();

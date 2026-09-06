@@ -7,6 +7,8 @@
     :reduced-motion="reducedMotion"
     :paused="paused"
     :next-level="nextLevel"
+    :mine-stage="mineStage"
+    :fullscreen="fullscreen"
     @select="$emit('select', $event)"
     @mine="$emit('mine')"
   />
@@ -46,7 +48,9 @@
         @click="chooseLabel(anchor.id, $event)"
       >
         {{ t(anchor.id === 'mine' ? t('Mine') : t(BUILDING_BY_ID[anchor.id].shortName)) }}
-        <small v-if="anchor.id === 'mine'">{{ t('Level {level}', { level: nextLevel }) }} →</small>
+        <small v-if="anchor.id === 'mine'"
+          >{{ t('Level {level}', { level: nextLevel }) }} · ✦{{ mineStage }} →</small
+        >
         <small v-else-if="town.projects[anchor.id]"
           >{{ town.projects[anchor.id].wins }}/{{
             constructionRuns(town.projects[anchor.id])
@@ -101,12 +105,14 @@ import { constructionRuns, constructionVisual } from '../../game/town/TownRules'
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
+  fullscreen: Boolean,
   town: Object,
   selected: String,
   population: Number,
   reducedMotion: Boolean,
   paused: Boolean,
   nextLevel: Number,
+  mineStage: { type: Number, default: 0 },
   raid: Object,
 });
 const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete']);
@@ -179,16 +185,18 @@ function update() {
   const labels = Object.fromEntries(
     BUILDINGS.map((building) => [building.id, t(building.shortName)]),
   );
-  const visual = JSON.stringify(
-    BUILDINGS.map(({ id }) => [
-      id,
-      props.town.buildings[id],
-      constructionVisual(props.town.projects[id]),
-      labels[id],
-    ]),
-  );
+  const visual =
+    props.mineStage +
+    JSON.stringify(
+      BUILDINGS.map(({ id }) => [
+        id,
+        props.town.buildings[id],
+        constructionVisual(props.town.projects[id]),
+        labels[id],
+      ]),
+    );
   if (visual !== lastVisual) {
-    scene.update(props.town, { ...labels, mine: t('Mine') });
+    scene.update(props.town, { ...labels, mine: t('Mine') }, props.mineStage);
     lastVisual = visual;
   }
   scene.select(props.selected);
@@ -239,7 +247,12 @@ watch(
   },
 );
 watch(
-  () => [JSON.stringify(props.town.buildings), JSON.stringify(props.town.projects), locale.value],
+  () => [
+    JSON.stringify(props.town.buildings),
+    JSON.stringify(props.town.projects),
+    props.mineStage,
+    locale.value,
+  ],
   update,
 );
 watch(
