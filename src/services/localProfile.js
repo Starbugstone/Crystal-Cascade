@@ -2,7 +2,7 @@
 // Earlier v1/v2 profiles are deliberately not imported, including writes from old open tabs.
 export const SAVE_KEY = 'crystal-cascade-profile-v3';
 
-// The local adapter is the only storage boundary. The Symfony follow-up can replace it.
+// This adapter is the progress storage boundary. The Symfony follow-up can replace it.
 export const localProfile = {
   load() {
     try {

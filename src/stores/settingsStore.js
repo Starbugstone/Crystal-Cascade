@@ -1,5 +1,15 @@
 import { defineStore } from 'pinia';
 
+// Keep this visual preference independent of progress resets.
+const VILLAGE_LABELS_KEY = 'crystal-cascade-village-labels';
+const savedVillageLabels = () => {
+  try {
+    return globalThis.localStorage?.getItem(VILLAGE_LABELS_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
     isSettingsOpen: false,
@@ -9,8 +19,17 @@ export const useSettingsStore = defineStore('settings', {
       typeof window !== 'undefined' &&
       (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false),
     highContrastMode: false,
+    showVillageLabels: savedVillageLabels(),
   }),
   actions: {
+    setVillageLabels(visible) {
+      this.showVillageLabels = visible !== false;
+      try {
+        globalThis.localStorage?.setItem(VILLAGE_LABELS_KEY, String(this.showVillageLabels));
+      } catch {
+        // Storage restrictions still allow the choice for this session.
+      }
+    },
     toggleSettings(explicit) {
       if (typeof explicit === 'boolean') {
         this.isSettingsOpen = explicit;

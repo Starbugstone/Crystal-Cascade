@@ -963,5 +963,8 @@
   "Stored: {coins} coins": "En réserve : {coins} pièces",
   "Buildings": "Bâtiments",
   "Builder hammers": "Marteaux de bâtisseur",
-  "Capacity in people · Demand: {count}": "Capacité en personnes · Besoins : {count}"
+  "Capacity in people · Demand: {count}": "Capacité en personnes · Besoins : {count}",
+  "Building labels": "Étiquettes des bâtiments",
+  "Hide building labels": "Masquer les étiquettes des bâtiments",
+  "Show building labels": "Afficher les étiquettes des bâtiments"
 }

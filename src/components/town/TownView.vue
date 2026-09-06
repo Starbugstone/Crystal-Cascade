@@ -34,7 +34,11 @@
       <div
         ref="mapFrame"
         class="town-map-frame"
-        :class="{ 'town-has-raid': activeRaid, 'town-fullscreen': fullscreen }"
+        :class="{
+          'town-has-raid': activeRaid,
+          'town-fullscreen': fullscreen,
+          'town-labels-hidden': !settings.showVillageLabels,
+        }"
       >
         <button
           ref="fullscreenButton"
@@ -52,6 +56,15 @@
           @click="dialogMode = 'story'"
         >
           <GameIcon name="book" />
+        </button>
+        <button
+          class="town-fullscreen-button town-labels-button"
+          :aria-label="t('Building labels')"
+          :title="t(settings.showVillageLabels ? 'Hide building labels' : 'Show building labels')"
+          :aria-pressed="settings.showVillageLabels"
+          @click="settings.setVillageLabels(!settings.showVillageLabels)"
+        >
+          <GameIcon :name="settings.showVillageLabels ? 'eye' : 'eye-off'" />
         </button>
         <div
           v-if="fullscreen && !activeRaid"
