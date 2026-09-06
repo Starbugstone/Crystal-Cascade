@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { Color, PerspectiveCamera, Scene } from 'three';
+import { TownDiorama } from '../src/game/town/TownDiorama';
 import { TownFrameCache } from '../src/game/town/TownFrameCache';
 
 it('reuses scenery between animation frames, refreshing after camera/building changes or resize', () => {
@@ -36,4 +37,26 @@ it('reuses scenery between animation frames, refreshing after camera/building ch
   const dispose = vi.spyOn(cache.target, 'dispose');
   cache.dispose();
   expect(dispose).toHaveBeenCalledOnce();
+});
+
+it('refreshes a village returning at the same size without reallocating its drawing buffer', () => {
+  const scene = {
+    canvas: { clientWidth: 390, clientHeight: 844 },
+    width: 390,
+    height: 844,
+    renderer: { setSize: vi.fn() },
+    render: vi.fn(),
+  };
+  const resize = () => TownDiorama.prototype.resize.call(scene);
+  resize();
+  expect(scene.render).not.toHaveBeenCalled();
+  scene.canvas.clientWidth = scene.canvas.clientHeight = 0;
+  resize();
+  expect(scene.render).not.toHaveBeenCalled();
+  Object.assign(scene.canvas, { clientWidth: 390, clientHeight: 844 });
+  resize();
+  expect(scene.render).toHaveBeenCalledOnce();
+  expect(scene.renderer.setSize).not.toHaveBeenCalled();
+  resize();
+  expect(scene.render).toHaveBeenCalledOnce();
 });

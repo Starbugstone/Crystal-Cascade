@@ -2,6 +2,7 @@
   <TownMap
     v-if="fallback"
     :town="town"
+    :builder-hammers="builderHammers"
     :selected="selected"
     :population="population"
     :reduced-motion="reducedMotion"
@@ -37,7 +38,13 @@
         :data-town-plot="anchor.id"
         v-show="anchor.visible"
         :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
-        :class="{ 'scene-mine-button': anchor.id === 'mine', selected: anchor.id === selected }"
+        :class="{
+          'scene-mine-button': anchor.id === 'mine',
+          selected: anchor.id === selected,
+          'is-ready': constructionReady(town.projects[anchor.id]),
+          'can-build': availableIds.includes(anchor.id),
+          'has-income': anchor.id === 'saloon' && town.income.stored > 0,
+        }"
         :aria-label="
           t(
             anchor.id === 'mine'
@@ -52,11 +59,20 @@
         <small v-if="anchor.id === 'mine'"
           >{{ t('Level {level}', { level: nextLevel }) }} · ✦{{ mineStage }} →</small
         >
+        <small v-else-if="constructionReady(town.projects[anchor.id])">{{
+          t('Tap to finish')
+        }}</small>
         <small v-else-if="town.projects[anchor.id]"
           >{{ town.projects[anchor.id].wins }}/{{
             constructionRuns(town.projects[anchor.id])
           }}</small
         >
+        <small v-else-if="anchor.id === 'saloon' && town.income.stored > 0">{{
+          t('Collect {coins} coins', { coins: town.income.stored })
+        }}</small>
+        <small v-else-if="availableIds.includes(anchor.id)">{{
+          t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
+        }}</small>
         <small v-else-if="town.buildings[anchor.id]">{{
           t('Lv. {level}', { level: town.buildings[anchor.id] })
         }}</small>
@@ -64,14 +80,6 @@
       </button>
     </div>
     <div class="town-camera-bar">
-      <p class="town-camera-hint">
-        <span class="camera-mouse-hint">{{
-          t('Drag to rotate · Shift-drag or middle-drag to pan · Scroll to zoom')
-        }}</span>
-        <span class="camera-touch-hint">{{
-          t('Drag to rotate · Two fingers to pan · Pinch to zoom')
-        }}</span>
-      </p>
       <div
         class="town-camera-controls"
         role="group"
@@ -104,14 +112,21 @@
   </div>
 </template>
 <script setup>
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
-import { constructionRuns, constructionVisual } from '../../game/town/TownRules';
+import {
+  constructionRuns,
+  constructionVisual,
+  constructionReady,
+  availablePurchases,
+} from '../../game/town/TownRules';
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
   fullscreen: Boolean,
+  active: { type: Boolean, default: true },
   town: Object,
+  builderHammers: { type: Number, default: 0 },
   selected: String,
   population: Number,
   reducedMotion: Boolean,
@@ -125,6 +140,9 @@ const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete', 'came
 const canvas = ref(null),
   anchors = ref([]),
   fallback = ref(false);
+const availableIds = computed(() =>
+  availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
+);
 const cameraActions = [
   { id: 'out', label: 'Zoom out', path: 'M6 12h12' },
   { id: 'in', label: 'Zoom in', path: 'M6 12h12M12 6v12' },
@@ -189,7 +207,7 @@ const cameraKey = (event) => {
   scene?.cameraAction(action);
 };
 function update() {
-  if (!scene) return;
+  if (!scene || !props.active) return;
   const labels = Object.fromEntries(
     BUILDINGS.map((building) => [building.id, t(building.shortName)]),
   );
@@ -214,14 +232,18 @@ function update() {
     lastVisual = visual;
     lastConstruction = props.construction?.serial;
   }
+  scene.setAvailable([...availableIds.value, ...(props.town.income.stored > 0 ? ['saloon'] : [])]);
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
   scene.setPaused(props.paused);
 }
-onMounted(async () => {
+let initializing = false;
+async function initialize() {
+  if (scene || initializing || disposed || !props.active || fallback.value) return;
+  initializing = true;
   try {
     const { TownDiorama } = await import('../../game/town/TownDiorama');
-    if (disposed) return;
+    if (disposed || !props.active) return;
     scene = new TownDiorama(
       canvas.value,
       choose,
@@ -240,11 +262,27 @@ onMounted(async () => {
       if (props.raid) emit('raid-phase', 'The raid has passed');
     }
     console.warn('3D town unavailable; using the accessible SVG scene.', error);
+  } finally {
+    initializing = false;
   }
-});
+}
+onMounted(initialize);
+watch(
+  () => props.active,
+  (active) => {
+    if (!active) return;
+    if (!scene) initialize();
+    else {
+      update();
+      // A context restored while hidden also needs a frame in reduced-motion mode.
+      if (!scene.resize()) scene.render();
+    }
+  },
+  { flush: 'post' },
+);
 function startRaid() {
   scene?.stopRaid();
-  if (!props.raid) return;
+  if (!props.raid || !props.active) return;
   if (props.reducedMotion || fallback.value) {
     emit('raid-phase', 'The raid has passed');
     return;
@@ -256,6 +294,16 @@ function startRaid() {
       () => emit('raid-complete'),
     );
 }
+watch(
+  () => [availableIds.value, props.town.income.stored > 0],
+  () => {
+    if (props.active)
+      scene?.setAvailable([
+        ...availableIds.value,
+        ...(props.town.income.stored > 0 ? ['saloon'] : []),
+      ]);
+  },
+);
 watch(() => props.raid, startRaid);
 watch(
   () => props.reducedMotion,

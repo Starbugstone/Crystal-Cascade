@@ -204,3 +204,31 @@ it('buffers input during a rejected swap and drains it after the bounce', async 
   expect(store.animationInProgress).toBe(false);
   expect(drain).toHaveBeenCalledOnce();
 });
+
+it('holds buffered moves through a pause and resumes them only when play resumes', () => {
+  const game = useGameStore();
+  game.sessionActive = true;
+  game.queuedSwap = { aIndex: 0, bIndex: 1 };
+  game.inputPaused = true;
+  const swap = vi.spyOn(game, 'resolveSwap').mockResolvedValue(true);
+  game.processQueuedInput();
+  expect(swap).not.toHaveBeenCalled();
+  expect(game.queuedSwap).toEqual({ aIndex: 0, bIndex: 1 });
+  game.inputPaused = false;
+  game.processQueuedInput();
+  expect(swap).toHaveBeenCalledExactlyOnceWith(0, 1);
+  expect(game.queuedSwap).toBeNull();
+});
+
+it('keeps keyboard focus usable when replaying a smaller board', () => {
+  const input = new BoardInput({
+    scene: {},
+    gameStore: { sessionActive: true, notifyPlayerActivity: vi.fn() },
+  });
+  input.setLayout({ boardCols: 7, boardRows: 9, cellSize: 40 });
+  input.focusIndex = 62;
+  input.setLayout({ boardCols: 6, boardRows: 7, cellSize: 40 });
+  expect(input.focusIndex).toBe(41);
+  input.handleKey({ key: 'ArrowLeft', preventDefault: vi.fn() });
+  expect(input.focusIndex).toBe(40);
+});

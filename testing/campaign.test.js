@@ -5,7 +5,7 @@ import { generateLevelConfigs } from '../src/game/engine/LevelGenerator';
 import { useGameStore } from '../src/stores/gameStore';
 import { useCampaignStore, SAVE_KEY } from '../src/stores/campaignStore';
 import { useInventoryStore } from '../src/stores/inventoryStore';
-import { getChestTier, rollChestPower } from '../src/data/campaign';
+import { getChestTier } from '../src/data/campaign';
 
 let saved;
 beforeEach(() => {
@@ -126,22 +126,6 @@ it('recovers from malformed saves and unavailable storage', () => {
   ).not.toThrow();
 });
 
-it('gives Clear Row and Shuffle 35% each, and each other power 10%', () => {
-  const counts = {};
-  for (let i = 0; i < 100; i++) {
-    const power = rollChestPower(() => (i + 0.5) / 100);
-    counts[power.id] = (counts[power.id] ?? 0) + 1;
-  }
-  expect(counts).toEqual({
-    'clear-row': 35,
-    shuffle: 35,
-    hammer: 10,
-    'color-wand': 10,
-    'tile-breaker': 10,
-  });
-  expect(rollChestPower(() => 0).id).toBe('clear-row');
-  expect(rollChestPower(() => 0.999999).id).toBe('tile-breaker');
-});
 it('makes one weighted roll per earned chest and saves exactly those awards', () => {
   chestRewards.rollChestReward.mockRestore();
   const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0.1).mockReturnValueOnce(0.7);

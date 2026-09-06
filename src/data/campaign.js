@@ -114,10 +114,6 @@ export const POWERS = [
   { id: 'shuffle', label: 'Shuffle', dropWeight: 35 },
   { id: 'tile-breaker', label: 'Tile Breaker', dropWeight: 10 },
 ];
-export const rollChestPower = (random = Math.random) => {
-  let roll = random() * POWERS.reduce((total, power) => total + power.dropWeight, 0);
-  return POWERS.find((power) => (roll -= power.dropWeight) < 0) ?? POWERS.at(-1);
-};
 export const CHEST_TIERS = [
   { id: 'crystal', label: 'Crystal chest', multiplier: 1, count: 1 },
   { id: 'radiant', label: 'Radiant chest', multiplier: 1.5, count: 1 },

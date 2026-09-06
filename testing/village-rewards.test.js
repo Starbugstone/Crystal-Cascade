@@ -12,7 +12,7 @@ import {
   HAMMER_CAPACITY,
   rollChestReward,
 } from '../src/data/rewards';
-import { advanceConstruction, normalizeTown, purchase } from '../src/game/town/TownRules';
+import { advanceConstruction, purchase } from '../src/game/town/TownRules';
 let saved;
 beforeEach(() => {
   saved = new Map();
@@ -44,11 +44,13 @@ describe('A village with lasting choices', () => {
     expect(campaign.canPlay(2)).toBe(true);
     expect(campaign.canReplay).toBe(false);
     campaign.town = advanceConstruction(campaign.town);
+    expect(campaign.canReplay).toBe(false);
+    expect(campaign.finishConstruction('museum', 1)).toBe(true);
     expect(campaign.canPlay(1)).toBe(true);
     expect(campaign.canPlay(2, 'continuous')).toBe(true);
     expect(game.startLevel(3, 'continuous')).toBe(false);
   });
-  it('opens small buildings immediately and shortens funded legacy construction', () => {
+  it('opens small buildings immediately and requires one run for larger buildings', () => {
     expect(
       Object.fromEntries(BUILDINGS.filter((b) => !b.unlock).map((b) => [b.id, b.upgrades[0].runs])),
     ).toEqual({
@@ -64,16 +66,6 @@ describe('A village with lasting choices', () => {
       shop: 1,
       square: 0,
     });
-    const town = normalizeTown({
-      ...createTown(),
-      projects: {
-        well: { id: 'well', stage: 1, wins: 1 },
-        museum: { id: 'museum', stage: 1, wins: 2, required: 4 },
-      },
-    });
-    expect(town.buildings.well).toBe(1);
-    expect(town.projects.museum).toMatchObject({ wins: 0, required: 1 });
-    expect(advanceConstruction(town).buildings.museum).toBe(1);
   });
   it('builds for free with no coins, grants benefits immediately, and persists exactly once', () => {
     const campaign = useCampaignStore();
@@ -148,6 +140,8 @@ describe('A village with lasting choices', () => {
         expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage]);
         campaign.town = advanceConstruction(campaign.town);
       }
+      expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage]);
+      expect(campaign.finishConstruction('armory', stage + 1)).toBe(true);
       expect(campaign.bonusLimit).toBe(BONUS_CAPACITIES[stage + 1]);
       award('shuffle', 100);
       expect(campaign.powers.find((p) => p.id === 'shuffle').quantity).toBe(campaign.bonusLimit);
@@ -157,12 +151,21 @@ describe('A village with lasting choices', () => {
 
 describe('Bounded, saved chest rewards', () => {
   it('rolls 70% powers, 20% coins and 10% builder hammers', () => {
-    const counts = {};
+    const counts = {},
+      powers = {};
     for (let i = 0; i < 1000; i++) {
       const r = rollChestReward(() => (i + 0.5) / 1000);
       counts[r.kind] = (counts[r.kind] ?? 0) + 1;
+      if (r.kind === 'power') powers[r.id] = (powers[r.id] ?? 0) + 1;
     }
     expect(counts).toEqual({ power: 700, coins: 200, 'builder-hammer': 100 });
+    expect(powers).toEqual({
+      'clear-row': 245,
+      shuffle: 245,
+      hammer: 70,
+      'color-wand': 70,
+      'tile-breaker': 70,
+    });
   });
   it.each(['clear-row', 'hammer', 'color-wand', 'shuffle', 'tile-breaker'])(
     'caps %s and converts excess from every award route',
@@ -214,7 +217,7 @@ describe('Bounded, saved chest rewards', () => {
     expect(useCampaignStore().recordVictory(input)).toEqual([]);
     expect(useCampaignStore().builderHammers).toBe(1);
   });
-  it('uses newly completed armory space for chests from that same victory', () => {
+  it('keeps the old armory capacity for victory chests until the building is opened', () => {
     const campaign = useCampaignStore();
     campaign.upgradeBuilding('armory', 0);
     campaign.powers.find((p) => p.id === 'clear-row').quantity = 3;
@@ -226,9 +229,11 @@ describe('Bounded, saved chest rewards', () => {
       target: 6000,
       combo: 1,
     });
+    expect(campaign.bonusLimit).toBe(3);
+    expect(rewards[0].items[0].kind).toBe('coins');
+    expect(campaign.powers.find((p) => p.id === 'clear-row').quantity).toBe(3);
+    expect(campaign.finishConstruction('armory', 1)).toBe(true);
     expect(campaign.bonusLimit).toBe(5);
-    expect(rewards[0].items[0].kind).toBe('power');
-    expect(campaign.powers.find((p) => p.id === 'clear-row').quantity).toBe(4);
   });
   it('migrates over-cap saved inventory once, preserving its value as coins', () => {
     saved.set(

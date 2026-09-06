@@ -4,14 +4,13 @@ import { useGameStore } from './gameStore';
 import { useCampaignStore } from './campaignStore';
 
 export const useInventoryStore = defineStore('inventory', {
-  state: () => ({
-    inventoryOpen: false,
-  }),
   getters: {
     quickAccessSlots: () => useCampaignStore().powers,
   },
   actions: {
     async usePowerUp(id) {
+      const gameStore = useGameStore();
+      if (!gameStore.sessionActive || gameStore.levelCleared || gameStore.inputPaused) return false;
       const slot = this.quickAccessSlots.find((entry) => entry.id === id);
       if (!slot || slot.quantity <= 0) {
         return false;
@@ -22,7 +21,6 @@ export const useInventoryStore = defineStore('inventory', {
         return false;
       }
 
-      const gameStore = useGameStore();
       let powerUpExecuted = false;
       let consumeImmediately = true;
 
@@ -109,12 +107,6 @@ export const useInventoryStore = defineStore('inventory', {
       }
       console.warn(`Cannot award unknown power: ${powerId}`);
       return false;
-    },
-    openInventory() {
-      this.inventoryOpen = true;
-    },
-    closeInventory() {
-      this.inventoryOpen = false;
     },
   },
 });

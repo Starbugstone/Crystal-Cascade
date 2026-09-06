@@ -14,6 +14,7 @@
 <script setup>
 defineProps({ name: { type: String, default: 'spark' } });
 const paths = {
+  book: 'M12 6v15M12 6C9 3 5 3 2 4v15c4-1 7-1 10 2 3-3 6-3 10-2V4c-3-1-7-1-10 2Z',
   pickaxe: 'm13 10-8 11-2-2 9-10M5 3c7-1 13 5 15 12-4-5-8-9-15-12Zm7 1 3-2 3 3-3 3',
   home: 'm3 11 9-8 9 8M5 9v12h5v-7h4v7h5V9',
   info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 8v6m0-10v.5',

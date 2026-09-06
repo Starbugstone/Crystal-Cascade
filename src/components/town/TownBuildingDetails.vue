@@ -20,7 +20,9 @@
       }}</small>
     </div>
     <div v-if="project" class="town-project-progress">
-      <h3>{{ t('Your building is taking shape') }}</h3>
+      <h3>
+        {{ t(constructionReady(project) ? 'Ready to finish' : 'Your building is taking shape') }}
+      </h3>
       <p>
         {{
           t('{wins}/{required} puzzles completed', {
@@ -29,6 +31,9 @@
           })
         }}
       </p>
+      <button v-if="constructionReady(project)" class="town-primary" @click="$emit('finish')">
+        {{ t('Finish construction') }}
+      </button>
       <progress
         :value="project.wins"
         :max="constructionRuns(project)"
@@ -86,6 +91,16 @@
       <TownIcon name="check" />{{ t(building.upgrades.at(-1).benefit) }}
     </p>
     <section v-if="id === 'saloon' && stage" class="town-service">
+      <button v-if="town.income.stored" class="town-primary" @click="$emit('collect-income')">
+        <TownIcon name="coin" />{{ t('Collect {coins} coins', { coins: town.income.stored }) }}
+      </button>
+      <p>
+        {{
+          t(
+            'Earnings stay in the saloon until you tap it to collect. Storage holds up to eight hours of income.',
+          )
+        }}
+      </p>
       <h3>{{ t('Saloon · {rate} coins/hour', { rate: saloonIncomeRate(town) }) }}</h3>
       <p>
         {{
@@ -169,6 +184,7 @@ import { BUILDING_BY_ID } from '../../data/town';
 import {
   upgradeOffer,
   constructionRuns,
+  constructionReady,
   constructionVisual,
   plotUnlocked,
   saloonIncomeRate,
@@ -191,7 +207,7 @@ const props = defineProps({
   powers: Array,
   lastIncome: Number,
 });
-defineEmits(['build', 'hammer', 'select', 'museum', 'mine']);
+defineEmits(['build', 'hammer', 'finish', 'collect-income', 'select', 'museum', 'mine']);
 const building = computed(() => BUILDING_BY_ID[props.id]);
 const stage = computed(() => props.town.buildings[props.id]);
 const project = computed(() => props.town.projects[props.id]);

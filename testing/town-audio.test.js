@@ -312,6 +312,7 @@ it('smoothly increases ambience with zoom while keeping music level and voices s
   const count = sources.length;
   update({ cameraDistance: 110 });
   const far = audio.sfx.gain.setTargetAtTime.mock.lastCall[0];
+  expect(far).toBeCloseTo(0.8 * 0.3 * 0.9);
   const music = audio.music.gain.setTargetAtTime.mock.lastCall[0];
   update({ cameraDistance: 13 });
   expect(audio.sfx.gain.setTargetAtTime.mock.lastCall[0]).toBeGreaterThan(far * 3);

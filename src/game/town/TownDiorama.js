@@ -10,7 +10,7 @@ import { TownConstruction } from './TownConstruction';
 import { buildTownSquare } from './TownSquare';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
-import { constructionVisual, plotUnlocked, population } from './TownRules';
+import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
 import { PLOTS, LANE_X, atPlot } from './TownLayout';
@@ -137,6 +137,12 @@ export class TownDiorama {
     this.observer = new ResizeObserver(this.resize);
     this.observer.observe(canvas);
     this.resize();
+    this.contextRestored = () => {
+      this.frameCache.valid = false;
+      this.renderer.shadowMap.needsUpdate = true;
+      if (this.canvas.clientWidth && this.canvas.clientHeight) this.render();
+    };
+    canvas.addEventListener('webglcontextrestored', this.contextRestored);
   }
   material(color) {
     if (!this.materials.has(color))
@@ -275,7 +281,7 @@ export class TownDiorama {
         const stage = town.buildings[id],
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
-        if (!stage) this.plot(group, kind, constructionVisual(project) ?? -1, labels[id]);
+        if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
           if (kind === 'square') buildTownSquare(this, group, stage);
           else if (kind === 'well') this.well(group);
@@ -867,6 +873,13 @@ export class TownDiorama {
     shadow.position.y = -0.04;
     parent.add(shadow);
   }
+  setAvailable(ids) {
+    const key = ids.join(',');
+    if (this.availableKey === key) return;
+    this.availableKey = key;
+    this.availablePlots = new Set(ids);
+    this.render();
+  }
   select(id) {
     if (this.selected === id && this.selection?.parent === this.world) return;
     this.selected = id;
@@ -958,13 +971,26 @@ export class TownDiorama {
   resize() {
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
-    if (!width || !height) return;
+    if (!width || !height) {
+      this.wasHidden = true;
+      return;
+    }
+    if (width === this.width && height === this.height) {
+      if (!this.wasHidden) return;
+      this.wasHidden = false;
+      this.render();
+      return true;
+    }
+    this.wasHidden = false;
+    this.width = width;
+    this.height = height;
     this.camera.aspect = width / height;
     this.camera.fov = width / height < 0.7 ? 62 : width / height < 1.1 ? 48 : 40;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     if (this.overview) this.frameTown();
     this.render();
+    return true;
   }
   rebuildActors() {
     this.actorRenderer.rebuild(
@@ -974,7 +1000,7 @@ export class TownDiorama {
     );
   }
   render() {
-    if (!this.world) return;
+    if (!this.world || !this.canvas.clientWidth || !this.canvas.clientHeight) return;
     const cameraDistance = this.camera.position.distanceTo(this.controls.target);
     if (Math.abs(cameraDistance - (this.lastAudioDistance ?? 0)) > 0.05) {
       this.lastAudioDistance = cameraDistance;
@@ -999,11 +1025,24 @@ export class TownDiorama {
           (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
           p.y < 0.84 &&
           p.y > (width < 600 ? -0.42 : -0.78) &&
-          (!distant || id === 'mine' || id === this.selected),
+          (!distant ||
+            id === 'mine' ||
+            id === this.selected ||
+            constructionReady(this.town.projects[id]) ||
+            this.availablePlots?.has(id)),
       };
     });
     const shown = [];
-    const priority = (id) => (id === this.selected ? 0 : id === 'mine' ? 1 : 2);
+    const priority = (id) =>
+      id === this.selected
+        ? 0
+        : constructionReady(this.town.projects[id])
+          ? 1
+          : id === 'mine'
+            ? 2
+            : this.availablePlots?.has(id)
+              ? 3
+              : 4;
     for (const anchor of [...projected].sort(
       (a, b) => priority(a.id) - priority(b.id) || a.depth - b.depth,
     )) {
@@ -1055,7 +1094,8 @@ export class TownDiorama {
     this.render();
   }
   stopRaid() {
-    this.raid?.dispose();
+    if (!this.raid) return;
+    this.raid.dispose();
     this.raid = null;
     this.rebuildActors();
     this.render();
@@ -1081,6 +1121,7 @@ export class TownDiorama {
     this.renderer.setAnimationLoop(enabled ? this.tick : null);
   }
   dispose() {
+    this.canvas.removeEventListener('webglcontextrestored', this.contextRestored);
     cancelAnimationFrame(this.cameraFrame);
     this.frameCache.dispose();
     this.actorRenderer.dispose();

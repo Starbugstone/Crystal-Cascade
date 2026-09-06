@@ -11,9 +11,24 @@
       <path d="m-102-30 30-13v8l-30 13Zm175-13 30 13v8L73-35Z" />
       <path d="m-100-22 1 9m26-20 1 9m3-9-1 9m27 2-1 9" fill="none" />
     </g>
-    <g v-if="stage >= 3">
-      <ellipse cy="-29" rx="29" ry="14" fill="#b6a47b" />
-      <path d="m0-42 21 13L0-16-21-29Z" fill="#799b90" />
+    <g class="town-fountain">
+      <ellipse cy="-26" rx="34" ry="16" fill="#aaa58f" />
+      <path d="M-30-34v9c0 18 60 18 60 0v-9" fill="#d2c9ad" stroke="#aaa58f" stroke-width="2" />
+      <ellipse cy="-34" rx="30" ry="14" fill="#d2c9ad" />
+      <ellipse cy="-34" rx="24" ry="10" fill="#71b8bd" />
+      <path d="M-5-36v-26h10v26c0 4-10 4-10 0Z" fill="#b5b09b" />
+      <g v-if="stage >= 3">
+        <path d="M-17-61c0 17 34 17 34 0" fill="#d2c9ad" />
+        <ellipse cy="-61" rx="17" ry="7" fill="#71b8bd" stroke="#d2c9ad" stroke-width="3" />
+      </g>
+      <circle cy="-65" r="5" fill="#c9c1a2" />
+      <path
+        d="M0-68Q-12-95-21-35M0-68Q12-95 21-35M0-68Q-3-87-10-39M0-68Q3-87 10-30"
+        fill="none"
+        stroke="#b8e1de"
+        stroke-width="2.5"
+      />
+      <path d="M-22-33q4 3 8 0m28 0q4 3 8 0" fill="none" stroke="#b8e1de" stroke-width="1.5" />
     </g>
     <g v-if="stage >= 4" fill="#89a179">
       <ellipse v-for="x in [-68, 68]" :key="x" :cx="x" cy="-45" rx="13" ry="6" />

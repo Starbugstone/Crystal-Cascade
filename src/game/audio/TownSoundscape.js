@@ -88,7 +88,7 @@ export class TownSoundscape {
       0.4,
     );
     this.sfx.gain.setTargetAtTime(
-      clamp(state.sfxVolume) * villageAmbienceGain(state.cameraDistance),
+      clamp(state.sfxVolume) * villageAmbienceGain(state.cameraDistance) * 0.9,
       this.ctx.currentTime,
       0.3,
     );

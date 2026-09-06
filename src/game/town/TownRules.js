@@ -33,6 +33,7 @@ export function normalizeTown(saved) {
   if (Number.isSafeInteger(income?.at) && income.at >= 0)
     town.income = {
       at: income.at,
+      stored: Number.isSafeInteger(income.stored) && income.stored >= 0 ? income.stored : 0,
       remainder:
         Number.isInteger(income.remainder) && income.remainder >= 0 && income.remainder < HOUR_MS
           ? income.remainder
@@ -46,24 +47,22 @@ export function normalizeTown(saved) {
     event.loss >= 0 &&
     event.loss <= 30
   ) {
-    const legacy = event.id === undefined;
     if (
-      legacy ||
-      (Number.isSafeInteger(event.id) &&
-        event.id > 0 &&
-        Number.isSafeInteger(event.atRun) &&
-        event.atRun >= 0 &&
-        event.atRun <= town.completedRuns &&
-        [2, 4, 6, 8, 10].includes(event.gangSize) &&
-        Number.isInteger(event.sheriffLevel) &&
-        event.sheriffLevel >= 0 &&
-        event.sheriffLevel <= BUILDING_BY_ID.sheriff.upgrades.length)
+      Number.isSafeInteger(event.id) &&
+      event.id > 0 &&
+      Number.isSafeInteger(event.atRun) &&
+      event.atRun >= 0 &&
+      event.atRun <= town.completedRuns &&
+      [2, 4, 6, 8, 10].includes(event.gangSize) &&
+      Number.isInteger(event.sheriffLevel) &&
+      event.sheriffLevel >= 0 &&
+      event.sheriffLevel <= BUILDING_BY_ID.sheriff.upgrades.length
     ) {
       town.events[BANDIT_EVENT] = {
-        id: legacy ? 1 : event.id,
-        atRun: legacy ? town.completedRuns : event.atRun,
-        gangSize: legacy ? 2 : event.gangSize,
-        sheriffLevel: legacy ? (event.outcome === 'protected' ? 1 : 0) : event.sheriffLevel,
+        id: event.id,
+        atRun: event.atRun,
+        gangSize: event.gangSize,
+        sheriffLevel: event.sheriffLevel,
         bankLevel:
           Number.isInteger(event.bankLevel) &&
           event.bankLevel >= 0 &&
@@ -72,7 +71,7 @@ export function normalizeTown(saved) {
             : 0,
         outcome: event.outcome,
         loss: event.loss,
-        seen: legacy || event.seen === true,
+        seen: event.seen === true,
         targets: [
           'mine',
           ...(Array.isArray(event.targets)
@@ -85,34 +84,20 @@ export function normalizeTown(saved) {
     }
   }
   for (const { id, upgrades } of BUILDINGS) {
-    // Keep work from the earlier single-project demo when loading its save.
-    const project =
-      saved?.projects === undefined
-        ? saved?.project?.id === id
-          ? saved.project
-          : null
-        : saved.projects?.[id];
-    // Validate the old receipt, then apply the shorter construction schedule.
-    const required = project?.required ?? (project?.stage === 1 ? 3 : 4);
+    const project = saved?.projects?.[id];
     if (
-      Number.isInteger(required) &&
-      required >= 1 &&
-      required <= 12 &&
       project?.id === id &&
       project.stage === town.buildings[id] + 1 &&
       project.stage <= upgrades.length &&
-      Number.isInteger(project.wins) &&
-      project.wins >= 0 &&
-      project.wins < required
+      projectRuns(id, project.stage) === 1 &&
+      project.required === 1 &&
+      (project.wins === 0 || project.wins === 1)
     ) {
-      if (projectRuns(id, project.stage) === 0) town.buildings[id] = project.stage;
-      else town.projects[id] = { id, stage: project.stage, wins: 0, required: 1 };
+      town.projects[id] = { id, stage: project.stage, wins: project.wins, required: 1 };
     }
   }
-  town.tourSeen =
-    saved?.tourSeen === true ||
-    (saved?.tourSeen === undefined &&
-      (development(town) > 0 || Object.keys(town.projects).length > 0));
+  town.constructionTipSeen = saved?.constructionTipSeen === true;
+  town.tourSeen = saved?.tourSeen === true;
   return town;
 }
 
@@ -122,22 +107,43 @@ export const constructionRuns = (project) =>
 export const constructionVisual = (project) =>
   project ? Math.min(2, Math.ceil((project.wins / constructionRuns(project)) * 3)) : null;
 
+export const constructionReady = (project) =>
+  !!project && project.wins >= constructionRuns(project);
+
 export function advanceConstruction(town) {
   if (!Object.keys(town.projects).length) return town;
-  const buildings = { ...town.buildings },
-    projects = {};
-  for (const current of Object.values(town.projects)) {
-    const project = { ...current, wins: current.wins + 1 };
-    if (project.wins < constructionRuns(project)) projects[project.id] = project;
-    else buildings[project.id] = project.stage;
-  }
-  return { ...town, buildings, projects };
+  return {
+    ...town,
+    projects: Object.fromEntries(
+      Object.entries(town.projects).map(([id, project]) => [
+        id,
+        { ...project, wins: Math.min(constructionRuns(project), project.wins + 1) },
+      ]),
+    ),
+  };
+}
+
+// Readiness survives reloads. Benefits start only when the player removes the scaffolding.
+export function finishConstruction(town, id, expectedStage) {
+  const project = town.projects[id];
+  if (
+    !constructionReady(project) ||
+    project.stage !== expectedStage ||
+    project.stage !== town.buildings[id] + 1
+  )
+    return null;
+  const projects = { ...town.projects };
+  delete projects[id];
+  return {
+    ...town,
+    buildings: { ...town.buildings, [id]: project.stage },
+    projects,
+    constructionTipSeen: true,
+  };
 }
 
 export const totalLevels = (town, kind) =>
   BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + town.buildings[b.id], 0);
-export const completedHouses = (town) =>
-  BUILDINGS.filter((b) => b.kind === 'home' && town.buildings[b.id] > 0).length;
 export const residentPopulation = (town) =>
   Math.min(
     totalLevels(town, 'home') * 2,
@@ -189,19 +195,29 @@ export function plotUnlocked(town, id) {
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
 export const saloonIncomeRate = (town) =>
-  Math.floor((3 * town.buildings.saloon * population(town) * (100 + happiness(town))) / 100);
+  Math.floor((2 * town.buildings.saloon * population(town) * (100 + happiness(town))) / 100);
 // Remainder is stored as coin-milliseconds, avoiding rounding loss between visits.
 // Settle BEFORE changing buildings, so their new rates never apply to old time.
 export function settleSaloonIncome(town, now) {
-  const checkpoint = town.income ?? { at: null, remainder: 0 };
+  const checkpoint = town.income ?? { at: null, remainder: 0, stored: 0 };
   if (!Number.isSafeInteger(now) || now < 0 || (checkpoint.at !== null && now <= checkpoint.at))
     return { town, earned: 0 };
+  const rate = saloonIncomeRate(town);
   const elapsed =
     checkpoint.at === null ? 0 : Math.min(now - checkpoint.at, INCOME_HOURS_CAP * HOUR_MS);
-  const credit = elapsed * saloonIncomeRate(town) + checkpoint.remainder;
-  const earned = Math.min(Math.floor(credit / HOUR_MS), Number.MAX_SAFE_INTEGER - town.coins);
+  const credit = elapsed * rate + checkpoint.remainder;
+  const stored = checkpoint.stored ?? 0;
+  const capacity = rate * INCOME_HOURS_CAP;
+  const earned = Math.max(0, Math.min(Math.floor(credit / HOUR_MS), capacity - stored));
   return {
-    town: { ...town, coins: town.coins + earned, income: { at: now, remainder: credit % HOUR_MS } },
+    town: {
+      ...town,
+      income: {
+        at: now,
+        stored: stored + earned,
+        remainder: stored + earned >= capacity ? 0 : credit % HOUR_MS,
+      },
+    },
     earned,
   };
 }
@@ -240,6 +256,11 @@ export function upgradeOffer(town, id) {
             : '',
   };
 }
+
+export const availablePurchases = (town, builderHammers = 0) =>
+  BUILDINGS.map((place) => ({ ...place, offer: upgradeOffer(town, place.id) })).filter(
+    ({ offer }) => offer?.available && (town.coins >= offer.cost || builderHammers > 0),
+  );
 
 export function nextGoal(town) {
   const available = BUILDINGS.filter(

@@ -40,7 +40,6 @@ vi.mock('../src/game/engine/LevelGenerator', () => ({
       ],
       tiles: [{ health: 1, maxHealth: 1 }],
       objectives: [{ type: 'clear-layers', target: 1 }],
-      shuffleAllowance: 3,
     },
   ],
 }));

@@ -5,6 +5,7 @@ import {
   normalizeTown,
   purchase,
   advanceConstruction,
+  finishConstruction,
   plotUnlocked,
   population,
   gangSize,
@@ -55,6 +56,7 @@ describe('Five levels and a growing frontier', () => {
       while (town.projects[unlock.id]) {
         expect(plotUnlocked(town, id)).toBe(false);
         town = advanceConstruction(town);
+        town = finishConstruction(town, unlock.id, 2);
       }
       expect(plotUnlocked(town, id)).toBe(true);
       expect(purchase(town, id, 0)?.buildings[id]).toBe(1);
@@ -67,13 +69,13 @@ describe('Five levels and a growing frontier', () => {
       expect(purchase(town, building.id, 5)).toBeNull();
     }
     let town = village({ saloon: 1, home: 2 });
-    expect(saloonIncomeRate(town)).toBe(17);
+    expect(saloonIncomeRate(town)).toBe(11);
     town = purchase(town, 'saloon', 1);
     while (town.projects.saloon) {
-      expect(saloonIncomeRate(town)).toBe(17);
-      town = advanceConstruction(town);
+      expect(saloonIncomeRate(town)).toBe(11);
+      town = finishConstruction(advanceConstruction(town), 'saloon', 2);
     }
-    expect(saloonIncomeRate(town)).toBe(34);
+    expect(saloonIncomeRate(town)).toBe(23);
   });
   it('uses shared food and water capacity for the expanding residential neighborhood', () => {
     const town = village({ home: 3, home2: 3, home3: 3, home4: 3 });
@@ -88,7 +90,7 @@ describe('Five levels and a growing frontier', () => {
   });
 });
 
-describe('Modest saloon income without a collection chore', () => {
+describe('Stored saloon earnings and explicit collection', () => {
   it('starts the clock without retroactive income, then preserves fractional earnings across saves', () => {
     const start = settleSaloonIncome(village({ saloon: 1 }), HOUR_MS);
     expect(start.earned).toBe(0);
@@ -99,30 +101,59 @@ describe('Modest saloon income without a collection chore', () => {
       town = result.town;
       earned += result.earned;
     }
-    expect(earned).toBe(8);
+    expect(earned).toBe(5);
     expect(town.income.remainder).toBe(0);
     expect(settleSaloonIncome(town, HOUR_MS * 2).earned).toBe(0);
+  });
+  it('stores online earnings at the eight-hour cap and only a player collection credits the wallet', () => {
+    const campaign = useCampaignStore();
+    campaign.town = village({ saloon: 1 });
+    campaign.accrueSaloonIncome(HOUR_MS);
+    for (let hour = 2; hour <= 20; hour++) campaign.accrueSaloonIncome(HOUR_MS * hour);
+    expect(campaign.town.income.stored).toBe(40);
+    expect(campaign.town.coins).toBe(600);
+    setActivePinia(createPinia());
+    const reloaded = useCampaignStore();
+    expect(reloaded.town.income.stored).toBe(40);
+    expect(reloaded.town.coins).toBe(600);
+    expect(reloaded.collectSaloonIncome(HOUR_MS * 20)).toBe(40);
+    expect(reloaded.town.coins).toBe(640);
+    setActivePinia(createPinia());
+    const collected = useCampaignStore();
+    expect(collected.collectSaloonIncome(HOUR_MS * 20)).toBe(0);
+    expect(collected.collectSaloonIncome(HOUR_MS * 21)).toBe(5);
+    expect(collected.town.coins).toBe(645);
   });
   it('scales with completed saloon levels and houses; needs customers and stops at eight away hours', () => {
     const town = village({ saloon: 3, home: 2, home2: 1, home3: 1, home4: 1 });
     town.projects.home4 = { id: 'home4', stage: 2, wins: 0, required: 4 };
-    expect(saloonIncomeRate(town)).toBe(70);
+    expect(saloonIncomeRate(town)).toBe(46);
     const start = settleSaloonIncome(town, HOUR_MS).town;
     const collected = settleSaloonIncome(start, HOUR_MS * 101);
-    expect(collected.earned).toBe(560);
+    expect(collected.earned).toBe(368);
     expect(settleSaloonIncome(collected.town, HOUR_MS * 101).earned).toBe(0);
-    expect(settleSaloonIncome(collected.town, HOUR_MS * 102).earned).toBe(70);
+    expect(settleSaloonIncome(collected.town, HOUR_MS * 102).earned).toBe(0);
     expect(saloonIncomeRate(village({ farm: 0, saloon: 3 }))).toBe(0);
     expect(saloonIncomeRate(village({ home: 0, saloon: 1 }))).toBe(0);
+  });
+  it('preserves already stored coins if a population change lowers the current storage cap', () => {
+    let town = settleSaloonIncome(village({ saloon: 1, stable: 1 }), HOUR_MS).town;
+    town = settleSaloonIncome(town, HOUR_MS * 9).town;
+    expect(town.income.stored).toBe(88);
+    town.buildings.farm = 0;
+    expect(saloonIncomeRate(town) * 8).toBeLessThan(88);
+    town = normalizeTown(town);
+    expect(settleSaloonIncome(town, HOUR_MS * 10).town.income.stored).toBe(88);
   });
   it('does not double-credit clock rollback and rejects invalid clock/checkpoint values', () => {
     const town = settleSaloonIncome(village({ saloon: 1 }), HOUR_MS * 2).town;
     for (const time of [HOUR_MS, NaN, Infinity, -1, 1.2])
       expect(settleSaloonIncome(town, time).town).toBe(town);
-    expect(settleSaloonIncome(town, HOUR_MS * 3).earned).toBe(8);
+    expect(settleSaloonIncome(town, HOUR_MS * 3).earned).toBe(5);
     expect(normalizeTown({ income: { at: -1, remainder: 999999999 } }).income).toEqual({
       at: null,
       remainder: 0,
+      stored: 0,
     });
   });
   it('settles the old rate before a free hammer upgrade and reloads without paying twice', () => {
@@ -133,12 +164,14 @@ describe('Modest saloon income without a collection chore', () => {
     campaign.builderHammers = 1;
     Date.now.mockReturnValue(HOUR_MS * 2);
     expect(campaign.useBuilderHammer('saloon', 1)).toBe(true);
-    expect(campaign.town.coins).toBe(608); // Free upgrade plus 8 coins at the old rate
+    expect(campaign.town.coins).toBe(600);
+    expect(campaign.town.income.stored).toBe(5);
     expect(campaign.town.buildings.saloon).toBe(2);
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
+    expect(reloaded.collectSaloonIncome()).toBe(5);
     expect(reloaded.collectSaloonIncome()).toBe(0);
-    expect(reloaded.collectSaloonIncome(HOUR_MS * 3)).toBe(17);
+    expect(reloaded.collectSaloonIncome(HOUR_MS * 3)).toBe(11);
   });
 });
 
@@ -146,18 +179,18 @@ describe('A useful square and a longer village economy', () => {
   it('connects visitors, basic needs, happiness, and saloon spending', () => {
     const town = village({ saloon: 1 });
     expect(residentPopulation(town)).toBe(2);
-    expect(saloonIncomeRate(town)).toBe(8);
+    expect(saloonIncomeRate(town)).toBe(5);
     town.buildings.stable = 1;
     expect(visitorPopulation(town)).toBe(2);
     expect(population(town)).toBe(4);
-    expect(saloonIncomeRate(town)).toBe(17);
+    expect(saloonIncomeRate(town)).toBe(11);
     town.buildings.square = 1;
     expect(happiness(town)).toBe(50);
-    expect(saloonIncomeRate(town)).toBe(18);
+    expect(saloonIncomeRate(town)).toBe(12);
     town.buildings.museum = 2;
     expect(visitorCapacity(town)).toBe(4);
     expect(visitorPopulation(town)).toBe(4);
-    expect(saloonIncomeRate(town)).toBe(27);
+    expect(saloonIncomeRate(town)).toBe(18);
     town.buildings.home = 3;
     expect(residentPopulation(town)).toBe(6);
     expect(visitorPopulation(town)).toBe(0);
@@ -165,7 +198,7 @@ describe('A useful square and a longer village economy', () => {
     town.buildings.well = town.buildings.farm = 2;
     expect(visitorPopulation(town)).toBe(4);
     expect(happiness(town)).toBe(54);
-    expect(saloonIncomeRate(town)).toBe(46);
+    expect(saloonIncomeRate(town)).toBe(30);
   });
   it('settles existing visitors and happiness before a square changes the income rate', () => {
     const campaign = useCampaignStore();
@@ -175,11 +208,12 @@ describe('A useful square and a longer village economy', () => {
     campaign.collectSaloonIncome();
     Date.now.mockReturnValue(HOUR_MS * 2);
     expect(campaign.useBuilderHammer('square', 0)).toBe(true);
-    expect(campaign.town.coins).toBe(617);
+    expect(campaign.town.coins).toBe(600);
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
+    expect(reloaded.collectSaloonIncome()).toBe(11);
     expect(reloaded.collectSaloonIncome()).toBe(0);
-    expect(reloaded.collectSaloonIncome(HOUR_MS * 3)).toBe(18);
+    expect(reloaded.collectSaloonIncome(HOUR_MS * 3)).toBe(12);
     expect(happiness(reloaded.town)).toBe(50);
   });
   it('unlocks the fourth and fifth levels after 18 and 36 completed puzzles for either payment', () => {
@@ -210,9 +244,9 @@ describe('A useful square and a longer village economy', () => {
     expect(residentPopulation(town)).toBe(40);
     expect(visitorPopulation(town)).toBe(18);
     expect(happiness(town)).toBe(100);
-    expect(saloonIncomeRate(town)).toBe(1740);
+    expect(saloonIncomeRate(town)).toBe(1160);
     expect(bonusCapacity(town)).toBe(20);
-    expect(rollShopStock(5)).toHaveLength(6);
+    expect(rollShopStock(5)).toHaveLength(5);
     expect(gangSize(town)).toBe(10);
     const raid = banditEncounter(town);
     expect(normalizeTown(raid).events[BANDIT_EVENT]).toMatchObject({
@@ -229,9 +263,9 @@ describe('A useful square and a longer village economy', () => {
   it('quotes the next price while keeping locked plots out of the first-build discount', () => {
     const town = createTown();
     expect(upgradeOffer(town, 'well').cost).toBe(0);
-    expect(upgradeOffer(town, 'well2')).toMatchObject({ cost: 50, available: false });
+    expect(upgradeOffer(town, 'well2')).toMatchObject({ cost: 75, available: false });
     town.buildings.well = 1;
-    expect(upgradeOffer(town, 'well')).toMatchObject({ cost: 140, stage: 1, available: true });
+    expect(upgradeOffer(town, 'well')).toMatchObject({ cost: 210, stage: 1, available: true });
   });
 });
 
@@ -268,7 +302,7 @@ describe('Visible raids with a single saved outcome', () => {
     expect(banditEncounter(town).events[BANDIT_EVENT]).toMatchObject({ sheriffLevel: 1, loss: 5 });
     town.coins = 53;
     expect(banditEncounter(town).coins).toBe(50);
-    while (town.projects.sheriff) town = advanceConstruction(town);
+    town = finishConstruction(advanceConstruction(town), 'sheriff', 2);
     expect(banditEncounter(town).events[BANDIT_EVENT].outcome).toBe('protected');
   });
   it('saves before presenting, resumes an unseen raid after reload, and spaces raids by normal puzzle wins', () => {
@@ -293,15 +327,15 @@ describe('Visible raids with a single saved outcome', () => {
     expect(campaign.town.events[BANDIT_EVENT].id).toBe(2);
     expect(campaign.town.coins).toBe(580);
   });
-  it('migrates the original one-off event as already seen and resets all new progress', () => {
+  it('discards incomplete raid receipts and resets stored income with the village', () => {
     const town = normalizeTown({
       ...village(),
       events: { [BANDIT_EVENT]: { outcome: 'protected', loss: 0 } },
     });
-    expect(town.events[BANDIT_EVENT]).toMatchObject({ id: 1, seen: true, outcome: 'protected' });
-    expect(raidReady(town)).toBe(false);
+    expect(town.events[BANDIT_EVENT]).toBeUndefined();
     const campaign = useCampaignStore();
     campaign.town = town;
+    campaign.town.income = { at: HOUR_MS, stored: 12, remainder: 3 };
     campaign.lastSaloonIncome = 12;
     campaign.resetProgress();
     setActivePinia(createPinia());

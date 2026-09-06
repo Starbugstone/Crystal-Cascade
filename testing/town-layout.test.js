@@ -14,7 +14,7 @@ import { TownDiorama } from '../src/game/town/TownDiorama';
 import { groundHeight } from '../src/game/town/TownLandscape';
 
 describe('Open village lots and usable paths', () => {
-  it('keeps the town square open and below a meter at every upgrade level', () => {
+  it('keeps a compact central fountain and clear surrounding square at every upgrade level', () => {
     const d = Object.create(TownDiorama.prototype);
     const box = new BoxGeometry(1, 1, 1),
       sphere = new SphereGeometry(1),
@@ -25,7 +25,13 @@ describe('Open village lots and usable paths', () => {
       const group = new Group();
       buildTownSquare(d, group, stage);
       const bounds = new Box3().setFromObject(group);
-      expect(bounds.max.y).toBeLessThan(0.9);
+      expect(bounds.max.y).toBeLessThan(1.5);
+      const fountain = group.getObjectByName('Town fountain');
+      expect(fountain).toBeDefined();
+      const fountainBounds = new Box3().setFromObject(fountain);
+      expect(fountainBounds.max.x - fountainBounds.min.x).toBeLessThan(2.3);
+      expect(fountain.position.x).toBe(0);
+      expect(fountain.position.z).toBe(0);
       expect(bounds.max.x - bounds.min.x).toBeLessThan(6);
       expect(PLOTS.square[1]).toBeGreaterThan(PLOTS.mine[1]);
       expect(PLOTS.square[1]).toBeLessThan(PLOTS.well[1]);

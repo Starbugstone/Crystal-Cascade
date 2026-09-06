@@ -2,7 +2,7 @@
   <section class="hud-panel" :aria-label="t('Level progress')">
     <div class="score-card">
       <span class="eyebrow"> {{ t('YOUR BRILLIANCE') }} </span>
-      <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
+      <div class="score-value" :key="game.score">
         {{ number(game.score) }}<span> {{ t('pts') }} </span>
       </div>
       <div

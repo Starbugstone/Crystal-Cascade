@@ -204,16 +204,41 @@
             width="134"
             height="34"
             rx="17"
-            :fill="selected === building.id ? '#4b6559' : '#fcf5e6'"
+            :fill="
+              constructionReady(town.projects[building.id])
+                ? '#e1f0c0'
+                : hasIncome(building.id)
+                  ? '#fff0b9'
+                  : availableIds.includes(building.id)
+                    ? '#d9f1fa'
+                    : selected === building.id
+                      ? '#4b6559'
+                      : '#fcf5e6'
+            "
           />
           <text
             y="5"
             text-anchor="middle"
-            :fill="selected === building.id ? '#fff7e6' : '#716347'"
+            :fill="
+              selected === building.id &&
+              !hasIncome(building.id) &&
+              !availableIds.includes(building.id) &&
+              !constructionReady(town.projects[building.id])
+                ? '#fff7e6'
+                : '#405b4c'
+            "
             font-size="19"
             font-family="Georgia, serif"
           >
-            {{ t(building.shortName) }}
+            {{
+              t(
+                constructionReady(town.projects[building.id])
+                  ? 'Tap to finish'
+                  : hasIncome(building.id)
+                    ? t('Collect {coins} coins', { coins: town.income.stored })
+                    : building.shortName,
+              )
+            }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
           </text>
         </g>
@@ -298,17 +323,21 @@
   </div>
 </template>
 <script setup>
-import { computed } from 'vue';
 import { t } from '../../i18n';
-import { nextTick, ref, useId, watch } from 'vue';
-import { constructionVisual } from '../../game/town/TownRules';
-import { plotUnlocked } from '../../game/town/TownRules';
+import { computed, nextTick, ref, useId, watch } from 'vue';
+import {
+  constructionVisual,
+  constructionReady,
+  availablePurchases,
+  plotUnlocked,
+} from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
 import { PLOTS, TOWN_TRACKS, mapPoint, atPlot } from '../../game/town/TownLayout';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';
 const props = defineProps({
   town: { type: Object, required: true },
+  builderHammers: { type: Number, default: 0 },
   selected: String,
   population: Number,
   mineStage: { type: Number, default: 0 },
@@ -361,6 +390,10 @@ watch(
     if (scene.value)
       scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
   },
+);
+const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
+const availableIds = computed(() =>
+  availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const uid = `town-${useId().replaceAll(':', '')}`;
 const orderedBuildings = computed(() =>

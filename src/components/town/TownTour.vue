@@ -46,7 +46,7 @@ const steps = [
   {
     id: 'mine',
     title: 'The mine funds your village',
-    text: 'Complete a mine puzzle to earn coins and finish every construction in progress. Larger buildings and all improvements take just one puzzle. Each completed chapter gives the mine a free visual upgrade.',
+    text: 'Complete a mine puzzle to earn coins and prepare every construction in progress. Then tap each scaffolded building in the village to finish it. Each completed chapter gives the mine a free visual upgrade.',
   },
   {
     id: 'home',
@@ -62,7 +62,7 @@ const steps = [
   {
     id: 'saloon',
     title: 'Keep the village growing',
-    text: 'A saloon earns coins while neighbors live here, including up to eight hours away. Visit the museum to replay old puzzles. Use a builder hammer from a chest or the shop to build or improve an unlocked building instantly for free.',
+    text: 'The saloon stores up to eight hours of earnings. Tap it to collect your coins. Visit the museum to replay old puzzles. Rare builder hammers come only from mine bonus chests and build or improve an unlocked building instantly for free.',
   },
   {
     id: 'bank',

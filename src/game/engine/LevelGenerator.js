@@ -26,10 +26,6 @@ class BoardLayout {
   }
 }
 
-export const LEVEL_STARTING_MOVE_REQUIREMENTS = {
-  3: 3,
-};
-
 const DEFAULT_MIN_STARTING_MOVES = 3;
 const MAX_BOARD_GENERATION_ATTEMPTS = 60;
 const matchEngine = new MatchEngine();
@@ -218,7 +214,6 @@ const createExpansionLevel = (id) => {
     boardCols: cols,
     boardRows: rows,
     boardSize: cols,
-    shuffleAllowance: 3,
     board,
     tiles,
     boardLayout: layout,
@@ -310,7 +305,6 @@ export const generateLevelConfigs = (count = LEVEL_COUNT) => {
       boardCols: cols,
       boardRows: rows,
       boardSize: cols,
-      shuffleAllowance: 3,
       board,
       tiles,
       boardLayout: layout,

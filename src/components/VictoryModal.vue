@@ -51,7 +51,11 @@
         role="status"
       >
         <strong>{{
-          t(project.complete ? 'Building complete!' : 'Your building is taking shape')
+          t(
+            project.ready
+              ? 'Ready · Tap the building in your village to finish'
+              : 'Your building is taking shape',
+          )
         }}</strong>
         <span
           >{{ t(BUILDING_BY_ID[project.id].shortName) }} · {{ project.wins }}/{{

@@ -847,9 +847,7 @@ p {
 .focus-mode .app-header {
   height: 65px;
 }
-.score-flash {
-  color: #ff8ba8;
-}
+
 @keyframes float {
   0%,
   100% {

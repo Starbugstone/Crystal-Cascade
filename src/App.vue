@@ -87,7 +87,9 @@
 
     <LandingView v-if="!game.sessionActive && view === 'landing'" @enter="showTown" />
     <TownView
-      v-else-if="!game.sessionActive"
+      v-if="townVisited"
+      v-show="townActive"
+      :active="townActive"
       :key="townVisit"
       :open-museum="returnToMuseum"
       @museum-change="returnToMuseum = $event"
@@ -96,7 +98,7 @@
       @continuous="startLevel($event, 'continuous')"
     />
 
-    <main v-else class="game-layout">
+    <main v-if="game.sessionActive" class="game-layout">
       <aside class="game-sidebar">
         <button class="text-button back-button" @click="showTown">
           <GameIcon name="back" /> {{ t('Back to village') }}
@@ -358,12 +360,14 @@ const game = useGameStore();
 const campaign = useCampaignStore();
 const view = ref('landing');
 const townVisit = ref(0);
+const townVisited = ref(false);
+const townActive = computed(() => !game.sessionActive && view.value === 'town');
 const returnToMuseum = ref(false);
 const showTown = () => {
   returnToMuseum.value = game.playMode === 'continuous';
   game.exitLevel();
   view.value = 'town';
-  townVisit.value++;
+  townVisited.value = true;
 };
 const showVillage = () => {
   if (game.sessionActive || view.value !== 'town') showTown();
@@ -388,6 +392,7 @@ const resetProgress = () => {
   campaign.resetProgress();
   returnToMuseum.value = false;
   townVisit.value++;
+  townVisited.value = true;
   view.value = 'town';
 };
 const settings = useSettingsStore();
@@ -465,19 +470,22 @@ const updateInputPause = () => {
     document.hidden || settings.isSettingsOpen || mobileDetailsOpen.value || guideOpen.value;
   game.renderer?.input?.reset();
   if (game.inputPaused) game.cancelHint(true);
-  else if (game.sessionActive && !game.levelCleared) game.scheduleHint();
+  else if (game.sessionActive && !game.levelCleared) {
+    game.processQueuedInput();
+    game.scheduleHint();
+  }
 };
 const visibilityChanged = () => {
   updateInputPause();
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   if (document.hidden) audio.stopAmbientLoop({ fadeMs: 0 });
   else if (game.sessionActive) audio.playAmbientLoop();
 };
 onMounted(() => {
   game.bootstrap();
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   incomeInterval = setInterval(() => {
-    if (!document.hidden) campaign.collectSaloonIncome();
+    if (!document.hidden) campaign.accrueSaloonIncome();
   }, 30000);
   clockInterval = setInterval(() => game.syncRunClock(), 100);
   game.setAudioManager(audio);
@@ -498,7 +506,7 @@ watch([() => settings.isSettingsOpen, mobileDetailsOpen, guideOpen], updateInput
 onBeforeUnmount(() => {
   clearInterval(clockInterval);
   clearInterval(incomeInterval);
-  campaign.collectSaloonIncome();
+  campaign.accrueSaloonIncome();
   document.removeEventListener('visibilitychange', visibilityChanged);
   game.exitLevel();
   game.setAudioManager(null);

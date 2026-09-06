@@ -1,3 +1,5 @@
+import { purchasePrice } from './economy';
+
 const ORIGINAL_BUILDINGS = [
   {
     id: 'well',
@@ -86,7 +88,7 @@ const ORIGINAL_BUILDINGS = [
         runs: 1,
         title: 'Bring back the good times',
         benefit:
-          'Earn 3 coins per person each hour, plus the happiness bonus. Adds 2 happiness points.',
+          'Store 2 coins per person each hour, plus the happiness bonus. Adds 2 happiness points.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
         speaker: 'Nell · the saloon keeper',
       },
@@ -245,17 +247,17 @@ ORIGINAL_BUILDINGS.push({
     {
       cost: 100,
       title: 'Open the shop',
-      benefit: 'Buy from two random bonuses. New stock after each completed mine run.',
+      benefit: 'Buy a random puzzle power. New stock after each completed mine run.',
     },
     {
       cost: 220,
       title: 'Expand the shop',
-      benefit: 'Choose from three random bonuses after each completed mine run.',
+      benefit: 'Choose from two random bonuses after each completed mine run.',
     },
     {
       cost: 350,
       title: 'Complete the trading post',
-      benefit: 'Choose from four random bonuses after each completed mine run.',
+      benefit: 'Choose from three random bonuses after each completed mine run.',
     },
   ].map((upgrade) => ({
     ...upgrade,
@@ -275,7 +277,7 @@ ORIGINAL_BUILDINGS.push({
   color: '#b3a878',
   stages: ['Empty plot', 'A meeting place', 'Benches in the sunshine', 'A welcoming town square'],
   upgrades: [
-    [80, 'Lay out the town square', 'A low paved square adds 8 happiness points.'],
+    [80, 'Lay out the town square', 'A paved square with a fountain adds 8 happiness points.'],
     [
       160,
       'Set out the benches',
@@ -284,7 +286,7 @@ ORIGINAL_BUILDINGS.push({
     [
       320,
       'Finish the gathering place',
-      'A decorative mosaic raises the square to 24 happiness points.',
+      'A tiered fountain raises the square to 24 happiness points.',
     ],
   ].map(([cost, title, benefit], index) => ({
     cost,
@@ -345,14 +347,14 @@ const IMPROVEMENTS = {
       1,
       'Room for the evening crowd',
       'Open the upstairs lounge',
-      'Earn 6 coins per person each hour, plus the happiness bonus. Adds 4 happiness points.',
+      'Store 4 coins per person each hour, plus the happiness bonus. Adds 4 happiness points.',
     ],
     [
       350,
       1,
       'The heart of the frontier',
       'Complete the grand saloon',
-      'Earn 9 coins per person each hour, plus the happiness bonus. Adds 6 happiness points.',
+      'Store 6 coins per person each hour, plus the happiness bonus. Adds 6 happiness points.',
     ],
   ],
   stable: [
@@ -440,12 +442,12 @@ const LATE_IMPROVEMENTS = {
     [
       'Music on the terrace',
       'Open the garden terrace',
-      'Earn 12 coins per person each hour, plus the happiness bonus.',
+      'Store 8 coins per person each hour, plus the happiness bonus.',
     ],
     [
       'The frontier gathering place',
       'Complete the grand terrace',
-      'Earn 15 coins per person each hour, plus the happiness bonus.',
+      'Store 10 coins per person each hour, plus the happiness bonus.',
     ],
   ],
   stable: [
@@ -512,12 +514,12 @@ const LATE_IMPROVEMENTS = {
     [
       'The frontier market',
       'Expand the market shelves',
-      'Choose from five random bonuses after each completed mine run.',
+      'Choose from four random bonuses after each completed mine run.',
     ],
     [
       'Every tool within reach',
       'Complete the frontier market',
-      'Choose from all six bonuses after each completed mine run.',
+      'Choose from all five puzzle powers after each completed mine run.',
     ],
   ],
   square: [
@@ -574,7 +576,10 @@ export const BUILDINGS = [
       }),
     ),
   })),
-];
+].map((building) => ({
+  ...building,
+  upgrades: building.upgrades.map((upgrade) => ({ ...upgrade, cost: purchasePrice(upgrade.cost) })),
+}));
 
 export const BUILDING_BY_ID = Object.fromEntries(
   BUILDINGS.map((building) => [building.id, building]),
@@ -584,15 +589,16 @@ export const BANDIT_EVENT = 'dusty-trail-visitors';
 export const INITIAL_STORY = {
   speaker: 'Ada · the caretaker',
   title: 'A town starts with your first choice.',
-  text: 'Choose any empty plot. The first building’s materials are on us. Small buildings open immediately. Larger buildings and improvements need one completed puzzle.',
+  text: 'Choose any empty plot. The first building’s materials are on us. Small buildings open immediately. Larger buildings and improvements need one completed puzzle, then a tap to finish.',
 };
 
 export const createTown = () => ({
   coins: 0,
   tourSeen: false,
+  constructionTipSeen: false,
   buildings: Object.fromEntries(BUILDINGS.map(({ id }) => [id, 0])),
   events: {},
   projects: {},
   completedRuns: 0,
-  income: { at: null, remainder: 0 },
+  income: { at: null, remainder: 0, stored: 0 },
 });
