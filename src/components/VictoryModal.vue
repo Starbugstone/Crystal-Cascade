@@ -33,11 +33,17 @@
       <div class="victory-stars" :aria-label="t('{value0} of 3 stars', { value0: t(earnedStars) })">
         <span v-for="i in 3" :key="i" :class="{ earned: i <= earnedStars }">✦</span>
       </div>
-      <h2 id="victory-title">{{ t('LEVEL CLEAR!') }}</h2>
+      <h2 id="victory-title" tabindex="-1" autofocus>{{ t('LEVEL CLEAR!') }}</h2>
       <div class="result-score">
         {{ number(score) }}<small> {{ t('POINTS') }} </small>
       </div>
-      <CoinReward :coins="coins" :jewels="jewels" :bonus-gems="bonusGems" />
+      <CoinReward
+        :coins="coins"
+        :jewels="jewels"
+        :bonus-gems="bonusGems"
+        :combo-counts="comboCounts"
+        :multi-match-counts="multiMatchCounts"
+      />
       <div
         v-for="project in construction"
         :key="project.id"
@@ -120,6 +126,8 @@ const props = defineProps({
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   bonusGems: { type: Number, default: 0 },
+  comboCounts: { type: Object, default: () => ({}) },
+  multiMatchCounts: { type: Object, default: () => ({}) },
   construction: { type: Array, default: () => [] },
   canReplay: Boolean,
   canContinue: Boolean,
@@ -132,13 +140,18 @@ const claimReward = (index, reward) => emit('claimed', { index, reward });
 const dialog = ref(null),
   chestIndex = ref(0),
   showingChest = ref(props.rewards.length > 0);
-onMounted(() => dialog.value.showModal());
+onMounted(() => {
+  dialog.value.showModal();
+  focusAction();
+});
 const focusAction = async () => {
   await nextTick();
-  dialog.value.scrollTop = 0;
   dialog.value
-    .querySelector('.chest-trigger, .arcade-button, .result-next, .victory-actions button')
+    .querySelector(
+      '#victory-title, .chest-trigger, .arcade-button, .result-next, .victory-actions button',
+    )
     ?.focus({ preventScroll: true });
+  dialog.value.scrollTop = 0;
 };
 const showResults = () => {
   for (const settled of campaign.settlePendingChests()) {

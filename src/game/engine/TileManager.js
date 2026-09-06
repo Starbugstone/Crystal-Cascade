@@ -124,6 +124,7 @@ export class TileManager {
         matches: pendingMatches.map((match) => ({
           type: match.type,
           indices: [...match.indices],
+          orientation: match.orientation,
         })),
         cleared: [...cleared].sort((a, b) => a - b),
         drops: [],

@@ -369,6 +369,8 @@ export const useCampaignStore = defineStore('campaign', {
       runId,
       jewels = 0,
       bonusGems = 0,
+      comboCounts = {},
+      multiMatchCounts = {},
       chooseRewards = false,
     }) {
       if (
@@ -423,7 +425,7 @@ export const useCampaignStore = defineStore('campaign', {
       }
       this.town.coins = Math.min(
         Number.MAX_SAFE_INTEGER,
-        this.town.coins + miningPayout(jewels, bonusGems),
+        this.town.coins + miningPayout(jewels, bonusGems, comboCounts, multiMatchCounts),
       );
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.

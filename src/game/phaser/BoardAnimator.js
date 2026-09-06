@@ -1,6 +1,13 @@
 import { t } from '../../i18n';
 import { GEM_COLORS } from './SpriteLoader';
 import { BonusEffects } from './BonusEffects';
+import {
+  cascadeTier,
+  simultaneousMatchCount,
+  multiMatchLabel,
+  tierCoins,
+  MULTI_MATCH_COIN_STEP,
+} from '../engine/MatchRewards';
 
 export const MOTION = Object.freeze({ swap: 115, reject: 75, clear: 90, fall: 190, intro: 260 });
 
@@ -258,8 +265,22 @@ export class BoardAnimator {
     for (let i = 0; i < steps.length; i++) {
       if (generation !== this.generation) return;
       const step = steps[i];
-      this.audio?.playMatch?.({ comboCount: i + 1 });
-      if (i > 0) this.celebrate(i + 1);
+      if (step.cleared?.length) {
+        const combo = cascadeTier(step, i);
+        this.audio?.playMatch?.({ comboCount: combo });
+        if (combo > 1) this.celebrate(combo);
+        const matchCount = simultaneousMatchCount(step);
+        if (matchCount >= 2) {
+          this.onBanner?.({
+            kind: 'multi-match',
+            label: multiMatchLabel(matchCount),
+            color: '#8bf7ff',
+            count: matchCount,
+            coins: tierCoins(matchCount, MULTI_MATCH_COIN_STEP),
+          });
+          this.audio?.playArcadeCue?.('reward', Math.min(matchCount, 5));
+        }
+      }
       await this.bonuses.play(step);
       if (generation !== this.generation) return;
       await this.clearGems(step.cleared, step.bonusFusion);
