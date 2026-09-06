@@ -79,12 +79,8 @@
         </button>
         <small>{{ t('{count} builder hammers available', { count: hammers }) }}</small>
       </template>
-      <button
-        v-if="!plotUnlocked(town, id)"
-        class="town-secondary"
-        @click="$emit('select', building.kind)"
-      >
-        {{ t('Go to {building}', { building: t(BUILDING_BY_ID[building.kind].shortName) }) }} →
+      <button v-if="requirement" class="town-secondary" @click="$emit('select', requirement.id)">
+        {{ t('Go to {building}', { building: t(BUILDING_BY_ID[requirement.id].shortName) }) }} →
       </button>
     </div>
     <p v-else class="town-restored-note">
@@ -187,6 +183,7 @@ import {
   constructionReady,
   constructionVisual,
   plotUnlocked,
+  plotRequirement,
   saloonIncomeRate,
   residentPopulation,
   visitorPopulation,
@@ -209,6 +206,7 @@ const props = defineProps({
 });
 defineEmits(['build', 'hammer', 'finish', 'collect-income', 'select', 'museum', 'mine']);
 const building = computed(() => BUILDING_BY_ID[props.id]);
+const requirement = computed(() => plotRequirement(props.town, props.id));
 const stage = computed(() => props.town.buildings[props.id]);
 const project = computed(() => props.town.projects[props.id]);
 const offer = computed(() => upgradeOffer(props.town, props.id));

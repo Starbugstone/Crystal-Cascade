@@ -297,6 +297,7 @@
     </footer>
     <VictoryModal
       v-if="game.levelCleared"
+      :level-id="game.currentLevelId"
       :rewards="game.levelRewards"
       :coins="game.coinReward"
       :jewels="game.collectedJewels"

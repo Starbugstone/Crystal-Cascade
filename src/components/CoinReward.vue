@@ -64,13 +64,18 @@
           <b>+{{ number(reward.coins) }}</b>
         </div>
       </template>
+      <div v-if="depthPercent" class="coin-depth-bonus">
+        <span>{{ t('Depth bonus · +{percent}%', { percent: depthPercent }) }}</span>
+        <b>+{{ number(depthCoins) }}</b>
+      </div>
     </div>
   </div>
 </template>
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../i18n';
-import { BONUS_GEM_COINS } from '../game/town/TownRules';
+import { depthBonusPercent, miningDepthBonus } from '../data/economy';
+import { BONUS_GEM_COINS, miningPayout } from '../game/town/TownRules';
 import {
   COMBO_COIN_STEP,
   MULTI_MATCH_COIN_STEP,
@@ -79,12 +84,20 @@ import {
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 const props = defineProps({
+  levelId: { type: Number, default: 1 },
   coins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   bonusGems: { type: Number, default: 0 },
   comboCounts: { type: Object, default: () => ({}) },
   multiMatchCounts: { type: Object, default: () => ({}) },
 });
+const depthPercent = computed(() => depthBonusPercent(props.levelId));
+const depthCoins = computed(() =>
+  miningDepthBonus(
+    miningPayout(props.jewels, props.bonusGems, props.comboCounts, props.multiMatchCounts),
+    props.levelId,
+  ),
+);
 const comboRewards = computed(() => matchRewardBreakdown(props.comboCounts, COMBO_COIN_STEP));
 const multiMatchRewards = computed(() =>
   matchRewardBreakdown(props.multiMatchCounts, MULTI_MATCH_COIN_STEP),
@@ -196,6 +209,12 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   font-size: 10px;
   letter-spacing: 1px;
   text-align: left;
+}
+.coin-depth-bonus {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #f8c64a30;
+  color: #ffe19a;
 }
 .coin-breakdown small {
   display: block;

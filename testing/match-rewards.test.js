@@ -43,6 +43,82 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('modest rewards for mining deeper chapters', () => {
+  it.each([
+    [1, 200],
+    [6, 200],
+    [7, 210],
+    [12, 210],
+    [13, 220],
+    [19, 230],
+    [25, 240],
+    [31, 250],
+    [37, 260],
+    [43, 270],
+    [49, 280],
+    [55, 290],
+    [60, 290],
+  ])('pays the gem, leftover bonus and combo subtotal at level %i as %i coins', (id, coins) => {
+    // 140 gems + 20 leftover bonuses + 10 cascade + 30 simultaneous matches = 200.
+    expect(miningPayout(140, 2, { 2: 2 }, { 2: 3 }, id)).toBe(coins);
+  });
+  it('rounds the depth bonus down once and retains safe integer totals', () => {
+    expect(miningPayout(19, 0, {}, {}, 7)).toBe(19);
+    expect(miningPayout(20, 0, {}, {}, 7)).toBe(21);
+    expect(miningPayout(0, 0, {}, {}, 60)).toBe(0);
+    expect(miningPayout(Number.MAX_SAFE_INTEGER, 0, {}, {}, 60)).toBe(Number.MAX_SAFE_INTEGER);
+    for (const id of [0, -1, 1.5, 61, NaN, Infinity, '7', null])
+      expect(miningPayout(100, 0, {}, {}, id)).toBe(100);
+  });
+  it('banks the exact deeper-level recap once, persists it, and prices replays by their own depth', () => {
+    const game = useGameStore(),
+      campaign = useCampaignStore();
+    for (let id = 1; id <= 6; id++) campaign.records[id] = { score: 100, stars: 1 };
+    game.bootstrap();
+    game.startLevel(7);
+    game.collectedJewels = 140;
+    game.comboCounts = { 2: 2 };
+    game.multiMatchCounts = { 2: 3 };
+    game.board = [createGem('bomb'), createGem('cross')];
+    game.remainingLayers = 0;
+    game.completeLevel();
+    expect(game.coinReward).toBe(210);
+    expect(campaign.town.coins).toBe(210);
+    expect(JSON.parse(saved.get(SAVE_KEY)).town.coins).toBe(210);
+    game.completeLevel();
+    expect(campaign.town.coins).toBe(210);
+    const runId = game.runId;
+    setActivePinia(createPinia());
+    const reloaded = useCampaignStore();
+    reloaded.recordVictory({ id: 7, runId, score: 0, target: 100000, jewels: 1000 });
+    expect(reloaded.town.coins).toBe(210);
+    reloaded.recordVictory({
+      id: 1,
+      runId: reloaded.beginRun(),
+      score: 0,
+      target: 100000,
+      jewels: 200,
+    });
+    expect(reloaded.town.coins).toBe(410);
+  });
+  it('adds depth to continuous gem income without increasing its cap or double-crediting moves', () => {
+    const campaign = useCampaignStore();
+    campaign.town.buildings.museum = 1;
+    for (let id = 1; id <= 7; id++) campaign.records[id] = { score: 100, stars: 1 };
+    const runId = campaign.beginRun('continuous', 7);
+    const record = (jewels) => campaign.recordContinuous({ id: 7, runId, jewels, score: 100 });
+    record(190);
+    expect(campaign.town.coins).toBe(19);
+    record(200);
+    expect(campaign.town.coins).toBe(21);
+    record(200);
+    expect(campaign.town.coins).toBe(21);
+    record(10000);
+    expect(campaign.town.coins).toBe(25);
+    expect(campaign.continuousRecords[7].coins).toBe(25);
+  });
+});
+
 describe('every earned combo contributes to the coin recap', () => {
   it('stacks all tiers across moves and banks the exact recap once, including after reload', () => {
     const game = useGameStore(),

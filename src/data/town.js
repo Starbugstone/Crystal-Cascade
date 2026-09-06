@@ -322,7 +322,7 @@ const IMPROVEMENTS = {
       1,
       'A barn full of promise',
       'Expand the barn',
-      'Food for twelve neighbors. Unlock two more farm plots.',
+      'Food for twelve neighbors. Unlock Farm II; finish it to reveal Farm III.',
     ],
     [
       300,
@@ -421,7 +421,7 @@ for (const building of ORIGINAL_BUILDINGS) {
   }
 }
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'home').upgrades[1].benefit =
-  'Room for four neighbors. Unlock House II; finish it to reveal Houses III and IV.';
+  'Room for four neighbors. Unlock House II; build each extra house to reveal the next.';
 ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
   'Protect half the coins at risk from two riders.';
 
@@ -554,12 +554,12 @@ export const BUILDINGS = [
   ...ORIGINAL_BUILDINGS,
   ...[
     ['home2', 'home', 'Willow house', 'Home II', 95, 320],
-    ['home3', 'home', 'Sagebrush house', 'Home III', 90, 465],
-    ['home4', 'home', 'Cottonwood house', 'Home IV', 300, 665],
+    ['home3', 'home', 'Sagebrush house', 'Home III', 90, 465, 'home2'],
+    ['home4', 'home', 'Cottonwood house', 'Home IV', 300, 665, 'home3'],
     ['well2', 'well', 'Prairie well', 'Well II', 640, 675],
     ['farm2', 'farm', 'Sunrise farm', 'Farm II', 900, 295],
-    ['farm3', 'farm', 'Meadow farm', 'Farm III', 900, 465],
-  ].map(([id, kind, name, shortName, x, y]) => ({
+    ['farm3', 'farm', 'Meadow farm', 'Farm III', 900, 465, 'farm2'],
+  ].map(([id, kind, name, shortName, x, y, previous]) => ({
     ...ORIGINAL_BUILDINGS.find((building) => building.id === kind),
     id,
     kind,
@@ -567,7 +567,7 @@ export const BUILDINGS = [
     shortName,
     x,
     y,
-    unlock: id === 'home3' || id === 'home4' ? { id: 'home2', level: 1 } : { id: kind, level: 2 },
+    unlock: [{ id: kind, level: 2 }, ...(previous ? [{ id: previous, level: 1 }] : [])],
     upgrades: ORIGINAL_BUILDINGS.find((building) => building.id === kind).upgrades.map(
       (upgrade) => ({
         ...upgrade,

@@ -117,11 +117,18 @@ export class TownDiorama {
     this.controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     this.controls.update();
     this.overview = true;
-    this.leaveOverview = () => {
-      this.overview = false;
+    this.beginCameraGesture = () => {
+      this.cameraGesture = true;
     };
-    this.controls.addEventListener('start', this.leaveOverview);
+    this.endCameraGesture = () => {
+      this.cameraGesture = false;
+    };
+    this.controls.addEventListener('start', this.beginCameraGesture);
+    this.controls.addEventListener('end', this.endCameraGesture);
     this.cameraChanged = () => {
+      // A building tap also starts an OrbitControls gesture. Only camera movement
+      // should stop framing the town when a newly unlocked parcel expands it.
+      if (this.cameraGesture && !this.framingTown) this.overview = false;
       if (keepCameraAboveTerrain(this.camera.position, this.controls.target))
         this.controls.update();
       // Pointer events can arrive faster than frames. Render only the latest pose.
@@ -984,7 +991,12 @@ export class TownDiorama {
     this.camera.position
       .copy(target)
       .addScaledVector(direction, Math.min(distance, this.controls.maxDistance));
-    this.controls.update();
+    this.framingTown = true;
+    try {
+      this.controls.update();
+    } finally {
+      this.framingTown = false;
+    }
   }
   resize() {
     const width = this.canvas.clientWidth,
@@ -1154,7 +1166,8 @@ export class TownDiorama {
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
     this.controls.removeEventListener('change', this.cameraChanged);
-    this.controls.removeEventListener('start', this.leaveOverview);
+    this.controls.removeEventListener('start', this.beginCameraGesture);
+    this.controls.removeEventListener('end', this.endCameraGesture);
     this.controls.dispose();
     if (this.selection) {
       this.selection.geometry.dispose();

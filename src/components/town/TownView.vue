@@ -305,7 +305,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Well level 2 unlocks a second well. Farm level 2 unlocks two more farms. Home level 2 unlocks House II; finish House II to reveal Houses III and IV. Other buildings have one plot each.',
+              'Finish upgrading the original well, farm or house to level 2 to unlock its second plot. Build Farm II before Farm III, and build each extra house before the next. Other buildings have one plot each.',
             )
           }}
         </p>

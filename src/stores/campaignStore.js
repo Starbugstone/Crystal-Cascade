@@ -1,3 +1,4 @@
+import { miningDepthBonus } from '../data/economy';
 import { defineStore } from 'pinia';
 import { SHOP_ITEMS, rollShopStock, shopSlots, shopSpace } from '../data/shop';
 import { LEVEL_COUNT, POWERS, getChestTier, getSpeedChestTier, getStars } from '../data/campaign';
@@ -239,7 +240,8 @@ export const useCampaignStore = defineStore('campaign', {
       if (!Number.isSafeInteger(jewels) || jewels < 0 || !Number.isFinite(score) || score < 0)
         return false;
       const previous = this.continuousRecords[id] ?? { coins: 0, score: 0 };
-      const earned = Math.min(CONTINUOUS_COIN_CAP, Math.floor(jewels / 10));
+      const baseCoins = Math.floor(jewels / 10);
+      const earned = Math.min(CONTINUOUS_COIN_CAP, baseCoins + miningDepthBonus(baseCoins, id));
       const delta = Math.min(
         CONTINUOUS_COIN_CAP - previous.coins,
         Math.max(0, earned - run.credited),
@@ -452,7 +454,7 @@ export const useCampaignStore = defineStore('campaign', {
       }
       this.town.coins = Math.min(
         Number.MAX_SAFE_INTEGER,
-        this.town.coins + miningPayout(jewels, bonusGems, comboCounts, multiMatchCounts),
+        this.town.coins + miningPayout(jewels, bonusGems, comboCounts, multiMatchCounts, id),
       );
       this.settledRun = runId;
       // Campaign, chest rewards, and town income move together before any reveal.

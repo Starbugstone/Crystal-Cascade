@@ -952,6 +952,7 @@ export const useGameStore = defineStore('game', {
         this.remainingBonusGems,
         this.comboCounts,
         this.multiMatchCounts,
+        this.currentLevelId,
       );
       this.levelRewards = useCampaignStore().recordVictory({
         chooseRewards: true,

@@ -7,6 +7,7 @@ import {
   advanceConstruction,
   finishConstruction,
   plotUnlocked,
+  plotRequirement,
   population,
   gangSize,
   raidReady,
@@ -48,34 +49,51 @@ afterEach(() => {
 });
 
 describe('Five levels and a growing frontier', () => {
-  it('opens extra plots only after their required building level is complete', () => {
-    for (const { id, unlock } of BUILDINGS.filter((b) => b.unlock)) {
-      let town = village({ home: 2, [unlock.id]: unlock.level - 1 });
+  it.each([
+    ['home', ['home2', 'home3', 'home4']],
+    ['farm', ['farm2', 'farm3']],
+    ['well', ['well2']],
+  ])('opens %s extras in order after completing the original level 2', (kind, extras) => {
+    let town = village();
+    const assertLocked = (id) => {
       expect(plotUnlocked(town, id)).toBe(false);
       expect(purchase(town, id, 0)).toBeNull();
-      town = purchase(town, unlock.id, unlock.level - 1);
-      while (town.projects[unlock.id]) {
-        expect(plotUnlocked(town, id)).toBe(false);
-        town = advanceConstruction(town);
-        town = finishConstruction(town, unlock.id, unlock.level);
-      }
+      expect(buildWithHammer(town, id, 0)).toBeNull();
+      expect(availablePurchases(town, 5).some((b) => b.id === id)).toBe(false);
+    };
+    extras.forEach(assertLocked);
+    town = purchase(town, kind, 1);
+    extras.forEach(assertLocked);
+    town = advanceConstruction(town);
+    // A completed puzzle still needs the player's tap to remove the scaffolding.
+    extras.forEach(assertLocked);
+    town = finishConstruction(town, kind, 2);
+    for (const [index, id] of extras.entries()) {
       expect(plotUnlocked(town, id)).toBe(true);
-      expect(purchase(town, id, 0)?.buildings[id]).toBe(1);
+      expect(availablePurchases(town).some((b) => b.id === id)).toBe(true);
+      extras.slice(index + 1).forEach(assertLocked);
+      const withoutCoins = { ...town, coins: 0 };
+      expect(availablePurchases(withoutCoins).some((b) => b.id === id)).toBe(false);
+      expect(availablePurchases(withoutCoins, 1).some((b) => b.id === id)).toBe(true);
+      expect(buildWithHammer(withoutCoins, id, 0)?.buildings[id]).toBe(1);
+      town = purchase(town, id, 0);
+      expect(town.buildings[id]).toBe(1);
     }
   });
-  it('keeps later houses locked with hammers until House II is built, and preserves existing homes', () => {
-    const town = village({ home: 2 });
-    for (const id of ['home3', 'home4']) {
-      expect(availablePurchases(town, 5).some((b) => b.id === id)).toBe(false);
-      expect(buildWithHammer(town, id, 0)).toBeNull();
-    }
-    const next = buildWithHammer(town, 'home2', 0);
-    for (const id of ['home3', 'home4']) {
-      expect(plotUnlocked(next, id)).toBe(true);
-      expect(availablePurchases(next, 1).some((b) => b.id === id)).toBe(true);
-    }
-    town.buildings.home3 = 1;
-    expect(plotUnlocked(town, 'home3')).toBe(true);
+  it('explains the missing prerequisite and keeps saved buildings and projects accessible', () => {
+    let town = village({ farm: 2 });
+    expect(plotRequirement(town, 'farm3')).toEqual({ id: 'farm2', level: 1 });
+    expect(upgradeOffer(town, 'farm3').reason).toBe('Finish building Farm II to unlock this plot.');
+    // A legacy second farm cannot bypass the original farm's level requirement.
+    expect(plotUnlocked(village({ farm: 1, farm2: 1 }), 'farm3')).toBe(false);
+    town.buildings.farm3 = 1;
+    town.buildings.home4 = 1;
+    town.projects.home4 = { id: 'home4', stage: 2, wins: 1, required: 1 };
+    town = normalizeTown(town);
+    expect(plotUnlocked(town, 'farm3')).toBe(true);
+    expect(plotUnlocked(town, 'home4')).toBe(true);
+    expect(finishConstruction(town, 'home4', 2).buildings.home4).toBe(2);
+    expect(plotUnlocked(town, 'unknown')).toBe(false);
   });
   it('caps every building at level five and preserves existing benefits during improvements', () => {
     for (const building of BUILDINGS) {

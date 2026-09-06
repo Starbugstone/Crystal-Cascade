@@ -1,4 +1,5 @@
 import { t } from '../../i18n';
+import { miningDepthBonus } from '../../data/economy';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 import {
   COMBO_COIN_STEP,
@@ -8,8 +9,14 @@ import {
 
 export const BONUS_GEM_COINS = 10;
 const collectedCount = (value) => (Number.isSafeInteger(value) && value > 0 ? value : 0);
-export const miningPayout = (jewels, bonusGems = 0, comboCounts = {}, multiMatchCounts = {}) =>
-  Math.min(
+export function miningPayout(
+  jewels,
+  bonusGems = 0,
+  comboCounts = {},
+  multiMatchCounts = {},
+  levelId = 1,
+) {
+  const baseCoins = Math.min(
     Number.MAX_SAFE_INTEGER,
     collectedCount(jewels) +
       collectedCount(bonusGems) * BONUS_GEM_COINS +
@@ -18,6 +25,9 @@ export const miningPayout = (jewels, bonusGems = 0, comboCounts = {}, multiMatch
         ...matchRewardBreakdown(multiMatchCounts, MULTI_MATCH_COIN_STEP),
       ].reduce((total, reward) => total + reward.coins, 0),
   );
+
+  return baseCoins + miningDepthBonus(baseCoins, levelId);
+}
 
 export function normalizeTown(saved) {
   const town = createTown();
@@ -182,15 +192,13 @@ export const development = (town) =>
   Object.values(town.buildings).reduce((sum, level) => sum + level, 0);
 export const roadLevel = (town) =>
   development(town) >= 24 ? 3 : development(town) >= 12 ? 2 : development(town) >= 3 ? 1 : 0;
+// Completed buildings and paid projects stay accessible when unlock rules change.
+export function plotRequirement(town, id) {
+  if (town.buildings[id] > 0 || town.projects[id]) return null;
+  return BUILDING_BY_ID[id]?.unlock?.find(({ id, level }) => town.buildings[id] < level) ?? null;
+}
 export function plotUnlocked(town, id) {
-  const building = BUILDING_BY_ID[id];
-  if (!Object.hasOwn(BUILDING_BY_ID, id)) return false;
-  return (
-    !building.unlock ||
-    town.buildings[id] > 0 ||
-    !!town.projects[id] ||
-    town.buildings[building.unlock.id] >= building.unlock.level
-  );
+  return Object.hasOwn(BUILDING_BY_ID, id) && !plotRequirement(town, id);
 }
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
@@ -226,6 +234,7 @@ export function upgradeOffer(town, id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return null;
   const building = BUILDING_BY_ID[id];
   const stage = town.buildings[id];
+  const requirement = plotRequirement(town, id);
   const upgrade = building.upgrades[stage];
   if (!upgrade) return null;
   const firstProject =
@@ -240,11 +249,16 @@ export function upgradeOffer(town, id) {
       plotUnlocked(town, id) &&
       !town.projects[id] &&
       town.completedRuns >= (upgrade.unlockRuns ?? 0),
-    reason: !plotUnlocked(town, id)
-      ? t('Unlock by upgrading {building} to level {level}.', {
-          building: t(BUILDING_BY_ID[building.unlock.id].shortName),
-          level: building.unlock.level,
-        })
+    reason: requirement
+      ? t(
+          requirement.level === 1
+            ? 'Finish building {building} to unlock this plot.'
+            : 'Unlock by upgrading {building} to level {level}.',
+          {
+            building: t(BUILDING_BY_ID[requirement.id].shortName),
+            level: requirement.level,
+          },
+        )
       : town.projects[id]
         ? 'This building is already under construction.'
         : town.completedRuns < (upgrade.unlockRuns ?? 0)
