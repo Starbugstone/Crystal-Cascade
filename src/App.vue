@@ -152,19 +152,22 @@
           '--fusion-color': game.arcadeImpact?.color,
         }"
       >
-        <div v-if="game.playMode === 'continuous'" class="continuous-banner" role="status">
+        <div v-if="game.playMode === 'continuous'" class="continuous-banner">
           <div>
             <strong>∞ {{ t('Continuous play') }}</strong
-            ><span>{{
+            ><span class="continuous-description">{{
               t('Keep matching after the objectives. No chests or construction steps.')
             }}</span>
+            <span class="continuous-coins" role="status">{{
+              t('{earned}/{cap} coins saved for this level', {
+                earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
+                cap: CONTINUOUS_COIN_CAP,
+              })
+            }}</span>
           </div>
-          <span>{{
-            t('{earned}/{cap} coins saved for this level', {
-              earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
-              cap: CONTINUOUS_COIN_CAP,
-            })
-          }}</span>
+          <button class="continuous-exit" :disabled="game.animationInProgress" @click="showVillage">
+            <GameIcon name="home" /> {{ t('Exit mine') }}
+          </button>
         </div>
         <ArcadeBanner :banner="game.arcadeBanner">
           <div class="mine-seam">

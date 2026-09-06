@@ -190,6 +190,31 @@
   font-size: 15px;
   color: #f5dd99;
 }
+.continuous-coins {
+  display: block;
+}
+.continuous-exit {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #f5dd99;
+  border-radius: 8px;
+  background: #f5dd99;
+  color: #302818;
+  font-size: 12px;
+  font-weight: 700;
+}
+.continuous-exit:hover:not(:disabled) {
+  background: #ffeabd;
+}
+.continuous-exit:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 @media (max-width: 850px) {
   .landing-hero {
     min-height: 500px;
