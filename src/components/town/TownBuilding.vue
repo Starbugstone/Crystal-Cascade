@@ -1,5 +1,16 @@
 <template>
-  <TownSquare v-if="kind === 'square'" :stage="stage" />
+  <g v-if="kind === 'bridge'" fill="none" stroke-linejoin="round">
+    <path d="M-155 8 155 8" stroke="#b3a07b" stroke-width="33" />
+    <path d="M-155-20H155M-155 24H155" stroke="#68776d" stroke-width="5" />
+    <path
+      v-for="n in 15"
+      :key="n"
+      :d="`M${-160 + n * 20}-20v22m0 4v18`"
+      stroke="#68776d"
+      stroke-width="3"
+    />
+  </g>
+  <TownSquare v-else-if="kind === 'square'" :stage="stage" />
   <g v-else class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
     <ellipse
       cx="8"
@@ -65,7 +76,11 @@
         stroke="#3c382a"
         opacity=".17"
       />
-      <template v-if="kind === 'home' || kind === 'farm' || kind === 'stable'">
+      <template
+        v-if="
+          ['home', 'farm', 'stable', 'fisherman', 'riverPort', 'school', 'doctor'].includes(kind)
+        "
+      >
         <path d="M-94-103-33-158 103-119 42-73Z" :fill="built ? roofColor : '#858475'" />
         <path d="m-33-158 75 85 61-46Z" :fill="built ? roofSide : '#656f66'" />
         <path
@@ -117,6 +132,12 @@
                 armory: 'Armory',
                 bank: 'Bank',
                 shop: 'Shop',
+                blacksmith: 'Forge',
+                post: 'Post office',
+                railDepot: 'Railway station',
+                hotel: 'Hotel',
+                warehouse: 'Warehouse',
+                market: 'Market',
               }[kind],
             )
           }}</text
@@ -320,16 +341,55 @@
         stroke-width="4"
       />
     </g>
+    <g v-if="built && (kind === 'fisherman' || kind === 'riverPort')">
+      <path d="M65 0 160-20 178-6 80 18Z" fill="#aa8e60" stroke="#786c4e" stroke-width="3" />
+      <path d="M95-7v25m35-32v25m32-28v23" stroke="#806f4f" stroke-width="4" />
+      <path d="m130 22 45-9q-4 24-34 21Z" fill="#8c704c" />
+      <g v-if="stage >= 2" stroke="#b4a378" stroke-width="2"
+        ><path d="M-95-30h40v30h-40Zm10 0v30m10-30v30m10-30v30M-95-20h40m-40 10h40"
+      /></g>
+      <path v-if="stage >= 3" d="M-102-34h56v6h-56Z" fill="#8d7958" />
+    </g>
+    <g v-if="built && kind === 'blacksmith'">
+      <path d="M-66-115v-70h20v75" fill="#956e55" />
+      <path d="m75-6 42-6-7 13-12 2 4 11-23 4 3-14-7-2Z" fill="#5b6d68" />
+      <path v-if="stage >= 3" d="m62-44 59-12 18 11-60 15Z" fill="#9b815b" />
+    </g>
+    <g v-if="built && kind === 'school'">
+      <path d="M-18-140v-33h24v35" fill="#cfbd95" stroke="#8c805e" stroke-width="3" />
+      <path d="m-12-164 10-2 2 15-14 2Z" fill="#b89a57" />
+      <path v-if="stage >= 3" d="M-25-174 0-190 13-170Z" fill="#7f9787" />
+    </g>
+    <g v-if="built && kind === 'doctor'" fill="#537d6d">
+      <path d="M-24-130h8v25h-8Z" /><path d="M-33-122h25v8h-25Z" />
+      <path v-if="stage >= 3" d="m-86-52 108 22 9-13-108-23Z" fill="#7f9c8d" />
+    </g>
+    <g v-if="built && kind === 'railDepot'">
+      <path d="m-110 12 145 27 91-42-16-8-80 35-140-26Z" fill="#b5a17e" />
+      <circle cx="-15" cy="-115" r="10" fill="#efdfb4" stroke="#7d785a" stroke-width="2" />
+      <path d="M-15-123v9h6" fill="none" stroke="#7d785a" stroke-width="2" />
+    </g>
+    <g v-if="built && era === 'river-rail' && RIVER_RAIL_VARIANTS[kind]">
+      <path d="M-81-80v66m117-43v65" stroke="#9b8d78" stroke-width="12" />
+      <path d="m-89-71 132 25 14-13-132-24Z" fill="#78968b" />
+      <path
+        d="M-81-71h9m-9 13h9m-9 13h9m-9 13h9M30-48h12m-12 13h12m-12 13h12"
+        stroke="#dbcbb0"
+        stroke-width="3"
+      />
+    </g>
   </g>
 </template>
 
 <script setup>
 import { BUILDING_BY_ID } from '../../data/town';
+import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 const props = defineProps({
   id: { type: String, required: true },
+  era: { type: String, default: 'frontier' },
   stage: { type: Number, default: 0 },
 });
 const kind = computed(() => BUILDING_BY_ID[props.id]?.kind ?? props.id);
@@ -346,6 +406,16 @@ const frontColor = computed(
       armory: '#8c9e91',
       bank: '#b2af94',
       shop: '#bd977b',
+      fisherman: '#8ca39a',
+      riverPort: '#8ca39a',
+      blacksmith: '#a8785b',
+      school: '#c8b383',
+      doctor: '#a3b4a4',
+      railDepot: '#baa07a',
+      post: '#c2ae86',
+      hotel: '#c3a77d',
+      warehouse: '#9f9480',
+      market: '#99a786',
     })[kind.value],
 );
 const sideColor = computed(
@@ -360,6 +430,16 @@ const sideColor = computed(
       armory: '#69877c',
       bank: '#818e89',
       shop: '#997b5d',
+      fisherman: '#6d8c84',
+      riverPort: '#6d8c84',
+      blacksmith: '#805d48',
+      school: '#aa946d',
+      doctor: '#829888',
+      railDepot: '#958160',
+      post: '#a2906c',
+      hotel: '#a38b62',
+      warehouse: '#807762',
+      market: '#7c886a',
     })[kind.value],
 );
 const roofColor = computed(() => (kind.value === 'home' ? '#869b90' : '#96764f'));

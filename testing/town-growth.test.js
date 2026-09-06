@@ -29,6 +29,10 @@ import { rollShopStock } from '../src/data/shop';
 import { useCampaignStore } from '../src/stores/campaignStore';
 import { SAVE_KEY } from '../src/services/localProfile';
 
+const frontierBuildings = BUILDINGS.filter((b) => b.introducedEra === 'frontier');
+const legacyBuildings = frontierBuildings.filter(
+  (b) => !['fisherman', 'blacksmith', 'school', 'doctor'].includes(b.id),
+);
 const village = (levels = {}) => ({
   ...createTown(),
   coins: 600,
@@ -110,9 +114,9 @@ describe('Five levels and a growing frontier', () => {
     expect(plotUnlocked(town, 'unknown')).toBe(false);
   });
   it('caps every building at level five and preserves existing benefits during improvements', () => {
-    for (const building of BUILDINGS) {
+    for (const building of frontierBuildings) {
       expect(building.upgrades).toHaveLength(5);
-      const town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, 5])));
+      const town = village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 5])));
       expect(purchase(town, building.id, 5)).toBeNull();
     }
     let town = village({ saloon: 1, home: 2 });
@@ -264,9 +268,9 @@ describe('A useful square and a longer village economy', () => {
     expect(happiness(reloaded.town)).toBe(50);
   });
   it('unlocks the fourth and fifth levels after 18 and 36 completed puzzles for either payment', () => {
-    for (const { id } of BUILDINGS) {
+    for (const { id } of frontierBuildings) {
       let town = {
-        ...village(Object.fromEntries(BUILDINGS.map((b) => [b.id, 3]))),
+        ...village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 3]))),
         coins: 10000,
         completedRuns: 17,
       };
@@ -287,7 +291,7 @@ describe('A useful square and a longer village economy', () => {
     }
   });
   it('supports a mature village with meaningful services at every final tier', () => {
-    const town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, 5])));
+    const town = village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 5])));
     expect(residentPopulation(town)).toBe(40);
     expect(visitorPopulation(town)).toBe(18);
     expect(happiness(town)).toBe(100);
@@ -322,7 +326,7 @@ describe('Visible raids with a single saved outcome', () => {
     [2, 4],
     [3, 6],
   ])('scales gangs for developed towns and protects them at sheriff level %s', (level, riders) => {
-    const town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, level])));
+    const town = village(Object.fromEntries(legacyBuildings.map((b) => [b.id, level])));
     // Keep the development bands independent of the two new plots.
     town.buildings.shop = 0;
     town.buildings.home4 = 0;
@@ -340,7 +344,7 @@ describe('Visible raids with a single saved outcome', () => {
     expect(underprotected.events[BANDIT_EVENT].loss).toBeGreaterThan(0);
   });
   it('retains current protection during sheriff work and never takes the final fifty coins', () => {
-    let town = village(Object.fromEntries(BUILDINGS.map((b) => [b.id, 2])));
+    let town = village(Object.fromEntries(legacyBuildings.map((b) => [b.id, 2])));
     town.buildings.shop = 0;
     town.buildings.home4 = 0;
     town.buildings.square = 0;

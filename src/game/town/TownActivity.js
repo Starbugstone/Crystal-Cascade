@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { roadLevel, population } from './TownRules';
-import { LANE_X, TOWN_TRACKS, atPlot, plotStreet } from './TownLayout';
+import { LANE_X, townTracks, atPlot, plotStreet } from './TownLayout';
 
 // Actors share the town's geometry cache; only their joints move each frame.
 export function mountedRider(
@@ -106,7 +106,7 @@ export function addTownRoads(d, town, plots) {
   const level = roadLevel(town);
   const roads = d.group(d.world);
   // Slightly uneven edges keep the tracks narrow and worn, with prairie between lots.
-  for (const [index, { from, to, width }] of TOWN_TRACKS.entries()) {
+  for (const [index, { from, to, width }] of townTracks(town).entries()) {
     const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
     const steps = Math.max(2, Math.ceil(length * 2));
     const shape = new THREE.Shape();
@@ -122,7 +122,10 @@ export function addTownRoads(d, town, plots) {
     const geometry = new THREE.ShapeGeometry(shape);
     geometry.rotateX(-Math.PI / 2);
     geometry.userData.owned = true;
-    const track = new THREE.Mesh(geometry, d.material('#c3a477'));
+    const track = new THREE.Mesh(
+      geometry,
+      d.material(town.era === 'river-rail' ? '#b3a18a' : '#c3a477'),
+    );
     track.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
     track.position.set((from[0] + to[0]) / 2, 0.028 + index * 0.0002, (from[1] + to[1]) / 2);
     track.receiveShadow = true;
@@ -280,7 +283,7 @@ export class TownRaid {
     }
     this.bandits.forEach((actor, n) => {
       const stop = [-1.2 + (n % 3) * 1.1, this.mine[1] + 4.5 + Math.floor(n / 3) * 0.95];
-      const entry = [26 + n * 0.9, -18 - n * 0.4];
+      const entry = [24 - n * 0.3, -18 - n * 0.4];
       const caught =
         event.outcome === 'protected' || n < Math.min(event.gangSize / 2, event.sheriffLevel);
       const retreat = caught ? 10 : 14;
@@ -314,7 +317,7 @@ export class TownRaid {
             ],
             (time - retreat) / 3,
           );
-        else this.move(actor, corner, [28 + n, 27], (time - retreat - 3) / 4);
+        else this.move(actor, corner, [23 - n * 0.2, 27], (time - retreat - 3) / 4);
       }
       actor.root.visible = time < retreat + 7;
       const aiming = time >= 5 && time < 9;

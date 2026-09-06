@@ -1,4 +1,7 @@
 import { purchasePrice } from './economy';
+import { FRONTIER_BUILDINGS } from './frontier';
+import { FRONTIER_ERA, createEraState } from './eras';
+import { RIVER_RAIL_BUILDINGS } from './riverRail';
 
 const ORIGINAL_BUILDINGS = [
   {
@@ -552,6 +555,8 @@ for (const building of ORIGINAL_BUILDINGS) {
 }
 export const BUILDINGS = [
   ...ORIGINAL_BUILDINGS,
+  ...FRONTIER_BUILDINGS,
+  ...RIVER_RAIL_BUILDINGS,
   ...[
     ['home2', 'home', 'Willow house', 'Home II', 95, 320],
     ['home3', 'home', 'Sagebrush house', 'Home III', 90, 465, 'home2'],
@@ -578,6 +583,8 @@ export const BUILDINGS = [
   })),
 ].map((building) => ({
   ...building,
+  introducedEra: building.introducedEra ?? FRONTIER_ERA,
+  requiredForEraCompletion: true,
   upgrades: building.upgrades.map((upgrade) => ({ ...upgrade, cost: purchasePrice(upgrade.cost) })),
 }));
 
@@ -593,6 +600,7 @@ export const INITIAL_STORY = {
 };
 
 export const createTown = () => ({
+  ...createEraState(BUILDINGS.map(({ id }) => id)),
   coins: 0,
   tourSeen: false,
   constructionTipSeen: false,

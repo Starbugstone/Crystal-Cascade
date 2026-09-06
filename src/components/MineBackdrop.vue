@@ -56,7 +56,7 @@
         <path d="M153 131Q248 264 157 413T139 740M1299 116Q1196 337 1304 448T1291 728" />
         <path d="M180 281l-35-23m23 84 39-26m-44 216-37-20m1161-194 39-28m-41 243-30-36" />
       </g>
-      <g v-if="['frost', 'moonlit', 'depths'].includes(theme)" fill="url(#mine-crystal)">
+      <g v-if="['frost', 'moonlit', 'depths', 'river'].includes(theme)" fill="url(#mine-crystal)">
         <path
           d="M288 89 311 209 333 99M399 104 425 173 438 109M1017 103 1037 220 1066 121M1144 119 1170 192 1183 101"
         />

@@ -5,10 +5,12 @@ import { PLOTS } from '../src/game/town/TownDiorama';
 
 describe('An explorable town on rolling terrain', () => {
   it('keeps foundations on level ground while hills rise outside the town', () => {
-    for (const [x, z] of Object.values(PLOTS))
+    for (const [x, z] of Object.entries(PLOTS)
+      .filter(([id]) => id !== 'bridge')
+      .map(([, position]) => position))
       for (const dx of [-1.5, 0, 1.5])
         for (const dz of [-1.5, 0, 1.5]) expect(groundHeight(x + dx, z + dz)).toBe(0);
-    expect(groundHeight(32, -45)).toBeGreaterThan(10);
+    expect(groundHeight(-38, -42)).toBeGreaterThan(10);
   });
   it('keeps all permitted orbit headings above the hills without changing distance', () => {
     const target = new Vector3(0, 0.7, 0);

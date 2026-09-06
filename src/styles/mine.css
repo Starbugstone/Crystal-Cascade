@@ -188,3 +188,19 @@
     height: 24px;
   }
 }
+.is-playing[data-mine-theme='river'] {
+  --mine-dark: #0e282e;
+  --mine-haze: #244c50;
+  --mine-rock: #34555b;
+  --mine-edge: #6f9b92;
+  --mine-timber: #5d6c59;
+  --mine-accent: #8bd3bb;
+}
+.is-playing[data-mine-theme='rail'] {
+  --mine-dark: #232321;
+  --mine-haze: #4c4235;
+  --mine-rock: #544d40;
+  --mine-edge: #969b83;
+  --mine-timber: #736044;
+  --mine-accent: #d1b87c;
+}

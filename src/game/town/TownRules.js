@@ -1,5 +1,7 @@
 import { t } from '../../i18n';
 import { miningDepthBonus } from '../../data/economy';
+import { FORGE_COMPLETIONS } from '../../data/eras';
+import { plotInEra, modernization, normalizeEraState } from './TownEras';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 import {
   COMBO_COIN_STEP,
@@ -31,12 +33,23 @@ export function miningPayout(
 
 export function normalizeTown(saved) {
   const town = createTown();
+  // Missing or malformed additions leave existing v3 receipts intact.
+  const forge = saved?.forge;
+  town.forge.charge = forge?.charge === 1 ? 1 : 0;
+  town.forge.progress =
+    !town.forge.charge &&
+    Number.isInteger(forge?.progress) &&
+    forge.progress >= 0 &&
+    forge.progress < FORGE_COMPLETIONS
+      ? forge.progress
+      : 0;
   if (Number.isSafeInteger(saved?.coins) && saved.coins >= 0) town.coins = saved.coins;
   for (const building of BUILDINGS) {
     const stage = saved?.buildings?.[building.id];
     if (Number.isInteger(stage) && stage >= 0 && stage <= building.upgrades.length)
       town.buildings[building.id] = stage;
   }
+  normalizeEraState(town, saved);
   if (Number.isSafeInteger(saved?.completedRuns) && saved.completedRuns >= 0)
     town.completedRuns = saved.completedRuns;
   const income = saved?.income;
@@ -95,19 +108,61 @@ export function normalizeTown(saved) {
   }
   for (const { id, upgrades } of BUILDINGS) {
     const project = saved?.projects?.[id];
+    if (project?.type === 'modernization') {
+      const offer = modernization(town, id);
+      if (
+        offer &&
+        project.id === id &&
+        project.stage === town.buildings[id] &&
+        project.targetEra === offer.targetEra &&
+        project.fromEra === town.buildingEras[id] &&
+        Number.isInteger(project.required) &&
+        project.required >= 1 &&
+        project.required <= 5 &&
+        Number.isInteger(project.wins) &&
+        project.wins >= 0 &&
+        project.wins <= project.required &&
+        Number.isSafeInteger(project.cost) &&
+        project.cost >= 0
+      ) {
+        town.projects[id] = {
+          id,
+          type: 'modernization',
+          stage: project.stage,
+          fromEra: project.fromEra,
+          targetEra: project.targetEra,
+          wins: project.wins,
+          required: project.required,
+          cost: project.cost,
+        };
+      }
+      continue;
+    }
     if (
       project?.id === id &&
       project.stage === town.buildings[id] + 1 &&
       project.stage <= upgrades.length &&
-      projectRuns(id, project.stage) === 1 &&
-      project.required === 1 &&
-      (project.wins === 0 || project.wins === 1)
+      projectRuns(id, project.stage) > 0 &&
+      project.required === projectRuns(id, project.stage) &&
+      Number.isInteger(project.wins) &&
+      project.wins >= 0 &&
+      project.wins <= project.required
     ) {
-      town.projects[id] = { id, stage: project.stage, wins: project.wins, required: 1 };
+      town.projects[id] = {
+        id,
+        stage: project.stage,
+        wins: project.wins,
+        required: project.required,
+      };
     }
   }
   town.constructionTipSeen = saved?.constructionTipSeen === true;
   town.tourSeen = saved?.tourSeen === true;
+  town.infrastructure = {
+    bridge: town.buildings.bridge,
+    rail: town.buildings.railDepot,
+    riverPort: town.buildings.riverPort,
+  };
   return town;
 }
 
@@ -139,7 +194,11 @@ export function finishConstruction(town, id, expectedStage) {
   if (
     !constructionReady(project) ||
     project.stage !== expectedStage ||
-    project.stage !== town.buildings[id] + 1
+    (project.type === 'modernization'
+      ? project.stage !== town.buildings[id] ||
+        project.fromEra !== town.buildingEras[id] ||
+        project.targetEra !== town.era
+      : project.stage !== town.buildings[id] + 1)
   )
     return null;
   const projects = { ...town.projects };
@@ -147,36 +206,51 @@ export function finishConstruction(town, id, expectedStage) {
   return {
     ...town,
     buildings: { ...town.buildings, [id]: project.stage },
+    buildingEras: { ...town.buildingEras, [id]: project.targetEra ?? town.era },
+    infrastructure: {
+      ...town.infrastructure,
+      ...(id === 'bridge' || id === 'riverPort' ? { [id]: project.stage } : {}),
+      ...(id === 'railDepot' ? { rail: project.stage } : {}),
+    },
     projects,
     constructionTipSeen: true,
   };
 }
 
 export const totalLevels = (town, kind) =>
-  BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + town.buildings[b.id], 0);
+  BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + (town.buildings[b.id] ?? 0), 0);
+export const foodCapacity = (town) =>
+  totalLevels(town, 'farm') * 6 +
+  Math.min(5, Math.max(0, town.buildings.fisherman ?? 0)) +
+  (town.buildings.market ?? 0) * 10;
+export const housingCapacity = (town) =>
+  totalLevels(town, 'home') * 2 + (town.buildings.home5 ?? 0) * 8;
+export function advanceForge(town) {
+  if (!town.buildings.blacksmith || town.forge.charge) return town;
+  const progress = town.forge.progress + 1;
+  return {
+    ...town,
+    forge: progress >= FORGE_COMPLETIONS ? { progress: 0, charge: 1 } : { progress, charge: 0 },
+  };
+}
 export const residentPopulation = (town) =>
-  Math.min(
-    totalLevels(town, 'home') * 2,
-    totalLevels(town, 'well') * 6,
-    totalLevels(town, 'farm') * 6,
-  );
+  Math.min(housingCapacity(town), totalLevels(town, 'well') * 6, foodCapacity(town));
 export const visitorCapacity = (town) =>
-  town.buildings.stable * 2 + Math.max(0, town.buildings.museum - 1) * 2;
+  town.buildings.stable * 2 +
+  Math.max(0, town.buildings.museum - 1) * 2 +
+  (town.buildings.railDepot ?? 0) * 2 +
+  (town.buildings.hotel ?? 0) * 2;
 export const visitorPopulation = (town) =>
   Math.min(
     visitorCapacity(town),
     Math.max(0, totalLevels(town, 'well') * 6 - residentPopulation(town)),
-    Math.max(0, totalLevels(town, 'farm') * 6 - residentPopulation(town)),
+    Math.max(0, foodCapacity(town) - residentPopulation(town)),
   );
 export const population = (town) => residentPopulation(town) + visitorPopulation(town);
 export const happiness = (town) => {
-  const demand = totalLevels(town, 'home') * 2 + visitorCapacity(town);
+  const demand = housingCapacity(town) + visitorCapacity(town);
   const needs = demand
-    ? Math.min(
-        1,
-        (totalLevels(town, 'well') * 6) / demand,
-        (totalLevels(town, 'farm') * 6) / demand,
-      )
+    ? Math.min(1, (totalLevels(town, 'well') * 6) / demand, foodCapacity(town) / demand)
     : 0;
   return Math.min(
     100,
@@ -184,7 +258,8 @@ export const happiness = (town) => {
       needs * 40 +
         (town.buildings.square ?? 0) * 8 +
         town.buildings.museum * 2 +
-        town.buildings.saloon * 2,
+        town.buildings.saloon * 2 +
+        Math.min(5, Math.max(0, town.buildings.school ?? 0)),
     ),
   );
 };
@@ -198,7 +273,7 @@ export function plotRequirement(town, id) {
   return BUILDING_BY_ID[id]?.unlock?.find(({ id, level }) => town.buildings[id] < level) ?? null;
 }
 export function plotUnlocked(town, id) {
-  return Object.hasOwn(BUILDING_BY_ID, id) && !plotRequirement(town, id);
+  return plotInEra(town, id) && !plotRequirement(town, id);
 }
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
@@ -235,7 +310,7 @@ export function upgradeOffer(town, id) {
   const building = BUILDING_BY_ID[id];
   const stage = town.buildings[id];
   const requirement = plotRequirement(town, id);
-  const upgrade = building.upgrades[stage];
+  const upgrade = building.upgrades[stage] ?? modernization(town, id);
   if (!upgrade) return null;
   const firstProject =
     !Object.keys(town.projects).length && BUILDINGS.every(({ id }) => !town.buildings[id]);
@@ -244,25 +319,27 @@ export function upgradeOffer(town, id) {
     ...upgrade,
     cost,
     stage,
-    runs: projectRuns(id, stage + 1),
+    runs: upgrade.runs ?? projectRuns(id, stage + 1),
     available:
       plotUnlocked(town, id) &&
       !town.projects[id] &&
       town.completedRuns >= (upgrade.unlockRuns ?? 0),
-    reason: requirement
-      ? t('Unlock by upgrading {building} to level {level}.', {
-          building: t(BUILDING_BY_ID[requirement.id].shortName),
-          level: requirement.level,
-        })
-      : town.projects[id]
-        ? 'This building is already under construction.'
-        : town.completedRuns < (upgrade.unlockRuns ?? 0)
-          ? t('Complete {count} more puzzles to unlock this improvement.', {
-              count: upgrade.unlockRuns - town.completedRuns,
-            })
-          : town.coins < cost
-            ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
-            : '',
+    reason: !plotInEra(town, id)
+      ? 'Available in the next era.'
+      : requirement
+        ? t('Unlock by upgrading {building} to level {level}.', {
+            building: t(BUILDING_BY_ID[requirement.id].shortName),
+            level: requirement.level,
+          })
+        : town.projects[id]
+          ? 'This building is already under construction.'
+          : town.completedRuns < (upgrade.unlockRuns ?? 0)
+            ? t('Complete {count} more puzzles to unlock this improvement.', {
+                count: upgrade.unlockRuns - town.completedRuns,
+              })
+            : town.coins < cost
+              ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
+              : '',
   };
 }
 
@@ -273,8 +350,7 @@ export const availablePurchases = (town, builderHammers = 0) =>
 
 export function nextGoal(town) {
   const available = BUILDINGS.filter(
-    (b) =>
-      plotUnlocked(town, b.id) && !town.projects[b.id] && town.buildings[b.id] < b.upgrades.length,
+    (b) => plotUnlocked(town, b.id) && !town.projects[b.id] && upgradeOffer(town, b.id),
   );
   const id =
     INTRO_ORDER.find((key) => !town.buildings[key] && !town.projects[key]) ??
@@ -287,6 +363,24 @@ export function nextGoal(town) {
 export function purchase(town, id, expectedStage) {
   const offer = upgradeOffer(town, id);
   if (!offer || offer.reason || offer.stage !== expectedStage) return null;
+  if (offer.type === 'modernization')
+    return {
+      ...town,
+      coins: town.coins - offer.cost,
+      projects: {
+        ...town.projects,
+        [id]: {
+          id,
+          type: 'modernization',
+          stage: expectedStage,
+          fromEra: town.buildingEras[id],
+          targetEra: offer.targetEra,
+          wins: 0,
+          required: offer.runs,
+          cost: offer.cost,
+        },
+      },
+    };
   return {
     ...town,
     coins: town.coins - offer.cost,
@@ -310,7 +404,9 @@ export function raidReady(town) {
   const previous = town.events[BANDIT_EVENT];
   return (
     population(town) > 0 &&
-    (!previous || (previous.seen && town.completedRuns - previous.atRun >= RAID_INTERVAL))
+    (!previous ||
+      (previous.seen &&
+        town.completedRuns - previous.atRun >= RAID_INTERVAL * (town.era === 'river-rail' ? 2 : 1)))
   );
 }
 export const raidProtection = (town, riders = gangSize(town)) =>
@@ -350,15 +446,25 @@ export function banditEncounter(town) {
 
 // Carry the displayed level so stale/double taps cannot spend on the next tier.
 export function buildWithHammer(town, id, expectedStage) {
-  if (!upgradeOffer(town, id)?.available) return null;
+  const offer = upgradeOffer(town, id);
+  if (!offer?.available) return null;
   if (
     town.projects[id] ||
     town.buildings[id] !== expectedStage ||
-    !BUILDING_BY_ID[id].upgrades[expectedStage]
+    (!BUILDING_BY_ID[id].upgrades[expectedStage] && offer.type !== 'modernization')
   )
     return null;
   return {
     ...town,
-    buildings: { ...town.buildings, [id]: expectedStage + 1 },
+    buildings: {
+      ...town.buildings,
+      [id]: expectedStage + (offer.type === 'modernization' ? 0 : 1),
+    },
+    buildingEras: { ...town.buildingEras, [id]: town.era },
+    infrastructure: {
+      ...town.infrastructure,
+      ...(id === 'bridge' || id === 'riverPort' ? { [id]: 1 } : {}),
+      ...(id === 'railDepot' ? { rail: 1 } : {}),
+    },
   };
 }

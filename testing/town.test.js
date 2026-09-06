@@ -113,7 +113,11 @@ describe('A small, reachable town', () => {
       if (required) town = finishConstruction(town, goal.id, town.projects[goal.id].stage);
     }
     expect(runs).toBeGreaterThan(0);
-    expect(Object.values(town.buildings).every((level) => level === 5)).toBe(true);
+    expect(
+      BUILDINGS.filter((b) => b.introducedEra === 'frontier').every(
+        (b) => town.buildings[b.id] === 5,
+      ),
+    ).toBe(true);
     expect(population(town)).toBe(58);
     expect(town.coins).toBeGreaterThanOrEqual(0);
     expect(purchase(town, 'well', 5)).toBeNull();

@@ -4,6 +4,9 @@ import { TownActors } from '../src/game/town/TownActors';
 import { TownDiorama, PLOTS } from '../src/game/town/TownDiorama';
 import { SHERIFF_PATROL } from '../src/game/town/TownLayout';
 import { TownRaid } from '../src/game/town/TownActivity';
+import { createTown } from '../src/data/town';
+import { routeBetween, plotStreet } from '../src/game/town/TownLayout';
+import { riverDistance, RIVER } from '../src/game/town/TownRiver';
 
 // Exercise articulated geometry and its timeline without requiring a GPU.
 function diorama() {
@@ -25,6 +28,28 @@ function diorama() {
   return d;
 }
 describe('A visible, articulated frontier encounter', () => {
+  it('keeps cross-river residents on the bridge deck without smoothing corners into water', () => {
+    const d = diorama(),
+      town = createTown();
+    town.era = 'river-rail';
+    town.buildings.bridge = 1;
+    town.buildings.home5 = 1;
+    const actor = d.person({
+      color: '#809080',
+      skin: '#cba17a',
+      hat: '#a08b64',
+      seed: 0,
+      linear: true,
+      route: routeBetween(town, plotStreet('home5'), plotStreet('saloon')),
+    });
+    for (let i = 0; i <= 400; i++) {
+      const point = actor.curve.getPointAt(i / 400);
+      if (riverDistance(point.x, point.z) < RIVER.halfWidth) {
+        expect(point.z).toBeCloseTo(7.5);
+        expect(point.y).toBeGreaterThan(0.3);
+      }
+    }
+  });
   it('gives the village sheriff a badge and a visible loop along both main streets', () => {
     const d = diorama();
     const sheriff = d.person({

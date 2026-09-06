@@ -89,6 +89,31 @@ it('matches recordings to inhabitants, buildings, work, and raid', () => {
   ]);
 });
 
+it('adds river ambience and sparse era transport cues and cancels their stale loads on pause', async () => {
+  const pending = deferred();
+  const { audio, update } = setup({ fetchAudio: () => pending.promise });
+  update({ river: true, railDepot: true, riverPort: true });
+  await audio.unlock();
+  expect(villageSounds(audio.state)).toEqual(
+    expect.arrayContaining(['river', 'train', 'steamboat']),
+  );
+  audio.playLife('train');
+  audio.playLife('steamboat');
+  update({ paused: true });
+  pending.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
+  await flush();
+  expect(audio.sources.size).toBe(0);
+  expect(audio.pending.size).toBe(0);
+  expect(audio.lifeTimer).toBeNull();
+  update({ paused: false });
+  await flush();
+  expect(audio.sources.has('river')).toBe(true);
+  expect(audio.sources.get('river').source.loop).toBe(true);
+  expect(audio.level('river')).toBeLessThan(audio.level('birds'));
+  expect(VILLAGE_AUDIO.train.loop).not.toBe(true);
+  expect(VILLAGE_AUDIO.steamboat.loop).not.toBe(true);
+});
+
 describe('Recorded village soundscape', () => {
   it('silences both output buses immediately and cannot unlock while the mine is active', async () => {
     const { audio, ctx, update, player } = setup();

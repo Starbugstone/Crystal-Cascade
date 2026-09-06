@@ -1,7 +1,7 @@
 {
   "name": "crystal-cascade",
   "version": "1.0.0",
-  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and 60 progressive puzzles with chains, colored seals, lost relics, and earned power-up chests.",
+  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and 72 progressive puzzles with chains, colored seals, lost relics, and earned power-up chests.",
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "assets": "node scripts/generate-gems.mjs && node scripts/generate-bonus-art.mjs",
-    "verify": "npm run format:check && npm test && npm run build"
+    "verify": "npm run format:check && npm test && npm run build",
+    "demo:eras": "node scripts/create-era-demo.mjs"
   },
   "repository": {
     "type": "git",

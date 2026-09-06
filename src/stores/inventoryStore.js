@@ -8,11 +8,18 @@ export const useInventoryStore = defineStore('inventory', {
     quickAccessSlots: () => useCampaignStore().powers,
   },
   actions: {
+    availableQuantity(id) {
+      const quantity = this.quickAccessSlots.find((entry) => entry.id === id)?.quantity ?? 0;
+      return (
+        quantity +
+        (id === 'hammer' && useCampaignStore().hasForgeHammer(useGameStore().runId) ? 1 : 0)
+      );
+    },
     async usePowerUp(id) {
       const gameStore = useGameStore();
       if (!gameStore.sessionActive || gameStore.levelCleared || gameStore.inputPaused) return false;
       const slot = this.quickAccessSlots.find((entry) => entry.id === id);
-      if (!slot || slot.quantity <= 0) {
+      if (!slot || this.availableQuantity(id) <= 0) {
         return false;
       }
 
@@ -79,6 +86,8 @@ export const useInventoryStore = defineStore('inventory', {
       };
 
       const inventoryId = modeToIdMap[id] || id;
+      if (inventoryId === 'hammer' && useCampaignStore().consumeForgeHammer(useGameStore().runId))
+        return true;
       const slot = this.quickAccessSlots.find((entry) => entry.id === inventoryId);
 
       if (slot && slot.quantity > 0) {

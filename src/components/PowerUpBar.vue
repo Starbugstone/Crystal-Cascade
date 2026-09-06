@@ -12,7 +12,7 @@
         class="powerup-button"
         :class="{ active: activeId === item.id }"
         :disabled="
-          !item.quantity ||
+          !inventory.availableQuantity(item.id) ||
           !game.sessionActive ||
           game.levelCleared ||
           game.inputPaused ||
@@ -22,7 +22,7 @@
         :aria-label="
           t('{value0}, {value1} remaining. {value2}', {
             value0: t(item.label),
-            value1: item.quantity,
+            value1: inventory.availableQuantity(item.id),
             value2: t(descriptions[item.id]),
           })
         "
@@ -33,11 +33,14 @@
       >
         <span class="powerup-art"
           ><img :src="`/art/powers/${item.id}.svg`" alt="" /><span class="powerup-qty">{{
-            item.quantity
+            inventory.availableQuantity(item.id)
           }}</span></span
         ><span class="powerup-name">{{ t(item.label) }}</span>
       </button>
     </div>
+    <p v-if="campaign.hasForgeHammer(game.runId)" class="forge-run-note" role="status">
+      {{ t('Forge Hammer: one temporary use, spent first. Expires when this run ends.') }}
+    </p>
   </section>
 </template>
 <script setup>

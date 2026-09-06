@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { TOWN_TRACKS, segmentDistance } from './TownLayout';
+import { TOWN_TRACKS, PLOTS, RAIL_EDGE, segmentDistance } from './TownLayout';
+import { RIVER, riverDistance, wetBank, buildRiver } from './TownRiver';
 
 const smooth = (a, b, value) => {
   const t = THREE.MathUtils.clamp((value - a) / (b - a), 0, 1);
@@ -39,11 +40,22 @@ export function groundHeight(x, z) {
     (height, [hx, hz, rise]) => height + rise * Math.exp(-((x - hx) ** 2 + (z - hz) ** 2) / 440),
     0,
   );
-  return smooth(34, 49, distance) * (hills + ridges);
+  const eastClearing = Math.hypot(Math.max(37 - x, 0, x - 47), Math.max(-9 - z, 0, z - 25));
+  const prairie = smooth(34, 49, distance) * smooth(0, 7, eastClearing) * (hills + ridges);
+  const bank = riverDistance(x, z);
+  // Lower the surrounding hills gradually so the shallow bank never becomes a cliff.
+  const valley = prairie * smooth(RIVER.bankWidth, RIVER.bankWidth + 18, bank);
+  return THREE.MathUtils.lerp(-1.25, valley, smooth(RIVER.halfWidth - 0.4, RIVER.bankWidth, bank));
 }
+const reservedGround = (x, z) =>
+  Object.values(PLOTS).some(([px, pz]) => Math.hypot(x - px, z - pz) < 4.5) ||
+  segmentDistance(x, z, RAIL_EDGE.from, RAIL_EDGE.to) < 2;
+
 function trackDistance(x, z) {
   const streets = Math.min(
-    ...TOWN_TRACKS.map(({ from, to, width }) => segmentDistance(x, z, from, to) - width / 2),
+    ...TOWN_TRACKS.filter(({ plot }) => !plot).map(
+      ({ from, to, width }) => segmentDistance(x, z, from, to) - width / 2,
+    ),
   );
   const bend = smooth(28, 50, Math.abs(z)) * Math.sin(z * 0.045) * 8;
   const trail = Math.min(Math.abs(x - 3.5 - bend), Math.abs(x + 3.5 - bend));
@@ -82,6 +94,10 @@ export function buildLandscape(town) {
     color.copy(sand).lerp(sage, meadow * 0.64);
     color.multiplyScalar(0.96 + noise(x * 0.35, z * 0.35) * 0.09);
     color.lerp(track, (1 - smooth(0.05, 0.35, trackDistance(x, z))) * 0.5);
+    color.lerp(
+      new THREE.Color('#a79570'),
+      1 - smooth(RIVER.halfWidth, RIVER.bankWidth, riverDistance(x, z)),
+    );
     colors.push(color.r, color.g, color.b);
   }
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -92,6 +108,7 @@ export function buildLandscape(town) {
   const ground = new THREE.Mesh(geometry, material);
   ground.receiveShadow = true;
   landscape.add(ground);
+  buildRiver(town, landscape);
 
   const plants = town.group(landscape);
   // Cottonwoods near the settlement, with smaller junipers scattered into the hills.
@@ -116,7 +133,13 @@ export function buildLandscape(town) {
   for (let i = 0; i < 620; i++) {
     const x = (random(i * 3 + 5) - 0.5) * 105;
     const z = (random(i * 3 + 6) - 0.5) * 105;
-    if (Math.hypot(x, z) < 25 || trackDistance(x, z) < 2) continue;
+    if (
+      Math.hypot(x, z) < 25 ||
+      trackDistance(x, z) < 2 ||
+      wetBank(x, z, 0.5) ||
+      reservedGround(x, z)
+    )
+      continue;
     const y = groundHeight(x, z),
       size = 0.15 + random(i + 91) * 0.25;
     if (i % 5 === 0) {
@@ -147,6 +170,7 @@ export function buildLandscape(town) {
     [-29, -8],
     [25, 22],
   ]) {
+    if (wetBank(x, z, 0.6) || reservedGround(x, z)) continue;
     const plant = town.group(plants, x, groundHeight(x, z), z);
     town.cactus(plant, 0, 0);
   }
@@ -155,6 +179,8 @@ export function buildLandscape(town) {
 }
 
 function tree(town, parent, x, z, scale, seed) {
+  if (wetBank(x, z, 1.8)) return;
+  if (reservedGround(x, z)) return;
   const tree = town.group(parent, x, groundHeight(x, z), z);
   tree.scale.setScalar(scale);
   tree.rotation.y = random(seed) * Math.PI * 2;
