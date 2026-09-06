@@ -1,0 +1,190 @@
+/* Quiet, chapter-specific mine chambers frame the brighter interactive board. */
+.app-shell.is-playing {
+  --mine-dark: #151319;
+  --mine-haze: #423527;
+  --mine-rock: #302b2b;
+  --mine-edge: #78644e;
+  --mine-timber: #423329;
+  --mine-accent: #e1b979;
+  background: var(--mine-dark);
+  isolation: isolate;
+}
+.is-playing[data-mine-theme='moss'] {
+  --mine-dark: #101b1b;
+  --mine-haze: #28473b;
+  --mine-rock: #263d34;
+  --mine-edge: #5c7860;
+  --mine-accent: #9bd7a3;
+}
+.is-playing[data-mine-theme='frost'] {
+  --mine-dark: #101925;
+  --mine-haze: #294a60;
+  --mine-rock: #273c4c;
+  --mine-edge: #648599;
+  --mine-timber: #354251;
+  --mine-accent: #abe5f1;
+}
+.is-playing[data-mine-theme='amber'] {
+  --mine-dark: #201713;
+  --mine-haze: #574026;
+  --mine-rock: #473527;
+  --mine-edge: #8c6840;
+  --mine-accent: #edc26f;
+}
+.is-playing[data-mine-theme='prism'] {
+  --mine-dark: #1c162a;
+  --mine-haze: #483653;
+  --mine-rock: #3b2c4b;
+  --mine-edge: #876896;
+  --mine-timber: #423143;
+  --mine-accent: #d3acec;
+}
+.is-playing[data-mine-theme='moonlit'] {
+  --mine-dark: #121827;
+  --mine-haze: #303e60;
+  --mine-rock: #2c3451;
+  --mine-edge: #707fa5;
+  --mine-timber: #363c53;
+  --mine-accent: #bfcef9;
+}
+.is-playing[data-mine-theme='depths'] {
+  --mine-dark: #0d1c23;
+  --mine-haze: #205460;
+  --mine-rock: #203f47;
+  --mine-edge: #48858d;
+  --mine-timber: #2e4343;
+  --mine-accent: #7edacb;
+}
+.is-playing[data-mine-theme='forge'] {
+  --mine-dark: #221518;
+  --mine-haze: #59332e;
+  --mine-rock: #4a2c2c;
+  --mine-edge: #965e4d;
+  --mine-timber: #48302a;
+  --mine-accent: #f1aa80;
+}
+.is-playing[data-mine-theme='opal'] {
+  --mine-dark: #201a27;
+  --mine-haze: #59415b;
+  --mine-rock: #47334d;
+  --mine-edge: #947b9c;
+  --mine-timber: #483949;
+  --mine-accent: #ebbedc;
+}
+.is-playing[data-mine-theme='relic'] {
+  --mine-dark: #1d1c18;
+  --mine-haze: #50503a;
+  --mine-rock: #3d4032;
+  --mine-edge: #868063;
+  --mine-timber: #454033;
+  --mine-accent: #e4d496;
+}
+.mine-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.mine-backdrop svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.mine-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 53% 49%, #10121bcc 16%, #10121b80 43%, transparent 75%);
+}
+.is-playing .starlight {
+  display: none;
+}
+.is-playing .app-header {
+  background: #11121bdb;
+  border-color: #ffffff14;
+}
+.is-playing .level-heading h1 {
+  text-shadow: 2px 3px #10121b;
+}
+.is-playing .level-heading > p {
+  color: var(--mine-accent);
+}
+.is-playing .board-frame:not(.power-active) {
+  border-color: var(--mine-edge);
+  background: linear-gradient(
+    135deg,
+    var(--mine-timber),
+    #201e2b 40%,
+    #201e2b 70%,
+    var(--mine-rock)
+  );
+  box-shadow:
+    0 20px 65px #0008,
+    inset 0 0 0 3px #14121e;
+}
+.is-playing .frame-corner {
+  border-color: var(--mine-accent);
+}
+.is-playing .board-caption {
+  color: #ded9e6;
+}
+.is-playing .board-topline > span {
+  color: #e0dbe7;
+}
+.is-playing .live-dot {
+  background: var(--mine-accent);
+  box-shadow: 0 0 8px var(--mine-accent);
+}
+.mine-seam {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #e4deea;
+}
+.mine-seam-copy {
+  display: grid;
+  gap: 3px;
+}
+.mine-seam-copy small {
+  color: var(--mine-accent);
+  font-size: 9px;
+}
+.mine-jewels {
+  display: flex;
+  gap: 2px;
+}
+.mine-jewels img {
+  width: 24px;
+  height: 27px;
+}
+.high-contrast .mine-backdrop {
+  opacity: 0.35;
+}
+@media (min-width: 1000px) and (max-height: 1000px) {
+  .is-playing:not(.focus-mode) .board-frame {
+    width: min(100%, calc((100dvh - 420px) * var(--board-ratio) + 22px));
+    margin-inline: auto;
+  }
+}
+@media (max-width: 640px) {
+  .mine-backdrop svg {
+    width: 100%;
+  }
+  .mine-backdrop::after {
+    background: #10121b70;
+  }
+  .mine-seam {
+    padding-inline: 5px;
+    font-size: 9px;
+  }
+  .mine-seam-copy small {
+    font-size: 8px;
+  }
+  .mine-jewels img {
+    width: 22px;
+    height: 24px;
+  }
+}

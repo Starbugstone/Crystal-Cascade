@@ -81,7 +81,7 @@
           t(
             game.playMode === 'continuous'
               ? 'The objectives are just a starting point. Keep matching for as long as you like.'
-              : 'Two ways to win: score high and finish fast. Speed pauses during cascades.',
+              : 'Clear the obstacles to finish. Score and time earn optional chests.',
           )
         }}
       </p>

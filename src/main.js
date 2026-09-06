@@ -5,6 +5,7 @@ import App from './App.vue';
 import './styles/base.css';
 import './styles/theme.css';
 import './styles/arcade.css';
+import './styles/mine.css';
 
 const app = createApp(App);
 const pinia = createPinia();
