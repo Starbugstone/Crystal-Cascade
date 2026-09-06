@@ -6,6 +6,8 @@ import { BUILDING_BY_ID } from '../../data/town';
 import { TownFrameCache } from './TownFrameCache';
 import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
+import { TownConstruction } from './TownConstruction';
+import { buildTownSquare } from './TownSquare';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
 import { constructionVisual, plotUnlocked, population } from './TownRules';
@@ -101,7 +103,9 @@ export class TownDiorama {
     this.controls = new OrbitControls(this.camera, canvas.parentElement);
     this.controls.cursorStyle = 'grab';
     this.controls.target.set(0, 0.7, 0);
-    this.controls.enablePan = false;
+    this.controls.enablePan = true;
+    this.controls.screenSpacePanning = false;
+    this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
     this.controls.enableDamping = false;
     this.controls.minDistance = 13;
     this.controls.maxDistance = 110;
@@ -109,7 +113,7 @@ export class TownDiorama {
     this.controls.maxPolarAngle = Math.PI / 2 - 0.24;
     this.controls.rotateSpeed = 0.7;
     this.controls.zoomSpeed = 0.85;
-    this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
+    this.controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     this.controls.update();
     this.overview = true;
     this.leaveOverview = () => {
@@ -239,7 +243,9 @@ export class TownDiorama {
     });
     group.removeFromParent();
   }
-  update(town, labels, mineStage = 0) {
+  update(town, labels, mineStage = 0, constructionId = null) {
+    this.construction?.finish();
+    this.construction = null;
     this.actorRenderer.clear();
     this.buildingRenderer.clear();
     this.clearGroup(this.world);
@@ -270,7 +276,8 @@ export class TownDiorama {
           kind = BUILDING_BY_ID[id].kind;
         if (!stage) this.plot(group, kind, constructionVisual(project) ?? -1, labels[id]);
         else {
-          if (kind === 'well') this.well(group);
+          if (kind === 'square') buildTownSquare(this, group, stage);
+          else if (kind === 'well') this.well(group);
           else this.building(group, kind, stage, labels[id]);
           movingPart = addImprovements(this, group, kind, stage);
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
@@ -283,7 +290,9 @@ export class TownDiorama {
         this.world.attach(movingPart.rotor);
         movingPart.rotor.userData.animated = true;
       }
-      this.batch(group);
+      if (id === constructionId)
+        this.construction = new TownConstruction(this, group, movingPart?.rotor);
+      else this.batch(group);
       if (movingPart) this.motions.push(movingPart.update);
     }
     const household = population(town);
@@ -1013,12 +1022,24 @@ export class TownDiorama {
     this.lastFrame = now;
     this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
     this.motions?.forEach((motion) => motion(this.elapsed));
+    if (this.construction?.update(this.elapsed)) this.finishConstruction();
     if (this.raid?.update(this.elapsed)) {
       this.raid = null;
       this.rebuildActors();
     }
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera);
+  }
+  finishConstruction() {
+    if (!this.construction) return;
+    const { group } = this.construction;
+    this.construction.finish();
+    this.construction = null;
+    this.batch(group);
+    this.rebuildActors();
+    this.buildingRenderer.rebuild(this.world.children.filter((child) => child.userData.static));
+    this.renderer.shadowMap.needsUpdate = true;
+    this.render();
   }
   playRaid(event, onPhase, onComplete) {
     this.raid?.dispose();

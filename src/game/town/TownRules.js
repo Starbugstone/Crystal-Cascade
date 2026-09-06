@@ -44,10 +44,10 @@ export function normalizeTown(saved) {
         Number.isSafeInteger(event.atRun) &&
         event.atRun >= 0 &&
         event.atRun <= town.completedRuns &&
-        [2, 4, 6].includes(event.gangSize) &&
+        [2, 4, 6, 8, 10].includes(event.gangSize) &&
         Number.isInteger(event.sheriffLevel) &&
         event.sheriffLevel >= 0 &&
-        event.sheriffLevel <= 3)
+        event.sheriffLevel <= BUILDING_BY_ID.sheriff.upgrades.length)
     ) {
       town.events[BANDIT_EVENT] = {
         id: legacy ? 1 : event.id,
@@ -55,7 +55,9 @@ export function normalizeTown(saved) {
         gangSize: legacy ? 2 : event.gangSize,
         sheriffLevel: legacy ? (event.outcome === 'protected' ? 1 : 0) : event.sheriffLevel,
         bankLevel:
-          Number.isInteger(event.bankLevel) && event.bankLevel >= 0 && event.bankLevel <= 3
+          Number.isInteger(event.bankLevel) &&
+          event.bankLevel >= 0 &&
+          event.bankLevel <= BUILDING_BY_ID.bank.upgrades.length
             ? event.bankLevel
             : 0,
         outcome: event.outcome,
@@ -126,12 +128,40 @@ export const totalLevels = (town, kind) =>
   BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + town.buildings[b.id], 0);
 export const completedHouses = (town) =>
   BUILDINGS.filter((b) => b.kind === 'home' && town.buildings[b.id] > 0).length;
-export const population = (town) =>
+export const residentPopulation = (town) =>
   Math.min(
     totalLevels(town, 'home') * 2,
     totalLevels(town, 'well') * 6,
     totalLevels(town, 'farm') * 6,
   );
+export const visitorCapacity = (town) =>
+  town.buildings.stable * 2 + Math.max(0, town.buildings.museum - 1) * 2;
+export const visitorPopulation = (town) =>
+  Math.min(
+    visitorCapacity(town),
+    Math.max(0, totalLevels(town, 'well') * 6 - residentPopulation(town)),
+    Math.max(0, totalLevels(town, 'farm') * 6 - residentPopulation(town)),
+  );
+export const population = (town) => residentPopulation(town) + visitorPopulation(town);
+export const happiness = (town) => {
+  const demand = totalLevels(town, 'home') * 2 + visitorCapacity(town);
+  const needs = demand
+    ? Math.min(
+        1,
+        (totalLevels(town, 'well') * 6) / demand,
+        (totalLevels(town, 'farm') * 6) / demand,
+      )
+    : 0;
+  return Math.min(
+    100,
+    Math.round(
+      needs * 40 +
+        (town.buildings.square ?? 0) * 8 +
+        town.buildings.museum * 2 +
+        town.buildings.saloon * 2,
+    ),
+  );
+};
 export const development = (town) =>
   Object.values(town.buildings).reduce((sum, level) => sum + level, 0);
 export const roadLevel = (town) =>
@@ -149,7 +179,7 @@ export function plotUnlocked(town, id) {
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
 export const saloonIncomeRate = (town) =>
-  population(town) ? 6 * town.buildings.saloon * completedHouses(town) : 0;
+  Math.floor((3 * town.buildings.saloon * population(town) * (100 + happiness(town))) / 100);
 // Remainder is stored as coin-milliseconds, avoiding rounding loss between visits.
 // Settle BEFORE changing buildings, so their new rates never apply to old time.
 export function settleSaloonIncome(town, now) {
@@ -174,12 +204,16 @@ export function upgradeOffer(town, id) {
   if (!upgrade) return null;
   const firstProject =
     !Object.keys(town.projects).length && BUILDINGS.every(({ id }) => !town.buildings[id]);
-  const cost = firstProject ? 0 : upgrade.cost;
+  const cost = firstProject && plotUnlocked(town, id) ? 0 : upgrade.cost;
   return {
     ...upgrade,
     cost,
     stage,
     runs: projectRuns(id, stage + 1),
+    available:
+      plotUnlocked(town, id) &&
+      !town.projects[id] &&
+      town.completedRuns >= (upgrade.unlockRuns ?? 0),
     reason: !plotUnlocked(town, id)
       ? t('Unlock by upgrading {building} to level {level}.', {
           building: t(BUILDING_BY_ID[building.unlock.id].shortName),
@@ -187,9 +221,13 @@ export function upgradeOffer(town, id) {
         })
       : town.projects[id]
         ? 'This building is already under construction.'
-        : town.coins < cost
-          ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
-          : '',
+        : town.completedRuns < (upgrade.unlockRuns ?? 0)
+          ? t('Complete {count} more puzzles to unlock this improvement.', {
+              count: upgrade.unlockRuns - town.completedRuns,
+            })
+          : town.coins < cost
+            ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
+            : '',
   };
 }
 
@@ -224,7 +262,10 @@ export function purchase(town, id, expectedStage) {
 }
 
 export const RAID_INTERVAL = 5;
-export const gangSize = (town) => (development(town) >= 30 ? 6 : development(town) >= 16 ? 4 : 2);
+export const gangSize = (town) => {
+  const size = development(town);
+  return size >= 70 ? 10 : size >= 50 ? 8 : size >= 30 ? 6 : size >= 16 ? 4 : 2;
+};
 export function raidReady(town) {
   const previous = town.events[BANDIT_EVENT];
   return (
@@ -247,6 +288,7 @@ export function banditEncounter(town) {
   const loss = protectedTown
     ? 0
     : Math.min(
+        30,
         Math.ceil(5 * riders * (1 - protection)),
         Math.floor(town.coins / 10),
         Math.max(0, town.coins - 50),
@@ -266,13 +308,17 @@ export function banditEncounter(town) {
   return { ...town, coins: town.coins - loss, events: { ...town.events, [BANDIT_EVENT]: event } };
 }
 
-// A hammer advances exactly the work shown when clicked; stale/double clicks cannot spend twice.
-export function accelerateConstruction(town, id, expectedStage, expectedWins) {
-  const project = town.projects[id];
-  if (!project || project.stage !== expectedStage || project.wins !== expectedWins) return null;
-  const advanced = advanceConstruction({ ...town, projects: { [id]: project } });
-  const projects = { ...town.projects };
-  if (advanced.projects[id]) projects[id] = advanced.projects[id];
-  else delete projects[id];
-  return { ...town, buildings: advanced.buildings, projects };
+// Carry the displayed level so stale/double taps cannot spend on the next tier.
+export function buildWithHammer(town, id, expectedStage) {
+  if (!upgradeOffer(town, id)?.available) return null;
+  if (
+    town.projects[id] ||
+    town.buildings[id] !== expectedStage ||
+    !BUILDING_BY_ID[id].upgrades[expectedStage]
+  )
+    return null;
+  return {
+    ...town,
+    buildings: { ...town.buildings, [id]: expectedStage + 1 },
+  };
 }

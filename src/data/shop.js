@@ -11,7 +11,7 @@ export const SHOP_ITEMS = [
   })),
   { id: 'builder-hammer', label: 'Builder hammer', kind: 'builder-hammer', quantity: 1, price: 75 },
 ];
-export const shopSlots = (level) => (level > 0 ? Math.min(4, level + 1) : 0);
+export const shopSlots = (level) => (level > 0 ? Math.min(SHOP_ITEMS.length, level + 1) : 0);
 export function rollShopStock(level, random = Math.random, existing = []) {
   const stock = [...existing].slice(0, shopSlots(level));
   const pool = SHOP_ITEMS.filter((item) => !stock.some((offer) => offer.id === item.id));
