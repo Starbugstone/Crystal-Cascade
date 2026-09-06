@@ -281,7 +281,7 @@ export const useGameStore = defineStore('game', {
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
         const resolution = tileManager.getResolution({
-          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
+          gemTypes: this.currentBoardLayout?.gemTypes ?? GEM_TYPES,
           board: this.board,
           tiles: this.tiles,
           matches: matches,
@@ -509,7 +509,7 @@ export const useGameStore = defineStore('game', {
         const matches = [{ type: bonusName, indices: clearedIndices }];
 
         const resolution = tileManager.getResolution({
-          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
+          gemTypes: this.currentBoardLayout?.gemTypes ?? GEM_TYPES,
           board: this.board,
           tiles: this.tiles,
           matches: matches,
@@ -891,7 +891,7 @@ export const useGameStore = defineStore('game', {
         }
 
         const resolution = tileManager.getResolution({
-          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
+          gemTypes: this.currentBoardLayout?.gemTypes ?? GEM_TYPES,
           board: evaluation.board,
           tiles: this.tiles,
           matches: evaluation.matches,
@@ -1338,7 +1338,7 @@ export const useGameStore = defineStore('game', {
         }
 
         const resolution = tileManager.getResolution({
-          gemTypes: GEM_TYPES.slice(0, this.currentBoardLayout?.gemTypeCount ?? 6),
+          gemTypes: this.currentBoardLayout?.gemTypes ?? GEM_TYPES,
           board: nextBoard,
           tiles: this.tiles,
           matches,

@@ -1,7 +1,15 @@
 <template>
   <g v-if="stage">
     <TownBuilding :id="id" :stage="stage" />
-    <g v-if="wins !== null" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <path
+      v-if="wins !== null && id === 'square'"
+      d="M-125-25 0-83 125-25 0 32Z"
+      fill="none"
+      stroke="#ab895b"
+      stroke-width="5"
+      stroke-dasharray="12 8"
+    />
+    <g v-else-if="wins !== null" fill="none" stroke-linejoin="round" stroke-linecap="round">
       <path
         d="M-124 8v-168M-89 19v-168M103-12v-168M134-30v-168"
         stroke="#9c784d"

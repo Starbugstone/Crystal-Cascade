@@ -1,16 +1,112 @@
 export const LEVEL_COUNT = 60;
+// A chapter owns its board dimensions and active jewel count. Two-level seams
+// rotate identities only; larger boards introduce the fifth color at level 13.
 export const CHAPTERS = [
-  { name: 'First light', description: 'Find your rhythm. Match gems and melt the ice.' },
-  { name: 'Stone gardens', description: 'Match beside stone blocks to open the way.' },
-  { name: 'Deep frost', description: 'Two layers of ice. A little more persistence.' },
-  { name: 'Golden vaults', description: 'Reinforced stone takes two separate hits.' },
-  { name: 'Prismatic paths', description: 'Open the columns. Let the cascades flow.' },
-  { name: 'Celestial summit', description: 'Bring every trick to the final ascent.' },
-  { name: 'Crystal depths', description: 'One more row. Find a path through the stone.' },
-  { name: 'Chained treasures', description: 'Match beside chains to free the gems within.' },
-  { name: 'Prismatic locks', description: 'Match the marked color on each seal to open it.' },
-  { name: 'Lost relics', description: 'Clear a path. Drop golden relics through the exits.' },
+  {
+    name: 'First light',
+    description: 'Four jewel colors. Follow the ice seams and find your rhythm.',
+    theme: 'lantern',
+    cols: 6,
+    rows: 7,
+    gemTypeCount: 4,
+    palettes: [
+      ['ruby', 'sapphire', 'emerald', 'topaz'],
+      ['ruby', 'sapphire', 'emerald', 'amethyst'],
+      ['ruby', 'sapphire', 'topaz', 'amethyst'],
+    ],
+  },
+  {
+    name: 'Stone gardens',
+    description: 'Open small stone shelves in the mossy mine.',
+    theme: 'moss',
+    cols: 6,
+    rows: 7,
+    gemTypeCount: 4,
+    palettes: [
+      ['ruby', 'sapphire', 'emerald', 'topaz'],
+      ['ruby', 'sapphire', 'emerald', 'moonstone'],
+      ['ruby', 'emerald', 'topaz', 'moonstone'],
+    ],
+  },
+  {
+    name: 'Deep frost',
+    description: 'A larger chamber, a fifth jewel, and a little double ice.',
+    theme: 'frost',
+    cols: 7,
+    rows: 8,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Golden vaults',
+    description: 'Open golden arches. Banded stone takes two hits.',
+    theme: 'amber',
+    cols: 7,
+    rows: 8,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Prismatic paths',
+    description: 'Follow crystal seams and open winding passages.',
+    theme: 'prism',
+    cols: 7,
+    rows: 8,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Celestial summit',
+    description: 'Thaw a few frozen gems beneath a starry cavern roof.',
+    theme: 'moonlit',
+    cols: 7,
+    rows: 8,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Crystal depths',
+    description: 'One more row, with room to explore the deep mine.',
+    theme: 'depths',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Chained treasures',
+    description: 'Match beside chains to free the gems within.',
+    theme: 'forge',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Prismatic locks',
+    description: 'Match the marked color on each seal to open it.',
+    theme: 'opal',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    name: 'Lost relics',
+    description: 'Clear a path. Drop golden relics through the exits.',
+    theme: 'relic',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
 ];
+
+const FIVE_COLOR_SEAMS = [
+  ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst'],
+  ['ruby', 'sapphire', 'emerald', 'amethyst', 'moonstone'],
+  ['ruby', 'sapphire', 'emerald', 'topaz', 'moonstone'],
+];
+export const getLevelGemTypes = (id) => {
+  const chapterIndex = Math.floor((id - 1) / 6);
+  const chapter = CHAPTERS[chapterIndex];
+  const seam = Math.floor(((id - 1) % 6) / 2);
+  const palettes = chapter.palettes ?? FIVE_COLOR_SEAMS;
+  return [...palettes[(seam + (chapter.palettes ? 0 : chapterIndex)) % palettes.length]];
+};
+
 export const POWERS = [
   { id: 'clear-row', label: 'Clear Row', dropWeight: 35 },
   { id: 'hammer', label: 'Hammer', dropWeight: 10 },

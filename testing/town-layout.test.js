@@ -1,10 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { PerspectiveCamera, Vector3 } from 'three';
+import {
+  PerspectiveCamera,
+  Vector3,
+  Group,
+  Box3,
+  BoxGeometry,
+  SphereGeometry,
+  CylinderGeometry,
+} from 'three';
+import { buildTownSquare } from '../src/game/town/TownSquare';
 import { PLOTS, TOWN_TRACKS, segmentDistance } from '../src/game/town/TownLayout';
 import { TownDiorama } from '../src/game/town/TownDiorama';
 import { groundHeight } from '../src/game/town/TownLandscape';
 
 describe('Open village lots and usable paths', () => {
+  it('keeps the town square open and below a meter at every upgrade level', () => {
+    const d = Object.create(TownDiorama.prototype);
+    const box = new BoxGeometry(1, 1, 1),
+      sphere = new SphereGeometry(1),
+      cylinder = new CylinderGeometry(1, 1, 1);
+    d.geometries = { box, sphere, cylinder };
+    d.materials = new Map();
+    for (let stage = 1; stage <= 5; stage++) {
+      const group = new Group();
+      buildTownSquare(d, group, stage);
+      const bounds = new Box3().setFromObject(group);
+      expect(bounds.max.y).toBeLessThan(0.9);
+      expect(bounds.max.x - bounds.min.x).toBeLessThan(6);
+      expect(PLOTS.square[1]).toBeGreaterThan(PLOTS.mine[1]);
+      expect(PLOTS.square[1]).toBeLessThan(PLOTS.well[1]);
+    }
+    box.dispose();
+    sphere.dispose();
+    cylinder.dispose();
+    d.materials.forEach((material) => material.dispose());
+  });
   it('leaves yards between every lot and keeps streets out of building centers', () => {
     const lots = Object.entries(PLOTS);
     for (let i = 0; i < lots.length; i++) {

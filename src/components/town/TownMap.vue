@@ -181,12 +181,21 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
-        <g :key="town.buildings[building.id]" aria-hidden="true" transform="scale(.88)">
-          <TownSite
-            :id="building.id"
-            :stage="town.buildings[building.id]"
-            :wins="constructionVisual(town.projects[building.id])"
-          />
+        <g
+          :key="`${town.buildings[building.id]}-${construction?.id === building.id ? construction.serial : 0}`"
+          aria-hidden="true"
+          transform="scale(.88)"
+        >
+          <g :class="{ 'town-site-assembling': animatedConstruction?.id === building.id }">
+            <TownSite
+              :id="building.id"
+              :stage="town.buildings[building.id]"
+              :wins="constructionVisual(town.projects[building.id])"
+            />
+          </g>
+          <g v-if="animatedConstruction?.id === building.id" class="town-build-hammer">
+            <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
+          </g>
         </g>
         <g class="map-label" transform="translate(0 35)" aria-hidden="true">
           <rect
@@ -307,9 +316,24 @@ const props = defineProps({
   reducedMotion: Boolean,
   paused: Boolean,
   nextLevel: { type: Number, required: true },
+  construction: Object,
 });
 defineEmits(['select', 'mine']);
 const scene = ref(null);
+const animatedConstruction = ref(null);
+watch(
+  () => props.construction,
+  (construction) => {
+    animatedConstruction.value = props.reducedMotion ? null : construction;
+  },
+  { immediate: true },
+);
+watch(
+  () => props.reducedMotion,
+  (reduced) => {
+    if (reduced) animatedConstruction.value = null;
+  },
+);
 const land = 'M0 148Q197 108 401 144T1000 128V590L550 700 0 620Z';
 function resetView() {
   scene.value?.style.removeProperty('--look-x');
@@ -366,3 +390,47 @@ const cacti = [
   [690, 681],
 ];
 </script>
+<style scoped>
+.town-site-assembling {
+  animation: town-assemble 1s ease-out both;
+}
+.town-build-hammer {
+  transform-box: fill-box;
+  transform-origin: bottom right;
+  animation: town-hammer-tap 1s ease-in-out both;
+}
+@keyframes town-assemble {
+  0% {
+    clip-path: inset(100% 0 0);
+    transform: translateY(-12px);
+  }
+  75%,
+  100% {
+    clip-path: inset(0);
+    transform: translateY(0);
+  }
+}
+@keyframes town-hammer-tap {
+  0%,
+  22%,
+  44% {
+    opacity: 1;
+    transform: rotate(-35deg);
+  }
+  11%,
+  33%,
+  55% {
+    opacity: 1;
+    transform: rotate(15deg);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: rotate(-35deg);
+  }
+}
+.town-map-paused .town-site-assembling,
+.town-map-paused .town-build-hammer {
+  animation-play-state: paused;
+}
+</style>

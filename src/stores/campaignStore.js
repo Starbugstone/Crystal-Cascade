@@ -21,7 +21,7 @@ import {
   banditEncounter,
   advanceConstruction,
   constructionRuns,
-  accelerateConstruction,
+  buildWithHammer,
 } from '../game/town/TownRules';
 export { SAVE_KEY };
 
@@ -271,9 +271,9 @@ export const useCampaignStore = defineStore('campaign', {
       this.save();
       return true;
     },
-    useBuilderHammer(id, expectedStage, expectedWins) {
+    useBuilderHammer(id, expectedStage) {
       if (this.builderHammers < 1) return false;
-      const next = accelerateConstruction(this.town, id, expectedStage, expectedWins);
+      const next = buildWithHammer(this.town, id, expectedStage);
       if (!next) return false;
       this.collectSaloonIncome(Date.now(), false);
       // Keep the settled balance/checkpoint when applying this construction result.

@@ -17,13 +17,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('generates sixty settled six-color boards with at least three legal opening moves', () => {
+it('generates settled chapter palettes with plenty of legal opening moves', () => {
   for (const level of generateLevelConfigs()) {
     const { board, tiles, boardCols: cols, boardRows: rows } = level;
-    expect(level.boardLayout.gemTypeCount).toBe(6);
+    expect(level.boardLayout.gemTypeCount).toBe(level.id <= 12 ? 4 : 5);
     expect(
       new Set(board.filter((gem) => gem && gem.type !== 'relic').map((gem) => gem.type)),
-    ).toEqual(new Set(['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst', 'moonstone']));
+    ).toEqual(new Set(level.boardLayout.gemTypes));
     expect(engine.findMatches(board, cols, rows, tiles)).toEqual([]);
     let moves = 0;
     for (let a = 0; a < board.length; a++) {
@@ -31,7 +31,7 @@ it('generates sixty settled six-color boards with at least three legal opening m
         if (engine.evaluateSwap(board, cols, rows, a, b, tiles).matches.length) moves++;
       }
     }
-    expect(moves).toBeGreaterThanOrEqual(3);
+    expect(moves).toBeGreaterThanOrEqual(level.id <= 12 ? 6 : 3);
   }
 });
 

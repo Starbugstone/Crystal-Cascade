@@ -95,9 +95,10 @@ describe('A small, reachable town', () => {
       runs = 0;
     while (nextGoal(town)) {
       const goal = nextGoal(town);
-      while (town.coins < goal.cost) {
+      while (town.coins < goal.cost || town.completedRuns < (goal.unlockRuns ?? 0)) {
         town.coins += miningPayout(60);
         runs++;
+        town.completedRuns++;
       }
       town = purchase(town, goal.id, town.buildings[goal.id]);
       expect(town).not.toBeNull();
@@ -106,13 +107,14 @@ describe('A small, reachable town', () => {
         town.coins += miningPayout(60);
         town = advanceConstruction(town);
         runs++;
+        town.completedRuns++;
       }
     }
     expect(runs).toBeGreaterThan(0);
-    expect(Object.values(town.buildings).every((level) => level === 3)).toBe(true);
-    expect(population(town)).toBe(24);
+    expect(Object.values(town.buildings).every((level) => level === 5)).toBe(true);
+    expect(population(town)).toBe(58);
     expect(town.coins).toBeGreaterThanOrEqual(0);
-    expect(purchase(town, 'well', 3)).toBeNull();
+    expect(purchase(town, 'well', 5)).toBeNull();
     const broke = { ...settledTown(0) };
     expect(purchase(broke, 'saloon', 0)).toBeNull();
   });

@@ -50,16 +50,30 @@ describe('Quiet village audio lifecycle', () => {
     expect(vi.getTimerCount()).toBe(0);
     await audio.unlock();
     expect(vi.getTimerCount()).toBe(2);
+    const construction = vi.spyOn(audio, 'playConstruction');
+    const beforeBuild = sources.length;
+    audio.update({ ...audio.state, buildCue: 1 });
+    expect(construction).toHaveBeenCalledOnce();
+    expect(sources.slice(beforeBuild).map((source) => source.start.mock.calls[0][0])).toEqual([
+      0, 0, 0.22, 0.22, 0.44, 0.44, 0.68, 0.8,
+    ]);
+    expect(sources.slice(beforeBuild).every((source) => source.stop.mock.calls[0][0] <= 1)).toBe(
+      true,
+    );
+    audio.update({ ...audio.state, population: 2 });
+    expect(construction).toHaveBeenCalledOnce();
     vi.advanceTimersByTime(1800);
     expect(life).toHaveBeenCalledExactlyOnceWith('birds');
     vi.advanceTimersByTime(8999);
     expect(life).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(1);
     expect(life).toHaveBeenLastCalledWith('mining');
-    audio.update({ ...audio.state, paused: true });
+    audio.update({ ...audio.state, paused: true, buildCue: 2 });
+    expect(construction).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
     expect(sources.every((source) => source.stop.mock.calls.length >= 2)).toBe(true);
-    audio.update({ ...audio.state, paused: false, musicVolume: 0, sfxVolume: 0 });
+    audio.update({ ...audio.state, paused: false, musicVolume: 0, sfxVolume: 0, buildCue: 3 });
+    expect(construction).toHaveBeenCalledOnce();
     const count = sources.length;
     vi.advanceTimersByTime(30000);
     expect(sources).toHaveLength(count);
