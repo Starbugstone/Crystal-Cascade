@@ -446,6 +446,8 @@ describe('Jewels come from real removals', () => {
     const payout = miningPayout(
       game.collectedJewels,
       game.board.filter((gem) => ['bomb', 'cross', 'rainbow'].includes(gem?.type)).length,
+      game.comboCounts,
+      game.multiMatchCounts,
     );
     game.remainingLayers = 0;
     game.completeLevel();

@@ -1,12 +1,22 @@
 import { t } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
+import {
+  COMBO_COIN_STEP,
+  MULTI_MATCH_COIN_STEP,
+  matchRewardBreakdown,
+} from '../engine/MatchRewards';
 
 export const BONUS_GEM_COINS = 10;
 const collectedCount = (value) => (Number.isSafeInteger(value) && value > 0 ? value : 0);
-export const miningPayout = (jewels, bonusGems = 0) =>
+export const miningPayout = (jewels, bonusGems = 0, comboCounts = {}, multiMatchCounts = {}) =>
   Math.min(
     Number.MAX_SAFE_INTEGER,
-    collectedCount(jewels) + collectedCount(bonusGems) * BONUS_GEM_COINS,
+    collectedCount(jewels) +
+      collectedCount(bonusGems) * BONUS_GEM_COINS +
+      [
+        ...matchRewardBreakdown(comboCounts, COMBO_COIN_STEP),
+        ...matchRewardBreakdown(multiMatchCounts, MULTI_MATCH_COIN_STEP),
+      ].reduce((total, reward) => total + reward.coins, 0),
   );
 
 export function normalizeTown(saved) {
