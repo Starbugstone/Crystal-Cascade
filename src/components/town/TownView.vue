@@ -2,7 +2,9 @@
   <main class="town-view">
     <div class="town-heading">
       <div>
-        <p class="town-kicker">{{ t('YOUR TOWN. YOUR CHOICE.') }}</p>
+        <p class="town-kicker">
+          {{ t(ERA_BY_ID[town.era].label) }} · {{ t(ERA_BY_ID[town.era].yearLabel) }}
+        </p>
         <h1>Prospect Hollow</h1>
       </div>
       <div class="town-wallet" :aria-label="t('Town savings')">
@@ -13,6 +15,20 @@
         </div>
       </div>
     </div>
+    <section v-if="gate.townComplete" class="town-era-goal" aria-live="polite">
+      <button v-if="gate.available" class="town-primary" @click="campaign.advanceEra(town.era)">
+        {{ t('Advance to the next era') }} → {{ t(gate.next.label) }}
+      </button>
+      <p v-else>
+        {{
+          t(
+            gate.next?.enabled
+              ? 'Prospect Hollow is ready for its next chapter. Keep mining to reach the next era.'
+              : 'This era is complete. More chapters of Prospect Hollow are still to come.',
+          )
+        }}
+      </p>
+    </section>
     <div class="town-tools">
       <button :aria-label="t('Village tour')" @click="tourOpen = true">
         <GameIcon name="info" />
@@ -74,7 +90,9 @@
           <TownIcon name="coin" /><strong>{{ number(town.coins) }}</strong>
         </div>
         <div class="town-map-caption">
-          <span>{{ t('{built}/{total} built', { built: built, total: BUILDINGS.length }) }}</span>
+          <span>{{
+            t('{built}/{total} built', { built: built, total: currentEraPlots.length })
+          }}</span>
           <span
             class="town-map-hammers"
             :aria-label="
@@ -90,6 +108,14 @@
         <button v-if="!activeRaid" class="town-plots-button" @click="openDirectory">
           {{ t('Available plots') }} <TownIcon name="arrow" />
         </button>
+        <div v-if="!activeRaid" class="town-era-control">
+          <button v-if="gate.available" @click="campaign.advanceEra(town.era)">
+            {{ t('Advance to the next era') }} →
+          </button>
+          <span v-else
+            >{{ t(ERA_BY_ID[town.era].label) }} · {{ t(ERA_BY_ID[town.era].yearLabel) }}</span
+          >
+        </div>
         <div v-if="activeRaid" class="town-raid-banner" role="status" aria-live="polite">
           <span class="town-kicker"
             >{{ t('FRONTIER ENCOUNTER') }} ·
@@ -123,7 +149,14 @@
           :population="people"
           :reduced-motion="settings.reducedMotion"
           :paused="
-            !active || paused || settings.isSettingsOpen || museumOpen || !!dialogMode || tourOpen
+            !active ||
+            paused ||
+            departurePending ||
+            settings.isSettingsOpen ||
+            museumOpen ||
+            !!dialogMode ||
+            tourOpen ||
+            !!town.transition?.pending
           "
           :next-level="campaign.nextLevel"
           :mine-stage="campaign.mineStage"
@@ -173,9 +206,7 @@
         <button @click="selectBuilding('farm')">
           <TownIcon name="food" /><span
             >{{ t('Food')
-            }}<small>{{
-              t('Food for {count} people', { count: totalLevels(town, 'farm') * 6 })
-            }}</small></span
+            }}<small>{{ t('Food for {count} people', { count: foodCapacity(town) }) }}</small></span
           >
         </button>
         <button @click="selectBuilding('home')">
@@ -277,7 +308,8 @@
               <p>
                 {{
                   t(
-                    'A raid can arrive after every 5 completed puzzles. Never while you are away. Your last 50 coins are always safe.',
+                    'A raid can arrive after every {runs} completed puzzles. Never while you are away. Your last 50 coins are always safe.',
+                    { runs: town.era === 'river-rail' ? 10 : 5 },
                   )
                 }}
               </p>
@@ -297,6 +329,12 @@
         </div>
       </template>
       <template v-else-if="dialogMode === 'directory'">
+        <p class="town-kicker">
+          {{ t(ERA_BY_ID[town.era].label) }} · {{ t('Current era available') }}
+        </p>
+        <p v-if="town.era === 'frontier'">
+          {{ t('The east-bank district and railway station open in the River & Rail era.') }}
+        </p>
         <p class="town-directory-hint">
           {{
             t(
@@ -343,6 +381,29 @@
             </span>
           </button>
         </section>
+        <details class="town-service">
+          <summary>{{ t('All current-era plots') }}</summary>
+          <section class="town-building-list" :aria-label="t('All current-era plots')">
+            <button
+              v-for="place in currentEraPlots"
+              :key="place.id"
+              @click="selectBuilding(place.id)"
+            >
+              <span>{{ t(place.shortName) }}</span>
+              <small>{{
+                t(
+                  constructionReady(town.projects[place.id])
+                    ? 'Ready to finish'
+                    : town.projects[place.id]
+                      ? 'Under construction'
+                      : !upgradeOffer(town, place.id)
+                        ? 'Current era complete'
+                        : plotStatus(place),
+                )
+              }}</small>
+            </button>
+          </section>
+        </details>
       </template>
       <TownBuildingDetails
         v-else
@@ -377,12 +438,30 @@
       @replay="$emit('replay', $event)"
       @continuous="$emit('continuous', $event)"
     />
+    <TownDialog
+      v-if="active && town.transition?.pending"
+      :title="`${t(ERA_BY_ID[town.era].yearLabel)} · ${t(ERA_BY_ID[town.era].label)}`"
+      :close-label="'Continue'"
+      @close="campaign.acknowledgeEra()"
+    >
+      <p>{{ t(ERA_BY_ID[town.era].story) }}</p>
+      <p>
+        {{
+          t('Modernize your landmarks, build the railway station and open the bridge to new land.')
+        }}
+      </p>
+      <button class="town-primary" @click="campaign.acknowledgeEra()">
+        {{ t('Explore the new era') }}
+      </button>
+    </TownDialog>
   </main>
 </template>
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
+import { ERA_BY_ID } from '../../data/eras';
+import { eraGate, plotInEra } from '../../game/town/TownEras';
 import {
   population,
   residentPopulation,
@@ -390,10 +469,13 @@ import {
   visitorCapacity,
   happiness,
   nextGoal,
+  upgradeOffer,
   availablePurchases,
   constructionReady,
   saloonIncomeRate,
   totalLevels,
+  foodCapacity,
+  housingCapacity,
   gangSize,
   raidProtection,
 } from '../../game/town/TownRules';
@@ -413,7 +495,11 @@ import TownIcon from './TownIcon.vue';
 import TownRaidNotice from './TownRaidNotice.vue';
 import TownCoinCollection from './TownCoinCollection.vue';
 
-const props = defineProps({ openMuseum: Boolean, active: { type: Boolean, default: true } });
+const props = defineProps({
+  openMuseum: Boolean,
+  active: { type: Boolean, default: true },
+  departurePending: Boolean,
+});
 const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
   settings = useSettingsStore();
@@ -452,10 +538,14 @@ const showConstructionTip = computed(
     props.active && !town.value.constructionTipSeen && activeProjects.value.some(constructionReady),
 );
 const goal = computed(() => nextGoal(town.value));
+const gate = computed(() => eraGate(town.value, campaign.records));
 const directoryPlots = computed(() => availablePurchases(town.value, campaign.builderHammers));
-const built = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
+const currentEraPlots = computed(() => BUILDINGS.filter(({ id }) => plotInEra(town.value, id)));
+const built = computed(
+  () => currentEraPlots.value.filter(({ id }) => town.value.buildings[id]).length,
+);
 const villageStats = computed(() => {
-  const demand = totalLevels(town.value, 'home') * 2 + visitorCapacity(town.value);
+  const demand = housingCapacity(town.value) + visitorCapacity(town.value);
   return [
     {
       id: 'people',
@@ -479,7 +569,7 @@ const villageStats = computed(() => {
       id: 'food',
       icon: 'food',
       label: t('Food'),
-      value: number(totalLevels(town.value, 'farm') * 6),
+      value: number(foodCapacity(town.value)),
       detail: t('Capacity in people · Demand: {count}', { count: demand }),
     },
     {
@@ -529,14 +619,19 @@ useTownAudio(() => ({
   construction: activeProjects.value.length > 0,
   buildCue: construction.value?.serial,
   stable: town.value.buildings.stable > 0,
+  river: true,
+  railDepot: town.value.era === 'river-rail' && town.value.buildings.railDepot > 0,
+  riverPort: town.value.era === 'river-rail' && town.value.buildings.riverPort > 0,
   raid: activeRaid.value ? `${activeRaid.value.id}-${raidPhase.value}` : null,
   paused:
     !props.active ||
     paused.value ||
+    props.departurePending ||
     settings.isSettingsOpen ||
     museumOpen.value ||
     !!dialogMode.value ||
-    tourOpen.value,
+    tourOpen.value ||
+    !!town.value.transition?.pending,
 }));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const banditStory = computed(() =>
@@ -656,7 +751,8 @@ function repair(stage) {
     speaker: 'Ada · the caretaker',
     title: complete ? 'Building complete!' : 'The first step is yours.',
     text: complete
-      ? BUILDING_BY_ID[selected.value].upgrades[stage].story
+      ? (BUILDING_BY_ID[selected.value].upgrades[stage]?.story ??
+        'Visual modernization. Existing services stay unchanged.')
       : 'The materials are ready. Complete one puzzle, then tap the scaffolding to open this building.',
   };
 }

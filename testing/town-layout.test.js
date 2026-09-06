@@ -55,7 +55,7 @@ describe('Open village lots and usable paths', () => {
           segmentDistance(x, z, track.from, track.to) - track.width / 2,
           id,
         ).toBeGreaterThanOrEqual(1.5);
-      for (const dx of [-3, 3])
+      for (const dx of id === 'bridge' ? [] : [-3, 3])
         for (const dz of [-3, 3]) expect(groundHeight(x + dx, z + dz), id).toBe(0);
     }
   });
@@ -74,7 +74,7 @@ describe('Open village lots and usable paths', () => {
     d.anchors = Object.keys(PLOTS).map((id) => ({ id }));
     d.controls = {
       minDistance: 13,
-      maxDistance: 110,
+      maxDistance: 160,
       target: new Vector3(),
       update() {
         d.camera.lookAt(this.target);
@@ -89,6 +89,6 @@ describe('Open village lots and usable paths', () => {
         expect(Math.abs(screen.y), `${id} vertically`).toBeLessThan(0.92);
       }
     }
-    expect(d.camera.position.distanceTo(d.controls.target)).toBeLessThanOrEqual(110.000001);
+    expect(d.camera.position.distanceTo(d.controls.target)).toBeLessThanOrEqual(160.000001);
   });
 });

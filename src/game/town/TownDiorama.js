@@ -8,12 +8,15 @@ import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
 import { TownConstruction } from './TownConstruction';
 import { buildTownSquare } from './TownSquare';
+import { renderBuilding, renderModernization } from './buildings/BuildingRenderer';
+import { addEraActivity } from './TownEraActivity';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
 import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
-import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL } from './TownLayout';
+import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL, visiblePlots } from './TownLayout';
+import { riverCenterX } from './TownRiver';
 export { PLOTS } from './TownLayout';
 const colors = {
   sand: '#c8ad7a',
@@ -53,7 +56,7 @@ export class TownDiorama {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#e9e8da');
     this.scene.fog = new THREE.Fog('#e9e8da', 125, 205);
-    this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
+    this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 320);
     this.camera.position.set(12, 12, 25);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
@@ -271,8 +274,11 @@ export class TownDiorama {
     this.anchors = [];
     this.town = town;
     addTownRoads(this, town, PLOTS);
-    for (const [id, [x, z]] of Object.entries(PLOTS)) {
-      if (id !== 'mine' && !plotUnlocked(town, id)) continue;
+    this.controls.maxDistance = town.era === 'river-rail' ? 160 : 110;
+    for (const {
+      id,
+      position: [x, z],
+    } of visiblePlots(town)) {
       const group = this.group(this.world, x, 0.08, z);
       group.userData.plot = id;
       group.userData.static = true;
@@ -288,12 +294,16 @@ export class TownDiorama {
         const stage = town.buildings[id],
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
-        if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
+        if (kind === 'bridge')
+          renderBuilding({ town: this, parent: group, kind, level: stage, label: labels[id] });
+        else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
           if (kind === 'square') buildTownSquare(this, group, stage);
           else if (kind === 'well') this.well(group);
           else this.building(group, kind, stage, labels[id]);
-          movingPart = addImprovements(this, group, kind, stage);
+          if (!['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
+            movingPart = addImprovements(this, group, kind, stage);
+          renderModernization(this, group, kind, town.buildingEras[id]);
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
@@ -310,6 +320,7 @@ export class TownDiorama {
       if (movingPart) this.motions.push(movingPart.update);
     }
     const household = population(town);
+    addEraActivity(this, town);
     addTownVisitors(this, town);
     this.person({
       color: '#738a83',
@@ -464,150 +475,7 @@ export class TownDiorama {
     }
   }
   building(parent, id, stage, label, framing = false) {
-    const fronts = {
-      home: '#c59376',
-      farm: '#a96f52',
-      stable: '#b49466',
-      saloon: '#ceb274',
-      sheriff: '#7e9b9b',
-      museum: '#c9b18a',
-      armory: '#8c9e91',
-      bank: '#b2af94',
-      shop: '#bd977b',
-    };
-    const w = 2.65,
-      d = 2.4,
-      h = 1.85,
-      timber = framing ? '#bd9b6c' : fronts[id];
-    this.box(parent, w + 0.3, 0.18, d + 0.3, 0, 0.13, 0, '#a88c60');
-    this.box(parent, w, 0.08, d, 0, 0.26, 0, '#816b49');
-    for (const x of [-w / 2, w / 2])
-      for (const z of [-d / 2, d / 2])
-        this.box(parent, 0.12, h, 0.12, x, h / 2 + 0.25, z, framing ? '#a98a5e' : colors.trim);
-    for (let row = 0; row < 9; row++) {
-      const y = 0.38 + row * 0.19;
-      for (const x of [-w / 2, w / 2]) {
-        if (!framing || row < 3) this.box(parent, 0.1, 0.175, d, x, y, 0, timber);
-      }
-      for (const z of [-d / 2, d / 2]) {
-        if (framing && row > 3) continue;
-        for (const x of [-0.91, 0, 0.91]) {
-          if (z > 0 && x === 0 && row < 6) continue;
-          this.box(parent, 0.86, 0.175, 0.1, x, y, z, row % 3 === 0 ? '#bba17a' : timber);
-        }
-      }
-    }
-    for (const x of [-w / 2, w / 2])
-      this.rod(parent, [x, h + 0.25, -d / 2], [x, h + 0.25, d / 2], 0.07, '#987443');
-    this.rod(parent, [0, 2.95, -1.4], [0, 2.95, 1.4], 0.09, '#8d6844');
-    for (const z of [-1.25, 0, 1.25]) {
-      this.rod(parent, [-1.5, 2.05, z], [0, 2.95, z], 0.07, '#aa8454');
-      this.rod(parent, [0, 2.95, z], [1.5, 2.05, z], 0.07, '#aa8454');
-    }
-    for (const side of [-1, 1])
-      for (let n = 0; n < 9; n++) {
-        if (framing && (n + (side === 1 ? 2 : 0)) % 3 !== 0) continue;
-        const slab = this.box(
-          parent,
-          1.85,
-          0.105,
-          0.33,
-          side * 0.77,
-          2.5,
-          -1.34 + n * 0.335,
-          id === 'home' || id === 'sheriff' ? '#658580' : '#937447',
-        );
-        slab.rotation.z = -side * 0.54;
-      }
-    if (framing) return;
-    for (let row = 0; row < 5; row++) {
-      for (const z of [-d / 2, d / 2])
-        this.box(parent, w * (1 - row / 5.1), 0.16, 0.1, 0, 2.1 + row * 0.165, z, timber);
-    }
-    this.box(parent, 0.64, 1.28, 0.09, 0, 0.89, 1.225, '#65533b', true);
-    this.ball(parent, 0.2, 0.83, 1.29, 0.035, '#e3c687');
-    for (const x of [-0.91, 0.91]) this.window(parent, x, 1.25, 1.27);
-    const sidewindow = this.group(parent, 1.38, 0, 0);
-    sidewindow.rotation.y = Math.PI / 2;
-    this.window(sidewindow, 0, 1.25, 0);
-    if (['saloon', 'sheriff', 'museum', 'armory', 'bank', 'shop'].includes(id)) {
-      this.box(parent, w + 0.1, 0.88, 0.15, 0, 2.45, 1.28, timber);
-      this.box(parent, w + 0.3, 0.12, 0.2, 0, 2.91, 1.3, colors.trim);
-      this.sign(parent, label, 2.05, 0, 2.45, 1.39);
-    } else this.sign(parent, label, 1.4, 0, 1.98, 1.3);
-    if (id === 'museum') {
-      for (const x of [-1.1, 1.1]) {
-        this.box(parent, 0.18, 1.8, 0.18, x, 1.05, 1.8, colors.trim);
-        this.box(parent, 0.65, 0.55, 0.55, x, 0.4, 2.05, '#aa9877');
-        this.ball(parent, x, 0.96, 2.05, [0.24, 0.4, 0.24], x < 0 ? '#9b80af' : '#79ab98', 'rock');
-      }
-      this.box(parent, 3.2, 0.16, 0.95, 0, 1.95, 1.8, '#8b9d91');
-    }
-    if (id === 'bank') {
-      for (const x of [-1.1, 1.1]) this.box(parent, 0.2, 2, 0.25, x, 1.18, 1.5, '#ece0b7');
-      this.box(parent, 0.72, 1.28, 0.14, 0, 0.89, 1.33, '#657783');
-      this.ball(parent, 0, 1, 1.45, [0.23, 0.23, 0.06], '#e3c476');
-      for (let n = 0; n < stage; n++)
-        this.box(parent, 0.25, 0.16, 0.25, -0.4 + n * 0.4, 3.08, 1.25, '#edcc74');
-    }
-    if (id === 'shop') {
-      for (let n = 0; n < 6; n++)
-        this.box(parent, 0.48, 0.1, 1.1, -1.2 + n * 0.48, 1.8, 1.8, n % 2 ? '#f1dfb3' : '#658779');
-      for (let n = 0; n < stage + 1; n++) {
-        this.box(parent, 0.45, 0.45, 0.5, -1.1 + n * 0.65, 0.4, 2, '#a67c52');
-        this.ball(
-          parent,
-          -1.1 + n * 0.65,
-          0.77,
-          2,
-          [0.17, 0.23, 0.17],
-          ['#bf7f92', '#85bca0', '#e3bc65', '#9e8ac0'][n % 4],
-          'rock',
-        );
-      }
-    }
-    if (id === 'armory') {
-      for (let n = 0; n < stage; n++) {
-        this.box(parent, 0.44, 0.6, 0.6, -1 + n * 0.68, 0.5, 1.9, '#b79869', true);
-        this.box(parent, 0.06, 0.64, 0.64, -1 + n * 0.68, 0.5, 1.9, '#7c8172');
-      }
-      if (stage >= 2) this.box(parent, 0.55, 1.1, 1.5, 1.5, 0.74, 0, '#8c9e91');
-      if (stage >= 3) this.box(parent, 0.55, 1.7, 1.5, -1.5, 1.02, 0, '#8c9e91');
-    }
-    if (id === 'saloon') {
-      this.box(parent, 3.1, 0.15, 0.9, 0, 0.14, 1.75, '#bca06d');
-      for (const x of [-1.4, 1.4]) this.box(parent, 0.1, 1.5, 0.1, x, 0.92, 2.13, colors.trim);
-      for (let n = 0; n < 8; n++) {
-        const awning = this.box(
-          parent,
-          0.39,
-          0.08,
-          0.99,
-          -1.36 + n * 0.39,
-          1.74,
-          1.72,
-          n % 2 ? '#b97e5e' : '#ecdfb9',
-        );
-        awning.rotation.x = 0.2;
-      }
-    }
-    if (id === 'farm') {
-      const field = this.group(parent, 1.4, 0, 1.5);
-      this.box(field, 2.4, 0.06, 1.6, 0, 0.02, 0, '#8d8050');
-      for (let row = 0; row < 4; row++)
-        for (let col = 0; col < 6; col++) {
-          const x = -1 + col * 0.4,
-            z = -0.6 + row * 0.4;
-          this.rod(field, [x, 0.07, z], [x, 0.4, z], 0.025, '#798d43');
-          this.ball(field, x + 0.06, 0.23, z, [0.13, 0.035, 0.06], '#92a557');
-          this.ball(field, x - 0.06, 0.32, z, [0.13, 0.035, 0.06], '#afba67');
-        }
-    }
-    if (id === 'home') {
-      this.box(parent, 0.3, 0.8, 0.35, -0.65, 2.9, -0.6, '#a76c53');
-      if (stage > 1) this.homeWing(parent, 4);
-    }
-    for (const x of [-1.3, 1.3]) this.ball(parent, x, 0.17, 1.45, [0.32, 0.18, 0.27], '#8b9e62');
+    renderBuilding({ town: this, parent, kind: id, level: stage, label, construction: framing });
   }
   homeWing(parent, wins) {
     const wing = this.group(parent, -1.85, 0, 0.15);
@@ -746,6 +614,7 @@ export class TownDiorama {
     visitor = false,
     sheriff = false,
     loop = false,
+    linear = false,
   }) {
     const root = this.group(parent);
     root.userData.animated = !manual;
@@ -798,13 +667,16 @@ export class TownDiorama {
       legs.push({ upper: thigh, lower: shin });
     }
     if (dress) this.mesh(body, 'cone', [0.2, 0.29, 0.17], [0, -0.085, 0], color);
-    const points = route.map(([x, z]) => point(x, 0.07, z));
-    const curve = new THREE.CatmullRomCurve3(
-      loop ? points : [...points, ...points.slice(1, -1).reverse()],
-      true,
-      'catmullrom',
-      0.15,
+    const points = route.map(([x, z]) =>
+      point(x, linear && x >= 24 && x <= 38 && z === 7.5 ? 0.36 : 0.07, z),
     );
+    const journey = loop ? points : [...points, ...points.slice(1, -1).reverse()];
+    const curve = linear
+      ? new THREE.CurvePath()
+      : new THREE.CatmullRomCurve3(journey, true, 'catmullrom', 0.15);
+    if (linear)
+      for (let i = 0; i < journey.length; i++)
+        curve.add(new THREE.LineCurve3(journey[i], journey[(i + 1) % journey.length]));
     const duration = curve.getLength() / (sheriff ? 0.8 : 0.55);
     const actor = { root, body, torso, head, arms, legs, curve, duration, seed, work, visitor };
     if (!manual) this.actors.push(actor);
@@ -971,6 +843,12 @@ export class TownDiorama {
       for (const dx of [-3, 3])
         for (const y of [0, 5]) for (const dz of [-3, 3]) corners.push(point(x + dx, y, z + dz));
     }
+    // Include a glimpse of the near river from the first visit, without framing future land.
+    if (this.town) {
+      const river = point(riverCenterX(2) + 1, 0, 2);
+      bounds.expandByPoint(river);
+      corners.push(river);
+    }
     const target = bounds.getCenter(new THREE.Vector3());
     const direction = point(0.28, 0.72, 0.64).normalize();
     const right = point(0, 1, 0).cross(direction).normalize();
@@ -1098,6 +976,7 @@ export class TownDiorama {
     if (this.lastFrame && now - this.lastFrame < 1000 / 60 - 1) return;
     this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
+    if (this.waterMaterial) this.waterMaterial.uniforms.time.value = this.elapsed;
     this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
     this.motions?.forEach((motion) => motion(this.elapsed));
     if (this.construction?.update(this.elapsed)) this.finishConstruction();

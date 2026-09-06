@@ -297,10 +297,10 @@ export const useGameStore = defineStore('game', {
           if (session !== this.sessionVersion) return false;
         }
 
-        this.commitResolution(resolution);
-
+        // Consume before committing: a winning Hammer can end its temporary Forge run.
         const inventoryStore = useInventoryStore();
         inventoryStore.consumeItem(bonusName);
+        this.commitResolution(resolution);
         boardUpdated = true;
         return true;
       } catch (error) {
@@ -528,7 +528,7 @@ export const useGameStore = defineStore('game', {
         initialTilePlacements: [],
       };
     },
-    startLevel(levelId, mode = 'normal') {
+    startLevel(levelId, mode = 'normal', options = {}) {
       if (!['normal', 'continuous'].includes(mode) || !useCampaignStore().canPlay(levelId, mode))
         return false;
       const selected = this.availableLevels.find((entry) => entry.id === levelId);
@@ -538,7 +538,7 @@ export const useGameStore = defineStore('game', {
       }
 
       this.playMode = mode;
-      this.runId = useCampaignStore().beginRun(mode, levelId);
+      this.runId = useCampaignStore().beginRun(mode, levelId, options);
       this.sessionVersion += 1;
       const session = this.sessionVersion;
       this.renderer?.animator?.clear();
@@ -863,6 +863,7 @@ export const useGameStore = defineStore('game', {
       return true;
     },
     exitLevel() {
+      useCampaignStore().endRun(this.runId);
       useCampaignStore().settlePendingChests();
       this.syncContinuous();
       this.playMode = 'normal';

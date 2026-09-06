@@ -8,7 +8,7 @@
   >
     <svg
       class="town-diorama"
-      viewBox="0 0 1000 750"
+      :viewBox="`0 -45 ${mapWidth} 795`"
       role="group"
       :aria-label="
         t('Prospect Hollow town map. Choose any building to restore, or enter the mine to play.')
@@ -65,7 +65,7 @@
         </g>
       </defs>
       <g aria-hidden="true" class="town-backdrop">
-        <path d="M0 0h1000v750H0Z" :fill="`url(#${uid}-sky)`" />
+        <rect x="0" y="-45" :width="mapWidth" height="795" :fill="`url(#${uid}-sky)`" />
         <circle cx="781" cy="84" r="43" fill="#f6e6b5" opacity=".9" />
         <g fill="#fff9e7" opacity=".55">
           <path
@@ -102,8 +102,42 @@
       </g>
       <g aria-hidden="true" :clip-path="`url(#${uid}-land)`">
         <path :d="land" :fill="`url(#${uid}-grain)`" />
+        <path :d="riverOutline(mapPoint, RIVER.bankWidth)" fill="#ab9b78" />
+        <path :d="riverOutline(mapPoint)" fill="#6e9d9a" />
+        <path :d="riverOutline(mapPoint, 0.35)" fill="#89b3ac" opacity=".5" />
+        <g
+          v-if="town.era === 'river-rail' && town.buildings.riverPort"
+          :transform="`translate(${mapPoint([riverCenterX(-8), -8])})`"
+        >
+          <path d="M-15-31Q0-44 15-31L15 28Q0 41-15 28Z" fill="#725d45" />
+          <rect x="-13" y="-25" width="26" height="49" rx="4" fill="#e3d3af" />
+          <rect x="-9" y="-17" width="18" height="29" fill="#8c9f91" />
+          <rect x="-12" y="24" width="24" height="8" fill="#9b6e51" />
+          <circle cy="-13" r="4" fill="#565f56" />
+        </g>
+        <g v-if="railEdges(town).length" :transform="`translate(${mapPoint(PLOTS.railDepot)})`">
+          <rect x="-50" y="-35" width="115" height="22" rx="2" fill="#b6a181" />
+        </g>
+        <g v-for="edge in railEdges(town)" :key="edge.id" stroke="#6b7265" fill="none">
+          <path
+            :d="`M${mapPoint(edge.from)} L${mapPoint(edge.to)}`"
+            stroke-width="24"
+            stroke-dasharray="3 8"
+          />
+          <path
+            v-for="offset in [-0.5, 0.5]"
+            :key="offset"
+            :d="`M${mapPoint([edge.from[0], edge.from[1] + offset])} L${mapPoint([edge.to[0], edge.to[1] + offset])}`"
+            stroke-width="3"
+          />
+        </g>
+        <g v-if="railEdges(town).length" :transform="`translate(${mapPoint([-18, -23])})`">
+          <path d="M-36 2H22" stroke="#50584f" stroke-width="9" stroke-dasharray="8 7" />
+          <path d="M-38-16H-14V0H-38ZM-8-13H24V0H-8Z" fill="#a1825c" />
+          <path d="M-9-20H4V0H-9ZM16-23H22V-11H16Z" fill="#5d7470" />
+        </g>
         <path
-          v-for="(track, index) in TOWN_TRACKS"
+          v-for="(track, index) in townTracks(town)"
           :key="`track-${index}`"
           :d="`M${mapPoint(track.from).join(' ')} L${mapPoint(track.to).join(' ')}`"
           :stroke-width="track.width * 14"
@@ -190,6 +224,7 @@
             <TownSite
               :id="building.id"
               :stage="town.buildings[building.id]"
+              :era="town.buildingEras[building.id]"
               :wins="constructionVisual(town.projects[building.id])"
             />
           </g>
@@ -338,8 +373,17 @@ import {
   plotUnlocked,
 } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
-import { PLOTS, TOWN_TRACKS, mapPoint, atPlot, SHERIFF_PATROL } from '../../game/town/TownLayout';
+import {
+  PLOTS,
+  townTracks,
+  railEdges,
+  visiblePlots,
+  mapPoint,
+  atPlot,
+  SHERIFF_PATROL,
+} from '../../game/town/TownLayout';
 import TownSite from './TownSite.vue';
+import { RIVER, riverOutline, riverCenterX } from '../../game/town/TownRiver';
 import TownMine from './TownMine.vue';
 const props = defineProps({
   town: { type: Object, required: true },
@@ -370,7 +414,16 @@ watch(
   },
 );
 const sheriffPath = `path("M${SHERIFF_PATROL.map((point) => mapPoint(point).join(' ')).join(' L')} Z")`;
-const land = 'M0 148Q197 108 401 144T1000 128V590L550 700 0 620Z';
+const mapWidth = computed(() =>
+  Math.max(1370, ...visiblePlots(props.town).map(({ position }) => mapPoint(position)[0] + 120)),
+);
+const land = computed(() => {
+  const north = Math.min(
+    95,
+    ...visiblePlots(props.town).map(({ position }) => mapPoint(position)[1] - 60),
+  );
+  return `M0 ${north}Q197 ${north - 20} 401 ${north + 5}T${mapWidth.value} ${north - 10}V650L550 730 0 650Z`;
+});
 function resetView() {
   scene.value?.style.removeProperty('--look-x');
   scene.value?.style.removeProperty('--look-y');

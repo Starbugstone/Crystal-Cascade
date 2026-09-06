@@ -30,7 +30,7 @@ afterEach(() => {
   hooks.mounted.length = hooks.unmounted.length = hooks.instances.length = 0;
   vi.unstubAllGlobals();
 });
-it('destroys village audio synchronously on mine entry and recreates it only for a visible village', async () => {
+it('silences retained village audio synchronously on mine entry and reuses it on return', async () => {
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
   vi.stubGlobal('document', new EventTarget());
   setActivePinia(createPinia());
@@ -45,7 +45,8 @@ it('destroys village audio synchronously on mine entry and recreates it only for
   const first = hooks.instances[0];
   expect(first.unlock).toHaveBeenCalled();
   game.sessionActive = true;
-  expect(first.dispose).toHaveBeenCalledOnce();
+  expect(first.state.paused).toBe(true);
+  expect(first.dispose).not.toHaveBeenCalled();
   document.dispatchEvent(new Event('pointerdown'));
   document.dispatchEvent(new Event('keydown'));
   await nextTick();
@@ -56,8 +57,11 @@ it('destroys village audio synchronously on mine entry and recreates it only for
   expect(hooks.instances).toHaveLength(1);
   village.active = true;
   await nextTick();
-  expect(hooks.instances).toHaveLength(2);
-  expect(hooks.instances[1]).not.toBe(first);
+  expect(hooks.instances).toHaveLength(1);
+  expect(first.state.paused).toBe(false);
   village.active = false;
-  expect(hooks.instances[1].dispose).toHaveBeenCalledOnce();
+  expect(first.state.paused).toBe(true);
+  expect(first.dispose).not.toHaveBeenCalled();
+  hooks.unmounted.splice(0).forEach((callback) => callback());
+  expect(first.dispose).toHaveBeenCalledOnce();
 });

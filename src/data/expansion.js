@@ -125,4 +125,64 @@ export const EXPANSION_LEVELS = [
     ice: 76,
     tip: 'The great discovery: free the chains, break the stone, collect all three relics and clear the ice.',
   },
+  {
+    map: '......./......./..c..../......./....c../......./..c..../......./.......',
+    ice: 64,
+    tip: 'Follow the river seam. Adjacent matches open the chains along its banks.',
+  },
+  {
+    map: '......./......./.#..c../......./...#.../......./..c..#./......./.......',
+    ice: 68,
+    tip: 'Open the winding passage from either bank.',
+  },
+  {
+    map: '......./......./..r.b../......./...c.../......./..b.r../......./.......',
+    ice: 72,
+    tip: 'Match ruby and sapphire seals to uncover the riverbank crystals.',
+  },
+  {
+    map: '......./..R..../......./.X...X./......./..c.c../......./......./..E....',
+    ice: 76,
+    tip: 'Clear the landing below the relic and guide it to the exit.',
+  },
+  {
+    map: '......./......./......./..c.c../......./......./......./......./.......',
+    ice: 60,
+    tip: 'A quiet stretch of water leaves room for long cascades.',
+  },
+  {
+    map: '......./..RR.../......./.X...X./......./..r.b../......./......./..EE...',
+    ice: 80,
+    tip: 'Open the river route. Two discoveries mark a new chapter for town.',
+  },
+  {
+    map: '......./......./..c.c../......./...#.../......./......./......./.......',
+    ice: 68,
+    tip: 'Connect the galleries by clearing the central crossing.',
+  },
+  {
+    map: '......./......./.#...#./......./..c.c../......./......./......./.......',
+    ice: 72,
+    tip: 'Work beside timber and iron to open the freight passage.',
+  },
+  {
+    map: '......./..R..../......./..c..../......./...r.../......./......./..E....',
+    ice: 76,
+    tip: 'Guide the freight relic through its open column.',
+  },
+  {
+    map: '......./......./..r.b../......./.X.c.X./......./..b.r../......./.......',
+    ice: 80,
+    tip: 'Open the colored switches and release the chained center.',
+  },
+  {
+    map: '......./......./......./.#...#./......./......./......./......./.......',
+    ice: 64,
+    tip: 'An open platform makes room to prepare the next cascade.',
+  },
+  {
+    map: '......./..RR.../......./.c...c./......./..r.b../......./......./..EE...',
+    ice: 84,
+    tip: 'Deliver both relics to complete the river and rail discoveries.',
+  },
 ];

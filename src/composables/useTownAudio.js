@@ -14,7 +14,9 @@ export function useTownAudio(readVillage) {
   const update = () => {
     const village = readVillage();
     if (!village.active || game.sessionActive) {
-      stop();
+      // Keep decoded village audio alongside the retained diorama across mine visits.
+      // Pausing stops voices and invalidates pending playback; unmount still disposes it.
+      soundscape?.update({ ...soundscape.state, paused: true });
       return;
     }
     const created = !soundscape;

@@ -14,6 +14,7 @@ import {
   CHEST_DROPS,
 } from '../data/rewards';
 import { createTown, BANDIT_EVENT } from '../data/town';
+import { advanceEra } from '../game/town/TownEras';
 import {
   normalizeTown,
   settleSaloonIncome,
@@ -21,6 +22,7 @@ import {
   purchase,
   banditEncounter,
   advanceConstruction,
+  advanceForge,
   constructionRuns,
   constructionReady,
   finishConstruction,
@@ -32,6 +34,8 @@ const defaults = () => ({
   records: {},
   continuousRecords: {},
   continuousRun: null,
+  activeRun: null,
+  forgeRun: null,
   town: createTown(),
   issuedRun: 0,
   settledRun: 0,
@@ -186,6 +190,22 @@ export const useCampaignStore = defineStore('campaign', {
       Object.values(state.records).reduce((sum, record) => sum + record.stars, 0),
   },
   actions: {
+    advanceEra(expectedEra) {
+      if (this.activeRun) return false;
+      const next = advanceEra(this.town, this.records, expectedEra);
+      if (!next) return false;
+      const previous = this.town;
+      this.town = next;
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
+    },
+    acknowledgeEra() {
+      if (!this.town.transition?.pending) return;
+      this.town.transition.pending = false;
+      this.town.eraTransitionSeen[this.town.era] = true;
+      this.save();
+    },
     canPlay(id, mode = 'normal') {
       return (
         this.isUnlocked(id) &&
@@ -217,13 +237,44 @@ export const useCampaignStore = defineStore('campaign', {
         : 'Your progress is not saving. Keep this page open to continue.';
       return saved;
     },
-    beginRun(mode = 'normal', id = null) {
+    beginRun(mode = 'normal', id = null, { spendForge = false } = {}) {
       this.settlePendingChests();
       this.issuedRun += 1;
+      this.activeRun = this.issuedRun;
+      this.forgeRun = null;
+      const previousForge = this.town.forge;
+      const spend =
+        spendForge &&
+        mode === 'normal' &&
+        this.canPlay(id, mode) &&
+        this.town.buildings.blacksmith > 0 &&
+        this.town.forge.charge === 1;
+      if (spend) this.town.forge = { progress: 0, charge: 0 };
       this.continuousRun =
         mode === 'continuous' ? { runId: this.issuedRun, id, credited: 0 } : null;
-      this.save();
+      const saved = this.save();
+      // Persist the spend before granting a temporary use. A failed save keeps the charge.
+      if (spend && saved) this.forgeRun = { runId: this.issuedRun, available: true };
+      else if (spend) this.town.forge = previousForge;
       return this.issuedRun;
+    },
+    hasForgeHammer(runId) {
+      return (
+        this.forgeRun?.runId === runId &&
+        this.forgeRun.available &&
+        runId === this.issuedRun &&
+        runId > this.settledRun &&
+        !this.continuousRun
+      );
+    },
+    consumeForgeHammer(runId) {
+      if (!this.hasForgeHammer(runId)) return false;
+      this.forgeRun.available = false;
+      return true;
+    },
+    endRun(runId) {
+      if (this.activeRun === runId) this.activeRun = null;
+      if (this.forgeRun?.runId === runId) this.forgeRun = null;
     },
     recordContinuous({ id, runId, jewels, score }) {
       const run = this.continuousRun;
@@ -425,6 +476,8 @@ export const useCampaignStore = defineStore('campaign', {
         (project) => !constructionReady(project),
       );
       this.town = advanceConstruction(this.town);
+      this.town = advanceForge(this.town);
+      this.endRun(runId);
       this.ensureShopStock(true);
       this.lastConstruction = projects.map((project) => ({
         id: project.id,

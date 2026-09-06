@@ -12,8 +12,19 @@
     <div class="town-building-preview" :style="{ '--building-tint': building.color }">
       <svg viewBox="-160 -200 320 245" aria-hidden="true">
         <ellipse cy="9" rx="133" ry="26" fill="#a79d7040" />
-        <TownSite v-if="project" :id="id" :stage="stage" :wins="constructionVisual(project)" />
-        <TownBuilding v-else :id="id" :stage="offer ? stage + 1 : stage" />
+        <TownSite
+          v-if="project"
+          :id="id"
+          :stage="stage"
+          :wins="constructionVisual(project)"
+          :era="town.buildingEras[id]"
+        />
+        <TownBuilding
+          v-else
+          :id="id"
+          :stage="offer && offer.type !== 'modernization' ? stage + 1 : stage"
+          :era="offer?.targetEra ?? town.buildingEras[id]"
+        />
       </svg>
       <small>{{
         t(project ? 'Under construction' : offer ? 'WHEN THE WORK IS DONE' : building.stages[stage])
@@ -50,21 +61,32 @@
       </p>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
-      <h3>{{ t(offer.title) }}</h3>
+      <h3>{{ t(offer.title, { building: t(building.name), name: t(offer.name) }) }}</h3>
       <p>{{ t(offer.benefit) }}</p>
+      <p v-if="offer.description">{{ t(offer.description) }}</p>
       <button
         class="town-primary town-purchase"
         :disabled="!!offer.reason"
         @click="$emit('build', offer.stage)"
       >
-        <span>{{ t(stage ? 'Start improvement' : 'Start building') }}</span>
+        <span>{{
+          t(
+            offer.type === 'modernization'
+              ? 'Start modernization'
+              : stage
+                ? 'Start improvement'
+                : 'Start building',
+          )
+        }}</span>
         <span><TownIcon v-if="offer.cost" name="coin" />{{ t(offer.cost || 'Free') }}</span>
       </button>
       <p class="town-purchase-hint">
         {{
           t(
             offer.reason ||
-              (offer.runs === 0 ? 'Ready immediately' : 'Ready after one completed puzzle'),
+              (offer.runs === 0
+                ? 'Ready immediately'
+                : t('Ready after {count} normal puzzles', { count: offer.runs })),
           )
         }}
       </p>
@@ -86,6 +108,24 @@
     <p v-else class="town-restored-note">
       <TownIcon name="check" />{{ t(building.upgrades.at(-1).benefit) }}
     </p>
+    <section v-if="id === 'blacksmith' && stage" class="town-service">
+      <h3>{{ t('Forge Charge: {count}/1', { count: town.forge.charge }) }}</h3>
+      <p>
+        {{
+          t('Normal puzzles: {count}/{required}', {
+            count: town.forge.progress,
+            required: FORGE_COMPLETIONS,
+          })
+        }}
+      </p>
+      <p>
+        {{
+          t(
+            'Choose whether to spend your charge before entering a normal mine run. This is a puzzle Hammer, separate from builder hammers.',
+          )
+        }}
+      </p>
+    </section>
     <section v-if="id === 'saloon' && stage" class="town-service">
       <button v-if="town.income.stored" class="town-primary" @click="$emit('collect-income')">
         <TownIcon name="coin" />{{ t('Collect {coins} coins', { coins: town.income.stored }) }}
@@ -128,7 +168,7 @@
       <p>
         {{
           t(
-            'Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. Happiness boosts saloon income by the same percentage.',
+            'Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. The school adds up to 5 points. Happiness boosts saloon income by the same percentage.',
           )
         }}
       </p>
@@ -177,6 +217,7 @@
 import { computed } from 'vue';
 import { t } from '../../i18n';
 import { BUILDING_BY_ID } from '../../data/town';
+import { FORGE_COMPLETIONS } from '../../data/eras';
 import {
   upgradeOffer,
   constructionRuns,

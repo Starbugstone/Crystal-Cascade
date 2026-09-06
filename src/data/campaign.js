@@ -1,4 +1,3 @@
-export const LEVEL_COUNT = 60;
 // A chapter owns its board dimensions and active jewel count. Two-level seams
 // rotate identities only; larger boards introduce the fifth color at level 13.
 export const CHAPTERS = [
@@ -92,7 +91,26 @@ export const CHAPTERS = [
     rows: 9,
     gemTypeCount: 5,
   },
+  {
+    id: 'river-discovery',
+    name: 'River discoveries',
+    description: 'Follow the underground river to a new chapter for Prospect Hollow.',
+    theme: 'river',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    id: 'rail-connections',
+    name: 'Rail connections',
+    description: 'Open connected galleries while the town builds its river and rail links.',
+    theme: 'rail',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
 ];
+export const LEVEL_COUNT = CHAPTERS.length * 6;
 
 const FIVE_COLOR_SEAMS = [
   ['ruby', 'sapphire', 'emerald', 'topaz', 'amethyst'],

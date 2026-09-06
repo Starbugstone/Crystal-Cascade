@@ -219,8 +219,10 @@ function update() {
         props.town.buildings[id],
         constructionVisual(props.town.projects[id]),
         labels[id],
+        props.town.buildingEras[id],
       ]),
-    );
+    ) +
+    props.town.era;
   const newConstruction = props.construction?.serial !== lastConstruction;
   if (visual !== lastVisual || newConstruction) {
     scene.update(
@@ -319,6 +321,8 @@ watch(
   () => [
     JSON.stringify(props.town.buildings),
     JSON.stringify(props.town.projects),
+    JSON.stringify(props.town.buildingEras),
+    props.town.era,
     props.mineStage,
     props.construction?.serial,
     locale.value,
