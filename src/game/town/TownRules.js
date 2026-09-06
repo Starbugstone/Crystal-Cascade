@@ -12,15 +12,56 @@ export function normalizeTown(saved) {
     if (Number.isInteger(stage) && stage >= 0 && stage <= building.upgrades.length)
       town.buildings[building.id] = stage;
   }
+  if (Number.isSafeInteger(saved?.completedRuns) && saved.completedRuns >= 0)
+    town.completedRuns = saved.completedRuns;
+  const income = saved?.income;
+  if (Number.isSafeInteger(income?.at) && income.at >= 0)
+    town.income = {
+      at: income.at,
+      remainder:
+        Number.isInteger(income.remainder) && income.remainder >= 0 && income.remainder < HOUR_MS
+          ? income.remainder
+          : 0,
+    };
   const event = saved?.events?.[BANDIT_EVENT];
   if (
     event &&
     ['protected', 'stolen', 'harmless'].includes(event.outcome) &&
     Number.isInteger(event.loss) &&
     event.loss >= 0 &&
-    event.loss <= 10
+    event.loss <= 30
   ) {
-    town.events[BANDIT_EVENT] = { outcome: event.outcome, loss: event.loss };
+    const legacy = event.id === undefined;
+    if (
+      legacy ||
+      (Number.isSafeInteger(event.id) &&
+        event.id > 0 &&
+        Number.isSafeInteger(event.atRun) &&
+        event.atRun >= 0 &&
+        event.atRun <= town.completedRuns &&
+        [2, 4, 6].includes(event.gangSize) &&
+        Number.isInteger(event.sheriffLevel) &&
+        event.sheriffLevel >= 0 &&
+        event.sheriffLevel <= 3)
+    ) {
+      town.events[BANDIT_EVENT] = {
+        id: legacy ? 1 : event.id,
+        atRun: legacy ? town.completedRuns : event.atRun,
+        gangSize: legacy ? 2 : event.gangSize,
+        sheriffLevel: legacy ? (event.outcome === 'protected' ? 1 : 0) : event.sheriffLevel,
+        outcome: event.outcome,
+        loss: event.loss,
+        seen: legacy || event.seen === true,
+        targets: [
+          'mine',
+          ...(Array.isArray(event.targets)
+            ? event.targets
+                .filter((id) => Object.hasOwn(BUILDING_BY_ID, id) && town.buildings[id] > 0)
+                .slice(0, 1)
+            : []),
+        ],
+      };
+    }
   }
   for (const { id, upgrades } of BUILDINGS) {
     // Keep work from the earlier single-project demo when loading its save.
@@ -67,8 +108,49 @@ export function advanceConstruction(town) {
   return { ...town, buildings, projects };
 }
 
+export const totalLevels = (town, kind) =>
+  BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + town.buildings[b.id], 0);
+export const completedHouses = (town) =>
+  BUILDINGS.filter((b) => b.kind === 'home' && town.buildings[b.id] > 0).length;
 export const population = (town) =>
-  INTRO_ORDER.every((id) => town.buildings[id] > 0) ? town.buildings.home * 2 : 0;
+  Math.min(
+    totalLevels(town, 'home') * 2,
+    totalLevels(town, 'well') * 6,
+    totalLevels(town, 'farm') * 6,
+  );
+export const development = (town) =>
+  Object.values(town.buildings).reduce((sum, level) => sum + level, 0);
+export const roadLevel = (town) =>
+  development(town) >= 24 ? 3 : development(town) >= 12 ? 2 : development(town) >= 3 ? 1 : 0;
+export function plotUnlocked(town, id) {
+  const building = BUILDING_BY_ID[id];
+  if (!Object.hasOwn(BUILDING_BY_ID, id)) return false;
+  return (
+    !building.unlock ||
+    town.buildings[id] > 0 ||
+    !!town.projects[id] ||
+    town.buildings[building.unlock.id] >= building.unlock.level
+  );
+}
+export const HOUR_MS = 3_600_000;
+export const INCOME_HOURS_CAP = 8;
+export const saloonIncomeRate = (town) =>
+  population(town) ? 6 * town.buildings.saloon * completedHouses(town) : 0;
+// Remainder is stored as coin-milliseconds, avoiding rounding loss between visits.
+// Settle BEFORE changing buildings, so their new rates never apply to old time.
+export function settleSaloonIncome(town, now) {
+  const checkpoint = town.income ?? { at: null, remainder: 0 };
+  if (!Number.isSafeInteger(now) || now < 0 || (checkpoint.at !== null && now <= checkpoint.at))
+    return { town, earned: 0 };
+  const elapsed =
+    checkpoint.at === null ? 0 : Math.min(now - checkpoint.at, INCOME_HOURS_CAP * HOUR_MS);
+  const credit = elapsed * saloonIncomeRate(town) + checkpoint.remainder;
+  const earned = Math.min(Math.floor(credit / HOUR_MS), Number.MAX_SAFE_INTEGER - town.coins);
+  return {
+    town: { ...town, coins: town.coins + earned, income: { at: now, remainder: credit % HOUR_MS } },
+    earned,
+  };
+}
 
 export function upgradeOffer(town, id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return null;
@@ -84,19 +166,28 @@ export function upgradeOffer(town, id) {
     cost,
     stage,
     runs: projectRuns(id, stage + 1),
-    reason: town.projects[id]
-      ? 'This building is already under construction.'
-      : town.coins < cost
-        ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
-        : '',
+    reason: !plotUnlocked(town, id)
+      ? t('Unlock by upgrading {building} to level {level}.', {
+          building: t(BUILDING_BY_ID[building.unlock.id].shortName),
+          level: building.unlock.level,
+        })
+      : town.projects[id]
+        ? 'This building is already under construction.'
+        : town.coins < cost
+          ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
+          : '',
   };
 }
 
 export function nextGoal(town) {
+  const available = BUILDINGS.filter(
+    (b) =>
+      plotUnlocked(town, b.id) && !town.projects[b.id] && town.buildings[b.id] < b.upgrades.length,
+  );
   const id =
-    INTRO_ORDER.find((key) => !town.buildings[key]) ??
-    ['museum', 'armory', 'saloon', 'stable', 'sheriff'].find((key) => !town.buildings[key]) ??
-    (town.buildings.home < 2 ? 'home' : town.buildings.armory < 3 ? 'armory' : null);
+    INTRO_ORDER.find((key) => !town.buildings[key] && !town.projects[key]) ??
+    available.find((b) => !town.buildings[b.id])?.id ??
+    available.sort((a, b) => town.buildings[a.id] - town.buildings[b.id])[0]?.id;
   return id ? { id, ...upgradeOffer(town, id) } : null;
 }
 
@@ -114,18 +205,37 @@ export function purchase(town, id, expectedStage) {
   };
 }
 
+export const RAID_INTERVAL = 5;
+export const gangSize = (town) => (development(town) >= 30 ? 6 : development(town) >= 16 ? 4 : 2);
+export function raidReady(town) {
+  const previous = town.events[BANDIT_EVENT];
+  return (
+    population(town) > 0 &&
+    (!previous || (previous.seen && town.completedRuns - previous.atRun >= RAID_INTERVAL))
+  );
+}
 export function banditEncounter(town) {
-  if (!population(town) || town.events[BANDIT_EVENT]) return null;
-  const remainingRepairs = INTRO_ORDER.filter((id) => !town.buildings[id]);
-  const reserve = remainingRepairs.length
-    ? Math.min(...remainingRepairs.map((id) => BUILDING_BY_ID[id].upgrades[0].cost))
-    : 50;
-  const loss = town.buildings.sheriff
+  if (!raidReady(town)) return null;
+  const riders = gangSize(town),
+    sheriffLevel = town.buildings.sheriff;
+  const protectedTown = sheriffLevel * 2 >= riders;
+  const loss = protectedTown
     ? 0
-    : Math.min(10, Math.floor(town.coins / 10), Math.max(0, town.coins - reserve));
+    : Math.min(
+        5 * (riders - sheriffLevel * 2),
+        Math.floor(town.coins / 10),
+        Math.max(0, town.coins - 50),
+      );
+  const target = ['saloon', 'armory', 'farm', 'home'].find((id) => town.buildings[id]);
   const event = {
-    outcome: town.buildings.sheriff ? 'protected' : loss ? 'stolen' : 'harmless',
+    id: (town.events[BANDIT_EVENT]?.id ?? 0) + 1,
+    atRun: town.completedRuns,
+    gangSize: riders,
+    sheriffLevel,
+    targets: ['mine', ...(target ? [target] : [])],
+    outcome: protectedTown ? 'protected' : loss ? 'stolen' : 'harmless',
     loss,
+    seen: false,
   };
   return { ...town, coins: town.coins - loss, events: { ...town.events, [BANDIT_EVENT]: event } };
 }

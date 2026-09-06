@@ -10,9 +10,10 @@ import {
   grantReward,
   rollChestReward,
 } from '../data/rewards';
-import { createTown } from '../data/town';
+import { createTown, BANDIT_EVENT } from '../data/town';
 import {
   normalizeTown,
+  settleSaloonIncome,
   miningPayout,
   purchase,
   banditEncounter,
@@ -34,6 +35,7 @@ const defaults = () => ({
   lastConstruction: [],
   builderHammers: 0,
   inventoryNotice: '',
+  lastSaloonIncome: 0,
   powers: POWERS.map((power) => ({ ...power, quantity: 3 })),
 });
 const load = () => {
@@ -185,7 +187,16 @@ export const useCampaignStore = defineStore('campaign', {
       this.$patch((state) => Object.assign(state, defaults()));
       return this.save();
     },
+    collectSaloonIncome(now = Date.now(), persist = true) {
+      const result = settleSaloonIncome(this.town, now);
+      if (result.town === this.town) return 0;
+      this.town = result.town;
+      if (result.earned) this.lastSaloonIncome = result.earned;
+      if (persist) this.save();
+      return result.earned;
+    },
     upgradeBuilding(id, expectedStage) {
+      this.collectSaloonIncome(Date.now(), false);
       const next = purchase(this.town, id, expectedStage);
       if (!next) return false;
       this.town = next;
@@ -196,6 +207,10 @@ export const useCampaignStore = defineStore('campaign', {
       if (this.builderHammers < 1) return false;
       const next = accelerateConstruction(this.town, id, expectedStage, expectedWins);
       if (!next) return false;
+      this.collectSaloonIncome(Date.now(), false);
+      // Keep the settled balance/checkpoint when applying this construction result.
+      next.coins = this.town.coins;
+      next.income = this.town.income;
       this.builderHammers--;
       this.town = next;
       this.save();
@@ -207,9 +222,17 @@ export const useCampaignStore = defineStore('campaign', {
       return granted;
     },
     resolveBandits() {
+      this.collectSaloonIncome(Date.now(), false);
       const next = banditEncounter(this.town);
       if (!next) return false;
       this.town = next;
+      this.save();
+      return true;
+    },
+    markRaidSeen(id) {
+      const event = this.town.events[BANDIT_EVENT];
+      if (!event || event.id !== id || event.seen) return false;
+      event.seen = true;
       this.save();
       return true;
     },
@@ -233,6 +256,8 @@ export const useCampaignStore = defineStore('campaign', {
         validTime ? elapsedMs : Infinity,
       );
       if (Number.isFinite(bestTimeMs)) this.records[id].bestTimeMs = bestTimeMs;
+      this.collectSaloonIncome(Date.now(), false);
+      this.town.completedRuns = Math.min(Number.MAX_SAFE_INTEGER, this.town.completedRuns + 1);
       const projects = Object.values(this.town.projects);
       this.town = advanceConstruction(this.town);
       this.lastConstruction = projects.map((project) => ({

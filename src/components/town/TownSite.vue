@@ -1,5 +1,25 @@
 <template>
-  <TownBuilding v-if="stage" :id="id" :stage="stage" />
+  <g v-if="stage">
+    <TownBuilding :id="id" :stage="stage" />
+    <g v-if="wins !== null" fill="none" stroke-linejoin="round" stroke-linecap="round">
+      <path
+        d="M-124 8v-168M-89 19v-168M103-12v-168M134-30v-168"
+        stroke="#9c784d"
+        stroke-width="5"
+      />
+      <path
+        d="m-130-54 49 13m-49-65 49 13m15-61 188-13M96-80l43-22m-43-30 43-22"
+        stroke="#c4a372"
+        stroke-width="9"
+      />
+      <path
+        d="m-124 8 35-116m-35-52 35 179M103-12l31-138m-31-28 31 148"
+        stroke="#9c784d"
+        stroke-width="3"
+      />
+      <path d="m99 6 31-16m-31-3 31-16m-31-3 31-16m-31-3 31-16" stroke="#c4a372" stroke-width="4" />
+    </g>
+  </g>
   <g v-else stroke-linejoin="round" stroke-linecap="round">
     <path d="M-110-4 5 28 113-29-4-62Z" fill="#bea57a" />
     <path

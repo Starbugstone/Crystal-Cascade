@@ -1,7 +1,14 @@
 <template>
   <g class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
-    <ellipse cx="8" cy="14" :rx="id === 'farm' ? 125 : 109" ry="24" fill="#795a3c" opacity=".13" />
-    <g v-if="id === 'well'">
+    <ellipse
+      cx="8"
+      cy="14"
+      :rx="kind === 'farm' ? 125 : 109"
+      ry="24"
+      fill="#795a3c"
+      opacity=".13"
+    />
+    <g v-if="kind === 'well'">
       <path d="M-64 3 5 32 86-8 16-38Z" :fill="built ? '#c2b28b' : '#bbae95'" />
       <ellipse cy="-10" rx="45" ry="21" fill="#aa9374" />
       <path d="M-45-12V13Q0 43 45 13V-12" fill="#c3ae8e" stroke="#9a8567" stroke-width="3" />
@@ -57,7 +64,7 @@
         stroke="#3c382a"
         opacity=".17"
       />
-      <template v-if="id === 'home' || id === 'farm' || id === 'stable'">
+      <template v-if="kind === 'home' || kind === 'farm' || kind === 'stable'">
         <path d="M-94-103-33-158 103-119 42-73Z" :fill="built ? roofColor : '#858475'" />
         <path d="m-33-158 75 85 61-46Z" :fill="built ? roofSide : '#656f66'" />
         <path
@@ -75,7 +82,7 @@
           opacity=".25"
         />
         <path
-          v-if="id === 'home' && built"
+          v-if="kind === 'home' && built"
           d="M-54-145v-29l16 3v30"
           fill="#a96650"
           stroke="#875540"
@@ -94,18 +101,22 @@
         <path d="M-67-123 24-107v24l-91-16Z" fill="#f1dfb7" stroke="#89643d" stroke-width="2" />
         <text
           :transform="
-            id === 'saloon' ? 'translate(-61 -106) skewY(10)' : 'translate(-51 -104) skewY(10)'
+            kind === 'saloon' ? 'translate(-61 -106) skewY(10)' : 'translate(-51 -104) skewY(10)'
           "
           fill="#6f5135"
           font-family="Georgia, serif"
-          :font-size="id === 'saloon' ? 11 : 13"
+          :font-size="kind === 'saloon' ? 11 : 13"
           font-weight="bold"
           >{{
-            t({ saloon: 'GOLDEN HOUR', sheriff: 'SHERIFF', museum: 'Museum', armory: 'Armory' }[id])
+            t(
+              { saloon: 'GOLDEN HOUR', sheriff: 'SHERIFF', museum: 'Museum', armory: 'Armory' }[
+                kind
+              ],
+            )
           }}</text
         >
       </template>
-      <template v-if="id === 'stable' || id === 'farm'">
+      <template v-if="kind === 'stable' || kind === 'farm'">
         <path
           d="M-57-74 12-61V0L-57-13Z"
           :fill="built ? '#705337' : '#696455'"
@@ -113,14 +124,14 @@
           stroke-width="5"
         />
         <path d="M-23-67v59m-31-58L9-6m-62-6L9-58" stroke="#ba9c73" stroke-width="3" />
-        <path v-if="built && id === 'stable'" d="M-24-66 11-60V0L-24-6Z" fill="#453e2f" />
+        <path v-if="built && kind === 'stable'" d="M-24-66 11-60V0L-24-6Z" fill="#453e2f" />
         <path d="m-47-96 47 10v-18l-47-11Z" :fill="built ? '#f0d7a6' : '#bbaa89'" />
         <text
           transform="translate(-40 -99) skewY(10)"
           font-size="10"
           font-family="Georgia, serif"
           fill="#665336"
-          >{{ t(id === 'farm' ? 'CLOVER' : 'STABLES') }}</text
+          >{{ t(kind === 'farm' ? 'CLOVER' : 'STABLES') }}</text
         >
       </template>
       <template v-else>
@@ -156,7 +167,7 @@
         stroke-width="3"
       />
       <path d="M67-75v28m-9-12 19-9" stroke="#776e4d" stroke-width="2" />
-      <g v-if="id === 'saloon' && built">
+      <g v-if="kind === 'saloon' && built">
         <path d="M-89-53 35-31 48-45-76-67Z" fill="#eee0b4" />
         <path
           v-for="stripe in 5"
@@ -169,7 +180,7 @@
         <path d="M-77 0v-16m100 35V4m-100-11L23 12" stroke="#f0d9a8" stroke-width="3" />
       </g>
       <g
-        v-if="id === 'sheriff' && built"
+        v-if="kind === 'sheriff' && built"
         transform="translate(-18 -124) scale(.6)"
         fill="#ffe4a0"
         stroke="#ac8244"
@@ -181,7 +192,7 @@
         <path d="m-12-127 10 21-15 17m65-7-9 20 14 11" fill="none" stroke-width="4" />
         <path d="m-89 14 35 6m87 10 24-4m-66-2 27 14" stroke="#a08a67" stroke-width="5" />
       </g>
-      <g v-if="id === 'farm'" transform="translate(12 20)">
+      <g v-if="kind === 'farm'" transform="translate(12 20)">
         <path d="m0 0 90-39 61 22-88 44Z" :fill="built ? '#8c8050' : '#b59f71'" />
         <path
           v-for="row in 4"
@@ -200,7 +211,7 @@
           />
         </g>
       </g>
-      <g v-if="id === 'home' && stage === 2" transform="translate(-107 6)">
+      <g v-if="kind === 'home' && stage === 2" transform="translate(-107 6)">
         <path d="M-25-66 17-58 17-5-25-13Z" fill="#e4b494" /><path
           d="m17-58 28-17v54L17-5Z"
           fill="#b78b70"
@@ -223,12 +234,12 @@
           fill="#e7c177"
         />
       </g>
-      <g v-if="built && id === 'museum'" transform="translate(-63 -10)"
+      <g v-if="built && kind === 'museum'" transform="translate(-63 -10)"
         ><path d="m-13 0 25 6v-28l-25-5Z" fill="#b7a17d" /><path
           d="m-5-29-7-13 12-14 12 18-7 14Z"
           fill="#a08ab9" /><path d="m0-56 2 21 10-3Z" fill="#cabce0"
       /></g>
-      <g v-if="built && id === 'armory'" transform="translate(-55 4)"
+      <g v-if="built && kind === 'armory'" transform="translate(-55 4)"
         ><path
           v-for="n in stage"
           :key="n"
@@ -242,16 +253,32 @@
         ><ellipse cx="-82" cy="2" rx="13" ry="8" /><ellipse cx="88" cy="-9" rx="12" ry="7"
       /></g>
     </g>
+    <g v-if="stage >= 2" fill="#d7c098" stroke="#917951" stroke-width="2">
+      <path d="m-90-20 100 24 95-44v-8L10-4-90-28Z" />
+      <path d="M-90-20v-25M10 4v-24M105-40v-24M-90-44 10-20 105-64" fill="none" />
+    </g>
+    <g v-if="stage >= 3" transform="translate(5 -128)">
+      <path
+        d="m-29-3 35 9 30-17v-37l-35-9-30 17Z"
+        fill="#c3b18a"
+        stroke="#8e7956"
+        stroke-width="2"
+      />
+      <path d="m-36-40 40-35 41 18-18 19-28-6Z" fill="#6c8b80" />
+      <path d="m-17-21 14 4v-15l-14-4Z" fill="#ecd29a" />
+    </g>
   </g>
 </template>
 
 <script setup>
+import { BUILDING_BY_ID } from '../../data/town';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 const props = defineProps({
   id: { type: String, required: true },
   stage: { type: Number, default: 0 },
 });
+const kind = computed(() => BUILDING_BY_ID[props.id]?.kind ?? props.id);
 const built = computed(() => props.stage > 0);
 const frontColor = computed(
   () =>
@@ -263,7 +290,7 @@ const frontColor = computed(
       sheriff: '#93aaa7',
       museum: '#c9b18a',
       armory: '#8c9e91',
-    })[props.id],
+    })[kind.value],
 );
 const sideColor = computed(
   () =>
@@ -275,8 +302,8 @@ const sideColor = computed(
       sheriff: '#6f8887',
       museum: '#a58c66',
       armory: '#69877c',
-    })[props.id],
+    })[kind.value],
 );
-const roofColor = computed(() => (props.id === 'home' ? '#869b90' : '#96764f'));
-const roofSide = computed(() => (props.id === 'home' ? '#5e7e77' : '#735c3e'));
+const roofColor = computed(() => (kind.value === 'home' ? '#869b90' : '#96764f'));
+const roofSide = computed(() => (kind.value === 'home' ? '#5e7e77' : '#735c3e'));
 </script>

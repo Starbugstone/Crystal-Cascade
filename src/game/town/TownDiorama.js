@@ -2,7 +2,13 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { constructionVisual } from './TownRules';
+import { BUILDING_BY_ID } from '../../data/town';
+import { TownFrameCache } from './TownFrameCache';
+import { TownStatics } from './TownStatics';
+import { TownActors } from './TownActors';
+import { addScaffolding, addImprovements } from './TownImprovements';
+import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
+import { constructionVisual, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
 export const PLOTS = {
@@ -15,6 +21,12 @@ export const PLOTS = {
   museum: [-4.15, 6.2],
   armory: [4.15, 6.2],
   mine: [0, -6.2],
+  home2: [-8.6, -3],
+  home3: [-8.6, 2.2],
+  home4: [-4.15, 10.5],
+  well2: [4.15, 10.5],
+  farm2: [9, -3.6],
+  farm3: [9, 2.8],
 };
 const colors = {
   sand: '#c8ad7a',
@@ -25,8 +37,7 @@ const colors = {
 };
 const point = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// All town models are original geometry. Static meshes are merged by material;
-// the small articulated cast stays separate so its joints can move naturally.
+// Original geometry shares static scenery batches and animated actor instances.
 export class TownDiorama {
   constructor(canvas, onSelect, onLabels) {
     this.canvas = canvas;
@@ -35,8 +46,8 @@ export class TownDiorama {
     this.materials = new Map();
     this.geometries = {
       box: new THREE.BoxGeometry(1, 1, 1),
-      rounded: new RoundedBoxGeometry(1, 1, 1, 2, 0.09),
-      sphere: new THREE.SphereGeometry(1, 12, 8),
+      rounded: new RoundedBoxGeometry(1, 1, 1, 1, 0.09),
+      sphere: new THREE.SphereGeometry(1, 10, 6),
       rock: new THREE.IcosahedronGeometry(1, 0),
       foliage: new THREE.IcosahedronGeometry(1, 1),
       cylinder: new THREE.CylinderGeometry(1, 1, 1, 12),
@@ -88,11 +99,20 @@ export class TownDiorama {
     this.scene.add(sun);
     this.sun = sun;
     this.scene.add(new THREE.DirectionalLight('#cde5e7', 0.65));
+    this.scene.children.forEach((object) => {
+      if (object.isLight) object.layers.enable(2);
+    });
+    this.frameCache = new TownFrameCache(this.renderer);
     this.raycaster = new THREE.Raycaster();
+    this.raycaster.layers.enable(1);
     this.elapsed = 0;
     this.lastFrame = 0;
     this.landscape = buildLandscape(this);
     this.scene.add(this.landscape);
+    this.actorRenderer = new TownActors(this.scene);
+    this.sceneryRenderer = new TownStatics(this.scene);
+    this.sceneryRenderer.rebuild([this.landscape]);
+    this.buildingRenderer = new TownStatics(this.scene);
     this.controls = new OrbitControls(this.camera, canvas.parentElement);
     this.controls.cursorStyle = 'grab';
     this.controls.target.set(0, 0.7, 0);
@@ -110,7 +130,12 @@ export class TownDiorama {
     this.cameraChanged = () => {
       if (keepCameraAboveTerrain(this.camera.position, this.controls.target))
         this.controls.update();
-      this.render();
+      // Pointer events can arrive faster than frames. Render only the latest pose.
+      if (!this.cameraFrame)
+        this.cameraFrame = requestAnimationFrame(() => {
+          this.cameraFrame = 0;
+          this.render();
+        });
     };
     this.controls.addEventListener('change', this.cameraChanged);
     this.tick = this.tick.bind(this);
@@ -223,9 +248,17 @@ export class TownDiorama {
       material.map?.dispose();
       material.dispose();
     });
-    this.scene.remove(group);
+    group.removeFromParent();
   }
   update(town, labels) {
+    if (!this.world && this.canvas.clientWidth < 600) {
+      const grown = Object.values(town.buildings).reduce((sum, level) => sum + level, 0) >= 16;
+      this.camera.position.set(...(grown ? [10, 22, 24] : [7, 15, 17]));
+      this.controls.update();
+      this.controls.saveState();
+    }
+    this.actorRenderer.clear();
+    this.buildingRenderer.clear();
     this.clearGroup(this.world);
     this.world = new THREE.Group();
     this.scene.add(this.world);
@@ -233,33 +266,45 @@ export class TownDiorama {
     this.motions = [];
     this.targets = [];
     this.anchors = [];
+    this.town = town;
+    addTownRoads(this, town, PLOTS);
     for (const [id, [x, z]] of Object.entries(PLOTS)) {
+      if (id !== 'mine' && !plotUnlocked(town, id)) continue;
       const group = this.group(this.world, x, 0.08, z);
       group.userData.plot = id;
+      group.userData.static = true;
       this.targets.push(group);
       this.anchors.push({
         id,
         width: id === 'mine' ? 132 : Math.max(76, labels[id].length * 7 + 35),
         position: point(x, 0.2, z + (id === 'mine' ? 1.65 : 1.85)),
       });
+      let movingPart;
       if (id === 'mine') this.mine(group, labels.mine);
       else {
         const stage = town.buildings[id],
-          project = town.projects[id];
-        if (!stage) this.plot(group, id, constructionVisual(project) ?? -1, labels[id]);
-        else if (id === 'well') this.well(group);
+          project = town.projects[id],
+          kind = BUILDING_BY_ID[id].kind;
+        if (!stage) this.plot(group, kind, constructionVisual(project) ?? -1, labels[id]);
         else {
-          this.building(group, id, stage, labels[id]);
-          if (id === 'home' && project?.stage === 2)
-            this.homeWing(group, constructionVisual(project));
+          if (kind === 'well') this.well(group);
+          else this.building(group, kind, stage, labels[id]);
+          movingPart = addImprovements(this, group, kind, stage);
+          if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
+      // Keep the windmill rotor articulated while batching the rest of its building.
+      if (movingPart) {
+        group.updateMatrixWorld(true);
+        movingPart.rotor.updateWorldMatrix(true, false);
+        this.world.attach(movingPart.rotor);
+        movingPart.rotor.userData.animated = true;
+      }
       this.batch(group);
+      if (movingPart) this.motions.push(movingPart.update);
     }
-    const household =
-      town.buildings.well && town.buildings.farm && town.buildings.home
-        ? town.buildings.home * 2
-        : 0;
+    const household = population(town);
+    addTownVisitors(this, town);
     this.person({
       color: '#738a83',
       skin: '#d5ad88',
@@ -353,6 +398,7 @@ export class TownDiorama {
       this.horse(6.3, 1.3, -0.9, 0.85);
     }
     const cart = this.group(this.world, 0.1, 0.08, -4.6);
+    cart.userData.animated = true;
     this.box(cart, 0.75, 0.4, 0.55, 0, 0.45, 0, '#617d80', true);
     for (const x of [-0.32, 0.32])
       for (const z of [-0.2, 0.2])
@@ -371,8 +417,9 @@ export class TownDiorama {
       cart.position.z = -4.6 + Math.sin(time * 0.45) * 0.32;
     });
     this.actors.forEach((actor) => this.animatePerson(actor, this.elapsed));
+    this.rebuildActors();
+    this.buildingRenderer.rebuild(this.world.children.filter((child) => child.userData.static));
     this.renderer.shadowMap.needsUpdate = true;
-    this.resize();
     this.render();
   }
   cactus(parent, x, z) {
@@ -635,8 +682,20 @@ export class TownDiorama {
       this.box(parent, 1, 0.065, 0.13, 0, 0.04, -0.1 + n * 0.35, '#9f8157');
     this.box(parent, 0.16, 0.28, 0.18, -1.22, 1.63, 0.78, '#e7bd73', true);
   }
-  person({ color, skin, hat, route, seed, work, dress }) {
-    const root = this.group(this.world);
+  person({
+    color,
+    skin,
+    hat,
+    route,
+    seed,
+    work,
+    dress,
+    parent = this.world,
+    manual = false,
+    visitor = false,
+  }) {
+    const root = this.group(parent);
+    root.userData.animated = !manual;
     const body = this.group(root, 0, 0.54, 0);
     this.box(body, 0.25, 0.19, 0.16, 0, 0, 0, '#69654d', true);
     const torso = this.group(body, 0, 0.1, 0);
@@ -675,22 +734,33 @@ export class TownDiorama {
       0.15,
     );
     const duration = curve.getLength() / 0.55;
-    this.actors.push({ root, body, torso, head, arms, legs, curve, duration, seed, work });
-    this.batch(head);
-    arms.forEach((arm) => this.batch(arm.lower));
+    const actor = { root, body, torso, head, arms, legs, curve, duration, seed, work, visitor };
+    if (!manual) this.actors.push(actor);
+
     root.traverse((object) => {
       if (object.isMesh) object.castShadow = false;
     });
-    this.contactShadow(root, 0.27, 0.18);
+    if (!manual) this.contactShadow(root, 0.27, 0.18);
+    return actor;
   }
   animatePerson(actor, time) {
     const { root, body, torso, head, arms, legs, curve, duration, seed, work } = actor;
-    const cycle = (time + seed) % (duration + 4),
-      walking = !work && cycle < duration;
+    const cycle = (time + seed) % (duration + 4);
+    let walking = !work && cycle < duration;
     const progress = work?.length ? 0.1 : Math.min(cycle / duration, 0.9999);
     root.position.copy(curve.getPointAt(progress));
+    if (actor.visitor) {
+      // Visit the saloon, stay inside briefly, then return along the same route.
+      const phase = (time + seed) % 32;
+      const routeProgress = phase < 12 ? phase / 24 : phase < 19 ? 0.5 : 0.5 + (phase - 19) / 26;
+      root.position.copy(curve.getPointAt(Math.min(0.9999, routeProgress)));
+      root.visible = phase < 12 || phase >= 19;
+      walking = root.visible;
+      const facing = curve.getTangentAt(Math.min(0.9999, routeProgress));
+      root.rotation.y = Math.atan2(facing.x, facing.z);
+    }
     const tangent = curve.getTangentAt(progress);
-    root.rotation.y = Math.atan2(tangent.x, tangent.z);
+    if (!actor.visitor) root.rotation.y = Math.atan2(tangent.x, tangent.z);
     const step = (time + seed) * 6;
     body.position.y =
       0.54 + (walking ? Math.cos(step * 2) * 0.013 : Math.sin(time * 1.8 + seed) * 0.005);
@@ -721,6 +791,7 @@ export class TownDiorama {
   }
   horse(x, z, rotation, scale = 1) {
     const root = this.group(this.world, x, 0.07, z);
+    root.userData.animated = true;
     root.rotation.y = rotation;
     root.scale.setScalar(scale);
     this.ball(root, 0, 0.73, 0, [0.24, 0.31, 0.55], '#a97950');
@@ -742,7 +813,7 @@ export class TownDiorama {
     this.motions.push((time) => {
       head.rotation.x = 0.18 + Math.sin(time * 0.9 + rotation) * 0.14;
     });
-    this.batch(head);
+
     root.traverse((object) => {
       if (object.isMesh) object.castShadow = false;
     });
@@ -756,6 +827,7 @@ export class TownDiorama {
     parent.add(shadow);
   }
   select(id) {
+    if (this.selected === id && this.selection?.parent === this.world) return;
     this.selected = id;
     if (this.selection) {
       this.world.remove(this.selection);
@@ -797,7 +869,12 @@ export class TownDiorama {
       );
       if (!ground) return;
       for (const [id, [x, z]] of Object.entries(PLOTS)) {
-        if (id !== 'mine' && Math.abs(ground.x - x) < 1.55 && Math.abs(ground.z - z) < 1.4) {
+        if (
+          id !== 'mine' &&
+          plotUnlocked(this.town, id) &&
+          Math.abs(ground.x - x) < 1.55 &&
+          Math.abs(ground.z - z) < 1.4
+        ) {
           this.onSelect(id);
           break;
         }
@@ -814,9 +891,17 @@ export class TownDiorama {
     this.renderer.setSize(width, height, false);
     this.render();
   }
+  rebuildActors() {
+    this.actorRenderer.rebuild(
+      [...(this.world?.children ?? []), ...(this.raid?.root.children ?? [])].filter(
+        (child) => child.userData.animated,
+      ),
+    );
+  }
   render() {
     if (!this.world) return;
-    this.renderer.render(this.scene, this.camera);
+    this.actorRenderer.update();
+    this.frameCache.render(this.scene, this.camera, true);
     const distant = this.camera.position.distanceTo(this.controls.target) > 42;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
@@ -831,14 +916,14 @@ export class TownDiorama {
         visible:
           p.z > -1 &&
           p.z < 1 &&
-          Math.abs(p.x) < 0.91 &&
+          (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
           p.y < 0.84 &&
           p.y > (width < 600 ? -0.42 : -0.78) &&
           (!distant || id === 'mine' || id === this.selected),
       };
     });
     const shown = [];
-    const priority = (id) => (id === 'mine' ? 0 : id === this.selected ? 1 : 2);
+    const priority = (id) => (id === this.selected ? 0 : id === 'mine' ? 1 : 2);
     for (const anchor of [...projected].sort(
       (a, b) => priority(a.id) - priority(b.id) || a.depth - b.depth,
     )) {
@@ -857,12 +942,33 @@ export class TownDiorama {
   }
 
   tick(now) {
-    if (this.lastFrame && now - this.lastFrame < 1000 / 24) return;
-    this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.1) : 0;
+    if (this.cameraFrame) return;
+    if (this.lastFrame && now - this.lastFrame < 1000 / 30 - 1) return;
+    this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
     this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
     this.motions?.forEach((motion) => motion(this.elapsed));
-    this.renderer.render(this.scene, this.camera);
+    if (this.raid?.update(this.elapsed)) {
+      this.raid = null;
+      this.rebuildActors();
+    }
+    this.actorRenderer.update();
+    this.frameCache.render(this.scene, this.camera);
+  }
+  playRaid(event, onPhase, onComplete) {
+    this.raid?.dispose();
+    this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
+    this.rebuildActors();
+    this.camera.position.set(10, 22, 22);
+    this.controls.target.set(0, 1, 0);
+    this.controls.update();
+    this.render();
+  }
+  stopRaid() {
+    this.raid?.dispose();
+    this.raid = null;
+    this.rebuildActors();
+    this.render();
   }
   cameraAction(action) {
     if (!this.controls.enabled) return;
@@ -878,14 +984,18 @@ export class TownDiorama {
     this.controls.enabled = !paused;
   }
   setMotion(enabled) {
+    if (this.motionEnabled === enabled) return;
+    this.motionEnabled = enabled;
     this.lastFrame = 0;
     this.renderer.setAnimationLoop(enabled ? this.tick : null);
-    if (!enabled) {
-      this.actors?.forEach((actor) => this.animatePerson(actor, this.elapsed));
-      this.render();
-    }
   }
   dispose() {
+    cancelAnimationFrame(this.cameraFrame);
+    this.frameCache.dispose();
+    this.actorRenderer.dispose();
+    this.buildingRenderer.dispose();
+    this.sceneryRenderer.dispose();
+    this.raid?.dispose();
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
     this.controls.removeEventListener('change', this.cameraChanged);

@@ -11,13 +11,15 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:5173 for the introduction, then enter Prospect Hollow. Choose a plot and start building; the first materials are free. Drag to rotate the prairie and scroll or pinch to zoom. Click the mine to play the next unfinished puzzle. Each normal completion advances every active construction; buildings take two to six puzzles depending on their complexity. Fund multiple projects when you have the coins.
+Open http://localhost:5173 for the introduction, then enter Prospect Hollow. Tap a plot to open its building sheet; the first materials are free. Drag to rotate the prairie and scroll or pinch to zoom. Click the mine or the Mine tab to play the next unfinished puzzle. Welcome, Village, Mine, and the completed Museum stay accessible in the header, including on phones. Each normal completion advances every active construction; buildings take two to seven puzzles depending on their complexity. Fund multiple projects when you have the coins.
 
 Build the museum to replay completed levels or enter continuous play on any unlocked level. Continuous play keeps going beyond the objectives, saves its own scores, and grants no chests or construction progress; its coin allowance is capped at 25 per level across all visits. Build and upgrade the armory to raise each puzzle bonus limit from 3 to 5, 8, then 12. Chests can also contain coins or a builder hammer; use a hammer in the village to advance one chosen construction by one step.
 
+Every building can reach level 3, with visible improvements and wooden scaffolding during work. Upgrading the original home, well, and farm unlocks six extra plots. Roads, saloon visitors, and mounted travelers make the village busier. The saloon earns modest income automatically, including up to eight hours away. Larger villages attract larger mounted bandit gangs; upgrade the sheriff to protect your coins.
+
 The full site follows the browser's English or French language preference. Settings includes a confirmed **Reset progress for testing** action to restart the town, campaign, and power inventory on this device.
 
-See the [town demo guide](docs/town-demo.md) for the story, local-save migration, optional bandit encounter, and implementation details.
+See the [town demo guide](docs/town-demo.md) for the story, local-save migration, mounted bandit raids, passive saloon income, and implementation details.
 
 ```sh
 npm test              # Game logic and input regression tests
@@ -61,3 +63,5 @@ Keyboard controls: focus the board with Tab, use arrows to move, Enter or Space 
 Phaser loads when a chapter opens. Vue never wraps the renderer's internal object graph in reactive proxies. Bonuses use an eight-frame animation atlas and a 230 ms activation wind-up and 160 ms impact beat. Shockwaves, directional blasts, rainbow lightning and ice shards run alongside the clear and fall phases. Bonus and combo banners occupy a fixed strip above the board. Screen-edge glows, expanding firebursts, cross beams and lightning accompany activated bonuses. Cosmetic effects may continue after the board becomes playable; every board animation is cancellable on a level change.
 
 See [the analysis and verification report](docs/analysis.md) for the performance findings, changes and testing limits. Capacitor configuration and the existing Azure deployment workflow are retained; native platforms need their usual platform setup before using the `cap:*` commands.
+
+Run `npm run verify` for formatting, the complete regression suite, and a production build. Vercel runs the same command before deployment.

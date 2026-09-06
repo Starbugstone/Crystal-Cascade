@@ -50,7 +50,9 @@ describe('A village with lasting choices', () => {
     expect(game.startLevel(3, 'continuous')).toBe(false);
   });
   it('uses varied construction times and keeps a legacy project’s promised finish', () => {
-    expect(Object.fromEntries(BUILDINGS.map((b) => [b.id, b.upgrades[0].runs]))).toEqual({
+    expect(
+      Object.fromEntries(BUILDINGS.filter((b) => !b.unlock).map((b) => [b.id, b.upgrades[0].runs])),
+    ).toEqual({
       well: 2,
       farm: 3,
       home: 3,

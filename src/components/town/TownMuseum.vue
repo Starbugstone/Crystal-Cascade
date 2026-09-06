@@ -106,7 +106,8 @@
   </dialog>
 </template>
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref } from 'vue';
+import { useNativeDialog } from '../../composables/useNativeDialog';
 import { t, number } from '../../i18n';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { CHAPTERS, LEVEL_COUNT, formatTime } from '../../data/campaign';
@@ -114,18 +115,8 @@ import { LEVEL_NAMES } from '../../data/levelNames';
 import { CONTINUOUS_COIN_CAP } from '../../data/rewards';
 const emit = defineEmits(['close', 'replay', 'continuous']);
 const campaign = useCampaignStore();
-const dialog = ref(null),
-  closeButton = ref(null),
-  mode = ref('normal');
-const previousFocus = document.activeElement;
-onMounted(() => {
-  dialog.value.showModal();
-  closeButton.value.focus();
-});
-onBeforeUnmount(() => {
-  dialog.value?.close();
-  previousFocus?.focus({ preventScroll: true });
-});
+const { dialog, closeButton, dismissBackdrop } = useNativeDialog(() => emit('close'));
+const mode = ref('normal');
 const chapterLevels = (index) =>
   Array.from({ length: 6 }, (_, i) => index * 6 + i + 1).filter(
     (id) =>
@@ -133,15 +124,4 @@ const chapterLevels = (index) =>
       (mode.value === 'continuous' ? campaign.isUnlocked(id) : campaign.records[id]),
   );
 const gems = ['emerald', 'sapphire', 'topaz', 'amethyst', 'ruby', 'moonstone'];
-function dismissBackdrop(event) {
-  if (event.target !== dialog.value) return;
-  const box = dialog.value.getBoundingClientRect();
-  if (
-    event.clientX < box.left ||
-    event.clientX > box.right ||
-    event.clientY < box.top ||
-    event.clientY > box.bottom
-  )
-    emit('close');
-}
 </script>

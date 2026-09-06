@@ -38,7 +38,7 @@ export function groundHeight(x, z) {
     (height, [hx, hz, rise]) => height + rise * Math.exp(-((x - hx) ** 2 + (z - hz) ** 2) / 440),
     0,
   );
-  return smooth(10, 25, distance) * (hills + ridges);
+  return smooth(15, 32, distance) * (hills + ridges);
 }
 function trackDistance(x, z) {
   const bend = smooth(9, 22, Math.abs(z)) * Math.sin(z * 0.065) * 6;
@@ -93,12 +93,12 @@ export function buildLandscape(town) {
   const plants = town.group(landscape);
   // Cottonwoods near the settlement, with smaller junipers scattered into the hills.
   for (const [x, z, scale, seed] of [
-    [-9, -7, 1.15, 1],
-    [9.5, -9, 1.25, 2],
-    [-12, 4, 1.2, 3],
-    [12.5, 5.5, 1.05, 4],
-    [-7.5, 13, 0.9, 5],
-    [9, 13, 0.8, 6],
+    [-13, -9, 1.15, 1],
+    [14, -9, 1.25, 2],
+    [-15, 5, 1.2, 3],
+    [16, 6, 1.05, 4],
+    [-10, 16, 0.9, 5],
+    [11, 17, 0.8, 6],
     [-16, -15, 1.1, 7],
     [18, -17, 0.9, 8],
   ])
@@ -113,7 +113,7 @@ export function buildLandscape(town) {
   for (let i = 0; i < 620; i++) {
     const x = (random(i * 3 + 5) - 0.5) * 105;
     const z = (random(i * 3 + 6) - 0.5) * 105;
-    if (Math.hypot(x, z) < 9 || trackDistance(x, z) < 2) continue;
+    if (Math.hypot(x, z) < 14 || trackDistance(x, z) < 2) continue;
     const y = groundHeight(x, z),
       size = 0.15 + random(i + 91) * 0.25;
     if (i % 5 === 0) {
@@ -137,8 +137,8 @@ export function buildLandscape(town) {
     }
   }
   for (const [x, z] of [
-    [-10, -1],
-    [10, 1],
+    [-14, -1],
+    [14, 1],
     [-16, 10],
     [14, -12],
     [-24, -8],

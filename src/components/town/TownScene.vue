@@ -1,13 +1,19 @@
 <template>
   <TownMap
     v-if="fallback"
-    v-bind="$props"
+    :town="town"
+    :selected="selected"
+    :population="population"
+    :reduced-motion="reducedMotion"
+    :paused="paused"
+    :next-level="nextLevel"
     @select="$emit('select', $event)"
     @mine="$emit('mine')"
   />
   <div
     v-else
     class="town-scene"
+    :class="{ 'is-raiding': raid && !reducedMotion }"
     :aria-label="t('Interactive 3D town')"
     @pointerdown="rememberPointer"
     @pointermove="movePointer"
@@ -46,7 +52,9 @@
             constructionRuns(town.projects[anchor.id])
           }}</small
         >
-        <span v-else-if="town.buildings[anchor.id]" aria-hidden="true">✓</span>
+        <small v-else-if="town.buildings[anchor.id]">{{
+          t('Lv. {level}', { level: town.buildings[anchor.id] })
+        }}</small>
         <span v-else aria-hidden="true">+</span>
       </button>
     </div>
@@ -89,7 +97,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
-import { constructionRuns } from '../../game/town/TownRules';
+import { constructionRuns, constructionVisual } from '../../game/town/TownRules';
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
@@ -98,10 +106,10 @@ const props = defineProps({
   population: Number,
   reducedMotion: Boolean,
   paused: Boolean,
-  revealing: String,
   nextLevel: Number,
+  raid: Object,
 });
-const emit = defineEmits(['select', 'mine']);
+const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete']);
 const canvas = ref(null),
   anchors = ref([]),
   fallback = ref(false);
@@ -112,6 +120,7 @@ const cameraActions = [
   { id: 'right', label: 'Rotate right', path: 'm16 7 4 4-4 4m4-4H10a5 5 0 0 0 0 10' },
   { id: 'reset', label: 'Reset view', path: 'M4 9a8 8 0 1 1 0 6M4 4v5h5M12 9v3l2 2' },
 ];
+let lastVisual = '';
 let scene,
   disposed = false,
   dragged = false;
@@ -170,7 +179,18 @@ function update() {
   const labels = Object.fromEntries(
     BUILDINGS.map((building) => [building.id, t(building.shortName)]),
   );
-  scene.update(props.town, { ...labels, mine: t('Mine') });
+  const visual = JSON.stringify(
+    BUILDINGS.map(({ id }) => [
+      id,
+      props.town.buildings[id],
+      constructionVisual(props.town.projects[id]),
+      labels[id],
+    ]),
+  );
+  if (visual !== lastVisual) {
+    scene.update(props.town, { ...labels, mine: t('Mine') });
+    lastVisual = visual;
+  }
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
   scene.setPaused(props.paused);
@@ -183,20 +203,50 @@ onMounted(async () => {
       anchors.value = positions;
     });
     update();
+    startRaid();
   } catch (error) {
     scene?.dispose();
     scene = null;
-    if (!disposed) fallback.value = true;
+    if (!disposed) {
+      fallback.value = true;
+      if (props.raid) emit('raid-phase', 'The raid has passed');
+    }
     console.warn('3D town unavailable; using the accessible SVG scene.', error);
   }
 });
+function startRaid() {
+  scene?.stopRaid();
+  if (!props.raid) return;
+  if (props.reducedMotion || fallback.value) {
+    emit('raid-phase', 'The raid has passed');
+    return;
+  }
+  if (scene)
+    scene.playRaid(
+      props.raid,
+      (phase) => emit('raid-phase', phase),
+      () => emit('raid-complete'),
+    );
+}
+watch(() => props.raid, startRaid);
+watch(
+  () => props.reducedMotion,
+  (reduced) => {
+    if (reduced && props.raid) {
+      scene?.stopRaid();
+      emit('raid-phase', 'The raid has passed');
+    }
+  },
+);
 watch(
   () => [JSON.stringify(props.town.buildings), JSON.stringify(props.town.projects), locale.value],
   update,
 );
 watch(
   () => props.selected,
-  (id) => scene?.select(id),
+  (id) => {
+    if (!props.paused) scene?.select(id);
+  },
 );
 watch(
   () => props.paused || props.reducedMotion,
@@ -204,7 +254,10 @@ watch(
 );
 watch(
   () => props.paused,
-  (paused) => scene?.setPaused(paused),
+  (paused) => {
+    scene?.setPaused(paused);
+    if (!paused) scene?.select(props.selected);
+  },
 );
 onBeforeUnmount(() => {
   disposed = true;

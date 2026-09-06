@@ -192,11 +192,7 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
-        <g
-          :key="town.buildings[building.id]"
-          :class="{ 'repair-reveal': revealing === building.id }"
-          aria-hidden="true"
-        >
+        <g :key="town.buildings[building.id]" aria-hidden="true">
           <TownSite
             :id="building.id"
             :stage="town.buildings[building.id]"
@@ -289,9 +285,11 @@
   </div>
 </template>
 <script setup>
+import { computed } from 'vue';
 import { t } from '../../i18n';
 import { ref, useId, watch } from 'vue';
 import { constructionVisual } from '../../game/town/TownRules';
+import { plotUnlocked } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
 import TownSite from './TownSite.vue';
 import TownMine from './TownMine.vue';
@@ -301,7 +299,6 @@ const props = defineProps({
   population: Number,
   reducedMotion: Boolean,
   paused: Boolean,
-  revealing: String,
   nextLevel: { type: Number, required: true },
 });
 defineEmits(['select', 'mine']);
@@ -325,7 +322,9 @@ function lookAround(event) {
 }
 watch(() => props.paused || props.reducedMotion, resetView);
 const uid = `town-${useId().replaceAll(':', '')}`;
-const orderedBuildings = [...BUILDINGS].sort((a, b) => a.y - b.y);
+const orderedBuildings = computed(() =>
+  BUILDINGS.filter((b) => plotUnlocked(props.town, b.id)).sort((a, b) => a.y - b.y),
+);
 const trees = [
   [78, 316, 1.25],
   [124, 272, 0.8],

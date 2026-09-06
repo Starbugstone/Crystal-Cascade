@@ -2,22 +2,19 @@
   <main class="town-view">
     <div class="town-heading">
       <div>
-        <p class="town-kicker"><span></span> {{ t('CHAPTER 01 · A FRESH START') }}</p>
-        <h1>
-          Prospect Hollow<span> {{ t('Est. one good deed at a time.') }} </span>
-        </h1>
+        <p class="town-kicker">{{ t('YOUR TOWN. YOUR CHOICE.') }}</p>
+        <h1>Prospect Hollow</h1>
       </div>
       <div class="town-wallet" :aria-label="t('Town savings')">
         <TownIcon name="coin" />
         <div>
           <strong>{{ number(town.coins) }}</strong
-          ><span> {{ t('MINING COINS') }} </span>
+          ><span>{{ t('TOWN COINS') }}</span>
         </div>
       </div>
     </div>
-
-    <div class="town-supplies">
-      <span
+    <div class="town-tools">
+      <span class="town-hammer-stock"
         ><img src="/art/rewards/builder-hammer.svg" alt="" />{{
           t('Builder hammers: {count}/{cap}', {
             count: campaign.builderHammers,
@@ -25,343 +22,201 @@
           })
         }}</span
       >
-      <button @click="selectBuilding('armory')">
-        {{ t('Bonus capacity: {count} each', { count: campaign.bonusLimit }) }}
-        <TownIcon name="arrow" />
+      <button v-if="town.buildings.saloon" @click="selectBuilding('saloon')">
+        <TownIcon name="coin" />{{ t('{rate}/hour', { rate: incomeRate }) }}
       </button>
-      <button @click="selectBuilding('museum')">{{ t('Museum') }} <TownIcon name="arrow" /></button>
+      <button @click="selectBuilding('armory')">{{ t('Supplies') }} →</button>
     </div>
-    <p v-if="campaign.inventoryNotice" class="town-save-warning" role="status">
-      {{ t(campaign.inventoryNotice) }}
-    </p>
-    <div class="town-layout">
-      <section class="town-world" :aria-label="t('Your town')">
-        <div class="town-map-frame">
-          <div class="town-map-caption">
-            <span><TownIcon name="sun" /> {{ t('A LITTLE HOPE ON THE HORIZON') }} </span
-            ><span
-              >{{ t('{built}/{total} built', { built: repaired, total: BUILDINGS.length }) }}
-            </span>
-          </div>
-          <TownScene
-            :town="town"
-            :selected="selected"
-            :population="residents"
-            :reduced-motion="settings.reducedMotion"
-            :paused="paused || settings.isSettingsOpen || museumOpen"
-            :revealing="revealing"
-            :next-level="campaign.nextLevel"
-            @select="selectBuilding"
-            @mine="goMining"
-          />
-          <div class="town-map-footnote">
-            <span><i></i> {{ t(townStatus) }}</span
-            ><span> {{ t('Choose a plot · Play puzzles to build it') }} </span>
-          </div>
+    <section class="town-world" :aria-label="t('Your town')">
+      <div class="town-map-frame" :class="{ 'town-has-raid': activeRaid }">
+        <div class="town-map-caption">
+          <span>{{ t('{built}/{total} built', { built: built, total: BUILDINGS.length }) }}</span>
         </div>
-        <div class="town-needs" :aria-label="t('Basic town needs')">
-          <div>
-            <TownIcon name="water" /><span>
-              {{ t('Water') }}
-              <small>{{
-                t(town.buildings.well ? 'Fresh & flowing' : 'A well to build')
-              }}</small></span
-            ><TownIcon v-if="town.buildings.well" name="check" class="need-ready" />
-          </div>
-          <div>
-            <TownIcon name="food" /><span>
-              {{ t('Food') }}
-              <small>{{
-                t(town.buildings.farm ? 'Good things growing' : 'The fields are waiting')
-              }}</small></span
-            ><TownIcon v-if="town.buildings.farm" name="check" class="need-ready" />
-          </div>
-          <div>
-            <TownIcon name="people" /><span
-              >{{ residents }} {{ t('neighbors') }}
-              <small>{{
-                t(residents ? 'A little more like home' : 'Room for a fresh start')
-              }}</small></span
-            >
-          </div>
-        </div>
-        <p v-if="activeProjects.length" class="town-construction-summary">
-          {{ t('Active construction: {count}', { count: activeProjects.length }) }} ·
-          {{ t('Each completed puzzle advances every building in progress.') }}
-          {{ t('Choose another plot whenever you have the coins.') }}
-        </p>
-        <section
-          class="town-story"
-          :aria-label="t('A word from your neighbors')"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <div class="caretaker-portrait" aria-hidden="true">
-            <svg viewBox="0 0 70 80">
-              <path d="M8 80V63q27-22 54 0v17" fill="#6d8580" />
-              <path d="m23 58 12 14 12-14" fill="#ddb992" />
-              <ellipse cx="35" cy="34" rx="20" ry="26" fill="#e1b98b" />
-              <path d="M15 38q-6-19 8-26l24 3q13 10 7 26l-5-20-27 3Z" fill="#d3c5a5" />
-              <path d="M24 38h5m14 0h5" stroke="#695c48" stroke-width="2" stroke-linecap="round" />
-              <path d="M31 49q5 4 10-1" fill="none" stroke="#ab7f5d" stroke-width="2" />
-              <ellipse cx="34" cy="19" rx="32" ry="8" fill="#a68961" />
-              <path d="m15 19 5-18h28l6 18" fill="#bfa579" />
-              <path d="M17 12h34v7H17Z" fill="#637d72" />
-            </svg>
-          </div>
-          <div>
-            <span class="town-kicker">{{ t(moment.speaker) }}</span>
-            <h2>{{ t(moment.title) }}</h2>
-            <p>{{ t(moment.text) }}</p>
-          </div>
-          <button v-if="revealing" class="story-skip" @click="finishReveal">
-            {{ t('Skip reveal') }}
-          </button>
-        </section>
-      </section>
-
-      <aside ref="panel" class="town-building-panel" aria-labelledby="building-title">
-        <div class="town-panel-top">
-          <span class="town-kicker">{{
-            t(offer ? 'YOUR TOWN. YOUR CHOICE.' : 'ANOTHER PIECE OF HOME.')
-          }}</span
-          ><span class="town-stage">{{
-            t(
-              selectedProject
-                ? 'Under construction'
-                : town.buildings[selected]
-                  ? 'Built'
-                  : 'Empty plot',
-            )
-          }}</span>
-        </div>
-        <div class="town-building-preview" :style="{ '--building-tint': building.color }">
-          <svg viewBox="-160 -200 320 245" aria-hidden="true">
-            <ellipse cy="9" rx="133" ry="26" fill="#a79d7040" />
-            <TownSite
-              :id="selected"
-              :stage="town.buildings[selected]"
-              :wins="constructionVisual(selectedProject)"
-            />
-          </svg>
-        </div>
-        <p class="town-kicker">{{ t(building.purpose) }}</p>
-        <h2 id="building-title" ref="panelTitle" tabindex="-1">{{ t(building.name) }}</h2>
-        <p class="town-stage-description">
-          {{
-            t(
-              town.buildings[selected]
-                ? building.stages[town.buildings[selected]]
-                : 'A place for your next beginning',
-            )
-          }}
-        </p>
-        <div v-if="selectedProject" class="town-project-progress">
-          <h3>{{ t('Your building is taking shape') }}</h3>
-          <p>
-            {{ selectedProject.wins }} / {{ t(constructionRuns(selectedProject)) }}
-            {{ t('puzzles completed') }}
-          </p>
-          <progress
-            :value="selectedProject.wins"
-            :max="constructionRuns(selectedProject)"
-            :aria-label="t('Construction progress')"
-          ></progress>
-          <p>
-            {{
-              t(
-                'Every completed puzzle adds the next part. Benefits arrive when the building is finished.',
-              )
-            }}
-          </p>
-          <button
-            class="town-secondary builder-hammer-action"
-            :disabled="!campaign.builderHammers"
-            @click="useHammer"
+        <button v-if="!activeRaid" class="town-plots-button" @click="openDirectory">
+          {{ t('All plots') }} <TownIcon name="arrow" />
+        </button>
+        <div v-if="activeRaid" class="town-raid-banner" role="status" aria-live="polite">
+          <span class="town-kicker"
+            >{{ t('FRONTIER ENCOUNTER') }} ·
+            {{ t('{count} riders', { count: activeRaid.gangSize }) }}</span
           >
-            <img src="/art/rewards/builder-hammer.svg" alt="" />{{
-              t('Use a builder hammer · +1 step')
-            }}
-          </button>
-          <p>{{ t('{count} builder hammers available', { count: campaign.builderHammers }) }}</p>
-        </div>
-        <template v-else-if="offer">
-          <div class="town-upgrade-description">
-            <h3>{{ t(offer.title) }}</h3>
-            <p>{{ t(offer.benefit) }}</p>
-          </div>
-          <div class="town-after">
-            <svg viewBox="-160 -190 320 240" aria-hidden="true">
-              <TownBuilding :id="selected" :stage="town.buildings[selected] + 1" />
-            </svg>
-            <div>
-              <span class="town-kicker"> {{ t('WHEN THE WORK IS DONE') }} </span
-              ><span>{{ t(building.stages[town.buildings[selected] + 1]) }}</span>
-            </div>
-          </div>
-          <button
-            class="town-primary town-purchase"
-            :disabled="!!offer.reason || !!revealing"
-            @click="repair"
-          >
-            <span>{{ t(town.buildings[selected] ? 'Start improvement' : 'Start building') }}</span
-            ><span><TownIcon v-if="offer.cost" name="coin" />{{ t(offer.cost || 'Free') }}</span>
-          </button>
-          <p class="town-purchase-hint">
-            {{ t(offer.reason || 'Materials ready. Complete puzzles to finish the work.') }}
-          </p>
-          <p class="town-purchase-hint">
-            {{ offer.runs }} {{ t('completed puzzles · Benefits on completion') }}
-          </p>
-        </template>
-        <template v-else>
-          <div class="town-restored-note">
-            <TownIcon name="check" />
-            <p>{{ t(building.upgrades.at(-1).benefit) }}</p>
-          </div>
-          <button v-if="goal" class="town-secondary" @click="selectBuilding(goal.id)">
-            {{ t('Next:') }} {{ t(goal.title) }}<TownIcon name="arrow" />
-          </button>
-          <p v-else class="town-finished">
-            {{
-              t(
-                'You’ve brought Prospect Hollow back to life. Stay for a while. There are always more jewels in the hills.',
-              )
-            }}
-          </p>
-        </template>
-        <section v-if="selected === 'museum'" class="town-service">
-          <h3>{{ t('Your adventures, collected') }}</h3>
+          <strong>{{ t(raidPhase) }}</strong>
           <p>
             {{
               t(
-                'Replay for a better score, or keep matching in continuous play. Build the museum to open the collection.',
+                raidPhase === 'The raid has passed'
+                  ? banditStory.text
+                  : 'The riders are here. Watch the story unfold in your village.',
               )
             }}
           </p>
-          <button
-            class="town-primary"
-            :disabled="!town.buildings.museum"
-            @click="museumOpen = true"
-          >
-            {{ t('Visit the museum') }} <TownIcon name="arrow" />
+          <button class="town-secondary" @click="finishRaid">
+            {{ t(raidPhase === 'The raid has passed' ? 'Continue' : 'Skip animation') }}
           </button>
-        </section>
-        <section v-if="selected === 'armory'" class="town-service">
-          <h3>{{ t('Your puzzle supplies') }}</h3>
-          <p>{{ t('Capacity: {count} of each puzzle bonus', { count: campaign.bonusLimit }) }}</p>
-          <ul class="armory-inventory">
-            <li v-for="power in campaign.powers" :key="power.id">
-              <img :src="`/art/powers/${power.id}.svg`" alt="" /><span>{{ t(power.label) }}</span
-              ><strong>{{ power.quantity }}/{{ campaign.bonusLimit }}</strong>
-            </li>
-          </ul>
-          <p>
-            {{
-              t(
-                'A full bonus slot turns chest rewards into 10 coins. Extra capacity arrives when construction finishes.',
-              )
-            }}
-          </p>
-        </section>
-        <div class="town-mine-action">
-          <button class="town-primary" @click="goMining">
-            <TownIcon name="mine" /> {{ t('Go mining') }} <TownIcon name="arrow" /></button
-          ><small> {{ t('A few jewels can change a whole town.') }} </small>
         </div>
-      </aside>
-    </div>
-
-    <section class="town-building-list" :aria-label="t('All town buildings')">
-      <button
-        v-for="place in BUILDINGS"
-        :key="place.id"
-        :aria-pressed="selected === place.id"
-        @click="selectBuilding(place.id)"
-      >
-        <span class="building-list-dot" :style="{ background: place.color }"></span
-        ><span
-          >{{ t(place.shortName)
-          }}<small>{{
-            t(
-              town.projects[place.id]
-                ? t('Under construction · {wins}/{required}', {
-                    wins: town.projects[place.id].wins,
-                    required: constructionRuns(town.projects[place.id]),
-                  })
-                : town.buildings[place.id]
-                  ? place.stages[town.buildings[place.id]]
-                  : 'Ready for a new beginning',
-            )
-          }}</small></span
-        ><TownIcon :name="town.buildings[place.id] ? 'check' : 'arrow'" />
-      </button>
-    </section>
-
-    <details v-if="residents" class="town-trail-story">
-      <summary>
-        <TownIcon name="star" /><span>
-          {{ t('Stories from the trail') }}
-          <small> {{ t('A little frontier adventure · optional') }} </small></span
-        ><span>+</span>
-      </summary>
-      <div v-if="!event">
-        <h3>{{ t('Strangers on the dusty trail') }}</h3>
-        <p>
-          {{
-            t(
-              'Ada has spotted bandits beyond the ridge. A sheriff can send them on their way. Without one, they might take a few coins—but never your last savings.',
-            )
-          }}
-        </p>
-        <button class="town-secondary" @click="meetBandits">
-          {{ t('See who’s coming') }} <TownIcon name="arrow" />
+        <TownScene
+          :town="town"
+          :selected="selected"
+          :population="residents"
+          :reduced-motion="settings.reducedMotion"
+          :paused="paused || settings.isSettingsOpen || museumOpen || !!dialogMode"
+          :next-level="campaign.nextLevel"
+          :raid="activeRaid"
+          @select="selectBuilding"
+          @mine="goMining"
+          @raid-phase="raidPhase = $event"
+          @raid-complete="finishRaid"
+        />
+        <div class="town-map-footnote" role="status">
+          <span
+            ><i></i
+            >{{ t(announcement || 'Tap a building or an empty plot to see your choices.') }}</span
+          >
+        </div>
+      </div>
+      <div class="town-needs" :aria-label="t('Basic town needs')">
+        <button @click="selectBuilding('well')">
+          <TownIcon name="water" /><span
+            >{{ t('Water')
+            }}<small>{{
+              t('Water for {count} neighbors', { count: totalLevels(town, 'well') * 6 })
+            }}</small></span
+          >
+        </button>
+        <button @click="selectBuilding('farm')">
+          <TownIcon name="food" /><span
+            >{{ t('Food')
+            }}<small>{{
+              t('Food for {count} neighbors', { count: totalLevels(town, 'farm') * 6 })
+            }}</small></span
+          >
+        </button>
+        <button @click="selectBuilding('home')">
+          <TownIcon name="people" /><span
+            >{{ t('{count} neighbors', { count: residents })
+            }}<small>{{
+              t('Room for {count}', { count: totalLevels(town, 'home') * 2 })
+            }}</small></span
+          >
         </button>
       </div>
-      <div v-else>
-        <h3>{{ t(banditStory.title) }}</h3>
-        <p>{{ t(banditStory.text) }}</p>
-        <small> {{ t('This chapter of the story is complete.') }} </small>
+      <p v-if="activeProjects.length" class="town-construction-summary">
+        {{ t('Active construction: {count}', { count: activeProjects.length }) }} ·
+        {{ t('Each completed puzzle advances every building in progress.') }}
+      </p>
+    </section>
+    <details class="town-journal">
+      <summary>
+        {{ t('From your neighbors') }} <span>{{ t(moment.title) }}</span>
+      </summary>
+      <div class="town-journal-content">
+        <p class="town-kicker">{{ t(moment.speaker) }}</p>
+        <h2>{{ t(moment.title) }}</h2>
+        <p>{{ t(moment.text) }}</p>
+        <section v-if="residents" class="town-raid-report">
+          <div>
+            <h3>{{ t(event ? banditStory.title : 'Eyes on the dusty trail') }}</h3>
+            <p>
+              {{
+                t(
+                  event
+                    ? banditStory.text
+                    : 'As the town grows, larger gangs may ride in. A sheriff keeps your savings safe.',
+                )
+              }}
+            </p>
+            <small>{{
+              t('Gang: {gang} riders · Protection: {protection} riders', {
+                gang: gangSize(town),
+                protection: town.buildings.sheriff * 2,
+              })
+            }}</small>
+            <p>
+              {{
+                t(
+                  'A raid can arrive after every 5 completed puzzles. Never while you are away. Your last 50 coins are always safe.',
+                )
+              }}
+            </p>
+          </div>
+          <button v-if="event" class="town-secondary" :disabled="!!activeRaid" @click="replayRaid">
+            {{ t('Watch the last raid again') }}
+          </button>
+          <button class="town-secondary" @click="selectBuilding('sheriff')">
+            {{ t('Visit the sheriff') }}
+          </button>
+        </section>
       </div>
     </details>
-    <p v-if="campaign.saveWarning" role="status" class="town-save-warning">
-      {{ t(campaign.saveWarning) }}
+    <p
+      v-if="campaign.saveWarning || campaign.inventoryNotice"
+      role="status"
+      class="town-save-warning"
+    >
+      {{ t(campaign.saveWarning || campaign.inventoryNotice) }}
     </p>
-    <div class="town-bottom-note">
-      <span> {{ t('One town. One little adventure at a time.') }} </span
-      ><span
-        >{{ t(campaign.saveWarning ? 'Progress kept for this session' : 'Saved on this device') }}
-        {{ t('· More chapters to come') }}
-      </span>
-    </div>
-    <div class="town-mobile-mining">
-      <div>
-        <span class="town-kicker"> {{ t('A FEW JEWELS. A FRESH START.') }} </span
-        ><span>{{ t(goal ? goal.title : 'The hills are full of possibility.') }}</span>
-      </div>
-      <button class="town-primary" @click="goMining">
-        <TownIcon name="mine" /> {{ t('Go mining') }}
-      </button>
-    </div>
+    <p class="town-bottom-note">
+      {{ t(campaign.saveWarning ? 'Progress kept for this session' : 'Saved on this device') }}
+    </p>
+    <TownDialog
+      v-if="dialogMode"
+      :title="t(dialogMode === 'directory' ? 'Choose a plot' : 'Your town')"
+      @close="closeDialog"
+    >
+      <template v-if="dialogMode === 'directory'">
+        <p class="town-directory-hint">
+          {{ t('Choose what to build next. Improvements unlock new plots.') }}
+        </p>
+        <section class="town-building-list" :aria-label="t('All town buildings')">
+          <button
+            v-for="place in BUILDINGS"
+            :key="place.id"
+            :class="{ 'town-plot-locked': !plotUnlocked(town, place.id) }"
+            @click="selectBuilding(place.id)"
+          >
+            <span class="building-list-dot" :style="{ background: place.color }"></span>
+            <span
+              >{{ t(place.shortName) }}<small>{{ plotStatus(place) }}</small></span
+            ><TownIcon :name="town.buildings[place.id] ? 'check' : 'arrow'" />
+          </button>
+        </section>
+      </template>
+      <TownBuildingDetails
+        v-else
+        :key="selected"
+        :id="selected"
+        :town="town"
+        :hammers="campaign.builderHammers"
+        :bonus-limit="campaign.bonusLimit"
+        :powers="campaign.powers"
+        :last-income="campaign.lastSaloonIncome"
+        @build="repair"
+        @hammer="useHammer"
+        @select="selectBuilding"
+        @museum="visitMuseum"
+        @mine="goMining"
+      />
+    </TownDialog>
     <TownMuseum
-      v-if="museumOpen && town.buildings.museum"
+      v-if="museumOpen && campaign.canReplay"
       @close="museumOpen = false"
       @replay="$emit('replay', $event)"
       @continuous="$emit('continuous', $event)"
     />
-    <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
   </main>
 </template>
 <script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../../i18n';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
 import {
   population,
   nextGoal,
-  upgradeOffer,
   constructionRuns,
-  constructionVisual,
+  plotUnlocked,
+  saloonIncomeRate,
+  totalLevels,
+  gangSize,
 } from '../../game/town/TownRules';
 import { useCampaignStore } from '../../stores/campaignStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -369,131 +224,134 @@ import { HAMMER_CAPACITY } from '../../data/rewards';
 import { LEVEL_COUNT } from '../../data/campaign';
 import TownMuseum from './TownMuseum.vue';
 import TownScene from './TownScene.vue';
-import TownBuilding from './TownBuilding.vue';
-import TownSite from './TownSite.vue';
+import TownDialog from './TownDialog.vue';
+import TownBuildingDetails from './TownBuildingDetails.vue';
 import TownIcon from './TownIcon.vue';
-import '../../styles/town.css';
 
 const props = defineProps({ openMuseum: Boolean });
-const emit = defineEmits(['mine', 'replay', 'continuous']);
-const museumOpen = ref(props.openMuseum);
-function goMining() {
-  if (campaign.completedCount < LEVEL_COUNT) emit('mine');
-  else if (campaign.canReplay) museumOpen.value = true;
-  else selectBuilding('museum');
-}
+const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
   settings = useSettingsStore();
 const town = computed(() => campaign.town);
 const residents = computed(() => population(town.value));
+const incomeRate = computed(() => saloonIncomeRate(town.value));
 const activeProjects = computed(() => Object.values(town.value.projects));
-const goal = computed(() =>
-  activeProjects.value.length
-    ? { id: activeProjects.value[0].id, title: 'Continue the work' }
-    : nextGoal(town.value),
-);
+const goal = computed(() => nextGoal(town.value));
+const built = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
 const selected = ref(goal.value?.id ?? 'home');
-const selectedProject = computed(() => town.value.projects[selected.value]);
-const building = computed(() => BUILDING_BY_ID[selected.value]);
-const offer = computed(() => upgradeOffer(town.value, selected.value));
-const repaired = computed(() => BUILDINGS.filter(({ id }) => town.value.buildings[id]).length);
-const townStatus = computed(() =>
-  repaired.value === BUILDINGS.length
-    ? 'A town full of possibilities'
-    : residents.value
-      ? 'Our little town is coming to life'
-      : 'A fresh start in the foothills',
+const museumOpen = ref(props.openMuseum && campaign.canReplay),
+  dialogMode = ref('');
+const paused = ref(false),
+  announcement = ref(''),
+  latestMoment = ref(null);
+const activeRaid = ref(null),
+  raidPhase = ref('Riders on the ridge');
+const event = computed(() => town.value.events[BANDIT_EVENT]);
+const banditStory = computed(() =>
+  event.value?.outcome === 'protected'
+    ? {
+        speaker: 'Sam · the sheriff',
+        title: 'The town stood its ground.',
+        text: 'The patrol sent the gang back to the prairie. Every coin is safe.',
+      }
+    : event.value?.outcome === 'stolen'
+      ? {
+          speaker: 'Ada · the caretaker',
+          title: 'Trouble rode through town.',
+          text: t(
+            'The gang took {coins} coins. Upgrade the sheriff to protect against {gang} riders.',
+            { coins: event.value.loss, gang: event.value.gangSize },
+          ),
+        }
+      : {
+          speaker: 'Ada · the caretaker',
+          title: 'The riders moved on.',
+          text: 'The gang found no spare coins. Your last savings are safe.',
+        },
 );
-const latestMoment = ref(null);
 const moment = computed(
   () =>
     latestMoment.value ??
-    (activeProjects.value.length
+    (built.value
       ? {
           speaker: 'Ada · the caretaker',
-          title: 'A little more with every puzzle.',
-          text: 'Each completed puzzle advances every building in progress. Opening day is getting closer.',
+          title: activeProjects.value.length
+            ? 'A little more with every puzzle.'
+            : 'It’s good to have neighbors again.',
+          text: activeProjects.value.length
+            ? 'Each completed puzzle advances every building in progress. Opening day is getting closer.'
+            : 'Choose what to build next. Families need a working well, a farm, and a home before they move in.',
         }
-      : residents.value
-        ? {
-            speaker: 'Ada · the caretaker',
-            title:
-              repaired.value === BUILDINGS.length
-                ? 'Look what we built together.'
-                : 'It’s good to have neighbors again.',
-            text: goal.value
-              ? `${t(goal.value.title)}. ${t(goal.value.benefit)}`
-              : 'The lights are on, the horses are home, and there’s music down the street. Those jewels made quite a difference.',
-          }
-        : repaired.value
-          ? {
-              speaker: 'Ada · the caretaker',
-              title: 'One good deed leads to another.',
-              text: 'Choose what to build next. Families need a working well, a farm, and a home before they move in.',
-            }
-          : INITIAL_STORY),
+      : INITIAL_STORY),
 );
-const panel = ref(null),
-  panelTitle = ref(null),
-  revealing = ref(''),
-  announcement = ref(''),
-  paused = ref(false);
-let revealTimer;
-const finishReveal = () => {
-  clearTimeout(revealTimer);
-  revealing.value = '';
-};
-const visibilityChanged = () => {
-  paused.value = document.hidden;
-};
-onMounted(() => {
-  visibilityChanged();
-  document.addEventListener('visibilitychange', visibilityChanged);
-  const completed = campaign.lastConstruction.filter((project) => project.complete);
-  if (completed.length) {
-    const upgrade = BUILDING_BY_ID[completed[0].id].upgrades[completed[0].stage - 1];
-    latestMoment.value = { speaker: upgrade.speaker, title: upgrade.title, text: upgrade.story };
-    if (completed.length > 1)
-      latestMoment.value = {
-        speaker: 'Ada · the caretaker',
-        title: 'Several doors are opening!',
-        text: t('Completed buildings: {buildings}.', {
-          buildings: completed.map((project) => t(BUILDING_BY_ID[project.id].shortName)).join(', '),
-        }),
-      };
-    if (
-      residents.value &&
-      completed.some(
-        (project) => project.stage === 1 && ['well', 'farm', 'home'].includes(project.id),
-      )
-    )
-      latestMoment.value = {
-        speaker: 'Ada · the caretaker',
-        title: 'Welcome home.',
-        text: 'Fresh water, food, and a home. The Bell family has decided to stay!',
-      };
-  }
-  campaign.lastConstruction = [];
-});
-onBeforeUnmount(() => {
-  clearTimeout(revealTimer);
-  document.removeEventListener('visibilitychange', visibilityChanged);
-});
-async function selectBuilding(id) {
-  selected.value = id;
-  await nextTick();
-  panelTitle.value?.focus({ preventScroll: true });
-  if (window.matchMedia('(max-width: 850px)').matches)
-    panel.value?.scrollIntoView({
-      behavior: settings.reducedMotion ? 'instant' : 'smooth',
-      block: 'nearest',
-    });
+watch(museumOpen, (open) => emit('museum-change', open));
+watch(
+  () => props.openMuseum,
+  (open) => {
+    closeDialog();
+    museumOpen.value = open && campaign.canReplay;
+    if (open && !campaign.canReplay) {
+      selectBuilding('museum');
+      emit('museum-change', false);
+    }
+  },
+);
+function closeDialog() {
+  dialogMode.value = '';
 }
-function useHammer() {
-  const project = selectedProject.value;
-  if (!project || !campaign.useBuilderHammer(selected.value, project.stage, project.wins)) return;
+function openDirectory() {
+  dialogMode.value = 'directory';
+}
+async function selectBuilding(id) {
+  if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
+  selected.value = id;
+  dialogMode.value = 'building';
+  await nextTick();
+  const dialog = document.querySelector('.town-dialog');
+  if (dialog) {
+    dialog.scrollTop = 0;
+    dialog.querySelector('.town-dialog-close')?.focus({ preventScroll: true });
+  }
+}
+function visitMuseum() {
+  closeDialog();
+  if (campaign.canReplay) museumOpen.value = true;
+}
+function goMining() {
+  closeDialog();
+  if (campaign.completedCount < LEVEL_COUNT) emit('mine');
+  else if (campaign.canReplay) museumOpen.value = true;
+  else selectBuilding('museum');
+}
+function plotStatus(place) {
+  const project = town.value.projects[place.id];
+  if (!plotUnlocked(town.value, place.id))
+    return t('Unlock at {building} level 2', { building: t(BUILDING_BY_ID[place.kind].shortName) });
+  if (project)
+    return t('Under construction · {wins}/{required}', {
+      wins: project.wins,
+      required: constructionRuns(project),
+    });
+  return town.value.buildings[place.id]
+    ? t('Level {level} / 3', { level: town.value.buildings[place.id] })
+    : t('Empty plot');
+}
+function repair(stage) {
+  if (!campaign.upgradeBuilding(selected.value, stage)) return;
+  closeDialog();
+  announcement.value = t('Work started at {building}. Play a puzzle to build the next part.', {
+    building: t(BUILDING_BY_ID[selected.value].shortName),
+  });
+  latestMoment.value = {
+    speaker: 'Ada · the caretaker',
+    title: 'The first step is yours.',
+    text: 'The materials are ready. Each completed puzzle will bring this building a little closer to opening day.',
+  };
+}
+function useHammer(project) {
+  if (!campaign.useBuilderHammer(selected.value, project.stage, project.wins)) return;
   const completed = !town.value.projects[selected.value];
-  const upgrade = building.value.upgrades[project.stage - 1];
+  const upgrade = BUILDING_BY_ID[selected.value].upgrades[project.stage - 1];
   latestMoment.value = {
     speaker: upgrade.speaker,
     title: completed ? 'Building complete!' : 'A helping hand.',
@@ -501,44 +359,43 @@ function useHammer() {
   };
   announcement.value = latestMoment.value.title;
 }
-function repair() {
-  if (revealing.value) return;
-  const current = offer.value;
-  if (!current || !campaign.upgradeBuilding(selected.value, current.stage)) return;
-  latestMoment.value = {
-    speaker: 'Ada · the caretaker',
-    title: 'The first step is yours.',
-    text: 'The materials are ready. Each completed puzzle will bring this building a little closer to opening day.',
-  };
-  announcement.value = 'Construction started. Head to the mine to make progress.';
+function finishRaid() {
+  if (!activeRaid.value) return;
+  campaign.markRaidSeen(activeRaid.value.id);
+  activeRaid.value = null;
+  latestMoment.value = banditStory.value;
+  announcement.value = banditStory.value.text;
 }
-const event = computed(() => town.value.events[BANDIT_EVENT]);
-const banditStory = computed(() =>
-  event.value?.outcome === 'protected'
-    ? {
-        speaker: 'Sam · the sheriff',
-        title: 'Not in our town.',
-        text: 'Sam meets the riders at the edge of town. A tip of the hat, a few quiet words, and the bandits ride on. Every coin is safe.',
-      }
-    : event.value?.outcome === 'stolen'
-      ? {
-          speaker: 'Ada · the caretaker',
-          title: 'A little trouble on the trail.',
-          text: t(
-            'The bandits slipped away with {value0} coins. Our homes and savings are safe. Perhaps it’s time to pin up that sheriff’s badge.',
-            { value0: t(event.value.loss) },
-          ),
-        }
-      : {
-          speaker: 'Ada · the caretaker',
-          title: 'Nothing for you here, strangers.',
-          text: 'The riders find nothing to take and move on. Your savings are safe. A sheriff would help keep things that way.',
-        },
-);
-function meetBandits() {
-  if (campaign.resolveBandits()) {
-    latestMoment.value = banditStory.value;
-    announcement.value = banditStory.value.text;
+function replayRaid() {
+  if (!event.value || activeRaid.value) return;
+  activeRaid.value = { ...event.value };
+  raidPhase.value = 'Riders on the ridge';
+  document
+    .querySelector('.town-map-frame')
+    ?.scrollIntoView({ behavior: settings.reducedMotion ? 'instant' : 'smooth', block: 'start' });
+}
+function visibilityChanged() {
+  paused.value = document.hidden;
+}
+onMounted(() => {
+  visibilityChanged();
+  document.addEventListener('visibilitychange', visibilityChanged);
+  const completed = campaign.lastConstruction.filter((project) => project.complete);
+  if (completed.length) {
+    const upgrade = BUILDING_BY_ID[completed[0].id].upgrades[completed[0].stage - 1];
+    latestMoment.value = { speaker: upgrade.speaker, title: upgrade.title, text: upgrade.story };
+    announcement.value = t('Completed buildings: {buildings}.', {
+      buildings: completed.map((project) => t(BUILDING_BY_ID[project.id].shortName)).join(', '),
+    });
   }
-}
+  campaign.lastConstruction = [];
+  campaign.collectSaloonIncome();
+  campaign.resolveBandits();
+  if (event.value && !event.value.seen) activeRaid.value = { ...event.value };
+  if (props.openMuseum && !campaign.canReplay) {
+    selectBuilding('museum');
+    emit('museum-change', false);
+  }
+});
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', visibilityChanged));
 </script>

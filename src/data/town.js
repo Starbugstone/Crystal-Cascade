@@ -1,4 +1,4 @@
-export const BUILDINGS = [
+const ORIGINAL_BUILDINGS = [
   {
     id: 'well',
     name: 'Old town well',
@@ -197,6 +197,164 @@ export const BUILDINGS = [
   },
 ];
 
+// Completed levels are permanent; improvements keep the previous service open.
+const IMPROVEMENTS = {
+  well: [
+    [
+      140,
+      3,
+      'A reliable town pump',
+      'Install the town pump',
+      'Water for twelve neighbors. Unlock a second well plot.',
+    ],
+    [
+      260,
+      4,
+      'Water above the rooftops',
+      'Raise the water tower',
+      'Water for eighteen neighbors, with a tank above the town.',
+    ],
+  ],
+  farm: [
+    [
+      170,
+      4,
+      'A barn full of promise',
+      'Expand the barn',
+      'Food for twelve neighbors. Unlock two more farm plots.',
+    ],
+    [
+      300,
+      5,
+      'Fields of plenty',
+      'Build the farm windmill',
+      'Food for eighteen neighbors and a working windmill.',
+    ],
+  ],
+  home: [
+    [
+      280,
+      5,
+      'A home for generations',
+      'Add a second floor',
+      'Room for six neighbors, with a balcony overlooking the street.',
+    ],
+  ],
+  saloon: [
+    [
+      220,
+      5,
+      'Room for the evening crowd',
+      'Open the upstairs lounge',
+      'Earn 12 coins per hour for each completed house.',
+    ],
+    [
+      350,
+      6,
+      'The heart of the frontier',
+      'Complete the grand saloon',
+      'Earn 18 coins per hour for each completed house.',
+    ],
+  ],
+  stable: [
+    [
+      210,
+      5,
+      'More saddles on the trail',
+      'Add covered stalls',
+      'Two mounted travelers wander through town.',
+    ],
+    [
+      330,
+      6,
+      'A busy frontier stop',
+      'Open the carriage yard',
+      'Three mounted travelers and a carriage yard bring the trail to life.',
+    ],
+  ],
+  sheriff: [
+    [
+      230,
+      6,
+      'A deputy on duty',
+      'Make room for a deputy',
+      'The sheriff and deputy can turn away a gang of four riders.',
+    ],
+    [
+      360,
+      7,
+      'Watch over the whole town',
+      'Build the frontier watchtower',
+      'A full patrol can turn away the largest gang of six riders.',
+    ],
+  ],
+  museum: [
+    [
+      210,
+      5,
+      'The discovery gallery',
+      'Add the discovery gallery',
+      'A new gallery and gem exhibits celebrate your adventures.',
+    ],
+    [
+      330,
+      6,
+      'A frontier landmark',
+      'Complete the museum tower',
+      'A landmark tower and a grand entrance for your collection.',
+    ],
+  ],
+};
+for (const building of ORIGINAL_BUILDINGS) {
+  building.kind = building.id;
+  for (const [cost, runs, stage, title, benefit] of IMPROVEMENTS[building.id] ?? []) {
+    building.stages.push(stage);
+    building.upgrades.push({
+      cost,
+      runs,
+      title,
+      benefit,
+      story: benefit,
+      speaker: building.upgrades[0].speaker,
+    });
+  }
+}
+ORIGINAL_BUILDINGS.find(({ id }) => id === 'home').upgrades[1].benefit =
+  'Room for four neighbors. Unlock three more residential plots.';
+ORIGINAL_BUILDINGS.find(({ id }) => id === 'saloon').upgrades[0].benefit =
+  'Earn 6 coins per hour for each completed house. Neighbors stop by for company.';
+ORIGINAL_BUILDINGS.find(({ id }) => id === 'stable').upgrades[0].benefit =
+  'A mounted traveler wanders through town, with horses resting in the stalls.';
+ORIGINAL_BUILDINGS.find(({ id }) => id === 'sheriff').upgrades[0].benefit =
+  'The sheriff can turn away a gang of two riders. Upgrade as the town grows.';
+export const BUILDINGS = [
+  ...ORIGINAL_BUILDINGS,
+  ...[
+    ['home2', 'home', 'Willow house', 'Home II', 95, 320],
+    ['home3', 'home', 'Sagebrush house', 'Home III', 90, 465],
+    ['home4', 'home', 'Cottonwood house', 'Home IV', 300, 665],
+    ['well2', 'well', 'Prairie well', 'Well II', 640, 675],
+    ['farm2', 'farm', 'Sunrise farm', 'Farm II', 900, 295],
+    ['farm3', 'farm', 'Meadow farm', 'Farm III', 900, 465],
+  ].map(([id, kind, name, shortName, x, y]) => ({
+    ...ORIGINAL_BUILDINGS.find((building) => building.id === kind),
+    id,
+    kind,
+    name,
+    shortName,
+    x,
+    y,
+    unlock: { id: kind, level: 2 },
+    upgrades: ORIGINAL_BUILDINGS.find((building) => building.id === kind).upgrades.map(
+      (upgrade) => ({
+        ...upgrade,
+        benefit: upgrade.benefit.split(' Unlock')[0],
+        story: upgrade.story.split(' Unlock')[0],
+      }),
+    ),
+  })),
+];
+
 export const BUILDING_BY_ID = Object.fromEntries(
   BUILDINGS.map((building) => [building.id, building]),
 );
@@ -213,4 +371,6 @@ export const createTown = () => ({
   buildings: Object.fromEntries(BUILDINGS.map(({ id }) => [id, 0])),
   events: {},
   projects: {},
+  completedRuns: 0,
+  income: { at: null, remainder: 0 },
 });

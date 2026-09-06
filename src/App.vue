@@ -27,12 +27,32 @@
         <img src="/art/amethyst.svg" alt="" />
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
-      <nav v-if="!game.sessionActive" class="world-nav" :aria-label="t('Choose your adventure')">
-        <button :aria-current="view === 'landing' ? 'page' : undefined" @click="showHome">
+      <nav class="world-nav" :aria-label="t('Choose your adventure')">
+        <button
+          :aria-current="!game.sessionActive && view === 'landing' ? 'page' : undefined"
+          @click="showHome"
+        >
           {{ t('Welcome') }}
         </button>
-        <button :aria-current="view === 'town' ? 'page' : undefined" @click="showTown">
+        <button
+          :aria-current="
+            !game.sessionActive && view === 'town' && !returnToMuseum ? 'page' : undefined
+          "
+          @click="showVillage"
+        >
           {{ t('Village') }}
+        </button>
+        <button :aria-current="game.sessionActive ? 'page' : undefined" @click="goToMine">
+          {{ t('Mine') }}
+        </button>
+        <button
+          v-if="campaign.canReplay"
+          :aria-current="
+            !game.sessionActive && view === 'town' && returnToMuseum ? 'page' : undefined
+          "
+          @click="showMuseum"
+        >
+          {{ t('Museum') }}
         </button>
       </nav>
       <div class="header-actions">
@@ -68,6 +88,7 @@
       v-else-if="!game.sessionActive"
       :key="townVisit"
       :open-museum="returnToMuseum"
+      @museum-change="returnToMuseum = $event"
       @mine="startLevel(campaign.nextLevel)"
       @replay="startLevel"
       @continuous="startLevel($event, 'continuous')"
@@ -274,6 +295,20 @@ const showTown = () => {
   view.value = 'town';
   townVisit.value++;
 };
+const showVillage = () => {
+  if (game.sessionActive || view.value !== 'town') showTown();
+  returnToMuseum.value = false;
+};
+const showMuseum = () => {
+  if (game.sessionActive || view.value !== 'town') showTown();
+  returnToMuseum.value = true;
+};
+const goToMine = () => {
+  if (game.sessionActive) return;
+  if (campaign.completedCount >= LEVEL_NAMES.length) {
+    showMuseum();
+  } else startLevel(campaign.nextLevel);
+};
 const showHome = () => {
   game.exitLevel();
   view.value = 'landing';
@@ -289,7 +324,7 @@ const settings = useSettingsStore();
 const audio = useAudio();
 const focusMode = ref(false);
 const mobileDetailsOpen = ref(false);
-let clockInterval;
+let clockInterval, incomeInterval;
 const muted = computed(() => settings.musicVolume === 0 && settings.sfxVolume === 0);
 let previousVolumes = [0.6, 0.8];
 const toggleMute = () => {
@@ -311,6 +346,7 @@ const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score
 const startLevel = (id, mode = 'normal') => {
   if (!campaign.canPlay(id, mode)) return;
   view.value = 'town';
+  returnToMuseum.value = false;
   mobileDetailsOpen.value = false;
   game.startLevel(id, mode);
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -333,11 +369,16 @@ const updateInputPause = () => {
 };
 const visibilityChanged = () => {
   updateInputPause();
+  campaign.collectSaloonIncome();
   if (document.hidden) audio.stopAmbientLoop({ fadeMs: 0 });
   else if (game.sessionActive) audio.playAmbientLoop();
 };
 onMounted(() => {
   game.bootstrap();
+  campaign.collectSaloonIncome();
+  incomeInterval = setInterval(() => {
+    if (!document.hidden) campaign.collectSaloonIncome();
+  }, 30000);
   clockInterval = setInterval(() => game.syncRunClock(), 100);
   game.setAudioManager(audio);
   document.addEventListener('visibilitychange', visibilityChanged);
@@ -354,6 +395,8 @@ watch(
 watch([() => settings.isSettingsOpen, mobileDetailsOpen], updateInputPause, { flush: 'sync' });
 onBeforeUnmount(() => {
   clearInterval(clockInterval);
+  clearInterval(incomeInterval);
+  campaign.collectSaloonIncome();
   document.removeEventListener('visibilitychange', visibilityChanged);
   game.exitLevel();
   game.setAudioManager(null);

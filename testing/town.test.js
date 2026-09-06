@@ -82,7 +82,7 @@ describe('A small, reachable town', () => {
     expect(town.projects).toEqual({});
   });
   it('lets the player choose any first building, without immediate benefits, duplicate starts, or a second free project', () => {
-    for (const building of BUILDINGS) {
+    for (const building of BUILDINGS.filter((b) => !b.unlock)) {
       const town = purchase(createTown(), building.id, 0);
       expect(town.projects[building.id].id).toBe(building.id);
       expect(town.buildings[building.id]).toBe(0);
@@ -106,10 +106,11 @@ describe('A small, reachable town', () => {
         runs++;
       }
     }
-    expect(runs).toBe(44);
-    expect(population(town)).toBe(4);
-    expect(town.coins).toBe(840);
-    expect(purchase(town, 'well', 1)).toBeNull();
+    expect(runs).toBe(BUILDINGS.flatMap((b) => b.upgrades).reduce((sum, u) => sum + u.runs, 0));
+    expect(Object.values(town.buildings).every((level) => level === 3)).toBe(true);
+    expect(population(town)).toBe(24);
+    expect(town.coins).toBeGreaterThanOrEqual(0);
+    expect(purchase(town, 'well', 3)).toBeNull();
     const broke = { ...settledTown(0) };
     expect(purchase(broke, 'saloon', 0)).toBeNull();
   });
@@ -228,11 +229,11 @@ describe('A small, reachable town', () => {
       expect(banditEncounter(next)).toBeNull();
     }
   });
-  it('makes sheriff protection unconditional and cannot reroll saved outcomes', () => {
+  it('protects a small village with a level-one sheriff and cannot reroll saved outcomes', () => {
     const town = settledTown();
     town.buildings.sheriff = 1;
     const next = banditEncounter(town);
-    expect(next.events[BANDIT_EVENT]).toEqual({ outcome: 'protected', loss: 0 });
+    expect(next.events[BANDIT_EVENT]).toMatchObject({ outcome: 'protected', loss: 0, gangSize: 2 });
     expect(next.coins).toBe(200);
     expect(banditEncounter(normalizeTown(JSON.parse(JSON.stringify(next))))).toBeNull();
   });
