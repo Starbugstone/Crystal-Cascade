@@ -4,7 +4,6 @@ import { MatchEngine } from '../src/game/engine/MatchEngine';
 import { HintEngine } from '../src/game/engine/HintEngine';
 import { TileManager } from '../src/game/engine/TileManager';
 import { canSwapGem, layerCount } from '../src/game/engine/TileRules';
-import { GEM_TYPES } from '../src/game/engine/GemFactory';
 import { detectBonusFromMatches } from '../src/game/engine/MatchPatterns';
 
 const levels = generateLevelConfigs();
@@ -20,8 +19,10 @@ it.each(levels.map((level) => [level.id, level]))(
   (id, level) => {
     const cols = level.boardCols;
     const rows = level.boardRows;
-    const gemTypes = GEM_TYPES.slice(0, level.boardLayout.gemTypeCount);
-    for (const seed of [1, 19, 73]) {
+    const gemTypes = level.boardLayout.gemTypes;
+    const turnCounts = [];
+    const seeds = id <= 12 ? Array.from({ length: 30 }, (_, i) => i + 1) : [1, 19, 73];
+    for (const seed of seeds) {
       let randomState = id * seed * 7919;
       vi.spyOn(Math, 'random').mockImplementation(() => {
         randomState = (randomState * 16807) % 2147483647;
@@ -83,12 +84,24 @@ it.each(levels.map((level) => [level.id, level]))(
         );
         expect(collected + board.filter((gem) => gem?.type === 'relic').length).toBe(initialRelics);
       }
+      // A solvable board can still be a slog. Guard the paced campaign against
+      // returning to the previous 90–250 move outliers on these fixed seeds.
+      expect(turns).toBeLessThanOrEqual(id <= 12 ? 30 : 60);
+      turnCounts.push(turns);
+      expect(shuffles).toBeLessThanOrEqual(id <= 12 ? 0 : 3);
       expect({
         seed,
         remaining: remaining(),
         layers: initialLayers - cleared,
         relics: initialRelics - collected,
       }).toEqual({ seed, remaining: false, layers: 0, relics: 0 });
+    }
+    if (id <= 12) {
+      turnCounts.sort((a, b) => a - b);
+      const median = (turnCounts[14] + turnCounts[15]) / 2;
+      // Guard both ends: approachable should not mean a two-move level.
+      expect(median).toBeGreaterThanOrEqual(id <= 6 ? 8 : 9);
+      expect(median).toBeLessThanOrEqual(id <= 6 ? 10 : 13);
     }
   },
   15000,
