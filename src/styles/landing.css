@@ -1,0 +1,267 @@
+.frontier-landing {
+  max-width: 1320px;
+  margin: auto;
+  padding: 28px 28px 0;
+  font-family: 'Segoe UI', sans-serif;
+}
+.landing-hero {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  align-items: center;
+  gap: 25px;
+  min-height: 610px;
+}
+.landing-copy {
+  position: relative;
+  z-index: 1;
+  padding: 22px 0;
+}
+.landing-copy .town-kicker {
+  color: #7b8e70;
+  letter-spacing: 2px;
+}
+.landing-copy .town-kicker span {
+  margin-right: 8px;
+  color: #b69352;
+}
+.landing-copy h1 {
+  font:
+    400 clamp(40px, 4.7vw, 65px)/1.1 Georgia,
+    serif;
+  letter-spacing: -2px;
+  color: #40594b;
+  margin: 25px 0;
+}
+.landing-copy h1 em {
+  color: #9a7a49;
+  font-weight: 400;
+}
+.landing-intro {
+  font-size: 16px;
+  line-height: 1.9;
+  color: #707665;
+  max-width: 460px;
+}
+.frontier-landing .landing-enter {
+  margin-top: 30px;
+  width: min(100%, 315px);
+  font-size: 15px;
+  padding: 19px 22px;
+}
+.landing-promise {
+  font-size: 12px;
+  color: #8a886d;
+  margin-top: 15px;
+}
+.landing-vista {
+  position: relative;
+  min-width: 0;
+}
+.landing-vista > svg {
+  width: 100%;
+  height: auto;
+  border-radius: 46% 46% 18px 18px;
+  overflow: hidden;
+}
+.vista-caption {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff8e8e3;
+  padding: 14px 28px;
+  white-space: nowrap;
+  text-align: center;
+  border: 1px solid #d8c59a;
+  border-radius: 6px;
+  font:
+    12px Georgia,
+    serif;
+  letter-spacing: 2px;
+  color: #596753;
+  box-shadow: 0 4px 20px #675b2910;
+}
+.vista-caption small {
+  display: block;
+  font:
+    italic 12px Georgia,
+    serif;
+  color: #8b886b;
+  margin-top: 5px;
+  letter-spacing: 0;
+}
+.landing-crystal {
+  position: absolute;
+  width: 82px;
+  left: 16px;
+  top: 12%;
+  transform: rotate(-12deg);
+  filter: drop-shadow(0 12px 12px #8366a236);
+}
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  padding: 42px 0;
+  border-block: 1px solid #ddd9c9;
+}
+.landing-steps article {
+  position: relative;
+}
+.landing-steps .step-number {
+  float: right;
+  font:
+    italic 38px Georgia,
+    serif;
+  color: #d4c8ab;
+}
+.landing-steps svg {
+  width: 29px;
+  height: 29px;
+  color: #809278;
+  margin-bottom: 15px;
+}
+.landing-steps h2 {
+  font:
+    400 25px Georgia,
+    serif;
+  color: #4b6351;
+  margin-bottom: 12px;
+}
+.landing-steps p,
+.landing-invitation p {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #7e806c;
+}
+.landing-invitation {
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  padding: 50px 0;
+}
+.landing-invitation h2 {
+  font:
+    400 31px/1.25 Georgia,
+    serif;
+  margin: 12px 0 16px;
+}
+.landing-invitation > div:first-child {
+  max-width: 690px;
+}
+.landing-treasures {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+}
+.landing-treasures img {
+  width: clamp(55px, 7vw, 100px);
+  filter: drop-shadow(0 6px 6px #9a89592b);
+}
+.landing-treasures img:nth-child(2) {
+  transform: translateY(-10px) rotate(12deg);
+}
+.landing-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  border-top: 1px solid #ddd9c9;
+  padding: 24px 0;
+  font-size: 10px;
+  color: #8a8c76;
+}
+.continuous-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  border: 1px solid #98bb9b55;
+  border-radius: 10px;
+  background: #558b7440;
+  padding: 12px 15px;
+  color: #deead8;
+  font-size: 11px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.continuous-banner strong {
+  display: block;
+  font-size: 15px;
+  color: #f5dd99;
+}
+@media (max-width: 850px) {
+  .landing-hero {
+    min-height: 500px;
+  }
+  .landing-copy h1 {
+    font-size: 42px;
+  }
+  .landing-intro {
+    font-size: 14px;
+  }
+  .landing-steps {
+    gap: 22px;
+  }
+  .landing-invitation {
+    gap: 20px;
+  }
+}
+@media (max-width: 600px) {
+  .frontier-landing {
+    padding: 22px 20px 0;
+  }
+  .landing-hero {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .landing-copy {
+    padding: 0;
+  }
+  .landing-copy h1 {
+    font-size: 43px;
+    margin: 20px 0;
+  }
+  .landing-copy .town-kicker {
+    font-size: 8px;
+  }
+  .landing-vista {
+    margin: 18px 0 25px;
+  }
+  .frontier-landing .landing-enter {
+    margin-top: 22px;
+  }
+  .landing-crystal {
+    width: 60px;
+  }
+  .landing-steps {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 30px 0;
+  }
+  .landing-steps h2 {
+    font-size: 25px;
+  }
+  .landing-steps p {
+    max-width: 400px;
+  }
+  .landing-invitation {
+    flex-direction: column;
+    align-items: start;
+    gap: 28px;
+    padding: 32px 0;
+  }
+  .landing-treasures {
+    align-self: center;
+  }
+  .landing-treasures img {
+    width: 70px;
+  }
+  .landing-footer {
+    flex-direction: column;
+  }
+  .continuous-banner {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+}

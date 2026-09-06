@@ -286,7 +286,6 @@
 }
 
 @media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
-  .is-playing .app-header,
   .is-playing .game-sidebar {
     display: none;
   }
@@ -312,7 +311,10 @@
     width: min(
       100%,
       calc(
-        (100dvh - 192px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) *
+        (
+            100dvh - 236px - var(--mode-space, 0px) - env(safe-area-inset-top, 0px) -
+              env(safe-area-inset-bottom, 0px)
+          ) *
           var(--board-ratio) + 12px
       )
     );
@@ -353,7 +355,10 @@
     gap: 0 16px;
     align-items: center;
     max-width: calc(
-      (100dvh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) *
+      (
+          100dvh - 176px - var(--mode-space, 0px) - env(safe-area-inset-top) -
+            env(safe-area-inset-bottom)
+        ) *
         var(--board-ratio) + 124px
     );
     margin-inline: auto;
@@ -394,5 +399,66 @@
   }
   .is-playing .board-caption {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
+  .app-shell.is-playing .app-header {
+    display: flex;
+    justify-content: center;
+    height: 44px;
+    padding: 2px 12px;
+  }
+  .app-shell.is-playing .app-header .brand,
+  .app-shell.is-playing .app-header .header-actions {
+    display: none;
+  }
+  .app-shell.is-playing .world-nav {
+    width: min(100%, 400px);
+    padding: 2px;
+  }
+  .app-shell.is-playing .world-nav button {
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
+  .is-playing .play-area:has(.continuous-banner) {
+    --mode-space: 48px;
+  }
+  .is-playing .continuous-banner {
+    box-sizing: border-box;
+    flex-wrap: nowrap;
+    height: 42px;
+    padding: 6px 9px;
+    margin-bottom: 6px;
+    gap: 8px;
+    line-height: 1.3;
+  }
+  .is-playing .continuous-banner strong {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .is-playing .continuous-banner > div > span {
+    display: none;
+  }
+  .is-playing .continuous-banner > span {
+    max-width: 145px;
+    font-size: 9px;
+    text-align: right;
+  }
+}
+@media (max-height: 500px) and (min-width: 480px) and (max-width: 1000px) {
+  .is-playing .play-area:has(.continuous-banner) {
+    --mode-space: 12px;
+  }
+  .is-playing .continuous-banner {
+    grid-column: 1 / -1;
+  }
+  .is-playing .play-area:has(.continuous-banner) .arcade-announcer {
+    display: none;
   }
 }

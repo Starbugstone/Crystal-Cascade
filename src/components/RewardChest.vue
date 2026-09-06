@@ -2,7 +2,7 @@
   <section
     class="arcade-chest"
     :class="[reward.source, reward.id, phase]"
-    aria-label="Chest opening"
+    :aria-label="t('Chest opening')"
   >
     <div class="chest-backdrop" aria-hidden="true">
       <div class="prize-rays"></div>
@@ -23,28 +23,34 @@
       <div v-if="phase === 'opening' || phase === 'opened'" class="prize-burst" :key="phase"></div>
     </div>
     <header class="chest-topbar">
-      <span class="arcade-kicker">LEVEL CLEAR <b>✦</b> BONUS ROUND</span>
-      <button class="arcade-skip" @click="$emit('skip')">Skip to results <span>↗</span></button>
+      <span class="arcade-kicker"> {{ t('LEVEL CLEAR') }} <b>✦</b> {{ t('BONUS ROUND') }} </span>
+      <button class="arcade-skip" @click="$emit('skip')">
+        {{ t('Skip to results') }} <span>↗</span>
+      </button>
     </header>
     <div class="chest-stage">
       <div class="chest-announcement">
-        <span class="chest-counter"
-          >CHEST {{ chestIndex + 1 }} / {{ totalChests }} · {{ reward.label }}</span
+        <span class="chest-counter">
+          {{ t('CHEST') }} {{ chestIndex + 1 }} / {{ totalChests }} · {{ t(reward.label) }}</span
         >
         <h2>
           {{
-            phase === 'opened'
-              ? 'JACKPOT!'
-              : reward.source === 'speed'
-                ? 'SPEED DEMON!'
-                : 'HIGH SCORE!'
+            t(
+              phase === 'opened'
+                ? 'JACKPOT!'
+                : reward.source === 'speed'
+                  ? 'SPEED DEMON!'
+                  : 'HIGH SCORE!',
+            )
           }}
         </h2>
         <p>
           {{
-            reward.source === 'speed'
-              ? 'You beat the clock. Here’s your speed chest.'
-              : 'You crushed the target. Here’s your score chest.'
+            t(
+              reward.source === 'speed'
+                ? 'You beat the clock. Here’s your speed chest.'
+                : 'You crushed the target. Here’s your score chest.',
+            )
           }}
         </p>
       </div>
@@ -52,7 +58,7 @@
         <div class="chest-halo"></div>
         <button
           class="chest-trigger"
-          :aria-label="`Open ${reward.source} chest`"
+          :aria-label="t('Open {value0} chest', { value0: t(reward.source) })"
           :disabled="phase !== 'closed'"
           autofocus
           @click="open"
@@ -131,13 +137,14 @@
             </g>
           </svg>
           <span class="chest-tap" aria-hidden="true"
-            >{{ phase === 'charging' ? 'POWERING UP…' : 'TAP TO OPEN' }} <b>✦</b></span
+            >{{ t(phase === 'charging' ? 'POWERING UP…' : 'TAP TO OPEN') }} <b>✦</b></span
           >
         </button>
         <div class="chest-value">
           <b>1</b
-          ><span
-            >POWER-UP<small>{{ reward.source.toUpperCase() }} REWARD</small></span
+          ><span>
+            {{ t('SURPRISE') }}
+            <small>{{ t(reward.source.toUpperCase()) }} {{ t('REWARD') }} </small></span
           >
         </div>
       </div>
@@ -149,7 +156,7 @@
       >
         <div class="slot-lights" aria-hidden="true"></div>
         <div class="slot-marquee">
-          <span>✦</span> {{ phase === 'opened' ? 'BONUS WON!' : 'BONUS SPIN' }} <span>✦</span>
+          <span>✦</span> {{ t(phase === 'opened' ? 'BONUS WON!' : 'BONUS SPIN') }} <span>✦</span>
         </div>
         <div class="slot-housing" aria-hidden="true">
           <span class="slot-pointer left">▶</span>
@@ -166,8 +173,8 @@
                 class="slot-symbol"
                 :class="{ 'winning-symbol': index === stopIndex }"
               >
-                <img :src="`/art/powers/${power.id}.svg`" alt="" />
-                <span>{{ power.label }}</span>
+                <img :src="rewardArt(power)" alt="" />
+                <span>{{ t(power.label) }}</span>
               </div>
             </div>
             <div class="slot-payline"></div>
@@ -176,44 +183,68 @@
         </div>
         <div class="slot-result" role="status" aria-live="polite" aria-atomic="true">
           <template v-if="phase === 'opened'"
-            ><b>+1</b><strong>{{ prize.label }}</strong
-            ><span>ADDED TO YOUR COLLECTION</span></template
+            ><b>+{{ prize.quantity ?? 1 }}</b
+            ><strong>{{ t(prize.label) }}</strong
+            ><span>
+              {{
+                t(
+                  prize.convertedFrom
+                    ? 'STORAGE FULL · EXCHANGED FOR COINS'
+                    : prize.kind === 'coins'
+                      ? 'ADDED TO YOUR VILLAGE SAVINGS'
+                      : prize.kind === 'builder-hammer'
+                        ? 'USE ON A CONSTRUCTION IN THE VILLAGE'
+                        : 'ADDED TO YOUR ARMORY',
+                )
+              }}
+            </span></template
           >
-          <template v-else><strong>LET IT ROLL!</strong><span>ONE SPIN. ONE BONUS.</span></template>
+          <template v-else
+            ><strong> {{ t('LET IT ROLL!') }} </strong
+            ><span> {{ t('ONE SPIN. ONE SURPRISE.') }} </span></template
+          >
         </div>
         <button
           v-if="phase === 'opened'"
           ref="continueButton"
           class="prize-continue"
-          :aria-label="`${prize.label}: ${chestIndex + 1 < totalChests ? 'open next chest' : 'see your results'}`"
+          :aria-label="
+            t('{value0}: {value1}', {
+              value0: t(prize.label),
+              value1: t(chestIndex + 1 < totalChests ? 'open next chest' : 'see your results'),
+            })
+          "
           @click="$emit('continue')"
         ></button>
       </div>
     </div>
     <footer class="chest-controls">
-      <p v-if="phase === 'closed'" class="chest-open-hint">Your next power-up is inside.</p>
+      <p v-if="phase === 'closed'" class="chest-open-hint">
+        {{ t('Puzzle bonuses, coins, or a builder hammer await.') }}
+      </p>
       <button
         v-else-if="phase === 'charging' || phase === 'opening'"
         class="arcade-button secondary"
         @click="finish"
       >
-        REVEAL BONUS <span>»</span>
+        {{ t('REVEAL BONUS') }} <span>»</span>
       </button>
       <p v-else class="chest-next-hint">
-        TAP YOUR BONUS <span>→</span>
+        {{ t('TAP YOUR BONUS') }} <span>→</span>
         <small>{{
-          chestIndex + 1 < totalChests ? 'OPEN THE NEXT CHEST' : 'SEE YOUR RESULTS'
+          t(chestIndex + 1 < totalChests ? 'OPEN THE NEXT CHEST' : 'SEE YOUR RESULTS')
         }}</small>
       </p>
       <span class="chest-save-note">{{
-        totalChests > 1 ? 'SCORE + SPEED · DOUBLE CHEST RUN' : 'EARNED IT. KEEP IT. USE IT.'
+        t(totalChests > 1 ? 'SCORE + SPEED · DOUBLE CHEST RUN' : 'EARNED IT. KEEP IT. USE IT.')
       }}</span>
     </footer>
   </section>
 </template>
 <script setup>
+import { t } from '../i18n';
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { POWERS as powers } from '../data/campaign';
+import { CHEST_DROPS as powers, rewardArt } from '../data/rewards';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 const props = defineProps({

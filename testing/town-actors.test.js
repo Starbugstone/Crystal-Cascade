@@ -1,0 +1,105 @@
+import { describe, expect, it, vi } from 'vitest';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Matrix4, Scene, Vector3 } from 'three';
+import { TownActors } from '../src/game/town/TownActors';
+import { TownDiorama, PLOTS } from '../src/game/town/TownDiorama';
+import { TownRaid } from '../src/game/town/TownActivity';
+
+// Exercise articulated geometry and its timeline without requiring a GPU.
+function diorama() {
+  const d = Object.create(TownDiorama.prototype);
+  d.scene = new Scene();
+  d.world = new Group();
+  d.scene.add(d.world);
+  const geometry = new BoxGeometry();
+  d.geometries = Object.fromEntries(
+    ['box', 'rounded', 'sphere', 'rock', 'cylinder', 'cone', 'shadow'].map((key) => [
+      key,
+      geometry,
+    ]),
+  );
+  d.materials = new Map();
+  d.contactShadowMaterial = new MeshBasicMaterial();
+  d.elapsed = 0;
+  d.actors = [];
+  return d;
+}
+describe('A visible, articulated frontier encounter', () => {
+  it('draws shared actor parts together, follows moving joints, and hides indoor visitors', () => {
+    const scene = new Scene(),
+      root = new Group(),
+      joint = new Group();
+    const geometry = new BoxGeometry(),
+      material = new MeshBasicMaterial();
+    const first = new Mesh(geometry, material),
+      second = new Mesh(geometry, material);
+    scene.add(root);
+    root.add(first, joint);
+    joint.add(second);
+    const renderer = new TownActors(scene);
+    renderer.rebuild([root]);
+    expect(renderer.buckets).toHaveLength(1);
+    expect(renderer.buckets[0].mesh.count).toBe(2);
+    root.position.x = 3;
+    joint.position.y = 2;
+    renderer.update();
+    const matrix = new Matrix4();
+    renderer.buckets[0].mesh.getMatrixAt(1, matrix);
+    expect(new Vector3().setFromMatrixPosition(matrix).toArray()).toEqual([3, 2, 0]);
+    joint.visible = false;
+    renderer.update();
+    expect(renderer.buckets[0].mesh.count).toBe(1);
+    root.visible = false;
+    renderer.update();
+    expect(renderer.buckets[0].mesh.count).toBe(0);
+    renderer.dispose();
+    expect(renderer.group.parent).toBeNull();
+  });
+  it('rides in, signals a robbery, carries loot out, and removes the cast on completion', () => {
+    const d = diorama(),
+      complete = vi.fn(),
+      phase = vi.fn();
+    const event = {
+      gangSize: 4,
+      sheriffLevel: 1,
+      targets: ['mine', 'saloon'],
+      outcome: 'stolen',
+      loss: 10,
+    };
+    const saved = JSON.stringify(event);
+    const raid = new TownRaid(d, event, PLOTS, phase, complete);
+    expect(raid.bandits).toHaveLength(4);
+    expect(raid.patrol).toHaveLength(1);
+    expect(raid.bandits[0].root.position.x).toBeGreaterThan(10);
+    raid.update(5.01);
+    expect(phase).toHaveBeenLastCalledWith('Warning shots');
+    expect(raid.bandits[0].gun.visible).toBe(true);
+    expect(raid.bandits[0].flash.visible).toBe(true);
+    raid.update(12.5);
+    expect(raid.bandits[0].loot.visible).toBe(false); // Chased off by the existing sheriff.
+    expect(raid.bandits[3].loot.visible).toBe(true);
+    const before = raid.bandits[3].root.position.clone();
+    raid.update(16);
+    expect(raid.bandits[3].root.position.distanceTo(before)).toBeGreaterThan(1);
+    expect(raid.update(21)).toBe(true);
+    expect(complete).toHaveBeenCalledOnce();
+    expect(raid.root.parent).toBeNull();
+    expect(JSON.stringify(event)).toBe(saved);
+  });
+  it('shows a full patrol with no loot for a protected town', () => {
+    const d = diorama(),
+      phase = vi.fn();
+    const raid = new TownRaid(
+      d,
+      { gangSize: 6, sheriffLevel: 3, targets: ['mine', 'saloon'], outcome: 'protected', loss: 0 },
+      PLOTS,
+      phase,
+      vi.fn(),
+    );
+    raid.update(10.5);
+    expect(phase).toHaveBeenLastCalledWith('The law holds the line');
+    expect(raid.patrol.filter((actor) => actor.root.visible)).toHaveLength(3);
+    expect(raid.bandits.every((actor) => !actor.loot.visible)).toBe(true);
+    raid.dispose();
+    expect(raid.root.parent).toBeNull();
+  });
+});

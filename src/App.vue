@@ -3,6 +3,7 @@
     class="app-shell"
     :class="{
       'is-playing': game.sessionActive,
+      'is-town': !game.sessionActive,
       'focus-mode': focusMode,
       'reduced-motion': settings.reducedMotion,
       'high-contrast': settings.highContrastMode,
@@ -22,21 +23,53 @@
     </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
-      <button class="brand" aria-label="Crystal Cascade home" @click="game.exitLevel()">
+      <button class="brand" :aria-label="t('Crystal Cascade home')" @click="showHome">
         <img src="/art/amethyst.svg" alt="" />
         <span>CRYSTAL <b>CASCADE</b></span>
       </button>
+      <nav class="world-nav" :aria-label="t('Choose your adventure')">
+        <button
+          :aria-current="!game.sessionActive && view === 'landing' ? 'page' : undefined"
+          @click="showHome"
+        >
+          {{ t('Welcome') }}
+        </button>
+        <button
+          :aria-current="
+            !game.sessionActive && view === 'town' && !returnToMuseum ? 'page' : undefined
+          "
+          @click="showVillage"
+        >
+          {{ t('Village') }}
+        </button>
+        <button :aria-current="game.sessionActive ? 'page' : undefined" @click="goToMine">
+          {{ t('Mine') }}
+        </button>
+        <button
+          v-if="campaign.canReplay"
+          :aria-current="
+            !game.sessionActive && view === 'town' && returnToMuseum ? 'page' : undefined
+          "
+          @click="showMuseum"
+        >
+          {{ t('Museum') }}
+        </button>
+      </nav>
       <div class="header-actions">
-        <span class="edition">BIG MATCHES. BIGGER REWARDS.</span>
+        <span class="edition"> {{ t('BIG MATCHES. BIGGER REWARDS.') }} </span>
         <button
           class="icon-button"
-          :aria-label="muted ? 'Unmute audio' : 'Mute audio'"
+          :aria-label="t(muted ? 'Unmute audio' : 'Mute audio')"
           :aria-pressed="muted"
           @click="toggleMute"
         >
           <GameIcon :name="muted ? 'muted' : 'sound'" />
         </button>
-        <button class="icon-button" aria-label="Settings" @click="settings.toggleSettings(true)">
+        <button
+          class="icon-button"
+          :aria-label="t('Settings')"
+          @click="settings.toggleSettings(true)"
+        >
           <GameIcon name="settings" />
         </button>
       </div>
@@ -47,69 +80,73 @@
       :muted="muted"
       :level-name="levelName"
       @toggle-mute="toggleMute"
+      @town="showTown"
     />
 
-    <main v-if="!game.sessionActive" class="welcome">
-      <section class="hero">
-        <span class="eyebrow"><i></i> THE CRYSTAL ARCADE</span>
-        <h1>MATCH.<br /><em>GO MEGA.</em></h1>
-        <p>Chase the combo. Beat the clock.<br />Two chests. One brilliant run.</p>
-        <div class="crystal-orbit" aria-hidden="true">
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <img class="hero-gem" src="/art/amethyst.svg" alt="" />
-          <img class="satellite satellite-one" src="/art/emerald.svg" alt="" />
-          <img class="satellite satellite-two" src="/art/topaz.svg" alt="" />
-          <img class="satellite satellite-three" src="/art/ruby.svg" alt="" />
-          <span class="orbit-spark">✦</span>
-        </div>
-        <div class="hero-note">
-          <GameIcon name="spark" /><span>Match. Blast. <b>Hit the jackpot.</b></span>
-        </div>
-      </section>
-      <LevelSelectModal @start-level="startLevel" />
-    </main>
+    <LandingView v-if="!game.sessionActive && view === 'landing'" @enter="showTown" />
+    <TownView
+      v-else-if="!game.sessionActive"
+      :key="townVisit"
+      :open-museum="returnToMuseum"
+      @museum-change="returnToMuseum = $event"
+      @mine="startLevel(campaign.nextLevel)"
+      @replay="startLevel"
+      @continuous="startLevel($event, 'continuous')"
+    />
 
     <main v-else class="game-layout">
       <aside class="game-sidebar">
-        <button class="text-button back-button" @click="game.exitLevel()">
-          <GameIcon name="back" /> The collection
+        <button class="text-button back-button" @click="showTown">
+          <GameIcon name="back" /> {{ t('Back to village') }}
         </button>
         <div class="level-heading">
-          <span class="eyebrow">LEVEL {{ String(game.currentLevelId).padStart(2, '0') }}</span>
-          <h1>{{ levelName }}</h1>
-          <p>{{ currentConfig?.chapterName }}</p>
+          <span class="eyebrow">
+            {{ t('LEVEL') }} {{ String(game.currentLevelId).padStart(2, '0') }}</span
+          >
+          <h1>{{ t(levelName) }}</h1>
+          <p>{{ t(currentConfig?.chapterName) }}</p>
         </div>
         <HudPanel />
         <div class="match-guide">
-          <span class="eyebrow">MAKE SOME MAGIC</span>
+          <span class="eyebrow"> {{ t('MAKE SOME MAGIC') }} </span>
           <div class="bonus-legend">
             <div>
               <img src="/art/bonuses/bomb.svg" alt="" /><span
-                ><b>Blast bomb</b><small>Match 4 · Blast a 3 × 3 area</small></span
+                ><b> {{ t('Blast bomb') }} </b
+                ><small> {{ t('Match 4 · Blast a 3 × 3 area') }} </small></span
               >
             </div>
             <div>
               <img src="/art/bonuses/rainbow.svg" alt="" /><span
-                ><b>Rainbow orb</b><small>Match 5 · Clear a color</small></span
+                ><b> {{ t('Rainbow orb') }} </b
+                ><small> {{ t('Match 5 · Clear a color') }} </small></span
               >
             </div>
             <div>
               <img src="/art/bonuses/cross.svg" alt="" /><span
-                ><b>Cross fire</b><small>T or L · Clear row + column</small></span
+                ><b> {{ t('Cross fire') }} </b
+                ><small> {{ t('T or L · Clear row + column') }} </small></span
               >
             </div>
           </div>
           <p>
-            Break the ice beneath your matches. Match beside stone to release the gems above. Gold
-            bands take two hits.
+            {{
+              t(
+                'Break the ice beneath your matches. Match beside stone to release the gems above. Gold bands take two hits.',
+              )
+            }}
           </p>
           <p class="fusion-tip">
-            Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a
-            whole color into bombs or lasers.
+            {{
+              t(
+                'Swap two bonuses for a bigger blast and double obstacle damage. Rainbow fusions turn a whole color into bombs or lasers.',
+              )
+            }}
           </p>
-          <p v-if="game.currentLevelId >= 43">{{ currentConfig?.tip }}</p>
-          <span class="guide-footnote">Beat the score. Beat the clock. Win both chests.</span>
+          <p v-if="game.currentLevelId >= 43">{{ t(currentConfig?.tip) }}</p>
+          <span v-if="game.playMode !== 'continuous'" class="guide-footnote">{{
+            t('Beat the score. Beat the clock. Win both chests.')
+          }}</span>
         </div>
       </aside>
       <section
@@ -120,18 +157,37 @@
           '--fusion-color': game.arcadeImpact?.color,
         }"
       >
+        <div v-if="game.playMode === 'continuous'" class="continuous-banner" role="status">
+          <div>
+            <strong>∞ {{ t('Continuous play') }}</strong
+            ><span>{{
+              t('Keep matching after the objectives. No chests or construction steps.')
+            }}</span>
+          </div>
+          <span>{{
+            t('{earned}/{cap} coins saved for this level', {
+              earned: campaign.continuousRecords[game.currentLevelId]?.coins ?? 0,
+              cap: CONTINUOUS_COIN_CAP,
+            })
+          }}</span>
+        </div>
         <ArcadeBanner :banner="game.arcadeBanner" />
         <div class="board-topline">
           <span
             ><i class="live-dot"></i
             >{{
-              game.activeBonusMode
-                ? 'CHOOSE A TILE'
-                : `LEVEL ${String(game.currentLevelId).padStart(2, '0')} · ${currentConfig?.chapterName ?? 'FOLLOW THE CASCADE'}`
+              t(
+                game.activeBonusMode
+                  ? 'CHOOSE A TILE'
+                  : t('LEVEL {value0} · {value1}', {
+                      value0: String(game.currentLevelId).padStart(2, '0'),
+                      value1: t(currentConfig?.chapterName ?? 'FOLLOW THE CASCADE'),
+                    }),
+              )
             }}</span
           ><button
             class="icon-button"
-            :aria-label="focusMode ? 'Exit focus mode' : 'Enter focus mode'"
+            :aria-label="t(focusMode ? 'Exit focus mode' : 'Enter focus mode')"
             :aria-pressed="focusMode"
             @click="focusMode = !focusMode"
           >
@@ -152,24 +208,26 @@
           <BoardCanvas />
           <transition name="notice"
             ><div v-if="game.reshuffleNotice" class="board-notice" role="status">
-              {{ game.reshuffleNotice.message }}
+              {{ t(game.reshuffleNotice.message) }}
             </div></transition
           >
         </div>
         <div class="board-caption" aria-live="polite">
-          <template v-if="game.activeBonusMode"
-            >Tap a tile to use {{ powerName }}
-            <button class="text-button" @click="game.setBonusMode(null)">Cancel</button></template
+          <template v-if="game.activeBonusMode">
+            {{ t('Tap a tile to use') }} {{ t(powerName) }}
+            <button class="text-button" @click="game.setBonusMode(null)">
+              {{ t('Cancel') }}
+            </button></template
           ><template v-else-if="game.arcadeBanner?.kind === 'fusion'">
-            <strong class="fusion-reward">{{ game.arcadeBanner.detail }}</strong> </template
+            <strong class="fusion-reward">{{ t(game.arcadeBanner.detail) }}</strong> </template
           ><template v-else
             ><span
-              ><strong v-if="game.totalRelics" class="relic-caption"
-                >Relics {{ game.totalRelics - game.remainingRelics }}/{{
+              ><strong v-if="game.totalRelics" class="relic-caption">
+                {{ t('Relics') }} {{ game.totalRelics - game.remainingRelics }}/{{
                   game.totalRelics
                 }}
                 · </strong
-              >{{ currentConfig?.tip }}</span
+              >{{ t(currentConfig?.tip) }}</span
             ></template
           >
         </div>
@@ -177,49 +235,96 @@
       </section>
     </main>
     <footer class="app-footer">
-      <span>CRYSTAL CASCADE</span><span>Big combos. Double chests. One more run.</span
+      <span>CRYSTAL CASCADE</span><span> {{ t('Big combos. Double chests. One more run.') }} </span
       ><span class="footer-spark">✦</span>
     </footer>
     <VictoryModal
       v-if="game.levelCleared"
       :rewards="game.levelRewards"
+      :coins="game.coinReward"
+      :jewels="game.collectedJewels"
+      :construction="game.constructionReward"
       :elapsed-ms="game.elapsedMs"
       :speed-target-ms="game.speedTargetMs"
       :score="game.score"
       :moves="game.moves"
       :max-combo="game.maxCascade"
       :score-target="scoreTarget"
-      :has-next-level="hasNextLevel"
-      @menu="game.exitLevel()"
+      :can-replay="campaign.canReplay"
+      @menu="showTown"
+      @town="showTown"
       @replay="startLevel(game.currentLevelId)"
-      @next="startLevel(game.currentLevelId + 1)"
     />
-    <SettingsDrawer :open="settings.isSettingsOpen" @close="settings.toggleSettings(false)" />
+    <SettingsDrawer
+      :open="settings.isSettingsOpen"
+      @close="settings.toggleSettings(false)"
+      @reset-progress="resetProgress"
+    />
   </div>
 </template>
 
 <script setup>
+import { t } from './i18n';
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
 import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
 import MobileGameHeader from './components/MobileGameHeader.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
-import LevelSelectModal from './components/LevelSelectModal.vue';
+import LandingView from './components/LandingView.vue';
+import './styles/town.css';
+import { CONTINUOUS_COIN_CAP } from './data/rewards';
 import VictoryModal from './components/VictoryModal.vue';
 import SettingsDrawer from './components/SettingsDrawer.vue';
 import GameIcon from './components/GameIcon.vue';
 import { useGameStore } from './stores/gameStore';
+import { useCampaignStore } from './stores/campaignStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useAudio } from './composables/useAudio';
 import { LEVEL_NAMES } from './data/levelNames';
 
 const game = useGameStore();
+const campaign = useCampaignStore();
+const view = ref('landing');
+const townVisit = ref(0);
+const returnToMuseum = ref(false);
+const showTown = () => {
+  returnToMuseum.value = game.playMode === 'continuous';
+  game.exitLevel();
+  view.value = 'town';
+  townVisit.value++;
+};
+const showVillage = () => {
+  if (game.sessionActive || view.value !== 'town') showTown();
+  returnToMuseum.value = false;
+};
+const showMuseum = () => {
+  if (game.sessionActive || view.value !== 'town') showTown();
+  returnToMuseum.value = true;
+};
+const goToMine = () => {
+  if (game.sessionActive) return;
+  if (campaign.completedCount >= LEVEL_NAMES.length) {
+    showMuseum();
+  } else startLevel(campaign.nextLevel);
+};
+const showHome = () => {
+  game.exitLevel();
+  view.value = 'landing';
+};
+const resetProgress = () => {
+  game.exitLevel();
+  campaign.resetProgress();
+  returnToMuseum.value = false;
+  townVisit.value++;
+  view.value = 'town';
+};
 const settings = useSettingsStore();
 const audio = useAudio();
 const focusMode = ref(false);
 const mobileDetailsOpen = ref(false);
-let clockInterval;
+let clockInterval, incomeInterval;
 const muted = computed(() => settings.musicVolume === 0 && settings.sfxVolume === 0);
 let previousVolumes = [0.6, 0.8];
 const toggleMute = () => {
@@ -238,12 +343,13 @@ const currentConfig = computed(
 const levelName = computed(() => LEVEL_NAMES[game.currentLevelId - 1]);
 const powerName = computed(() => game.activeBonusMode?.replaceAll('_', ' '));
 const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 0);
-const hasNextLevel = computed(() =>
-  game.availableLevels.some((level) => level.id === game.currentLevelId + 1),
-);
-const startLevel = (id) => {
+const startLevel = (id, mode = 'normal') => {
+  if (!campaign.canPlay(id, mode)) return;
+  view.value = 'town';
+  returnToMuseum.value = false;
   mobileDetailsOpen.value = false;
-  game.startLevel(id);
+  game.startLevel(id, mode);
+  window.scrollTo({ top: 0, behavior: 'instant' });
   audio.playAmbientLoop();
 };
 watch(
@@ -263,11 +369,16 @@ const updateInputPause = () => {
 };
 const visibilityChanged = () => {
   updateInputPause();
+  campaign.collectSaloonIncome();
   if (document.hidden) audio.stopAmbientLoop({ fadeMs: 0 });
   else if (game.sessionActive) audio.playAmbientLoop();
 };
 onMounted(() => {
   game.bootstrap();
+  campaign.collectSaloonIncome();
+  incomeInterval = setInterval(() => {
+    if (!document.hidden) campaign.collectSaloonIncome();
+  }, 30000);
   clockInterval = setInterval(() => game.syncRunClock(), 100);
   game.setAudioManager(audio);
   document.addEventListener('visibilitychange', visibilityChanged);
@@ -284,6 +395,8 @@ watch(
 watch([() => settings.isSettingsOpen, mobileDetailsOpen], updateInputPause, { flush: 'sync' });
 onBeforeUnmount(() => {
   clearInterval(clockInterval);
+  clearInterval(incomeInterval);
+  campaign.collectSaloonIncome();
   document.removeEventListener('visibilitychange', visibilityChanged);
   game.exitLevel();
   game.setAudioManager(null);

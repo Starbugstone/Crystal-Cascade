@@ -271,6 +271,7 @@ it('shuffles only movable gems and restores chains, seals and relics on replay',
     Array.from({ length: 59 }, (_, i) => [i + 1, { score: 0, stars: 1 }]),
   );
   game.bootstrap();
+  useCampaignStore().town.buildings.museum = 1;
   for (const id of [48, 54, 60]) {
     game.startLevel(id);
     game.animationInProgress = false;

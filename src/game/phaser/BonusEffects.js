@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { BONUS_TYPES } from './SpriteLoader';
 import { BonusComboEffects, describeBonusCombo } from './BonusComboEffects';
 
@@ -77,7 +78,9 @@ export class BonusEffects {
       clear_row: 'ROW ROCKET!',
     };
     this.callout(
-      effects.length > 1 ? `CHAIN REACTION ×${effects.length}` : labels[primary.type],
+      effects.length > 1
+        ? t('CHAIN REACTION ×{count}', { count: effects.length })
+        : t(labels[primary.type]),
       a.position(primary.index),
       color,
     );

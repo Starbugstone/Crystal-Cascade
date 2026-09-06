@@ -3,7 +3,7 @@
     ref="dialog"
     class="arcade-victory"
     :class="{ 'showing-chest': showingChest }"
-    :aria-label="showingChest ? 'Bonus chest reward' : 'Level results'"
+    :aria-label="t(showingChest ? 'Bonus chest reward' : 'Level results')"
     @cancel.prevent="showingChest ? showResults() : $emit('menu')"
   >
     <RewardChest
@@ -16,28 +16,61 @@
       @skip="showResults"
     />
     <section v-else class="arcade-results" aria-labelledby="victory-title">
-      <span class="arcade-kicker"
-        >RUN COMPLETE ·
+      <span class="arcade-kicker">
+        {{ t('RUN COMPLETE ·') }}
         {{
-          rewards.length
-            ? `${rewards.length} ${rewards.length === 1 ? 'CHEST' : 'CHESTS'} EARNED`
-            : 'KEEP THE CASCADE GOING'
+          t(
+            rewards.length
+              ? t('{value0} {value1} EARNED', {
+                  value0: rewards.length,
+                  value1: t(rewards.length === 1 ? 'CHEST' : 'CHESTS'),
+                })
+              : 'KEEP THE CASCADE GOING',
+          )
         }}</span
       >
-      <div class="victory-stars" :aria-label="`${earnedStars} of 3 stars`">
+      <div class="victory-stars" :aria-label="t('{value0} of 3 stars', { value0: t(earnedStars) })">
         <span v-for="i in 3" :key="i" :class="{ earned: i <= earnedStars }">✦</span>
       </div>
-      <h2 id="victory-title">LEVEL CLEAR!</h2>
-      <div class="result-score">{{ score.toLocaleString() }}<small>POINTS</small></div>
+      <h2 id="victory-title">{{ t('LEVEL CLEAR!') }}</h2>
+      <div class="result-score">
+        {{ number(score) }}<small> {{ t('POINTS') }} </small>
+      </div>
+      <div v-if="coins" class="town-run-reward" role="status">
+        <span>✦</span>
+        <div>
+          <strong>+{{ coins }} {{ t('town coins') }} </strong
+          ><small
+            >{{ jewels }} {{ t('jewels sold · 50 completion +') }} {{ coins - 50 }}
+            {{ t('jewel value') }}
+          </small>
+        </div>
+        <button @click="$emit('town')">{{ t('Visit town') }} <GameIcon name="arrow" /></button>
+      </div>
+      <div
+        v-for="project in construction"
+        :key="project.id"
+        class="town-construction-reward"
+        role="status"
+      >
+        <strong>{{
+          t(project.complete ? 'Building complete!' : 'Your building is taking shape')
+        }}</strong>
+        <span
+          >{{ t(BUILDING_BY_ID[project.id].shortName) }} · {{ project.wins }}/{{
+            project.required
+          }}</span
+        >
+      </div>
       <div class="result-stats">
         <div>
-          <span>ACTIVE TIME</span><strong>{{ formatTime(elapsedMs) }}</strong>
+          <span> {{ t('ACTIVE TIME') }} </span><strong>{{ formatTime(elapsedMs) }}</strong>
         </div>
         <div>
-          <span>MOVES</span><strong>{{ moves }}</strong>
+          <span> {{ t('MOVES') }} </span><strong>{{ moves }}</strong>
         </div>
         <div>
-          <span>BEST CASCADE</span><strong>×{{ maxCombo }}</strong>
+          <span> {{ t('BEST CASCADE') }} </span><strong>×{{ maxCombo }}</strong>
         </div>
       </div>
       <div class="result-goals">
@@ -46,33 +79,36 @@
           :key="source"
           :class="{ earned: rewards.some((r) => r.source === source) }"
         >
-          <b>{{ source === 'score' ? '✦' : 'ϟ' }}</b
+          <b>{{ t(source === 'score' ? '✦' : 'ϟ') }}</b
           ><span
-            ><strong>{{ source === 'score' ? 'SCORE CHEST' : 'SPEED CHEST' }}</strong
-            ><small>{{ goalText(source) }}</small></span
+            ><strong>{{ t(source === 'score' ? 'SCORE CHEST' : 'SPEED CHEST') }}</strong
+            ><small>{{ t(goalText(source)) }}</small></span
           ><span class="goal-check">{{
-            rewards.some((r) => r.source === source) ? '✓' : '—'
+            t(rewards.some((r) => r.source === source) ? '✓' : '—')
           }}</span>
         </div>
       </div>
       <p class="result-note">
         {{
-          rewards.length
-            ? 'Your powers are saved. Take them into the next round.'
-            : 'Replay to beat either target and earn a chest.'
+          t(
+            rewards.length
+              ? 'Your rewards are saved. Return to the village to see what’s new.'
+              : 'Visit the museum to replay completed levels and improve your score.',
+          )
         }}
       </p>
-      <button v-if="hasNextLevel" class="result-next" @click="$emit('next')">
-        NEXT LEVEL <GameIcon name="arrow" />
+      <button class="result-next" @click="$emit('town')">
+        {{ t('Back to village') }} <GameIcon name="arrow" />
       </button>
       <div class="victory-actions">
-        <button @click="$emit('menu')">The collection</button
-        ><button @click="$emit('replay')">Play again</button>
+        <button v-if="canReplay" @click="$emit('replay')">{{ t('Play again') }}</button>
       </div>
     </section>
   </dialog>
 </template>
 <script setup>
+import { t, number } from '../i18n';
+import { BUILDING_BY_ID } from '../data/town';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
 import RewardChest from './RewardChest.vue';
@@ -84,10 +120,13 @@ const props = defineProps({
   scoreTarget: { type: Number, default: 0 },
   elapsedMs: { type: Number, default: 0 },
   speedTargetMs: { type: Number, default: 0 },
-  hasNextLevel: Boolean,
+  coins: { type: Number, default: 0 },
+  jewels: { type: Number, default: 0 },
+  construction: { type: Array, default: () => [] },
+  canReplay: Boolean,
   rewards: { type: Array, default: () => [] },
 });
-defineEmits(['menu', 'replay', 'next']);
+defineEmits(['menu', 'replay', 'next', 'town']);
 const dialog = ref(null),
   chestIndex = ref(0),
   showingChest = ref(props.rewards.length > 0);
@@ -112,13 +151,82 @@ const nextChest = () => {
 const earnedStars = computed(() => getStars(props.score, props.scoreTarget, props.maxCombo));
 const goalText = (source) => {
   const reward = props.rewards.find((r) => r.source === source);
-  if (reward) return `${reward.label} · +1 bonus`;
+  if (reward)
+    return t('{chest} · +{quantity} {item}', {
+      chest: t(reward.label),
+      quantity: reward.items[0].quantity,
+      item: t(reward.items[0].label),
+    });
   return source === 'score'
-    ? `Target: ${props.scoreTarget.toLocaleString()} points`
-    : `Target: ${formatTime(props.speedTargetMs)} active play`;
+    ? t('Target: {value0} points', { value0: number(props.scoreTarget) })
+    : t('Target: {value0} active play', { value0: formatTime(props.speedTargetMs) });
 };
 </script>
 <style scoped>
+.town-construction-reward {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #6e927c25;
+  color: #c2dac7;
+  font-size: 12px;
+  text-align: left;
+}
+.town-run-reward {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 18px;
+  border: 1px solid #bb99595c;
+  background: #d6b56810;
+  border-radius: 10px;
+  text-align: left;
+}
+.town-run-reward > span {
+  font-size: 26px;
+  color: #ebcd8d;
+}
+.town-run-reward strong {
+  display: block;
+  font-size: 14px;
+  color: #f4d99b;
+}
+.town-run-reward small {
+  display: block;
+  font-size: 9px;
+  color: #baa9c0;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+.town-run-reward button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 10px;
+  border: 1px solid #b99963;
+  border-radius: 6px;
+  background: #8e693840;
+  color: #f4d99b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.town-run-reward button svg {
+  width: 14px;
+}
+@media (max-width: 360px) {
+  .town-run-reward {
+    flex-wrap: wrap;
+  }
+  .town-run-reward button {
+    margin-left: 36px;
+  }
+}
+
 .arcade-victory {
   position: fixed;
   inset: 0;

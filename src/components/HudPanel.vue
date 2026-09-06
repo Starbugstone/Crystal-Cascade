@@ -1,42 +1,59 @@
 <template>
-  <section class="hud-panel" aria-label="Level progress">
+  <section class="hud-panel" :aria-label="t('Level progress')">
     <div class="score-card">
-      <span class="eyebrow">YOUR BRILLIANCE</span>
+      <span class="eyebrow"> {{ t('YOUR BRILLIANCE') }} </span>
       <div class="score-value" :class="{ 'score-flash': game.scorePenaltyFlash }" :key="game.score">
-        {{ game.score.toLocaleString() }}<span>pts</span>
+        {{ number(game.score) }}<span> {{ t('pts') }} </span>
       </div>
-      <div class="score-stars" aria-label="Chest score progress">
+      <div
+        v-if="game.playMode !== 'continuous'"
+        class="score-stars"
+        :aria-label="t('Chest score progress')"
+      >
         <span>✧</span>
         <div class="score-track">
           <i :style="{ width: `${Math.min(100, (game.score / target) * 100)}%` }"></i>
         </div>
-        <span>✦</span><small>{{ target.toLocaleString() }}</small>
+        <span>✦</span><small>{{ number(target) }}</small>
       </div>
-      <div class="chest-progress" :class="{ qualified: tier }">
-        <span>{{ tier ? 'Score chest earned' : 'Score chest' }}</span>
+      <div
+        v-if="game.playMode !== 'continuous'"
+        class="chest-progress"
+        :class="{ qualified: tier }"
+      >
+        <span>{{ t(tier ? 'Score chest earned' : 'Score chest') }}</span>
         <small>{{
-          tier ? '1 bonus on completion' : `${target.toLocaleString()} pts · 1 bonus`
+          t(
+            tier
+              ? '1 bonus on completion'
+              : t('{value0} pts · 1 bonus', { value0: number(target) }),
+          )
         }}</small>
       </div>
     </div>
     <div class="stats-row">
       <div>
-        <span class="eyebrow">SPEED RUN</span
+        <span class="eyebrow">
+          {{ t(game.playMode === 'continuous' ? 'PLAY TIME' : 'SPEED RUN') }} </span
         ><strong class="run-time" :class="{ expired: game.elapsedMs > game.speedTargetMs }">{{
           formatTime(game.elapsedMs)
         }}</strong
-        ><small class="speed-target">{{
-          speedTier ? `≤ ${formatTime(game.speedTargetMs)} · 1 bonus` : 'Finish for score'
+        ><small v-if="game.playMode !== 'continuous'" class="speed-target">{{
+          t(
+            speedTier
+              ? t('≤ {value0} · 1 bonus', { value0: formatTime(game.speedTargetMs) })
+              : 'Finish for score',
+          )
         }}</small>
       </div>
       <div>
-        <span class="eyebrow">BEST CASCADE</span
+        <span class="eyebrow"> {{ t('BEST CASCADE') }} </span
         ><strong class="cascade-value">×{{ game.maxCascade }}</strong>
       </div>
     </div>
     <div class="objective">
       <div class="objective-title">
-        <span><GameIcon name="spark" /> {{ game.layerLabel }}</span
+        <span><GameIcon name="spark" /> {{ t(game.layerLabel) }}</span
         ><strong
           >{{ game.totalLayers - game.remainingLayers
           }}<small> / {{ game.totalLayers }}</small></strong
@@ -45,7 +62,7 @@
       <div
         class="objective-track"
         role="progressbar"
-        :aria-label="`${game.layerLabel} layers cleared`"
+        :aria-label="t('{value0} layers cleared', { value0: t(game.layerLabel) })"
         :aria-valuenow="game.totalLayers - game.remainingLayers"
         :aria-valuemax="game.totalLayers"
         :aria-valuemin="0"
@@ -53,17 +70,26 @@
         <i :style="{ width: `${progress}%` }"></i>
       </div>
       <div v-if="game.totalRelics" class="objective-title relic-objective">
-        <span><img src="/art/relic.svg" alt="" /> Relics collected</span>
+        <span><img src="/art/relic.svg" alt="" /> {{ t('Relics collected') }} </span>
         <strong
           >{{ game.totalRelics - game.remainingRelics
           }}<small> / {{ game.totalRelics }}</small></strong
         >
       </div>
-      <p>Two ways to win: score high and finish fast. Speed pauses during cascades.</p>
+      <p>
+        {{
+          t(
+            game.playMode === 'continuous'
+              ? 'The objectives are just a starting point. Keep matching for as long as you like.'
+              : 'Two ways to win: score high and finish fast. Speed pauses during cascades.',
+          )
+        }}
+      </p>
     </div>
   </section>
 </template>
 <script setup>
+import { t, number } from '../i18n';
 import { computed } from 'vue';
 import { useGameStore } from '../stores/gameStore';
 import GameIcon from './GameIcon.vue';

@@ -7,17 +7,17 @@
   >
     <header>
       <div>
-        <span class="eyebrow">MAKE IT YOURS</span>
-        <h2>A moment of calm</h2>
+        <span class="eyebrow"> {{ t('MAKE IT YOURS') }} </span>
+        <h2>{{ t('A moment of calm') }}</h2>
       </div>
-      <button class="icon-button" aria-label="Close settings" @click="$emit('close')">
+      <button class="icon-button" :aria-label="t('Close settings')" @click="$emit('close')">
         <GameIcon name="close" />
       </button>
     </header>
-    <p class="settings-intro">Set the mood for your next cascade.</p>
+    <p class="settings-intro">{{ t('Set the mood for your next cascade.') }}</p>
     <label
-      ><span
-        >Music <small>{{ Math.round(settings.musicVolume * 100) }}%</small></span
+      ><span>
+        {{ t('Music') }} <small>{{ t(Math.round(settings.musicVolume * 100)) }}%</small></span
       ><input
         type="range"
         min="0"
@@ -27,8 +27,8 @@
         @input="settings.setMusicVolume($event.target.value)"
     /></label>
     <label
-      ><span
-        >Sound effects <small>{{ Math.round(settings.sfxVolume * 100) }}%</small></span
+      ><span>
+        {{ t('Sound effects') }} <small>{{ t(Math.round(settings.sfxVolume * 100)) }}%</small></span
       ><input
         type="range"
         min="0"
@@ -38,39 +38,70 @@
         @input="settings.setSfxVolume($event.target.value)"
     /></label>
     <label class="toggle-row"
-      ><span>Reduced motion<small>Gentler movement, without bursts or flashes.</small></span
+      ><span>
+        {{ t('Reduced motion') }}
+        <small> {{ t('Gentler movement, without bursts or flashes.') }} </small></span
       ><input
         type="checkbox"
         :checked="settings.reducedMotion"
         @change="settings.setReducedMotion($event.target.checked)"
     /></label>
     <label class="toggle-row"
-      ><span>High contrast<small>Stronger outlines and brighter text.</small></span
+      ><span>
+        {{ t('High contrast') }}
+        <small> {{ t('Stronger outlines and brighter text.') }} </small></span
       ><input
         type="checkbox"
         :checked="settings.highContrastMode"
         @change="settings.setHighContrast($event.target.checked)"
     /></label>
     <div class="keyboard-guide">
-      <span class="eyebrow">PLAY YOUR WAY</span>
+      <span class="eyebrow"> {{ t('PLAY YOUR WAY') }} </span>
       <p>
-        Swipe or tap neighboring gems.<br />Keyboard: arrows to explore, Enter to select.<br />Shift
-        + arrow to swap. Esc to cancel.
+        {{ t('Swipe or tap neighboring gems.') }} <br />
+        {{ t('Keyboard: arrows to explore, Enter to select.') }} <br />
+        {{ t('Shift + arrow to swap. Esc to cancel.') }}
       </p>
+    </div>
+    <div class="testing-reset">
+      <button v-if="!confirmReset" class="text-button" @click="confirmReset = true">
+        {{ t('Reset progress for testing') }}
+      </button>
+      <template v-else>
+        <p>
+          {{
+            t(
+              'Reset all progress on this device? Your town, completed levels, and power-ups will start over.',
+            )
+          }}
+        </p>
+        <div>
+          <button @click="resetProgress">{{ t('Reset all progress') }}</button
+          ><button @click="confirmReset = false">{{ t('Cancel') }}</button>
+        </div>
+      </template>
     </div>
   </dialog>
 </template>
 <script setup>
+import { t } from '../i18n';
 import { ref, watch } from 'vue';
 import { useSettingsStore } from '../stores/settingsStore';
 import GameIcon from './GameIcon.vue';
 const props = defineProps({ open: Boolean });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'reset-progress']);
+const confirmReset = ref(false);
+function resetProgress() {
+  emit('reset-progress');
+  confirmReset.value = false;
+  emit('close');
+}
 const dialog = ref(null);
 const settings = useSettingsStore();
 watch(
   () => props.open,
   (open) => {
+    confirmReset.value = false;
     if (open) dialog.value?.showModal();
     else dialog.value?.close();
   },
@@ -90,6 +121,29 @@ const closeBackdrop = (event) => {
 };
 </script>
 <style scoped>
+.testing-reset {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #84619e55;
+}
+.testing-reset p {
+  color: #d6c4db;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.testing-reset > div {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.testing-reset button {
+  padding: 10px;
+  border: 1px solid #93789c;
+  border-radius: 6px;
+  background: transparent;
+  color: #ead3e4;
+  font-size: 12px;
+}
 .settings-drawer {
   position: fixed;
   inset: 0 0 0 auto;

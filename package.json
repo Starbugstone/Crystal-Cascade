@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "assets": "node scripts/generate-gems.mjs && node scripts/generate-bonus-art.mjs"
+    "assets": "node scripts/generate-gems.mjs && node scripts/generate-bonus-art.mjs",
+    "verify": "npm run format:check && npm test && npm run build"
   },
   "repository": {
     "type": "git",
@@ -36,6 +37,7 @@
     "howler": "^2.2.4",
     "phaser": "^3.86.0",
     "pinia": "^3.0.3",
+    "three": "^0.183.2",
     "vue": "^3.5.22"
   },
   "devDependencies": {

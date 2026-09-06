@@ -134,6 +134,7 @@ export class TileManager {
           gem: workingBoard[b.index],
         })),
         tileUpdates: [],
+        collectedJewels: [],
         ...(fusion ? { bonusFusion: { ...fusion, targets: [...impacted] } } : {}),
       };
 
@@ -180,6 +181,9 @@ export class TileManager {
           }
         }
         if (cleared.has(index) && !protectedIndices.has(index)) {
+          const removed = workingBoard[index];
+          if (removed && GEM_TYPES.includes(removed.type))
+            step.collectedJewels.push({ id: removed.id, type: removed.type });
           workingBoard[index] = null;
         }
       });
