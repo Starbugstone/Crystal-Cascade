@@ -71,6 +71,7 @@
           </button>
         </div>
         <TownScene
+          :fullscreen="fullscreen"
           :town="town"
           :selected="selected"
           :population="residents"

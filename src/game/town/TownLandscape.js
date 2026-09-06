@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TOWN_TRACKS, segmentDistance } from './TownLayout';
 
 const smooth = (a, b, value) => {
   const t = THREE.MathUtils.clamp((value - a) / (b - a), 0, 1);
@@ -38,13 +39,15 @@ export function groundHeight(x, z) {
     (height, [hx, hz, rise]) => height + rise * Math.exp(-((x - hx) ** 2 + (z - hz) ** 2) / 440),
     0,
   );
-  return smooth(15, 32, distance) * (hills + ridges);
+  return smooth(34, 49, distance) * (hills + ridges);
 }
 function trackDistance(x, z) {
-  const bend = smooth(9, 22, Math.abs(z)) * Math.sin(z * 0.065) * 6;
-  const main = Math.abs(x - bend);
-  const side = Math.min(Math.abs(z + 0.7), Math.abs(z - 3.8)) + smooth(10, 28, Math.abs(x)) * 7;
-  return Math.min(main, side);
+  const streets = Math.min(
+    ...TOWN_TRACKS.map(({ from, to, width }) => segmentDistance(x, z, from, to) - width / 2),
+  );
+  const bend = smooth(28, 50, Math.abs(z)) * Math.sin(z * 0.045) * 8;
+  const trail = Math.min(Math.abs(x - 3.5 - bend), Math.abs(x + 3.5 - bend));
+  return Math.min(streets, Math.abs(z) > 27 ? trail : Infinity);
 }
 
 // Orbiting low over a distant ridge must not put the camera beneath the prairie.
@@ -78,7 +81,7 @@ export function buildLandscape(town) {
     const meadow = smooth(0.32, 0.78, noise(x * 0.095 + 18, z * 0.095));
     color.copy(sand).lerp(sage, meadow * 0.64);
     color.multiplyScalar(0.96 + noise(x * 0.35, z * 0.35) * 0.09);
-    color.lerp(track, (1 - smooth(0.7, 1.8, trackDistance(x, z))) * 0.8);
+    color.lerp(track, (1 - smooth(0.05, 0.35, trackDistance(x, z))) * 0.5);
     colors.push(color.r, color.g, color.b);
   }
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -93,19 +96,19 @@ export function buildLandscape(town) {
   const plants = town.group(landscape);
   // Cottonwoods near the settlement, with smaller junipers scattered into the hills.
   for (const [x, z, scale, seed] of [
-    [-13, -9, 1.15, 1],
-    [14, -9, 1.25, 2],
-    [-15, 5, 1.2, 3],
-    [16, 6, 1.05, 4],
-    [-10, 16, 0.9, 5],
-    [11, 17, 0.8, 6],
-    [-16, -15, 1.1, 7],
-    [18, -17, 0.9, 8],
+    [-24, -14, 1.15, 1],
+    [24, -14, 1.25, 2],
+    [-25, 8, 1.2, 3],
+    [25, 9, 1.05, 4],
+    [-17, 28, 0.9, 5],
+    [18, 29, 0.8, 6],
+    [-20, -23, 1.1, 7],
+    [19, -25, 0.9, 8],
   ])
     tree(town, plants, x, z, scale, seed);
   for (let i = 0; i < 48; i++) {
     const angle = random(i + 32) * Math.PI * 2;
-    const radius = 22 + random(i + 190) * 58;
+    const radius = 36 + random(i + 190) * 48;
     const x = Math.cos(angle) * radius,
       z = Math.sin(angle) * radius;
     if (trackDistance(x, z) > 3) tree(town, plants, x, z, 0.7 + random(i + 4) * 0.8, i + 12);
@@ -113,7 +116,7 @@ export function buildLandscape(town) {
   for (let i = 0; i < 620; i++) {
     const x = (random(i * 3 + 5) - 0.5) * 105;
     const z = (random(i * 3 + 6) - 0.5) * 105;
-    if (Math.hypot(x, z) < 14 || trackDistance(x, z) < 2) continue;
+    if (Math.hypot(x, z) < 25 || trackDistance(x, z) < 2) continue;
     const y = groundHeight(x, z),
       size = 0.15 + random(i + 91) * 0.25;
     if (i % 5 === 0) {
@@ -137,12 +140,12 @@ export function buildLandscape(town) {
     }
   }
   for (const [x, z] of [
-    [-14, -1],
-    [14, 1],
-    [-16, 10],
-    [14, -12],
-    [-24, -8],
-    [20, 19],
+    [-25, -1],
+    [25, 1],
+    [-23, 18],
+    [24, -20],
+    [-29, -8],
+    [25, 22],
   ]) {
     const plant = town.group(plants, x, groundHeight(x, z), z);
     town.cactus(plant, 0, 0);

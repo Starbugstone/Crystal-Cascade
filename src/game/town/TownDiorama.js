@@ -11,25 +11,8 @@ import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
 import { constructionVisual, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 
-export const PLOTS = {
-  home: [-4.15, -3.0],
-  farm: [4.05, -3.0],
-  well: [0, -0.2],
-  saloon: [-4.15, 2.2],
-  stable: [4.15, 2.2],
-  sheriff: [0, 4.6],
-  museum: [-4.15, 6.2],
-  armory: [4.15, 6.2],
-  mine: [0, -6.2],
-  bank: [-4.15, -5.5],
-  shop: [4.15, -5.5],
-  home2: [-8.6, -3],
-  home3: [-8.6, 2.2],
-  home4: [-4.15, 10.5],
-  well2: [4.15, 10.5],
-  farm2: [9, -3.6],
-  farm3: [9, 2.8],
-};
+import { PLOTS, LANE_X, atPlot } from './TownLayout';
+export { PLOTS } from './TownLayout';
 const colors = {
   sand: '#c8ad7a',
   wood: '#9c7048',
@@ -66,7 +49,7 @@ export class TownDiorama {
     }
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color('#e9e8da');
-    this.scene.fog = new THREE.Fog('#e9e8da', 52, 125);
+    this.scene.fog = new THREE.Fog('#e9e8da', 125, 205);
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 220);
     this.camera.position.set(12, 12, 25);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -89,10 +72,10 @@ export class TownDiorama {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, {
-      left: -23,
-      right: 23,
-      top: 23,
-      bottom: -23,
+      left: -31,
+      right: 31,
+      top: 35,
+      bottom: -35,
       near: 1,
       far: 95,
     });
@@ -121,14 +104,18 @@ export class TownDiorama {
     this.controls.enablePan = false;
     this.controls.enableDamping = false;
     this.controls.minDistance = 13;
-    this.controls.maxDistance = 55;
+    this.controls.maxDistance = 110;
     this.controls.minPolarAngle = 0.25;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.24;
     this.controls.rotateSpeed = 0.7;
     this.controls.zoomSpeed = 0.85;
     this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE;
     this.controls.update();
-    this.controls.saveState();
+    this.overview = true;
+    this.leaveOverview = () => {
+      this.overview = false;
+    };
+    this.controls.addEventListener('start', this.leaveOverview);
     this.cameraChanged = () => {
       if (keepCameraAboveTerrain(this.camera.position, this.controls.target))
         this.controls.update();
@@ -253,12 +240,6 @@ export class TownDiorama {
     group.removeFromParent();
   }
   update(town, labels, mineStage = 0) {
-    if (!this.world && this.canvas.clientWidth < 600) {
-      const grown = Object.values(town.buildings).reduce((sum, level) => sum + level, 0) >= 16;
-      this.camera.position.set(...(grown ? [10, 22, 24] : [7, 15, 17]));
-      this.controls.update();
-      this.controls.saveState();
-    }
     this.actorRenderer.clear();
     this.buildingRenderer.clear();
     this.clearGroup(this.world);
@@ -312,10 +293,10 @@ export class TownDiorama {
       skin: '#d5ad88',
       hat: '#b38d59',
       route: [
-        [-1.5, -4.5],
-        [-1.6, -1.8],
-        [-1.8, 1.6],
-        [-1.6, 3.9],
+        [-LANE_X, -8.5],
+        [-LANE_X, -0.5],
+        [-LANE_X, 7.5],
+        [-LANE_X, 15.5],
       ],
       seed: 1,
     });
@@ -325,10 +306,10 @@ export class TownDiorama {
         skin: '#d7b291',
         hat: '#846642',
         route: [
-          [-2.5, -0.6],
-          [-1.5, -0.8],
-          [1.7, -0.8],
-          [2.3, 1],
+          [-7, -0.5],
+          [-LANE_X, -0.5],
+          [LANE_X, -0.5],
+          [7, -0.5],
         ],
         seed: 4,
       });
@@ -337,10 +318,10 @@ export class TownDiorama {
         skin: '#8d6045',
         hat: '#d7bf8b',
         route: [
-          [1.6, 4.2],
-          [1.8, 2.9],
-          [1.7, 1.3],
-          [1.8, -1.1],
+          [LANE_X, 15.5],
+          [LANE_X, 7.5],
+          [LANE_X, -0.5],
+          [LANE_X, -8.5],
         ],
         seed: 9,
         dress: true,
@@ -352,9 +333,10 @@ export class TownDiorama {
         skin: '#b07c59',
         hat: '#ae814d',
         route: [
-          [-2.4, 4.1],
-          [-1.7, 2.5],
-          [-2.1, 0.2],
+          [-15, 7.5],
+          [-11, 7.5],
+          [-11, -0.5],
+          [-7, -0.5],
         ],
         seed: 13,
       });
@@ -363,10 +345,7 @@ export class TownDiorama {
         color: '#809267',
         skin: '#af7b56',
         hat: '#d7b671',
-        route: [
-          [5.4, -0.9],
-          [5.2, -1.4],
-        ],
+        route: [atPlot('farm', 1.35, 2.1), atPlot('farm', 1.15, 1.6)],
         seed: 2,
         work: 'farm',
       });
@@ -375,10 +354,7 @@ export class TownDiorama {
         color: '#a47d91',
         skin: '#edc7a4',
         hat: '#b89869',
-        route: [
-          [-3.5, 3.9],
-          [-3.2, 3.7],
-        ],
+        route: [atPlot('saloon', 0.65, 1.7), atPlot('saloon', 0.95, 1.5)],
         seed: 6,
         work: 'greet',
         dress: true,
@@ -389,17 +365,18 @@ export class TownDiorama {
         skin: '#c99d74',
         hat: '#b38f51',
         route: [
-          [1.4, 5.9],
-          [1.9, 3.7],
-          [1.7, 0.2],
+          atPlot('sheriff', 1.4, 2.1),
+          [LANE_X, PLOTS.sheriff[1] + 2.1],
+          [LANE_X, 7.5],
+          [LANE_X, -0.5],
         ],
         seed: 15,
       });
     if (town.buildings.stable) {
-      this.horse(5.9, 3.2, 0.5);
-      this.horse(6.3, 1.3, -0.9, 0.85);
+      this.horse(...atPlot('stable', 2.25, 0.9), 0.5);
+      this.horse(...atPlot('stable', 2.65, -0.9), -0.9, 0.85);
     }
-    const cart = this.group(this.world, 0.1, 0.08, -4.6);
+    const cart = this.group(this.world, 0.1, 0.08, PLOTS.mine[1] + 1.6);
     cart.userData.animated = true;
     this.box(cart, 0.75, 0.4, 0.55, 0, 0.45, 0, '#617d80', true);
     for (const x of [-0.32, 0.32])
@@ -416,12 +393,13 @@ export class TownDiorama {
         'rock',
       );
     this.motions.push((time) => {
-      cart.position.z = -4.6 + Math.sin(time * 0.45) * 0.32;
+      cart.position.z = PLOTS.mine[1] + 1.6 + Math.sin(time * 0.45) * 0.32;
     });
     this.actors.forEach((actor) => this.animatePerson(actor, this.elapsed));
     this.rebuildActors();
     this.buildingRenderer.rebuild(this.world.children.filter((child) => child.userData.static));
     this.renderer.shadowMap.needsUpdate = true;
+    if (this.overview) this.frameTown();
     this.render();
   }
   cactus(parent, x, z) {
@@ -934,14 +912,48 @@ export class TownDiorama {
       }
     }
   }
+  frameTown() {
+    if (!this.anchors?.length) return;
+    const bounds = new THREE.Box3();
+    const corners = [];
+    for (const { id } of this.anchors) {
+      const [x, z] = PLOTS[id];
+      bounds.expandByPoint(point(x - 3, 0, z - 3));
+      bounds.expandByPoint(point(x + 3, 5, z + 3));
+      for (const dx of [-3, 3])
+        for (const y of [0, 5]) for (const dz of [-3, 3]) corners.push(point(x + dx, y, z + dz));
+    }
+    const target = bounds.getCenter(new THREE.Vector3());
+    const direction = point(0.28, 0.72, 0.64).normalize();
+    const right = point(0, 1, 0).cross(direction).normalize();
+    const up = direction.clone().cross(right).normalize();
+    const vertical = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * 0.92;
+    const horizontal = vertical * this.camera.aspect;
+    let distance = this.controls.minDistance;
+    for (const corner of corners) {
+      const offset = corner.sub(target),
+        depth = offset.dot(direction);
+      distance = Math.max(
+        distance,
+        depth + Math.abs(offset.dot(right)) / horizontal,
+        depth + Math.abs(offset.dot(up)) / vertical,
+      );
+    }
+    this.controls.target.copy(target);
+    this.camera.position
+      .copy(target)
+      .addScaledVector(direction, Math.min(distance, this.controls.maxDistance));
+    this.controls.update();
+  }
   resize() {
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
     if (!width || !height) return;
     this.camera.aspect = width / height;
-    this.camera.fov = width / height < 1.1 ? 48 : 40;
+    this.camera.fov = width / height < 0.7 ? 62 : width / height < 1.1 ? 48 : 40;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    if (this.overview) this.frameTown();
     this.render();
   }
   rebuildActors() {
@@ -955,7 +967,7 @@ export class TownDiorama {
     if (!this.world) return;
     this.actorRenderer.update();
     this.frameCache.render(this.scene, this.camera, true);
-    const distant = this.camera.position.distanceTo(this.controls.target) > 42;
+    const distant = this.camera.position.distanceTo(this.controls.target) > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
     const projected = this.anchors.map(({ id, position, width: labelWidth }) => {
@@ -1012,9 +1024,7 @@ export class TownDiorama {
     this.raid?.dispose();
     this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
     this.rebuildActors();
-    this.camera.position.set(10, 22, 22);
-    this.controls.target.set(0, 1, 0);
-    this.controls.update();
+    this.frameTown();
     this.render();
   }
   stopRaid() {
@@ -1025,13 +1035,14 @@ export class TownDiorama {
   }
   cameraAction(action) {
     if (!this.controls.enabled) return;
+    this.overview = action === 'reset';
     if (action === 'in') this.controls.dollyIn(1 / 1.18);
     if (action === 'out') this.controls.dollyOut(1 / 1.18);
     if (action === 'left') this.controls.rotateLeft(Math.PI / 8);
     if (action === 'right') this.controls.rotateLeft(-Math.PI / 8);
     if (action === 'up') this.controls.rotateUp(Math.PI / 18);
     if (action === 'down') this.controls.rotateUp(-Math.PI / 18);
-    if (action === 'reset') this.controls.reset();
+    if (action === 'reset') this.frameTown();
   }
   setPaused(paused) {
     this.controls.enabled = !paused;
@@ -1052,6 +1063,7 @@ export class TownDiorama {
     this.renderer.setAnimationLoop(null);
     this.observer.disconnect();
     this.controls.removeEventListener('change', this.cameraChanged);
+    this.controls.removeEventListener('start', this.leaveOverview);
     this.controls.dispose();
     if (this.selection) {
       this.selection.geometry.dispose();

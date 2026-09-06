@@ -88,15 +88,14 @@
           )
         }}
       </p>
-      <button v-if="canContinue" class="result-next" @click="$emit('next')">
-        {{ t('Continue mining') }} <GameIcon name="arrow" />
-      </button>
-      <button
-        :class="canContinue ? 'text-button result-village' : 'result-next'"
-        @click="$emit('town')"
-      >
-        {{ t('Back to village') }} <GameIcon name="arrow" />
-      </button>
+      <div class="result-destinations">
+        <button v-if="canContinue" class="result-next" @click="$emit('next')">
+          <GameIcon name="pickaxe" /> <span>{{ t('Continue mining') }}</span>
+        </button>
+        <button class="result-next result-village" @click="$emit('town')">
+          <GameIcon name="home" /> <span>{{ t('Back to village') }}</span>
+        </button>
+      </div>
       <div class="victory-actions">
         <button v-if="canReplay" @click="$emit('replay')">{{ t('Play again') }}</button>
       </div>
@@ -170,9 +169,9 @@ const goalText = (source) => {
 };
 </script>
 <style scoped>
-.result-village {
-  display: block;
-  margin: 16px auto;
+.result-destinations {
+  display: grid;
+  gap: 14px;
 }
 .town-construction-reward {
   display: flex;
@@ -325,8 +324,10 @@ const goalText = (source) => {
 }
 .result-next {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  gap: 12px;
+  width: 100%;
   padding: 16px 20px;
   min-height: 52px;
   border: 1px solid #ffeaa1;
@@ -336,6 +337,23 @@ const goalText = (source) => {
   font-weight: 900;
   letter-spacing: 1px;
   box-shadow: 0 4px #926239;
+}
+.result-next.result-village {
+  background: linear-gradient(#4d345f, #34213f);
+  border-color: #9a79b2;
+  color: #f1e4fa;
+  box-shadow: 0 4px #24152f;
+}
+.result-next:hover {
+  filter: brightness(1.08);
+}
+.result-next:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px #24152f;
+}
+.result-next:focus-visible {
+  outline: 3px solid #fff2bc;
+  outline-offset: 4px;
 }
 .victory-actions {
   display: flex;

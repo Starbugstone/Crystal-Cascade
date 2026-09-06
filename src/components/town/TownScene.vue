@@ -8,6 +8,7 @@
     :paused="paused"
     :next-level="nextLevel"
     :mine-stage="mineStage"
+    :fullscreen="fullscreen"
     @select="$emit('select', $event)"
     @mine="$emit('mine')"
   />
@@ -104,6 +105,7 @@ import { constructionRuns, constructionVisual } from '../../game/town/TownRules'
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
+  fullscreen: Boolean,
   town: Object,
   selected: String,
   population: Number,
