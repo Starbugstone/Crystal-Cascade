@@ -6,6 +6,7 @@ import { SHOP_ITEMS } from '../src/data/shop';
 import {
   advanceConstruction,
   availablePurchases,
+  buildingIndicators,
   availableParcels,
   constructionReady,
   finishConstruction,
@@ -132,4 +133,32 @@ it('puts ready construction first, affordable purchases next, and hammer-only wo
     'museum',
     ...coinChoices.map((p) => p.id),
   ]);
+});
+
+it('shows immediate actions in white and only eligible coin purchases in green', () => {
+  const town = purchase(createTown(), 'home', 0);
+  town.coins = 75;
+  town.buildings.saloon = 1;
+  town.buildings.blacksmith = 1;
+  town.income.stored = 12;
+  town.forge.charge = 1;
+  town.projects.museum = { id: 'museum', stage: 1, required: 1, wins: 1 };
+  expect(buildingIndicators(town)).toEqual({
+    farm: 'upgrade',
+    well: 'upgrade',
+    saloon: 'ready',
+    blacksmith: 'ready',
+    museum: 'ready',
+  });
+  expect(availablePurchases(town, 1).map(({ id }) => id)).toContain('home');
+  expect(buildingIndicators(town).home).toBeUndefined();
+  town.coins = 100000;
+  town.buildings.home = 3; // The next improvement still requires more completed puzzles.
+  expect(buildingIndicators(town).home).toBeUndefined();
+  expect(buildingIndicators(town).home3).toBeUndefined();
+  expect(buildingIndicators(town).saloon).toBe('ready'); // Ready beats affordable.
+  expect(buildingIndicators(town, false).blacksmith).toBe('upgrade');
+  town.income.stored = 0;
+  town.coins = 0;
+  expect(buildingIndicators(town, false)).toEqual({ museum: 'ready' });
 });

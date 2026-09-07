@@ -12,6 +12,7 @@ import {
   grantReward,
   rollChestReward,
   CHEST_DROPS,
+  chestReward,
 } from '../data/rewards';
 import { createTown, BANDIT_EVENT } from '../data/town';
 import { advanceEra } from '../game/town/TownEras';
@@ -35,7 +36,6 @@ const defaults = () => ({
   continuousRecords: {},
   continuousRun: null,
   activeRun: null,
-  forgeRun: null,
   town: createTown(),
   issuedRun: 0,
   settledRun: 0,
@@ -142,7 +142,7 @@ const load = () => {
       if (recoveredSources.has(chest.source)) continue;
       recoveredSources.add(chest.source);
       const savedId = chest.items?.[0]?.id;
-      const drop = CHEST_DROPS.find((drop) => drop.id === (savedId === 'hammer' ? 'tnt' : savedId));
+      const drop = chestReward(savedId === 'hammer' ? 'tnt' : savedId, chest.levelId);
       if (drop) grantReward(state, drop);
     }
     if (overflow) {
@@ -184,6 +184,10 @@ export const useCampaignStore = defineStore('campaign', {
       return chapters;
     },
     bonusLimit: (state) => bonusCapacity(state.town),
+    canCollectForge: (state) =>
+      state.town.buildings.blacksmith > 0 &&
+      state.town.forge.charge === 1 &&
+      state.powers.find((power) => power.id === 'tnt').quantity < bonusCapacity(state.town),
     canReplay: (state) => state.town.buildings.museum > 0,
     nextLevel(state) {
       for (let id = 1; id <= LEVEL_COUNT; id++) if (!state.records[id]) return id;
@@ -241,44 +245,28 @@ export const useCampaignStore = defineStore('campaign', {
         : 'Your progress is not saving. Keep this page open to continue.';
       return saved;
     },
-    beginRun(mode = 'normal', id = null, { spendForge = false } = {}) {
+    collectForgeTNT() {
+      if (this.activeRun || !this.canCollectForge) return false;
+      const slot = this.powers.find((power) => power.id === 'tnt');
+      const previousForge = this.town.forge;
+      this.town.forge = { progress: 0, charge: 0 };
+      slot.quantity++;
+      if (this.save()) return true;
+      slot.quantity--;
+      this.town.forge = previousForge;
+      return false;
+    },
+    beginRun(mode = 'normal', id = null) {
       this.settlePendingChests();
       this.issuedRun += 1;
       this.activeRun = this.issuedRun;
-      this.forgeRun = null;
-      const previousForge = this.town.forge;
-      const spend =
-        spendForge &&
-        mode === 'normal' &&
-        this.canPlay(id, mode) &&
-        this.town.buildings.blacksmith > 0 &&
-        this.town.forge.charge === 1;
-      if (spend) this.town.forge = { progress: 0, charge: 0 };
       this.continuousRun =
         mode === 'continuous' ? { runId: this.issuedRun, id, credited: 0 } : null;
-      const saved = this.save();
-      // Persist the spend before granting a temporary use. A failed save keeps the charge.
-      if (spend && saved) this.forgeRun = { runId: this.issuedRun, available: true };
-      else if (spend) this.town.forge = previousForge;
+      this.save();
       return this.issuedRun;
-    },
-    hasForgeTNT(runId) {
-      return (
-        this.forgeRun?.runId === runId &&
-        this.forgeRun.available &&
-        runId === this.issuedRun &&
-        runId > this.settledRun &&
-        !this.continuousRun
-      );
-    },
-    consumeForgeTNT(runId) {
-      if (!this.hasForgeTNT(runId)) return false;
-      this.forgeRun.available = false;
-      return true;
     },
     endRun(runId) {
       if (this.activeRun === runId) this.activeRun = null;
-      if (this.forgeRun?.runId === runId) this.forgeRun = null;
     },
     recordContinuous({ id, runId, jewels, score }) {
       const run = this.continuousRun;
@@ -428,8 +416,8 @@ export const useCampaignStore = defineStore('campaign', {
     claimChest(id, selection) {
       const chest = this.pendingChests.find((entry) => entry.id === id);
       if (!chest) return null;
-      const chosen = CHEST_DROPS.find((drop) => drop.id === selection);
-      const fallback = CHEST_DROPS.find((drop) => drop.id === chest.items[0].id);
+      const chosen = chestReward(selection, chest.levelId);
+      const fallback = chestReward(chest.items[0].id, chest.levelId);
       const granted = grantReward(this, chosen ?? fallback);
       this.pendingChests = this.pendingChests.filter((entry) => entry.id !== id);
       this.save();
@@ -502,10 +490,19 @@ export const useCampaignStore = defineStore('campaign', {
             : rollChestReward();
         this.chestsWithoutBuilderHammer =
           rolled.kind === 'builder-hammer' ? 0 : this.chestsWithoutBuilderHammer + 1;
+        const reward = chestReward(rolled.id, id);
         const drop = chooseRewards
-          ? { id: rolled.id, kind: rolled.kind, label: rolled.label, quantity: rolled.quantity }
-          : grantReward(this, rolled);
-        const chest = { ...tier, id: `${runId}-${source}`, runId, count: 1, source, items: [drop] };
+          ? { id: reward.id, kind: reward.kind, label: reward.label, quantity: reward.quantity }
+          : grantReward(this, reward);
+        const chest = {
+          ...tier,
+          id: `${runId}-${source}`,
+          runId,
+          levelId: id,
+          count: 1,
+          source,
+          items: [drop],
+        };
         if (chooseRewards) this.pendingChests.push(chest);
         rewards.push(chest);
       }

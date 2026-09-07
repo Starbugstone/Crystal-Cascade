@@ -146,8 +146,8 @@ describe('Frontier additions preserve bounded services and saves', () => {
   });
 });
 
-describe('One Forge Charge, one temporary TNT', () => {
-  it('settles a winning Forge TNT without consuming a persistent inventory TNT', async () => {
+describe('Collecting Forge TNT into inventory', () => {
+  it('uses collected TNT once when its blast wins the puzzle', async () => {
     const c = useCampaignStore(),
       g = useGameStore(),
       inventory = useInventoryStore();
@@ -155,7 +155,8 @@ describe('One Forge Charge, one temporary TNT', () => {
     c.town.forge.charge = 1;
     c.powers.find((p) => p.id === 'tnt').quantity = 2;
     g.bootstrap();
-    g.startLevel(1, 'normal', { spendForge: true });
+    expect(c.collectForgeTNT()).toBe(true);
+    g.startLevel(1);
     g.tiles.forEach((tile, i) => {
       tile.health = i === 14 ? 1 : 0;
       tile.state = 'PLAYABLE';
@@ -166,7 +167,6 @@ describe('One Forge Charge, one temporary TNT', () => {
     expect(g.levelCleared).toBe(true);
     expect(c.records[1]).toBeDefined();
     expect(c.powers.find((p) => p.id === 'tnt').quantity).toBe(2);
-    expect(c.forgeRun).toBeNull();
     expect(c.activeRun).toBeNull();
   });
   it('counts only settled normal completions, caps at one and rejects repeat or stale victories', () => {
@@ -191,58 +191,62 @@ describe('One Forge Charge, one temporary TNT', () => {
     c.recordVictory(victory(c.beginRun('normal', 1)));
     expect(c.town.forge.progress).toBe(0);
     c.town.buildings.blacksmith = 1;
-    const run = c.beginRun('continuous', 1, { spendForge: true });
+    const run = c.beginRun('continuous', 1);
     c.recordContinuous({ id: 1, runId: run, jewels: 300, score: 500 });
     expect(c.recordVictory(victory(run))).toEqual([]);
     expect(c.town.forge).toEqual({ progress: 0, charge: 0 });
-    expect(c.forgeRun).toBeNull();
   });
-  it('persists the spend, uses the temporary TNT before inventory and cannot spend twice', () => {
-    const c = useCampaignStore(),
-      g = useGameStore(),
-      inventory = useInventoryStore();
+  it('collects once, persists the TNT and leaves starting a run independent of the charge', () => {
+    const c = useCampaignStore();
     c.town.buildings.blacksmith = 1;
     c.town.forge.charge = 1;
-    c.powers.find((p) => p.id === 'tnt').quantity = 2;
-    const coins = c.town.coins,
-      hammers = c.builderHammers;
-    g.runId = c.beginRun('normal', 1, { spendForge: true });
-    expect(JSON.parse(saves.get(SAVE_KEY)).town.forge.charge).toBe(0);
-    expect(inventory.availableQuantity('tnt')).toBe(3);
-    expect(inventory.consumeItem('tnt')).toBe(true);
-    expect(c.powers.find((p) => p.id === 'tnt').quantity).toBe(2);
-    expect(c.consumeForgeTNT(g.runId)).toBe(false);
-    expect(c.town.coins).toBe(coins);
-    expect(c.builderHammers).toBe(hammers);
-    c.beginRun('normal', 1, { spendForge: true });
-    expect(c.forgeRun).toBeNull();
+    const run = c.beginRun('normal', 1);
+    expect(c.town.forge.charge).toBe(1);
+    expect(c.collectForgeTNT()).toBe(false);
+    c.endRun(run);
+    expect(c.collectForgeTNT()).toBe(true);
+    expect(c.collectForgeTNT()).toBe(false);
+    setActivePinia(createPinia());
+    const reloaded = useCampaignStore();
+    expect(reloaded.town.forge).toEqual({ progress: 0, charge: 0 });
+    expect(reloaded.powers.find((p) => p.id === 'tnt').quantity).toBe(1);
+    expect(reloaded.town.coins).toBe(0);
+    expect(reloaded.builderHammers).toBe(0);
   });
   it.each(['exit', 'win', 'reload', 'replace'])(
-    'drops an unused temporary TNT on %s without refund or inventory overflow',
+    'keeps an unused collected TNT after %s',
     (action) => {
       const c = useCampaignStore(),
         g = useGameStore();
       c.town.buildings.blacksmith = 1;
       c.town.forge.charge = 1;
-      g.runId = c.beginRun('normal', 1, { spendForge: true });
+      expect(c.collectForgeTNT()).toBe(true);
+      g.runId = c.beginRun('normal', 1);
       if (action === 'exit') g.exitLevel();
       if (action === 'win') c.recordVictory(victory(g.runId));
       if (action === 'reload') setActivePinia(createPinia());
       if (action === 'replace') c.beginRun('normal', 1);
-      expect(useCampaignStore().forgeRun).toBeNull();
       expect(useCampaignStore().town.forge.charge).toBe(0);
-      expect(useCampaignStore().powers.every((p) => p.quantity === 0)).toBe(true);
+      expect(useCampaignStore().powers.find((p) => p.id === 'tnt').quantity).toBe(1);
     },
   );
-  it('does not grant an exploitable temporary use when persisting the spend fails', () => {
+  it('keeps the charge at the blacksmith when storage is full or saving fails', () => {
     const c = useCampaignStore();
-    c.town.buildings.blacksmith = 1;
     c.town.forge.charge = 1;
+    expect(c.collectForgeTNT()).toBe(false);
+    c.town.buildings.blacksmith = 1;
+    const slot = c.powers.find((p) => p.id === 'tnt');
+    slot.quantity = c.bonusLimit;
+    expect(c.canCollectForge).toBe(false);
+    expect(c.collectForgeTNT()).toBe(false);
+    expect(c.town.forge.charge).toBe(1);
+    slot.quantity--;
+    expect(c.canCollectForge).toBe(true);
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
       throw Error('full');
     });
-    c.beginRun('normal', 1, { spendForge: true });
-    expect(c.forgeRun).toBeNull();
+    expect(c.collectForgeTNT()).toBe(false);
+    expect(slot.quantity).toBe(c.bonusLimit - 1);
     expect(c.town.forge.charge).toBe(1);
     expect(advanceForge({ ...createTown(), forge: { charge: 0, progress: 4 } }).forge.charge).toBe(
       0,

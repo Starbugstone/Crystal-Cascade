@@ -234,15 +234,16 @@
           </g>
         </g>
         <g
-          v-if="availableIds.includes(building.id)"
+          v-if="indicators[building.id]"
           class="map-upgrade-sparkles"
+          :class="indicators[building.id]"
           aria-hidden="true"
         >
           <text
             v-for="i in 3"
             :key="i"
-            :x="(i - 2) * 45"
-            :y="-115 - (i % 2) * 22"
+            :x="(i - 2) * 22"
+            :y="-115 - (i % 2) * 10"
             :style="{ '--i': i }"
           >
             ✦
@@ -285,7 +286,9 @@
                   ? 'Tap to finish'
                   : hasIncome(building.id)
                     ? t('Collect {coins} coins', { coins: town.income.stored })
-                    : building.shortName,
+                    : building.id === 'blacksmith' && forgeCollectible
+                      ? 'Collect 1 TNT'
+                      : building.shortName,
               )
             }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
@@ -386,6 +389,7 @@ import {
   constructionVisual,
   constructionReady,
   availablePurchases,
+  buildingIndicators,
   plotUnlocked,
 } from '../../game/town/TownRules';
 import { BUILDINGS } from '../../data/town';
@@ -404,6 +408,7 @@ import TownMine from './TownMine.vue';
 const props = defineProps({
   town: { type: Object, required: true },
   builderHammers: { type: Number, default: 0 },
+  forgeCollectible: Boolean,
   selected: String,
   population: Number,
   mineStage: { type: Number, default: 0 },
@@ -468,6 +473,7 @@ watch(
   },
 );
 const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
+const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );

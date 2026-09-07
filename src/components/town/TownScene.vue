@@ -4,6 +4,7 @@
     ref="map"
     :town="town"
     :builder-hammers="builderHammers"
+    :forge-collectible="forgeCollectible"
     :selected="selected"
     :population="population"
     :reduced-motion="reducedMotion"
@@ -38,6 +39,8 @@
         v-for="anchor in sparkleAnchors"
         :key="anchor.id"
         class="town-upgrade-sparkles"
+        :class="indicators[anchor.id]"
+        :data-building="anchor.id"
         :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
         ><i v-for="i in 3" :key="i" :style="{ '--i': i }">✦</i></span
       >
@@ -80,6 +83,9 @@
         >
         <small v-else-if="anchor.id === 'saloon' && town.income.stored > 0">{{
           t('Collect {coins} coins', { coins: town.income.stored })
+        }}</small>
+        <small v-else-if="anchor.id === 'blacksmith' && forgeCollectible">{{
+          t('Collect 1 TNT')
         }}</small>
         <small v-else-if="availableIds.includes(anchor.id)">{{
           t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
@@ -130,6 +136,7 @@ import {
   constructionVisual,
   constructionReady,
   availablePurchases,
+  buildingIndicators,
 } from '../../game/town/TownRules';
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
@@ -138,6 +145,7 @@ const props = defineProps({
   active: { type: Boolean, default: true },
   town: Object,
   builderHammers: { type: Number, default: 0 },
+  forgeCollectible: Boolean,
   selected: String,
   population: Number,
   reducedMotion: Boolean,
@@ -153,11 +161,12 @@ const canvas = ref(null),
   map = ref(null),
   anchors = ref([]),
   fallback = ref(false);
+const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const sparkleAnchors = computed(() =>
-  anchors.value.filter((anchor) => anchor.inView && availableIds.value.includes(anchor.id)),
+  anchors.value.filter((anchor) => anchor.inView && indicators.value[anchor.id]),
 );
 function collectionOrigin(id) {
   if (fallback.value) {

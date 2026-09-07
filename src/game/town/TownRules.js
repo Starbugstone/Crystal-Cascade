@@ -343,6 +343,24 @@ export function upgradeOffer(town, id) {
   };
 }
 
+// Immediate collection/completion takes priority over an affordable coin purchase.
+// Hammers do not affect these ambient hints.
+export function buildingIndicators(town, forgeCollectible = true) {
+  const indicators = Object.fromEntries(availablePurchases(town).map(({ id }) => [id, 'upgrade']));
+  for (const { id } of BUILDINGS) {
+    if (
+      constructionReady(town.projects[id]) ||
+      (id === 'saloon' && town.buildings.saloon > 0 && town.income.stored > 0) ||
+      (id === 'blacksmith' &&
+        town.buildings.blacksmith > 0 &&
+        town.forge.charge === 1 &&
+        forgeCollectible)
+    )
+      indicators[id] = 'ready';
+  }
+  return indicators;
+}
+
 export const availablePurchases = (town, builderHammers = 0) =>
   BUILDINGS.map((place) => ({ ...place, offer: upgradeOffer(town, place.id) }))
     .filter(({ offer }) => offer?.available && (town.coins >= offer.cost || builderHammers > 0))

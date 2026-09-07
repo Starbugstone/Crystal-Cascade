@@ -1170,5 +1170,9 @@
   "Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. The school adds up to 5 points. Happiness boosts saloon income by the same percentage.": "La nourriture et l’eau apportent jusqu’à 40 points. Chaque niveau de la place ajoute 8 points, et chaque niveau du musée et du saloon en ajoute 2. L’école apporte jusqu’à 5 points. Le bonheur augmente les revenus du saloon du même pourcentage.",
   "A raid can arrive after every {runs} completed puzzles. Never while you are away. Your last 50 coins are always safe.": "Une attaque peut survenir tous les {runs} niveaux terminés. Jamais en votre absence. Vos 50 dernières pièces sont toujours protégées.",
   "Ready buildings come first: tap to finish construction. Coin purchases follow, then buildings you can complete with a builder hammer.": "Les bâtiments prêts arrivent en premier : touchez-les pour terminer les travaux. Viennent ensuite les achats en pièces, puis les bâtiments à terminer avec un marteau de bâtisseur.",
-  "Construction complete": "Construction terminée"
+  "Construction complete": "Construction terminée",
+  "Collected 1 TNT · added to your armory": "1 TNT récupéré · ajouté à votre arsenal",
+  "Collect 1 TNT": "Récupérer 1 TNT",
+  "Tap the blacksmith to collect one TNT for your armory. If TNT storage is full, the charge waits here.": "Touchez le forgeron pour récupérer un TNT dans votre arsenal. Si le stockage de TNT est plein, la charge reste ici.",
+  "Every five normal puzzles earns one Forge Charge, capped at one. Tap the blacksmith to collect one TNT for your armory.": "Cinq puzzles normaux rapportent une charge de forge, limitée à une. Touchez le forgeron pour récupérer un TNT dans votre arsenal."
 }

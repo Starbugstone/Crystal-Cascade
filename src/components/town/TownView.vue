@@ -145,6 +145,7 @@
           :active="active"
           :fullscreen="fullscreen"
           :town="town"
+          :forge-collectible="campaign.canCollectForge"
           :builder-hammers="campaign.builderHammers"
           :selected="selected"
           :population="people"
@@ -152,7 +153,6 @@
           :paused="
             !active ||
             paused ||
-            departurePending ||
             settings.isSettingsOpen ||
             museumOpen ||
             !!dialogMode ||
@@ -186,13 +186,20 @@
           :reduced-motion="settings.reducedMotion"
           @close="raidNotice = null"
         />
-        <p v-if="showConstructionTip" class="town-construction-tip" role="status">
+        <p
+          v-if="showConstructionTip && !forgeCollected"
+          class="town-construction-tip"
+          role="status"
+        >
           <GameIcon name="info" />
           {{
             t(
               'Your first building is ready! Tap its scaffolding to finish construction and open it.',
             )
           }}
+        </p>
+        <p v-if="forgeCollected" class="town-construction-tip" role="status">
+          {{ t('Collected 1 TNT · added to your armory') }}
         </p>
         <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
       </div>
@@ -503,7 +510,6 @@ import TownCoinCollection from './TownCoinCollection.vue';
 const props = defineProps({
   openMuseum: Boolean,
   active: { type: Boolean, default: true },
-  departurePending: Boolean,
 });
 const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
@@ -614,6 +620,7 @@ const paused = ref(false),
   latestMoment = ref(null);
 const raidNotice = ref(null);
 const collection = ref(null);
+const forgeCollected = ref(false);
 let collectionSerial = 0;
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
@@ -632,7 +639,6 @@ useTownAudio(() => ({
   paused:
     !props.active ||
     paused.value ||
-    props.departurePending ||
     settings.isSettingsOpen ||
     museumOpen.value ||
     !!dialogMode.value ||
@@ -712,12 +718,19 @@ function collectIncome() {
 async function selectBuilding(id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
   selected.value = id;
+  forgeCollected.value = false;
   if (constructionReady(town.value.projects[id])) {
     finishBuilding(id);
     return;
   }
   if (id === 'saloon' && collectIncome()) return;
   collection.value = null;
+  if (id === 'blacksmith' && campaign.collectForgeTNT()) {
+    closeDialog();
+    forgeCollected.value = true;
+    game.audioManager?.playArcadeCue?.('jackpot');
+    return;
+  }
   dialogMode.value = 'building';
   await nextTick();
   const dialog = document.querySelector('.town-dialog');
@@ -731,6 +744,7 @@ function visitMuseum() {
   if (campaign.canReplay) museumOpen.value = true;
 }
 function goMining() {
+  forgeCollected.value = false;
   collection.value = null;
   closeDialog();
   if (campaign.completedCount < LEVEL_COUNT) emit('mine');

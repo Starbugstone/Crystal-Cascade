@@ -13,3 +13,6 @@ export const miningDepthBonus = (baseCoins, levelId) =>
     Number.MAX_SAFE_INTEGER - baseCoins,
     Math.floor((baseCoins * depthBonusPercent(levelId)) / 100),
   );
+
+// Chest coins grow with each six-level chapter as village upgrades become dearer.
+export const chestCoinReward = (levelId = 1) => 25 * (1 + depthBonusPercent(levelId) / 5);

@@ -10,9 +10,7 @@ export const useInventoryStore = defineStore('inventory', {
   actions: {
     availableQuantity(id) {
       const quantity = this.quickAccessSlots.find((entry) => entry.id === id)?.quantity ?? 0;
-      return (
-        quantity + (id === 'tnt' && useCampaignStore().hasForgeTNT(useGameStore().runId) ? 1 : 0)
-      );
+      return quantity;
     },
     async usePowerUp(id) {
       const gameStore = useGameStore();
@@ -85,8 +83,6 @@ export const useInventoryStore = defineStore('inventory', {
       };
 
       const inventoryId = modeToIdMap[id] || id;
-      if (inventoryId === 'tnt' && useCampaignStore().consumeForgeTNT(useGameStore().runId))
-        return true;
       const slot = this.quickAccessSlots.find((entry) => entry.id === inventoryId);
 
       if (slot && slot.quantity > 0) {

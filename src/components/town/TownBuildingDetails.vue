@@ -121,7 +121,7 @@
       <p>
         {{
           t(
-            'Choose whether to spend your charge before entering a normal mine run. This is a mine bonus, separate from builder hammers.',
+            'Tap the blacksmith to collect one TNT for your armory. If TNT storage is full, the charge waits here.',
           )
         }}
       </p>
