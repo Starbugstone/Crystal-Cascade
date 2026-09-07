@@ -15,6 +15,11 @@
       "
     >
       <defs>
+        <radialGradient :id="`${uid}-upgrade-glow`">
+          <stop stop-color="#b5ffc2" stop-opacity=".95" />
+          <stop offset=".65" stop-color="#84f69a" stop-opacity=".85" />
+          <stop offset="1" stop-color="#84f69a" stop-opacity="0" />
+        </radialGradient>
         <clipPath :id="`${uid}-land`"><path :d="land" /></clipPath>
         <linearGradient :id="`${uid}-sky`" x2="0" y2="1">
           <stop stop-color="#e9ece0" />
@@ -216,6 +221,15 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
+        <ellipse
+          v-if="indicators[building.id] === 'upgrade'"
+          class="map-upgrade-glow"
+          cy="-8"
+          rx="130"
+          ry="48"
+          :fill="`url(#${uid}-upgrade-glow)`"
+          aria-hidden="true"
+        />
         <g
           :key="`${town.buildings[building.id]}-${construction?.id === building.id ? construction.serial : 0}`"
           aria-hidden="true"
@@ -232,25 +246,6 @@
           <g v-if="animatedConstruction?.id === building.id" class="town-build-hammer">
             <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
           </g>
-        </g>
-        <g
-          v-if="indicators[building.id] === 'upgrade'"
-          class="map-upgrade-sparkles"
-          :class="indicators[building.id]"
-          aria-hidden="true"
-        >
-          <text
-            v-for="([x, y], i) in sparklePoints"
-            :key="i"
-            :x="x"
-            :y="y"
-            :style="{
-              '--i': i,
-              '--rise-y': `${building.kind === 'square' ? -20 : building.kind === 'well' ? -40 : -65}px`,
-            }"
-          >
-            ✦
-          </text>
         </g>
         <image
           v-if="['ready', 'coins', 'tnt', 'bell'].includes(indicators[building.id])"
@@ -430,6 +425,7 @@ const props = defineProps({
   town: { type: Object, required: true },
   builderHammers: { type: Number, default: 0 },
   forgeCollectible: Boolean,
+  now: { type: Number, default: Date.now },
   selected: String,
   population: Number,
   mineStage: { type: Number, default: 0 },
@@ -493,18 +489,10 @@ watch(
       scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
   },
 );
-const sparklePoints = [
-  [-110, -15],
-  [-105, 5],
-  [-75, 23],
-  [-25, 32],
-  [25, 32],
-  [75, 23],
-  [105, 5],
-  [110, -15],
-];
-const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
-const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
+const hasIncome = (id) => indicators.value[id] === 'coins';
+const indicators = computed(() =>
+  buildingIndicators(props.town, props.forgeCollectible, props.now),
+);
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );

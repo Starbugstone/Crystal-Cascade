@@ -294,11 +294,11 @@ describe('Collecting Forge TNT into inventory', () => {
     c.town.buildings.blacksmith = 1;
     const slot = c.powers.find((p) => p.id === 'tnt');
     slot.quantity = c.bonusLimit;
-    expect(c.canCollectForge).toBe(false);
+    expect(c.canCollectForge()).toBe(false);
     expect(c.collectForgeTNT()).toBe(false);
     expect(c.town.forge.charge).toBe(1);
     slot.quantity--;
-    expect(c.canCollectForge).toBe(true);
+    expect(c.canCollectForge()).toBe(true);
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
       throw Error('full');
     });

@@ -161,7 +161,8 @@
           :active="active"
           :fullscreen="fullscreen"
           :town="town"
-          :forge-collectible="campaign.canCollectForge"
+          :forge-collectible="campaign.canCollectForge(collectionNow)"
+          :now="collectionNow"
           :builder-hammers="campaign.builderHammers"
           :selected="selected"
           :population="people"
@@ -365,7 +366,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Select a parcel to open its building card. Ready construction comes first, followed by coin purchases and work available with a builder hammer. Collect resources by tapping buildings in the town.',
+              'Select a parcel to open its building card. Select ready construction to finish it and close this list. Collect resources by tapping buildings in the town.',
             )
           }}
         </p>
@@ -382,11 +383,7 @@
           }}
         </p>
         <section class="town-building-list" :aria-label="t('Available buildings')">
-          <button
-            v-for="place in directoryPlots"
-            :key="place.id"
-            @click="inspectBuilding(place.id)"
-          >
+          <button v-for="place in directoryPlots" :key="place.id" @click="selectParcel(place.id)">
             <span class="building-list-dot" :style="{ background: place.color }"></span>
             <span
               >{{ t(place.shortName) }}<small>{{ plotStatus(place) }}</small></span
@@ -421,7 +418,7 @@
             <button
               v-for="place in currentEraPlots"
               :key="place.id"
-              @click="inspectBuilding(place.id)"
+              @click="selectParcel(place.id)"
             >
               <span>{{ t(place.shortName) }}</span>
               <small>{{
@@ -448,6 +445,7 @@
         :bonus-limit="campaign.bonusLimit"
         :powers="campaign.powers"
         :last-income="campaign.lastSaloonIncome"
+        :now="collectionNow"
         @build="repair"
         @hammer="useHammer"
         @finish="finishBuilding(selected)"
@@ -577,6 +575,8 @@ const goal = computed(() => nextGoal(town.value));
 const gate = computed(() => eraGate(town.value, campaign.records));
 const directoryPlots = computed(() => availableParcels(town.value, campaign.builderHammers));
 const townScene = ref(null);
+const collectionNow = ref(Date.now());
+let collectionClock;
 const currentEraPlots = computed(() => BUILDINGS.filter(({ id }) => plotInEra(town.value, id)));
 const built = computed(
   () => currentEraPlots.value.filter(({ id }) => town.value.buildings[id]).length,
@@ -743,7 +743,8 @@ function openDirectory() {
   dialogMode.value = 'directory';
 }
 function collectIncome() {
-  const coins = campaign.collectSaloonIncome();
+  collectionNow.value = Date.now();
+  const coins = campaign.collectSaloonIncome(collectionNow.value);
   if (!coins) return false;
   closeDialog();
   collection.value = {
@@ -767,7 +768,8 @@ async function selectBuilding(id) {
     return;
   }
   collection.value = null;
-  if (id === 'blacksmith' && campaign.collectForgeTNT()) {
+  collectionNow.value = Date.now();
+  if (id === 'blacksmith' && campaign.collectForgeTNT(collectionNow.value)) {
     closeDialog();
     forgeCollected.value = true;
     game.audioManager?.playArcadeCue?.('jackpot');
@@ -780,6 +782,10 @@ function ringBell() {
   game.audioManager?.playArcadeCue?.('town-bell');
   announcement.value = t('Bell rung · remaining loss: {coins} coins', { coins: event.value.loss });
   return true;
+}
+function selectParcel(id) {
+  if (constructionReady(town.value.projects[id])) finishBuilding(id);
+  else inspectBuilding(id);
 }
 async function inspectBuilding(id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
@@ -888,8 +894,10 @@ function replayRaid() {
 }
 function visibilityChanged() {
   paused.value = document.hidden;
+  collectionNow.value = Date.now();
 }
 function enterVillage() {
+  collectionNow.value = Date.now();
   fullscreen.value = true;
   tourOpen.value = !campaign.town.tourSeen;
   museumOpen.value = props.openMuseum && campaign.canReplay;
@@ -918,12 +926,16 @@ watch(
   { flush: 'sync' },
 );
 onMounted(() => {
+  collectionClock = setInterval(() => {
+    if (props.active && !document.hidden) collectionNow.value = Date.now();
+  }, 1000);
   visibilityChanged();
   document.addEventListener('visibilitychange', visibilityChanged);
   document.addEventListener('keydown', leaveFullscreen);
   if (props.active) enterVillage();
 });
 onBeforeUnmount(() => {
+  clearInterval(collectionClock);
   document.removeEventListener('visibilitychange', visibilityChanged);
   document.removeEventListener('keydown', leaveFullscreen);
   if (fullscreen.value) document.body.style.overflow = previousOverflow ?? '';

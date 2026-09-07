@@ -2161,65 +2161,10 @@ html:has(.town-museum[open]) {
 .map-action-icon {
   filter: drop-shadow(0 2px 2px #543d3860);
 }
-.town-sparkles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
+.map-upgrade-glow {
   pointer-events: none;
-}
-.town-upgrade-sparkles {
-  position: absolute;
-  inset: 0;
-}
-.town-upgrade-sparkles i {
-  position: absolute;
-  font: normal 10px/1 sans-serif;
-  color: #a8efad;
-  text-shadow:
-    0 0 2px #6eb984,
-    0 0 5px #c4ffd0;
-  animation: town-upgrade-shimmer 3.2s calc(var(--i) * -0.43s) linear infinite;
-}
-.map-upgrade-sparkles {
-  pointer-events: none;
-}
-.map-upgrade-sparkles text {
-  fill: #a8efad;
-  stroke: #6eb984;
-  stroke-width: 1.5px;
-  paint-order: stroke fill;
-  font-size: 26px;
-  filter: drop-shadow(0 0 3px #c4ffd0);
-  animation: town-upgrade-shimmer 3.2s calc(var(--i) * -0.43s) linear infinite;
-}
-@keyframes town-upgrade-shimmer {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0);
-  }
-  20% {
-    opacity: 1;
-  }
-  55% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--rise-x, 0px), var(--rise-y));
-  }
-}
-.still .town-upgrade-sparkles i,
-.town-map-still .map-upgrade-sparkles text,
-.town-map-paused .map-upgrade-sparkles text {
-  animation: none;
 }
 .town-plot-ready {
   color: #426654;
   font-weight: 800;
-}
-@media (prefers-reduced-motion: reduce) {
-  .town-upgrade-sparkles i,
-  .map-upgrade-sparkles text {
-    animation: none;
-  }
 }

@@ -609,4 +609,5 @@ export const createTown = () => ({
   completedRuns: 0,
   nextRaidRun: null,
   income: { at: null, remainder: 0, stored: 0 },
+  lastCollections: { saloon: null, blacksmith: null },
 });

@@ -115,6 +115,17 @@
     <p v-else class="town-restored-note">
       <TownIcon name="check" />{{ t(building.upgrades.at(-1).benefit) }}
     </p>
+    <p v-if="stage && ['saloon', 'blacksmith'].includes(id)" class="town-service">
+      {{
+        cooldownSeconds
+          ? t('Collect again in {seconds}s. Production and accumulation continue.', {
+              seconds: cooldownSeconds,
+            })
+          : t(
+              'After collecting, wait 30 seconds before collecting again. Tap again during this time to open the building card. Production and accumulation continue.',
+            )
+      }}
+    </p>
     <section v-if="id === 'blacksmith' && stage" class="town-service">
       <h3>{{ t('Forge Charge: {count}/1', { count: town.forge.charge }) }}</h3>
       <p>
@@ -249,6 +260,7 @@ import {
   gangSize,
   raidProtection,
   canRingTownBell,
+  collectionCooldownRemaining,
 } from '../../game/town/TownRules';
 import TownBuilding from './TownBuilding.vue';
 import TownShop from './TownShop.vue';
@@ -261,8 +273,12 @@ const props = defineProps({
   bonusLimit: Number,
   powers: Array,
   lastIncome: Number,
+  now: { type: Number, default: Date.now },
 });
 defineEmits(['build', 'hammer', 'finish', 'ring-bell', 'select', 'museum', 'mine']);
+const cooldownSeconds = computed(() =>
+  Math.ceil(collectionCooldownRemaining(props.town, props.id, props.now) / 1000),
+);
 const building = computed(() => BUILDING_BY_ID[props.id]);
 const requirement = computed(() => plotRequirement(props.town, props.id));
 const stage = computed(() => props.town.buildings[props.id]);

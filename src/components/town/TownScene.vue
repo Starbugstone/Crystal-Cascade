@@ -5,6 +5,7 @@
     :town="town"
     :builder-hammers="builderHammers"
     :forge-collectible="forgeCollectible"
+    :now="now"
     :selected="selected"
     :population="population"
     :reduced-motion="reducedMotion"
@@ -34,28 +35,6 @@
       :aria-label="t('Town camera. Arrow keys rotate, plus and minus zoom, Home resets the view.')"
       @keydown="cameraKey"
     />
-    <div class="town-sparkles" :class="{ still: reducedMotion || paused }" aria-hidden="true">
-      <span
-        v-for="anchor in sparkleAnchors"
-        :key="anchor.id"
-        class="town-upgrade-sparkles"
-        :class="indicators[anchor.id]"
-        :data-building="anchor.id"
-        ><i
-          v-for="(particle, i) in anchor.sparkles"
-          :key="i"
-          v-show="particle.visible"
-          :style="{
-            '--i': i,
-            '--rise-x': `${particle.riseX}px`,
-            '--rise-y': `${particle.riseY}px`,
-            left: `${particle.x}%`,
-            top: `${particle.y}%`,
-          }"
-          >✦</i
-        ></span
-      >
-    </div>
     <div class="town-action-icons">
       <button
         v-for="anchor in actionAnchors"
@@ -102,7 +81,7 @@
           'raid-defense-ready':
             ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
-          'has-income': anchor.id === 'saloon' && town.income.stored > 0,
+          'has-income': indicators[anchor.id] === 'coins',
           'has-action-icon': ['ready', 'coins', 'tnt', 'bell'].includes(indicators[anchor.id]),
         }"
         :aria-label="
@@ -127,7 +106,7 @@
             constructionRuns(town.projects[anchor.id])
           }}</small
         >
-        <small v-else-if="anchor.id === 'saloon' && town.income.stored > 0">{{
+        <small v-else-if="indicators[anchor.id] === 'coins'">{{
           t('Collect {coins} coins', { coins: town.income.stored })
         }}</small>
         <small v-else-if="anchor.id === 'blacksmith' && forgeCollectible">{{
@@ -192,6 +171,7 @@ const props = defineProps({
   town: Object,
   builderHammers: { type: Number, default: 0 },
   forgeCollectible: Boolean,
+  now: { type: Number, default: Date.now },
   selected: String,
   population: Number,
   reducedMotion: Boolean,
@@ -207,16 +187,14 @@ const canvas = ref(null),
   map = ref(null),
   anchors = ref([]),
   fallback = ref(false);
-const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
+const indicators = computed(() =>
+  buildingIndicators(props.town, props.forgeCollectible, props.now),
+);
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
-const sparkleAnchors = computed(() =>
-  anchors.value.filter(
-    (anchor) =>
-      indicators.value[anchor.id] === 'upgrade' &&
-      anchor.sparkles.some((particle) => particle.visible),
-  ),
+const upgradeIds = computed(() =>
+  Object.keys(indicators.value).filter((id) => indicators.value[id] === 'upgrade'),
 );
 const actionAnchors = computed(() =>
   anchors.value.filter(
@@ -338,6 +316,7 @@ function update() {
     lastConstruction = props.construction?.serial;
   }
   scene.setAvailable([...availableIds.value, ...(props.town.income.stored > 0 ? ['saloon'] : [])]);
+  scene.setUpgradeable(upgradeIds.value);
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
   scene.setPaused(props.paused);
@@ -450,6 +429,9 @@ watch(
       ]);
   },
 );
+watch(upgradeIds, (ids) => {
+  if (props.active) scene?.setUpgradeable(ids);
+});
 watch(
   () => props.raid,
   (raid, previous) => {

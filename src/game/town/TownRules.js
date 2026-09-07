@@ -33,6 +33,10 @@ export function miningPayout(
 
 export function normalizeTown(saved) {
   const town = createTown();
+  for (const id of Object.keys(town.lastCollections)) {
+    const at = saved?.lastCollections?.[id];
+    if (Number.isSafeInteger(at) && at >= 0) town.lastCollections[id] = at;
+  }
   // Missing or malformed additions leave existing v3 receipts intact.
   const forge = saved?.forge;
   town.forge.charge = forge?.charge === 1 ? 1 : 0;
@@ -288,6 +292,15 @@ export function plotUnlocked(town, id) {
 }
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
+export const COLLECTION_COOLDOWN_MS = 30_000;
+export function collectionCooldownRemaining(town, id, now = Date.now()) {
+  const collectedAt = town.lastCollections?.[id];
+  if (!Number.isSafeInteger(collectedAt) || collectedAt < 0) return 0;
+  return Math.min(
+    COLLECTION_COOLDOWN_MS,
+    Math.max(0, COLLECTION_COOLDOWN_MS - (now - collectedAt)),
+  );
+}
 export const saloonHappinessBonus = (town) => 1.25 * happiness(town);
 export const saloonIncomeRate = (town) =>
   Math.floor(
@@ -352,17 +365,23 @@ export function upgradeOffer(town, id) {
 
 // Immediate collection/completion takes priority over an affordable coin purchase.
 // Hammers do not affect these ambient hints.
-export function buildingIndicators(town, forgeCollectible = true) {
+export function buildingIndicators(town, forgeCollectible = true, now = Date.now()) {
   const indicators = Object.fromEntries(availablePurchases(town).map(({ id }) => [id, 'upgrade']));
   for (const { id } of BUILDINGS) {
     if (constructionReady(town.projects[id])) indicators[id] = 'ready';
-    else if (id === 'saloon' && town.buildings.saloon > 0 && town.income.stored > 0)
+    else if (
+      id === 'saloon' &&
+      town.buildings.saloon > 0 &&
+      town.income.stored > 0 &&
+      !collectionCooldownRemaining(town, id, now)
+    )
       indicators[id] = 'coins';
     else if (
       id === 'blacksmith' &&
       town.buildings.blacksmith > 0 &&
       town.forge.charge === 1 &&
-      forgeCollectible
+      forgeCollectible &&
+      !collectionCooldownRemaining(town, id, now)
     )
       indicators[id] = 'tnt';
   }
