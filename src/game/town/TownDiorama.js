@@ -324,19 +324,23 @@ export class TownDiorama {
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
-      // Project points around the whole building, independently of its entrance label.
+      // Keep upgrade sparkles at ground level around the building's footprint.
       const bounds = new THREE.Box3().setFromObject(group);
       const center = bounds.getCenter(new THREE.Vector3());
-      const size = bounds.getSize(new THREE.Vector3());
+      const baseY = bounds.min.y + 0.2;
       // Keep action icons at the front porch, below the roofline.
       this.anchors.at(-1).collection = point(x, 1, z + 2.2);
+      this.anchors.at(-1).sparkleCenter = center;
+      this.anchors.at(-1).sparkleRise = Math.max(0.45, (bounds.max.y - bounds.min.y) * 0.4);
       this.anchors.at(-1).sparkles = [
-        point(bounds.min.x - 0.15, bounds.min.y + size.y * 0.3, bounds.max.z),
-        point(bounds.max.x + 0.15, bounds.min.y + size.y * 0.55, bounds.max.z),
-        point(bounds.min.x - 0.15, bounds.min.y + size.y * 0.75, bounds.min.z),
-        point(bounds.max.x + 0.15, bounds.min.y + size.y * 0.3, bounds.min.z),
-        point(center.x - size.x * 0.2, bounds.max.y + 0.2, center.z),
-        point(center.x + size.x * 0.2, bounds.min.y + size.y * 0.15, bounds.max.z + 0.15),
+        point(bounds.min.x - 0.2, baseY, bounds.max.z + 0.2),
+        point(center.x, baseY, bounds.max.z + 0.2),
+        point(bounds.max.x + 0.2, baseY, bounds.max.z + 0.2),
+        point(bounds.max.x + 0.2, baseY, center.z),
+        point(bounds.max.x + 0.2, baseY, bounds.min.z - 0.2),
+        point(center.x, baseY, bounds.min.z - 0.2),
+        point(bounds.min.x - 0.2, baseY, bounds.min.z - 0.2),
+        point(bounds.min.x - 0.2, baseY, center.z),
       ];
       // Keep the windmill rotor articulated while batching the rest of its building.
       if (movingPart) {
@@ -957,7 +961,7 @@ export class TownDiorama {
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
     const projected = this.anchors.map(
-      ({ id, position, width: labelWidth, sparkles, collection }) => {
+      ({ id, position, width: labelWidth, sparkles, sparkleCenter, sparkleRise, collection }) => {
         const p = position.clone().project(this.camera);
         const reward = collection.clone().project(this.camera);
         return {
@@ -975,10 +979,21 @@ export class TownDiorama {
           },
           sparkles: sparkles.map((position) => {
             const sparkle = position.clone().project(this.camera);
+            const end = position.clone();
+            end.y += sparkleRise;
+            end.project(this.camera);
+            // Rear ground points would otherwise paint over the roof in this HTML overlay.
+            const facingCamera =
+              (position.x - sparkleCenter.x) * (this.camera.position.x - sparkleCenter.x) +
+                (position.z - sparkleCenter.z) * (this.camera.position.z - sparkleCenter.z) >=
+              0;
             return {
               x: (sparkle.x + 1) * 50,
               y: (1 - sparkle.y) * 50,
+              riseX: ((end.x - sparkle.x) * width) / 2,
+              riseY: ((sparkle.y - end.y) * height) / 2,
               visible:
+                (!this.town.buildings[id] || facingCamera) &&
                 sparkle.z > -1 &&
                 sparkle.z < 1 &&
                 Math.abs(sparkle.x) < 1 &&

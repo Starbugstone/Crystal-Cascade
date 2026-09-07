@@ -45,7 +45,13 @@
           v-for="(particle, i) in anchor.sparkles"
           :key="i"
           v-show="particle.visible"
-          :style="{ '--i': i, left: `${particle.x}%`, top: `${particle.y}%` }"
+          :style="{
+            '--i': i,
+            '--rise-x': `${particle.riseX}px`,
+            '--rise-y': `${particle.riseY}px`,
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+          }"
           >✦</i
         ></span
       >

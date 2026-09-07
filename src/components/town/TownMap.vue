@@ -243,8 +243,11 @@
             v-for="([x, y], i) in sparklePoints"
             :key="i"
             :x="x"
-            :y="y * (building.kind === 'square' ? 0.35 : building.kind === 'well' ? 0.65 : 1)"
-            :style="{ '--i': i }"
+            :y="y"
+            :style="{
+              '--i': i,
+              '--rise-y': `${building.kind === 'square' ? -20 : building.kind === 'well' ? -40 : -65}px`,
+            }"
           >
             ✦
           </text>
@@ -489,12 +492,14 @@ watch(
   },
 );
 const sparklePoints = [
-  [-90, -50],
-  [-70, -120],
-  [-25, -160],
-  [45, -145],
-  [85, -80],
-  [65, -15],
+  [-110, -15],
+  [-105, 5],
+  [-75, 23],
+  [-25, 32],
+  [25, 32],
+  [75, 23],
+  [105, 5],
+  [110, -15],
 ];
 const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
 const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
