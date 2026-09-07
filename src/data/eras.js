@@ -28,7 +28,8 @@ export const ERAS = [
 ];
 export const ERA_BY_ID = Object.fromEntries(ERAS.map((era) => [era.id, era]));
 export const FRONTIER_ERA = ERAS[0].id;
-export const FORGE_COMPLETIONS = 5;
+export const FORGE_PRODUCTION_RUNS = [20, 16, 12, 8, 5];
+export const forgeProductionRuns = (level) => FORGE_PRODUCTION_RUNS[level - 1] ?? 20;
 export const createEraState = (plotIds) => ({
   era: FRONTIER_ERA,
   buildingEras: Object.fromEntries(plotIds.map((id) => [id, FRONTIER_ERA])),

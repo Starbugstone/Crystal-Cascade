@@ -968,6 +968,9 @@
 .town-scene-labels button:active:not(:disabled) {
   transform: translate(-50%, -30%) scale(0.97);
 }
+.town-scene-labels button.has-action-icon {
+  margin-top: 24px;
+}
 .town-scene-labels button.selected {
   outline: 2px solid #789788;
   outline-offset: 2px;
@@ -1389,6 +1392,12 @@
   line-height: 1.5;
   color: #f0dbb7;
 }
+.town-raid-defenses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
 .town-raid-actions {
   grid-column: 2;
   grid-row: 1 / span 3;
@@ -1456,6 +1465,9 @@
 }
 .town-scene.is-raiding .town-scene-labels {
   visibility: hidden;
+}
+.town-scene.is-raiding .town-scene-labels .raid-defense-ready {
+  visibility: visible;
 }
 
 @media (max-width: 550px) {
@@ -2086,11 +2098,6 @@ html:has(.town-museum[open]) {
   color: var(--town-ink, #574b37);
   background: #f3e8cf;
 }
-.forge-run-note {
-  font-size: 0.75rem;
-  margin: 0.35rem 0;
-  color: var(--text-primary, #fff4d3);
-}
 .town-era-control {
   position: absolute;
   top: 112px;
@@ -2111,6 +2118,32 @@ html:has(.town-museum[open]) {
   min-height: 32px;
 }
 
+.town-action-icons {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.town-action-icon {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+.town-action-icon img {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 2px #543d3860);
+}
+.map-action-icon {
+  filter: drop-shadow(0 2px 2px #543d3860);
+}
 .town-sparkles {
   position: absolute;
   inset: 0;
@@ -2119,42 +2152,43 @@ html:has(.town-museum[open]) {
 }
 .town-upgrade-sparkles {
   position: absolute;
-  width: 0;
-  height: 0;
+  inset: 0;
 }
 .town-upgrade-sparkles i {
   position: absolute;
-  left: calc((var(--i) - 2) * 18px);
-  top: -24px;
-  font: normal 20px/1 sans-serif;
-  color: #fff1a4;
+  font: normal 10px/1 sans-serif;
+  color: #a8efad;
   text-shadow:
-    0 0 4px #a56c1e,
-    0 0 8px #ffdd85;
-  animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
+    0 0 2px #6eb984,
+    0 0 5px #c4ffd0;
+  animation: town-upgrade-shimmer 3.2s calc(var(--i) * -0.43s) linear infinite;
 }
 .map-upgrade-sparkles {
   pointer-events: none;
 }
 .map-upgrade-sparkles text {
-  fill: #fff2a5;
-  stroke: #aa7d38;
-  stroke-width: 1px;
-  font-size: 36px;
-  animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
+  fill: #a8efad;
+  stroke: #6eb984;
+  stroke-width: 1.5px;
+  paint-order: stroke fill;
+  font-size: 26px;
+  filter: drop-shadow(0 0 3px #c4ffd0);
+  animation: town-upgrade-shimmer 3.2s calc(var(--i) * -0.43s) linear infinite;
 }
 @keyframes town-upgrade-shimmer {
-  0%,
-  100% {
-    opacity: 0.2;
-    transform: translateY(0);
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
   }
-  45% {
+  20% {
     opacity: 1;
   }
-  80% {
+  55% {
+    opacity: 0.85;
+  }
+  100% {
     opacity: 0;
-    transform: translateY(-24px);
+    transform: translate(var(--rise-x, 0px), var(--rise-y));
   }
 }
 .still .town-upgrade-sparkles i,

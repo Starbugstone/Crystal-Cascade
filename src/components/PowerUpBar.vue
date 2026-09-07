@@ -38,9 +38,6 @@
         ><span class="powerup-name">{{ t(item.label) }}</span>
       </button>
     </div>
-    <p v-if="campaign.hasForgeTNT(game.runId)" class="forge-run-note" role="status">
-      {{ t('Forge TNT: one temporary use, spent first. Expires when this run ends.') }}
-    </p>
   </section>
 </template>
 <script setup>

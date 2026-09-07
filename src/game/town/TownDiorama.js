@@ -324,6 +324,24 @@ export class TownDiorama {
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
+      // Keep upgrade sparkles at ground level around the building's footprint.
+      const bounds = new THREE.Box3().setFromObject(group);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const baseY = bounds.min.y + 0.2;
+      // Keep action icons at the front porch, below the roofline.
+      this.anchors.at(-1).collection = point(x, 1, z + 2.2);
+      this.anchors.at(-1).sparkleCenter = center;
+      this.anchors.at(-1).sparkleRise = Math.max(0.45, (bounds.max.y - bounds.min.y) * 0.4);
+      this.anchors.at(-1).sparkles = [
+        point(bounds.min.x - 0.2, baseY, bounds.max.z + 0.2),
+        point(center.x, baseY, bounds.max.z + 0.2),
+        point(bounds.max.x + 0.2, baseY, bounds.max.z + 0.2),
+        point(bounds.max.x + 0.2, baseY, center.z),
+        point(bounds.max.x + 0.2, baseY, bounds.min.z - 0.2),
+        point(center.x, baseY, bounds.min.z - 0.2),
+        point(bounds.min.x - 0.2, baseY, bounds.min.z - 0.2),
+        point(bounds.min.x - 0.2, baseY, center.z),
+      ];
       // Keep the windmill rotor articulated while batching the rest of its building.
       if (movingPart) {
         group.updateMatrixWorld(true);
@@ -942,32 +960,67 @@ export class TownDiorama {
     const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
-    const projected = this.anchors.map(({ id, position, width: labelWidth }) => {
-      const p = position.clone().project(this.camera);
-      return {
-        id,
-        x: (p.x + 1) * 50,
-        y: (1 - p.y) * 50,
-        depth: p.z,
-        inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
-        width: labelWidth,
-        visible:
-          (id === 'mine' ||
-            this.town.buildings[id] > 0 ||
-            !!this.town.projects[id] ||
-            this.availablePlots?.has(id)) &&
-          p.z > -1 &&
-          p.z < 1 &&
-          (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
-          p.y < 0.84 &&
-          p.y > (width < 600 ? -0.42 : -0.78) &&
-          (!distant ||
-            id === 'mine' ||
-            id === this.selected ||
-            constructionReady(this.town.projects[id]) ||
-            this.availablePlots?.has(id)),
-      };
-    });
+    const projected = this.anchors.map(
+      ({ id, position, width: labelWidth, sparkles, sparkleCenter, sparkleRise, collection }) => {
+        const p = position.clone().project(this.camera);
+        const reward = collection.clone().project(this.camera);
+        return {
+          id,
+          x: (p.x + 1) * 50,
+          y: (1 - p.y) * 50,
+          collection: {
+            x: (reward.x + 1) * 50,
+            y: (1 - reward.y) * 50,
+            visible:
+              reward.z > -1 &&
+              reward.z < 1 &&
+              Math.abs(reward.x) < 0.95 &&
+              Math.abs(reward.y) < 0.9,
+          },
+          sparkles: sparkles.map((position) => {
+            const sparkle = position.clone().project(this.camera);
+            const end = position.clone();
+            end.y += sparkleRise;
+            end.project(this.camera);
+            // Rear ground points would otherwise paint over the roof in this HTML overlay.
+            const facingCamera =
+              (position.x - sparkleCenter.x) * (this.camera.position.x - sparkleCenter.x) +
+                (position.z - sparkleCenter.z) * (this.camera.position.z - sparkleCenter.z) >=
+              0;
+            return {
+              x: (sparkle.x + 1) * 50,
+              y: (1 - sparkle.y) * 50,
+              riseX: ((end.x - sparkle.x) * width) / 2,
+              riseY: ((sparkle.y - end.y) * height) / 2,
+              visible:
+                (!this.town.buildings[id] || facingCamera) &&
+                sparkle.z > -1 &&
+                sparkle.z < 1 &&
+                Math.abs(sparkle.x) < 1 &&
+                Math.abs(sparkle.y) < 1,
+            };
+          }),
+          depth: p.z,
+          inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
+          width: labelWidth,
+          visible:
+            (id === 'mine' ||
+              this.town.buildings[id] > 0 ||
+              !!this.town.projects[id] ||
+              this.availablePlots?.has(id)) &&
+            p.z > -1 &&
+            p.z < 1 &&
+            (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
+            p.y < 0.84 &&
+            p.y > (width < 600 ? -0.42 : -0.78) &&
+            (!distant ||
+              id === 'mine' ||
+              id === this.selected ||
+              constructionReady(this.town.projects[id]) ||
+              this.availablePlots?.has(id)),
+        };
+      },
+    );
     const shown = [];
     const priority = (id) =>
       id === this.selected
@@ -1030,6 +1083,12 @@ export class TownDiorama {
     this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
     this.rebuildActors();
     this.frameTown();
+    this.render();
+  }
+  updateRaid(event) {
+    if (this.raid?.event.id !== event.id) return;
+    this.raid.updateEvent(event);
+    this.rebuildActors();
     this.render();
   }
   stopRaid() {

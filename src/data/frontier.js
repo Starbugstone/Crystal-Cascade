@@ -1,3 +1,5 @@
+import { FORGE_PRODUCTION_RUNS } from './eras';
+
 // These services stay bounded across all five visual development levels.
 export const FRONTIER_BUILDINGS = [
   {
@@ -53,8 +55,9 @@ export const FRONTIER_BUILDINGS = [
       'Open the wheelwright’s yard',
       'Complete the frontier workshop',
     ],
-    benefit:
-      'Every five normal puzzles earns one Forge Charge, capped at one. Spend it before a normal run for one temporary TNT.',
+    benefits: FORGE_PRODUCTION_RUNS.map(
+      (runs) => `One TNT every ${runs} normal puzzles. Collect it to start the next cycle.`,
+    ),
     costs: [120, 220, 350, 700, 1750],
   },
   {

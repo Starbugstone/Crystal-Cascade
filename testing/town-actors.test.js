@@ -136,6 +136,42 @@ describe('A visible, articulated frontier encounter', () => {
     expect(raid.root.parent).toBeNull();
     expect(JSON.stringify(event)).toBe(saved);
   });
+  it('updates protection and adds a patrol without restarting the running raid', () => {
+    const d = diorama(),
+      complete = vi.fn();
+    const raid = new TownRaid(
+      d,
+      {
+        id: 1,
+        gangSize: 2,
+        sheriffLevel: 0,
+        bankLevel: 0,
+        targets: ['mine', 'home'],
+        outcome: 'stolen',
+        loss: 10,
+      },
+      PLOTS,
+      vi.fn(),
+      complete,
+    );
+    raid.update(12.5);
+    expect(raid.bandits.some((actor) => actor.loot.visible)).toBe(true);
+    const started = raid.started;
+    raid.updateEvent({
+      ...raid.event,
+      sheriffLevel: 1,
+      bankLevel: 1,
+      outcome: 'protected',
+      loss: 0,
+    });
+    raid.update(13);
+    expect(raid.started).toBe(started);
+    expect(raid.patrol).toHaveLength(1);
+    expect(raid.bandits.every((actor) => !actor.loot.visible)).toBe(true);
+    expect(complete).not.toHaveBeenCalled();
+    raid.update(21);
+    expect(complete).toHaveBeenCalledOnce();
+  });
   it('shows a full patrol with no loot for a protected town', () => {
     const d = diorama(),
       phase = vi.fn();

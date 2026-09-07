@@ -608,5 +608,6 @@ export const createTown = () => ({
   events: {},
   projects: {},
   completedRuns: 0,
+  nextRaidRun: null,
   income: { at: null, remainder: 0, stored: 0 },
 });

@@ -131,6 +131,16 @@
               )
             }}
           </p>
+          <div v-if="readyRaidDefenses.length" class="town-raid-defenses">
+            <button
+              v-for="id in readyRaidDefenses"
+              :key="id"
+              class="town-secondary"
+              @click="selectBuilding(id)"
+            >
+              {{ t('Finish {building}', { building: t(BUILDING_BY_ID[id].shortName) }) }}
+            </button>
+          </div>
           <div class="town-raid-actions">
             <div v-if="fullscreen" class="town-map-wallet" :aria-label="t('Town savings')">
               <TownIcon name="coin" /><strong>{{ number(town.coins) }}</strong>
@@ -145,6 +155,7 @@
           :active="active"
           :fullscreen="fullscreen"
           :town="town"
+          :forge-collectible="campaign.canCollectForge"
           :builder-hammers="campaign.builderHammers"
           :selected="selected"
           :population="people"
@@ -152,7 +163,6 @@
           :paused="
             !active ||
             paused ||
-            departurePending ||
             settings.isSettingsOpen ||
             museumOpen ||
             !!dialogMode ||
@@ -186,13 +196,20 @@
           :reduced-motion="settings.reducedMotion"
           @close="raidNotice = null"
         />
-        <p v-if="showConstructionTip" class="town-construction-tip" role="status">
+        <p
+          v-if="showConstructionTip && !forgeCollected"
+          class="town-construction-tip"
+          role="status"
+        >
           <GameIcon name="info" />
           {{
             t(
               'Your first building is ready! Tap its scaffolding to finish construction and open it.',
             )
           }}
+        </p>
+        <p v-if="forgeCollected" class="town-construction-tip" role="status">
+          {{ t('Collected 1 TNT · added to your armory') }}
         </p>
         <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
       </div>
@@ -310,8 +327,8 @@
               <p>
                 {{
                   t(
-                    'A raid can arrive after every {runs} completed puzzles. Never while you are away. Your last 50 coins are always safe.',
-                    { runs: town.era === 'river-rail' ? 10 : 5 },
+                    'Raids arrive unpredictably, {min}–{max} completed puzzles apart. Never while you are away. Your last 50 coins are always safe.',
+                    { min: raidIntervalRange(town)[0], max: raidIntervalRange(town)[1] },
                   )
                 }}
               </p>
@@ -483,6 +500,7 @@ import {
   housingCapacity,
   gangSize,
   raidProtection,
+  raidIntervalRange,
 } from '../../game/town/TownRules';
 import { useGameStore } from '../../stores/gameStore';
 import { useCampaignStore } from '../../stores/campaignStore';
@@ -503,7 +521,6 @@ import TownCoinCollection from './TownCoinCollection.vue';
 const props = defineProps({
   openMuseum: Boolean,
   active: { type: Boolean, default: true },
-  departurePending: Boolean,
 });
 const emit = defineEmits(['mine', 'replay', 'continuous', 'museum-change']);
 const campaign = useCampaignStore(),
@@ -614,6 +631,7 @@ const paused = ref(false),
   latestMoment = ref(null);
 const raidNotice = ref(null);
 const collection = ref(null);
+const forgeCollected = ref(false);
 let collectionSerial = 0;
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
@@ -632,7 +650,6 @@ useTownAudio(() => ({
   paused:
     !props.active ||
     paused.value ||
-    props.departurePending ||
     settings.isSettingsOpen ||
     museumOpen.value ||
     !!dialogMode.value ||
@@ -640,6 +657,19 @@ useTownAudio(() => ({
     !!town.value.transition?.pending,
 }));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
+const readyRaidDefenses = computed(() =>
+  activeRaid.value && !event.value?.seen
+    ? ['sheriff', 'bank'].filter((id) => constructionReady(town.value.projects[id]))
+    : [],
+);
+watch(
+  event,
+  (receipt) => {
+    if (receipt && activeRaid.value?.id === receipt.id && !receipt.seen)
+      activeRaid.value = { ...receipt };
+  },
+  { flush: 'sync' },
+);
 const banditStory = computed(() =>
   event.value?.outcome === 'protected'
     ? {
@@ -712,12 +742,19 @@ function collectIncome() {
 async function selectBuilding(id) {
   if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
   selected.value = id;
+  forgeCollected.value = false;
   if (constructionReady(town.value.projects[id])) {
     finishBuilding(id);
     return;
   }
   if (id === 'saloon' && collectIncome()) return;
   collection.value = null;
+  if (id === 'blacksmith' && campaign.collectForgeTNT()) {
+    closeDialog();
+    forgeCollected.value = true;
+    game.audioManager?.playArcadeCue?.('jackpot');
+    return;
+  }
   dialogMode.value = 'building';
   await nextTick();
   const dialog = document.querySelector('.town-dialog');
@@ -731,6 +768,7 @@ function visitMuseum() {
   if (campaign.canReplay) museumOpen.value = true;
 }
 function goMining() {
+  forgeCollected.value = false;
   collection.value = null;
   closeDialog();
   if (campaign.completedCount < LEVEL_COUNT) emit('mine');

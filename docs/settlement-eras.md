@@ -20,7 +20,7 @@ Suggested test sequence:
 2. From **Available plots**, build the **Railway station** for 975 coins. The station and railroad share one project. Complete two normal puzzles, then tap the ready station to finish it. Tracks and train activity appear together; there is no additional railroad payment.
 3. Fund the **Bridge** (900 coins, two completions), **Wharf** (750 coins, one completion), and any 300-coin modernization. Work progresses concurrently. Finish the bridge to expose the warehouse, hotel, riverside home and market on the east bank.
 4. Modernize a level-5 landmark. Its original service stays active during its two-completion project and remains unchanged when the new facade opens. Functional levels remain 5.
-5. Enter a normal mine with the stored Forge Charge. Choose whether to keep or spend it. A spent charge provides one temporary TNT ahead of persistent inventory; an unused temporary TNT expires on victory, exit or reload.
+5. Tap the blacksmith with a stored Forge Charge to collect one TNT into your armory. The TNT persists until used; if storage is full, the charge waits at the blacksmith. Entering the mine requires no Forge prompt.
 6. Use `river-rail-complete` to check the final state. The later eras stay unavailable.
 
 The first fixture leaves the Rail Connections chapter (levels 67–72) unfinished, so construction can be tested with new normal puzzles. Museum replay also advances work. Continuous play never advances construction, the era milestone or Forge Charge.
@@ -28,16 +28,16 @@ The first fixture leaves the Rail Connections chapter (levels 67–72) unfinishe
 ## Content and balance
 
 - Four additional Frontier landmarks have five normal levels: fisherman (+1 food each, maximum 5), blacksmith, school (+1 happiness each, maximum 5), and doctor (civic/story service).
-- The blacksmith earns one charge after five completed normal runs, only after its first construction has been finished. Upgrades do not accelerate charging. One charge is the storage limit; it never becomes a builder hammer, inventory item or overflow coins.
+- The blacksmith earns one charge after 20, 16, 12, 8 or 5 completed normal puzzles at levels 1–5. Production pauses while that charge is waiting; collecting it starts a fresh cycle with no banked progress. Upgrades preserve earned progress and shorten the cycle, making the charge ready immediately if the new requirement has already been reached. One charge is the storage limit; tapping the blacksmith collects one inventory TNT, and full TNT storage leaves the charge waiting.
 - The first era gate requires every Frontier plot at maximum level, no unfinished work, and the complete **River Discovery** chapter. The gate uses the chapter ID rather than a hard-coded level number. Two new six-level chapters extend the normal campaign to 72 levels.
 - River & Rail introduces eight separate projects: bridge, wharf, station, post office, warehouse, hotel, riverside home and market. Station and hotel each add two visitor places; the new home adds ten resident places and market ten food. Food and water still constrain occupancy. The other projects add access, presentation and civic milestones.
 - Modernizing existing plots costs 300 coins and two normal completions, with no extra service multiplier. Builder hammers can finish eligible new work or modernization immediately, following existing rules.
 - A fully developed second era supports 50 residents and 10 visitors, capped by 60 water places. With 98% happiness and the existing base rate, saloon income is **1,188 coins/hour**. Collection and eight-hour storage remain unchanged.
-- Existing bandit events and protection remain intact; River & Rail spaces new raid opportunities to ten normal completions instead of five.
+- Existing bandit events and protection remain intact; new raids use a saved random gap of 3–7 normal completions in Frontier and 6–14 in River & Rail. Reopening the village does not reroll the gap.
 
 ## Persistence and rendering
 
-The existing `crystal-cascade-profile-v3` key is unchanged. Missing era fields default to Frontier while preserving building levels, projects, coins, inventory, records, stock, income and raid receipts. Functional levels and `buildingEras` are separate. Era advancement saves its receipt before showing the date card and rolls back if saving fails. Forge spending is persisted before its transient Hammer is granted; transient runs never load back into inventory.
+The existing `crystal-cascade-profile-v3` key is unchanged. Missing era fields default to Frontier while preserving building levels, projects, coins, inventory, records, stock, income and raid receipts. Functional levels and `buildingEras` are separate. Era advancement saves its receipt before showing the date card and rolls back if saving fails. Forge collection saves the spent charge and inventory TNT together, rolling both back if saving fails.
 
 `eras.js`, `frontier.js`, `riverRail.js` and `campaignMilestones.js` hold content and gates. `TownEras` handles eligibility, modernization and normalization; the renderer modules under `game/town/buildings/` handle visual families. Existing plot positions remain stable. Shared layout metadata controls visible plots, SVG projection and permitted transport edges. The bridge exposes the east-bank route graph; the station lays a near-bank rail terminus that does not cross the river.
 
@@ -45,11 +45,11 @@ The river is carved into the existing deterministic landscape with a gradual val
 
 ## Verification
 
-Regression coverage includes v3 migration, duplicate/stale completion receipts, bounded Forge storage and spending, a winning temporary TNT preserving inventory, failed-save rollback, active-run transition blocking, modernization service preservation, joint station/rail completion, east-bank route permissions, bridge-deck movement, campaign playthroughs and audio lifecycle.
+Regression coverage includes v3 migration, duplicate/stale completion receipts, bounded Forge storage and collection, consuming collected TNT on a winning move, failed-save rollback, active-run transition blocking, modernization service preservation, joint station/rail completion, east-bank route permissions, bridge-deck movement, campaign playthroughs and audio lifecycle.
 
 Real Chromium verification uses disposable saves to reach late-game states. Purchases, era advancement, the date card, construction finish and modernization are exercised through the UI; some completed-run receipts are supplied through the store to advance multi-puzzle construction without manually replaying an entire campaign. This checks the flow, while automated deterministic playthroughs cover all authored puzzles. It is not a manual balance playthrough of all 72 levels.
 
-Browser checks ran at `http://127.0.0.1:5174/` in Chromium at 1440×900, 390×844, 320×568 and 844×390. They covered the saved transition across reload, station/rail completion, bridge and wharf, modernization, an actual Forge TNT board click, French/high contrast/reduced motion, all 29 SVG plot controls and keyboard station selection. Instrumentation confirmed the same Three.js scene and town soundscape survive mine visits, with audio/motion stopped while hidden or in the Forge departure dialog. The fallback checks found no uncaught application errors or failed HTTP responses. Forced WebGL loss/restoration rendered successfully; subsequent development hot-reload teardown emitted WebGL resource deletion warnings.
+Browser checks ran at `http://127.0.0.1:5174/` in Chromium at 1440×900, 390×844, 320×568 and 844×390. They covered the saved transition across reload, station/rail completion, bridge and wharf, modernization, an actual Forge TNT board click, French/high contrast/reduced motion, all 29 SVG plot controls and keyboard station selection. Instrumentation confirmed the same Three.js scene and town soundscape survive mine visits, with audio/motion stopped while hidden. The fallback checks found no uncaught application errors or failed HTTP responses. Forced WebGL loss/restoration rendered successfully; subsequent development hot-reload teardown emitted WebGL resource deletion warnings.
 
 ![River and rail expansion in the 3D village](images/river-rail-desktop.png)
 

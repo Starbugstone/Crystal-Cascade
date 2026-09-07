@@ -1,4 +1,5 @@
 import { POWERS } from './campaign';
+import { chestCoinReward } from './economy';
 
 export const BONUS_CAPACITIES = [3, 5, 8, 12, 16, 20];
 export const CONTINUOUS_COIN_CAP = 25;
@@ -21,6 +22,18 @@ export const CHEST_DROPS = [
     weight: 10,
   },
 ];
+// Resolve from the catalog, never from a saved or client-supplied quantity.
+export function chestReward(id, levelId = 1) {
+  const drop = CHEST_DROPS.find((entry) => entry.id === id);
+  return drop
+    ? {
+        id: drop.id,
+        label: drop.label,
+        kind: drop.kind,
+        quantity: drop.kind === 'coins' ? chestCoinReward(levelId) : drop.quantity,
+      }
+    : null;
+}
 // Shuffle the visual reel without changing the catalog used by weighted awards.
 export function shuffleChestDrops(random = Math.random) {
   const drops = [...CHEST_DROPS];

@@ -90,7 +90,6 @@
       v-if="townVisited"
       v-show="townActive"
       :active="townActive"
-      :departure-pending="forgeDeparture !== null"
       :key="townVisit"
       :open-museum="returnToMuseum"
       @museum-change="returnToMuseum = $event"
@@ -331,11 +330,6 @@
       @close="settings.toggleSettings(false)"
       @reset-progress="resetProgress"
     />
-    <ForgeDeparture
-      v-if="forgeDeparture !== null"
-      @cancel="forgeDeparture = null"
-      @depart="departWithForge"
-    />
   </div>
 </template>
 
@@ -349,7 +343,6 @@ import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
 import MobileGameHeader from './components/MobileGameHeader.vue';
 import PowerUpBar from './components/PowerUpBar.vue';
-import ForgeDeparture from './components/ForgeDeparture.vue';
 import LandingView from './components/LandingView.vue';
 import './styles/town.css';
 import { CONTINUOUS_COIN_CAP } from './data/rewards';
@@ -453,27 +446,12 @@ const currentConfig = computed(
 const levelName = computed(() => LEVEL_NAMES[game.currentLevelId - 1]);
 const powerName = computed(() => game.activeBonusMode?.replaceAll('_', ' '));
 const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 0);
-const forgeDeparture = ref(null);
-const departWithForge = (spendForge) => {
-  const id = forgeDeparture.value;
-  forgeDeparture.value = null;
-  if (id !== null) startLevel(id, 'normal', { spendForge });
-};
-const startLevel = (id, mode = 'normal', options) => {
+const startLevel = (id, mode = 'normal') => {
   if (!campaign.canPlay(id, mode)) return;
-  if (
-    !options &&
-    mode === 'normal' &&
-    campaign.town.buildings.blacksmith &&
-    campaign.town.forge.charge
-  ) {
-    forgeDeparture.value = id;
-    return;
-  }
   view.value = 'town';
   returnToMuseum.value = false;
   mobileDetailsOpen.value = false;
-  game.startLevel(id, mode, options);
+  game.startLevel(id, mode);
   window.scrollTo({ top: 0, behavior: 'instant' });
   audio.playAmbientLoop();
 };

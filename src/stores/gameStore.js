@@ -297,7 +297,7 @@ export const useGameStore = defineStore('game', {
           if (session !== this.sessionVersion) return false;
         }
 
-        // Consume before committing: a winning TNT can end its temporary Forge run.
+        // Consume before committing so victory rewards see the updated inventory.
         const inventoryStore = useInventoryStore();
         inventoryStore.consumeItem(bonusName);
         this.commitResolution(resolution);
@@ -528,7 +528,7 @@ export const useGameStore = defineStore('game', {
         initialTilePlacements: [],
       };
     },
-    startLevel(levelId, mode = 'normal', options = {}) {
+    startLevel(levelId, mode = 'normal') {
       if (!['normal', 'continuous'].includes(mode) || !useCampaignStore().canPlay(levelId, mode))
         return false;
       const selected = this.availableLevels.find((entry) => entry.id === levelId);
@@ -538,7 +538,7 @@ export const useGameStore = defineStore('game', {
       }
 
       this.playMode = mode;
-      this.runId = useCampaignStore().beginRun(mode, levelId, options);
+      this.runId = useCampaignStore().beginRun(mode, levelId);
       this.sessionVersion += 1;
       const session = this.sessionVersion;
       this.renderer?.animator?.clear();
