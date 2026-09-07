@@ -135,7 +135,7 @@ it('puts ready construction first, affordable purchases next, and hammer-only wo
   ]);
 });
 
-it('shows immediate actions in white and only eligible coin purchases in green', () => {
+it('distinguishes collection icons, ready construction and eligible coin purchases', () => {
   const town = purchase(createTown(), 'home', 0);
   town.coins = 75;
   town.buildings.saloon = 1;
@@ -146,8 +146,8 @@ it('shows immediate actions in white and only eligible coin purchases in green',
   expect(buildingIndicators(town)).toEqual({
     farm: 'upgrade',
     well: 'upgrade',
-    saloon: 'ready',
-    blacksmith: 'ready',
+    saloon: 'coins',
+    blacksmith: 'tnt',
     museum: 'ready',
   });
   expect(availablePurchases(town, 1).map(({ id }) => id)).toContain('home');
@@ -156,7 +156,7 @@ it('shows immediate actions in white and only eligible coin purchases in green',
   town.buildings.home = 3; // The next improvement still requires more completed puzzles.
   expect(buildingIndicators(town).home).toBeUndefined();
   expect(buildingIndicators(town).home3).toBeUndefined();
-  expect(buildingIndicators(town).saloon).toBe('ready'); // Ready beats affordable.
+  expect(buildingIndicators(town).saloon).toBe('coins'); // Ready beats affordable.
   expect(buildingIndicators(town, false).blacksmith).toBe('upgrade');
   town.income.stored = 0;
   town.coins = 0;

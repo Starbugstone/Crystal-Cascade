@@ -35,6 +35,7 @@ const legacyBuildings = frontierBuildings.filter(
 );
 const village = (levels = {}) => ({
   ...createTown(),
+  nextRaidRun: 0,
   coins: 600,
   buildings: { ...createTown().buildings, well: 1, farm: 1, home: 1, ...levels },
 });
@@ -357,6 +358,7 @@ describe('Visible raids with a single saved outcome', () => {
     expect(banditEncounter(town).events[BANDIT_EVENT].outcome).toBe('protected');
   });
   it('saves before presenting, resumes an unseen raid after reload, and spaces raids by normal puzzle wins', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     let campaign = useCampaignStore();
     campaign.town = village();
     expect(campaign.resolveBandits()).toBe(true);

@@ -324,6 +324,19 @@ export class TownDiorama {
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
+      // Project points around the whole building, independently of its entrance label.
+      const bounds = new THREE.Box3().setFromObject(group);
+      const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3());
+      this.anchors.at(-1).collection = point(center.x, bounds.max.y + 0.6, center.z);
+      this.anchors.at(-1).sparkles = [
+        point(bounds.min.x - 0.15, bounds.min.y + size.y * 0.3, bounds.max.z),
+        point(bounds.max.x + 0.15, bounds.min.y + size.y * 0.55, bounds.max.z),
+        point(bounds.min.x - 0.15, bounds.min.y + size.y * 0.75, bounds.min.z),
+        point(bounds.max.x + 0.15, bounds.min.y + size.y * 0.3, bounds.min.z),
+        point(center.x - size.x * 0.2, bounds.max.y + 0.2, center.z),
+        point(center.x + size.x * 0.2, bounds.min.y + size.y * 0.15, bounds.max.z + 0.15),
+      ];
       // Keep the windmill rotor articulated while batching the rest of its building.
       if (movingPart) {
         group.updateMatrixWorld(true);
@@ -942,32 +955,56 @@ export class TownDiorama {
     const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
-    const projected = this.anchors.map(({ id, position, width: labelWidth }) => {
-      const p = position.clone().project(this.camera);
-      return {
-        id,
-        x: (p.x + 1) * 50,
-        y: (1 - p.y) * 50,
-        depth: p.z,
-        inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
-        width: labelWidth,
-        visible:
-          (id === 'mine' ||
-            this.town.buildings[id] > 0 ||
-            !!this.town.projects[id] ||
-            this.availablePlots?.has(id)) &&
-          p.z > -1 &&
-          p.z < 1 &&
-          (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
-          p.y < 0.84 &&
-          p.y > (width < 600 ? -0.42 : -0.78) &&
-          (!distant ||
-            id === 'mine' ||
-            id === this.selected ||
-            constructionReady(this.town.projects[id]) ||
-            this.availablePlots?.has(id)),
-      };
-    });
+    const projected = this.anchors.map(
+      ({ id, position, width: labelWidth, sparkles, collection }) => {
+        const p = position.clone().project(this.camera);
+        const reward = collection.clone().project(this.camera);
+        return {
+          id,
+          x: (p.x + 1) * 50,
+          y: (1 - p.y) * 50,
+          collection: {
+            x: (reward.x + 1) * 50,
+            y: (1 - reward.y) * 50,
+            visible:
+              reward.z > -1 &&
+              reward.z < 1 &&
+              Math.abs(reward.x) < 0.95 &&
+              Math.abs(reward.y) < 0.9,
+          },
+          sparkles: sparkles.map((position) => {
+            const sparkle = position.clone().project(this.camera);
+            return {
+              x: (sparkle.x + 1) * 50,
+              y: (1 - sparkle.y) * 50,
+              visible:
+                sparkle.z > -1 &&
+                sparkle.z < 1 &&
+                Math.abs(sparkle.x) < 1 &&
+                Math.abs(sparkle.y) < 1,
+            };
+          }),
+          depth: p.z,
+          inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
+          width: labelWidth,
+          visible:
+            (id === 'mine' ||
+              this.town.buildings[id] > 0 ||
+              !!this.town.projects[id] ||
+              this.availablePlots?.has(id)) &&
+            p.z > -1 &&
+            p.z < 1 &&
+            (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
+            p.y < 0.84 &&
+            p.y > (width < 600 ? -0.42 : -0.78) &&
+            (!distant ||
+              id === 'mine' ||
+              id === this.selected ||
+              constructionReady(this.town.projects[id]) ||
+              this.availablePlots?.has(id)),
+        };
+      },
+    );
     const shown = [];
     const priority = (id) =>
       id === this.selected
@@ -1030,6 +1067,12 @@ export class TownDiorama {
     this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
     this.rebuildActors();
     this.frameTown();
+    this.render();
+  }
+  updateRaid(event) {
+    if (this.raid?.event.id !== event.id) return;
+    this.raid.updateEvent(event);
+    this.rebuildActors();
     this.render();
   }
   stopRaid() {

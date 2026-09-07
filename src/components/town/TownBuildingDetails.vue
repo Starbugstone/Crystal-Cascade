@@ -114,14 +114,14 @@
         {{
           t('Normal puzzles: {count}/{required}', {
             count: town.forge.progress,
-            required: FORGE_COMPLETIONS,
+            required: forgeProductionRuns(stage),
           })
         }}
       </p>
       <p>
         {{
           t(
-            'Tap the blacksmith to collect one TNT for your armory. If TNT storage is full, the charge waits here.',
+            'The blacksmith holds one TNT. Collect it to restart production. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.',
           )
         }}
       </p>
@@ -217,7 +217,7 @@
 import { computed } from 'vue';
 import { t } from '../../i18n';
 import { BUILDING_BY_ID } from '../../data/town';
-import { FORGE_COMPLETIONS } from '../../data/eras';
+import { forgeProductionRuns } from '../../data/eras';
 import {
   upgradeOffer,
   constructionRuns,

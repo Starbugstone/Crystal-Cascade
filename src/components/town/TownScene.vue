@@ -41,9 +41,42 @@
         class="town-upgrade-sparkles"
         :class="indicators[anchor.id]"
         :data-building="anchor.id"
-        :style="{ left: `${anchor.x}%`, top: `${anchor.y}%` }"
-        ><i v-for="i in 3" :key="i" :style="{ '--i': i }">✦</i></span
+        ><i
+          v-for="(particle, i) in anchor.sparkles"
+          :key="i"
+          v-show="particle.visible"
+          :style="{ '--i': i, left: `${particle.x}%`, top: `${particle.y}%` }"
+          >✦</i
+        ></span
       >
+    </div>
+    <div class="town-action-icons">
+      <button
+        v-for="anchor in actionAnchors"
+        :key="anchor.id"
+        class="town-action-icon"
+        :data-town-plot="anchor.id"
+        :style="{ left: `${anchor.collection.x}%`, top: `${anchor.collection.y}%` }"
+        :aria-label="
+          indicators[anchor.id] === 'ready'
+            ? t('Finish {building}', { building: t(BUILDING_BY_ID[anchor.id].shortName) })
+            : anchor.id === 'saloon'
+              ? t('Collect {coins} coins', { coins: town.income.stored })
+              : t('Collect 1 TNT')
+        "
+        @click="chooseLabel(anchor.id, $event)"
+      >
+        <img
+          :src="
+            indicators[anchor.id] === 'ready'
+              ? '/art/rewards/builder-hammer.svg'
+              : anchor.id === 'saloon'
+                ? '/art/rewards/coins.svg'
+                : '/art/powers/tnt.svg'
+          "
+          alt=""
+        />
+      </button>
     </div>
     <div class="town-scene-labels" role="group" :aria-label="t('Choose a plot or enter the mine')">
       <button
@@ -56,6 +89,8 @@
           'scene-mine-button': anchor.id === 'mine',
           selected: anchor.id === selected,
           'is-ready': constructionReady(town.projects[anchor.id]),
+          'raid-defense-ready':
+            ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
           'has-income': anchor.id === 'saloon' && town.income.stored > 0,
         }"
@@ -166,7 +201,17 @@ const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const sparkleAnchors = computed(() =>
-  anchors.value.filter((anchor) => anchor.inView && indicators.value[anchor.id]),
+  anchors.value.filter(
+    (anchor) =>
+      indicators.value[anchor.id] === 'upgrade' &&
+      anchor.sparkles.some((particle) => particle.visible),
+  ),
+);
+const actionAnchors = computed(() =>
+  anchors.value.filter(
+    (anchor) =>
+      ['ready', 'coins', 'tnt'].includes(indicators.value[anchor.id]) && anchor.collection.visible,
+  ),
 );
 function collectionOrigin(id) {
   if (fallback.value) {
@@ -393,7 +438,13 @@ watch(
       ]);
   },
 );
-watch(() => props.raid, startRaid);
+watch(
+  () => props.raid,
+  (raid, previous) => {
+    if (raid && previous && raid.id === previous.id) scene?.updateRaid(raid);
+    else startRaid();
+  },
+);
 watch(
   () => props.reducedMotion,
   (reduced) => {

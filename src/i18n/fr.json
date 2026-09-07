@@ -1174,5 +1174,15 @@
   "Collected 1 TNT · added to your armory": "1 TNT récupéré · ajouté à votre arsenal",
   "Collect 1 TNT": "Récupérer 1 TNT",
   "Tap the blacksmith to collect one TNT for your armory. If TNT storage is full, the charge waits here.": "Touchez le forgeron pour récupérer un TNT dans votre arsenal. Si le stockage de TNT est plein, la charge reste ici.",
-  "Every five normal puzzles earns one Forge Charge, capped at one. Tap the blacksmith to collect one TNT for your armory.": "Cinq puzzles normaux rapportent une charge de forge, limitée à une. Touchez le forgeron pour récupérer un TNT dans votre arsenal."
+  "Every five normal puzzles earns one Forge Charge, capped at one. Tap the blacksmith to collect one TNT for your armory.": "Cinq puzzles normaux rapportent une charge de forge, limitée à une. Touchez le forgeron pour récupérer un TNT dans votre arsenal.",
+  "Raids arrive unpredictably, {min}–{max} completed puzzles apart. Never while you are away. Your last 50 coins are always safe.": "Les attaques arrivent de façon imprévisible, après {min} à {max} puzzles terminés. Jamais en votre absence. Vos 50 dernières pièces sont toujours à l’abri.",
+  "Finish {building}": "Terminer {building}",
+  "The blacksmith holds one TNT. Collect it to start the next five-puzzle cycle. If your armory is full, it waits here.": "Le forgeron ne garde qu’un TNT. Récupérez-le pour lancer un nouveau cycle de cinq puzzles. Si votre arsenal est plein, il reste ici.",
+  "Complete five normal puzzles to make one TNT. The blacksmith holds only one; collect it to start the next five-puzzle cycle.": "Terminez cinq puzzles normaux pour fabriquer un TNT. Le forgeron n’en garde qu’un : récupérez-le pour lancer un nouveau cycle de cinq puzzles.",
+  "The blacksmith holds one TNT. Collect it to restart production. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.": "Le forgeron ne garde qu’un TNT. Récupérez-le pour relancer la production. Les améliorations raccourcissent le cycle et conservent votre progression. Si votre arsenal est plein, le TNT reste ici.",
+  "One TNT every 20 normal puzzles. Collect it to start the next cycle.": "Un TNT tous les 20 puzzles normaux. Récupérez-le pour lancer le cycle suivant.",
+  "One TNT every 16 normal puzzles. Collect it to start the next cycle.": "Un TNT tous les 16 puzzles normaux. Récupérez-le pour lancer le cycle suivant.",
+  "One TNT every 12 normal puzzles. Collect it to start the next cycle.": "Un TNT tous les 12 puzzles normaux. Récupérez-le pour lancer le cycle suivant.",
+  "One TNT every 8 normal puzzles. Collect it to start the next cycle.": "Un TNT tous les 8 puzzles normaux. Récupérez-le pour lancer le cycle suivant.",
+  "One TNT every 5 normal puzzles. Collect it to start the next cycle.": "Un TNT tous les 5 puzzles normaux. Récupérez-le pour lancer le cycle suivant."
 }

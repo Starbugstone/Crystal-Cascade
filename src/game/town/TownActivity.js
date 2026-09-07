@@ -250,6 +250,18 @@ export class TownRaid {
     });
     this.update(d.elapsed);
   }
+  updateEvent(event) {
+    this.event = event;
+    while (this.patrol.length < event.sheriffLevel) {
+      this.patrol.push(
+        mountedRider(this.d, this.root, {
+          seed: this.patrol.length + 1,
+          color: '#688d98',
+          hat: '#c3a05a',
+        }),
+      );
+    }
+  }
   move(actor, from, to, progress) {
     const p = THREE.MathUtils.clamp(progress, 0, 1);
     actor.root.position.set(

@@ -328,6 +328,7 @@ describe('Shop purchases and refresh', () => {
 it('requires bank and sheriff for full protection, each separately covers at most half', () => {
   for (const level of [1, 2, 3]) {
     const town = createTown();
+    town.nextRaidRun = 0;
     town.coins = 1000;
     town.buildings.well = town.buildings.farm = town.buildings.home = 1;
     for (const [bank, sheriff, protection] of [

@@ -54,6 +54,7 @@ const victory = (runId, jewels = 90) => ({
 });
 const settledTown = (coins = 200) => ({
   ...createTown(),
+  nextRaidRun: 0,
   coins,
   buildings: { ...createTown().buildings, well: 1, farm: 1, home: 1 },
 });

@@ -131,6 +131,16 @@
               )
             }}
           </p>
+          <div v-if="readyRaidDefenses.length" class="town-raid-defenses">
+            <button
+              v-for="id in readyRaidDefenses"
+              :key="id"
+              class="town-secondary"
+              @click="selectBuilding(id)"
+            >
+              {{ t('Finish {building}', { building: t(BUILDING_BY_ID[id].shortName) }) }}
+            </button>
+          </div>
           <div class="town-raid-actions">
             <div v-if="fullscreen" class="town-map-wallet" :aria-label="t('Town savings')">
               <TownIcon name="coin" /><strong>{{ number(town.coins) }}</strong>
@@ -317,8 +327,8 @@
               <p>
                 {{
                   t(
-                    'A raid can arrive after every {runs} completed puzzles. Never while you are away. Your last 50 coins are always safe.',
-                    { runs: town.era === 'river-rail' ? 10 : 5 },
+                    'Raids arrive unpredictably, {min}–{max} completed puzzles apart. Never while you are away. Your last 50 coins are always safe.',
+                    { min: raidIntervalRange(town)[0], max: raidIntervalRange(town)[1] },
                   )
                 }}
               </p>
@@ -490,6 +500,7 @@ import {
   housingCapacity,
   gangSize,
   raidProtection,
+  raidIntervalRange,
 } from '../../game/town/TownRules';
 import { useGameStore } from '../../stores/gameStore';
 import { useCampaignStore } from '../../stores/campaignStore';
@@ -646,6 +657,19 @@ useTownAudio(() => ({
     !!town.value.transition?.pending,
 }));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
+const readyRaidDefenses = computed(() =>
+  activeRaid.value && !event.value?.seen
+    ? ['sheriff', 'bank'].filter((id) => constructionReady(town.value.projects[id]))
+    : [],
+);
+watch(
+  event,
+  (receipt) => {
+    if (receipt && activeRaid.value?.id === receipt.id && !receipt.seen)
+      activeRaid.value = { ...receipt };
+  },
+  { flush: 'sync' },
+);
 const banditStory = computed(() =>
   event.value?.outcome === 'protected'
     ? {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { BUILDINGS, createTown, BANDIT_EVENT } from '../src/data/town';
 import { CHAPTERS } from '../src/data/campaign';
-import { ERAS, FORGE_COMPLETIONS } from '../src/data/eras';
+import { ERAS, forgeProductionRuns } from '../src/data/eras';
 import { campaignMilestoneReached } from '../src/data/campaignMilestones';
 import {
   normalizeTown,
@@ -173,7 +173,7 @@ describe('Collecting Forge TNT into inventory', () => {
     const c = useCampaignStore();
     c.town.buildings.blacksmith = 1;
     c.town.buildings.museum = 1;
-    for (let i = 0; i < FORGE_COMPLETIONS; i++) {
+    for (let i = 0; i < forgeProductionRuns(1); i++) {
       const run = c.beginRun('normal', 1);
       c.recordVictory(victory(run));
       c.recordVictory(victory(run));
@@ -183,6 +183,63 @@ describe('Collecting Forge TNT into inventory', () => {
     expect(c.town.forge).toEqual({ progress: 0, charge: 1 });
     setActivePinia(createPinia());
     expect(useCampaignStore().town.forge.charge).toBe(1);
+  });
+  it.each([
+    [1, 20],
+    [2, 16],
+    [3, 12],
+    [4, 8],
+    [5, 5],
+  ])(
+    'stores one TNT at level %i and restarts its %i-puzzle cycle after collection',
+    (level, runs) => {
+      let c = useCampaignStore();
+      c.town.buildings.blacksmith = level;
+      c.town.buildings.museum = 1;
+      for (let i = 0; i < runs + 7; i++) c.recordVictory(victory(c.beginRun('normal', 1)));
+      expect(c.town.forge).toEqual({ charge: 1, progress: 0 });
+      expect(c.collectForgeTNT()).toBe(true);
+      expect(c.town.forge).toEqual({ charge: 0, progress: 0 });
+      for (let i = 1; i <= runs; i++) {
+        c.recordVictory(victory(c.beginRun('normal', 1)));
+        expect(c.town.forge).toEqual(
+          i === runs ? { charge: 1, progress: 0 } : { charge: 0, progress: i },
+        );
+        setActivePinia(createPinia());
+        c = useCampaignStore();
+      }
+      expect(c.powers.find((p) => p.id === 'tnt').quantity).toBe(1);
+      expect(c.town.forge).toEqual({ charge: 1, progress: 0 });
+    },
+  );
+  it('preserves production progress across upgrades and makes TNT ready when the shorter cycle is reached', () => {
+    let c = useCampaignStore();
+    c.town.completedRuns = 100;
+    c.town.buildings.home = 1;
+    c.town.buildings.blacksmith = 1;
+    c.town.forge.progress = 10;
+    c.town.projects.blacksmith = { id: 'blacksmith', stage: 2, wins: 1, required: 1 };
+    expect(c.finishConstruction('blacksmith', 2)).toBe(true);
+    expect(c.town.forge).toEqual({ charge: 0, progress: 10 });
+    setActivePinia(createPinia());
+    c = useCampaignStore();
+    expect(c.town.forge.progress).toBe(10);
+    c.town.forge.progress = 15;
+    c.builderHammers = 1;
+    expect(c.useBuilderHammer('blacksmith', 2)).toBe(true);
+    expect(c.town.forge).toEqual({ charge: 1, progress: 0 });
+    expect(c.collectForgeTNT()).toBe(true);
+    c.town = advanceForge(c.town);
+    expect(c.town.forge).toEqual({ charge: 0, progress: 1 });
+  });
+  it('keeps a saved level-one cycle above five completions and preserves an already stored TNT', () => {
+    const town = createTown();
+    town.buildings.blacksmith = 1;
+    town.forge.progress = 19;
+    expect(normalizeTown(town).forge).toEqual({ charge: 0, progress: 19 });
+    const ready = advanceForge(normalizeTown(town));
+    ready.buildings.blacksmith = 5;
+    expect(normalizeTown(ready).forge).toEqual({ charge: 1, progress: 0 });
   });
   it('does not charge a closed or ready blacksmith or Continuous play', () => {
     const c = useCampaignStore();

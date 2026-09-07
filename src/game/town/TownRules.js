@@ -1,6 +1,6 @@
 import { t } from '../../i18n';
 import { miningDepthBonus } from '../../data/economy';
-import { FORGE_COMPLETIONS } from '../../data/eras';
+import { forgeProductionRuns } from '../../data/eras';
 import { plotInEra, modernization, normalizeEraState } from './TownEras';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 import {
@@ -40,7 +40,7 @@ export function normalizeTown(saved) {
     !town.forge.charge &&
     Number.isInteger(forge?.progress) &&
     forge.progress >= 0 &&
-    forge.progress < FORGE_COMPLETIONS
+    forge.progress < forgeProductionRuns(1)
       ? forge.progress
       : 0;
   if (Number.isSafeInteger(saved?.coins) && saved.coins >= 0) town.coins = saved.coins;
@@ -52,6 +52,8 @@ export function normalizeTown(saved) {
   normalizeEraState(town, saved);
   if (Number.isSafeInteger(saved?.completedRuns) && saved.completedRuns >= 0)
     town.completedRuns = saved.completedRuns;
+  if (Number.isSafeInteger(saved?.nextRaidRun) && saved.nextRaidRun >= 0)
+    town.nextRaidRun = saved.nextRaidRun;
   const income = saved?.income;
   if (Number.isSafeInteger(income?.at) && income.at >= 0)
     town.income = {
@@ -163,7 +165,7 @@ export function normalizeTown(saved) {
     rail: town.buildings.railDepot,
     riverPort: town.buildings.riverPort,
   };
-  return town;
+  return settleForgeProduction(town);
 }
 
 export const projectRuns = (id, stage) => BUILDING_BY_ID[id]?.upgrades[stage - 1]?.runs ?? 1;
@@ -225,13 +227,21 @@ export const foodCapacity = (town) =>
   (town.buildings.market ?? 0) * 10;
 export const housingCapacity = (town) =>
   totalLevels(town, 'home') * 2 + (town.buildings.home5 ?? 0) * 8;
+export function settleForgeProduction(town) {
+  if (
+    !town.buildings.blacksmith ||
+    town.forge.charge ||
+    town.forge.progress < forgeProductionRuns(town.buildings.blacksmith)
+  )
+    return town;
+  return { ...town, forge: { progress: 0, charge: 1 } };
+}
 export function advanceForge(town) {
   if (!town.buildings.blacksmith || town.forge.charge) return town;
-  const progress = town.forge.progress + 1;
-  return {
+  return settleForgeProduction({
     ...town,
-    forge: progress >= FORGE_COMPLETIONS ? { progress: 0, charge: 1 } : { progress, charge: 0 },
-  };
+    forge: { progress: town.forge.progress + 1, charge: 0 },
+  });
 }
 export const residentPopulation = (town) =>
   Math.min(housingCapacity(town), totalLevels(town, 'well') * 6, foodCapacity(town));
@@ -348,15 +358,16 @@ export function upgradeOffer(town, id) {
 export function buildingIndicators(town, forgeCollectible = true) {
   const indicators = Object.fromEntries(availablePurchases(town).map(({ id }) => [id, 'upgrade']));
   for (const { id } of BUILDINGS) {
-    if (
-      constructionReady(town.projects[id]) ||
-      (id === 'saloon' && town.buildings.saloon > 0 && town.income.stored > 0) ||
-      (id === 'blacksmith' &&
-        town.buildings.blacksmith > 0 &&
-        town.forge.charge === 1 &&
-        forgeCollectible)
+    if (constructionReady(town.projects[id])) indicators[id] = 'ready';
+    else if (id === 'saloon' && town.buildings.saloon > 0 && town.income.stored > 0)
+      indicators[id] = 'coins';
+    else if (
+      id === 'blacksmith' &&
+      town.buildings.blacksmith > 0 &&
+      town.forge.charge === 1 &&
+      forgeCollectible
     )
-      indicators[id] = 'ready';
+      indicators[id] = 'tnt';
   }
   return indicators;
 }
@@ -420,7 +431,13 @@ export function purchase(town, id, expectedStage) {
   };
 }
 
-export const RAID_INTERVAL = 5;
+export const raidIntervalRange = (town) => (town.era === 'river-rail' ? [6, 14] : [3, 7]);
+export function scheduleRaid(town, random = Math.random) {
+  if (town.nextRaidRun !== null || population(town) <= 0) return town;
+  const [min, max] = raidIntervalRange(town);
+  const gap = min + Math.floor(random() * (max - min + 1));
+  return { ...town, nextRaidRun: Math.min(Number.MAX_SAFE_INTEGER, town.completedRuns + gap) };
+}
 export const gangSize = (town) => {
   const size = development(town);
   return size >= 70 ? 10 : size >= 50 ? 8 : size >= 30 ? 6 : size >= 16 ? 4 : 2;
@@ -429,9 +446,9 @@ export function raidReady(town) {
   const previous = town.events[BANDIT_EVENT];
   return (
     population(town) > 0 &&
-    (!previous ||
-      (previous.seen &&
-        town.completedRuns - previous.atRun >= RAID_INTERVAL * (town.era === 'river-rail' ? 2 : 1)))
+    Number.isSafeInteger(town.nextRaidRun) &&
+    town.completedRuns >= town.nextRaidRun &&
+    (!previous || previous.seen)
   );
 }
 export const raidProtection = (town, riders = gangSize(town)) =>
@@ -439,7 +456,7 @@ export const raidProtection = (town, riders = gangSize(town)) =>
     Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
   (riders * 2);
 
-export function banditEncounter(town) {
+export function banditEncounter(town, random = Math.random) {
   if (!raidReady(town)) return null;
   const riders = gangSize(town),
     sheriffLevel = town.buildings.sheriff;
@@ -466,7 +483,44 @@ export function banditEncounter(town) {
     loss,
     seen: false,
   };
-  return { ...town, coins: town.coins - loss, events: { ...town.events, [BANDIT_EVENT]: event } };
+  return scheduleRaid(
+    {
+      ...town,
+      coins: town.coins - loss,
+      events: { ...town.events, [BANDIT_EVENT]: event },
+      nextRaidRun: null,
+    },
+    random,
+  );
+}
+
+// An unfinished raid can benefit from defenses opened before the riders leave.
+// Refund only the reduction to its saved loss; later income and gang growth do not change it.
+export function reinforceRaid(town) {
+  const event = town.events[BANDIT_EVENT];
+  if (!event || event.seen) return town;
+  const sheriffLevel = Math.max(event.sheriffLevel, town.buildings.sheriff);
+  const bankLevel = Math.max(event.bankLevel ?? 0, town.buildings.bank);
+  if (sheriffLevel === event.sheriffLevel && bankLevel === (event.bankLevel ?? 0)) return town;
+  const protection = raidProtection(
+    { buildings: { sheriff: sheriffLevel, bank: bankLevel } },
+    event.gangSize,
+  );
+  const loss = Math.min(event.loss, Math.ceil(5 * event.gangSize * (1 - protection)));
+  return {
+    ...town,
+    coins: Math.min(Number.MAX_SAFE_INTEGER, town.coins + event.loss - loss),
+    events: {
+      ...town.events,
+      [BANDIT_EVENT]: {
+        ...event,
+        sheriffLevel,
+        bankLevel,
+        loss,
+        outcome: protection === 1 ? 'protected' : loss ? 'stolen' : 'harmless',
+      },
+    },
+  };
 }
 
 // Carry the displayed level so stale/double taps cannot spend on the next tier.

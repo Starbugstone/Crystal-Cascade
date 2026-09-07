@@ -22,8 +22,11 @@ import {
   miningPayout,
   purchase,
   banditEncounter,
+  scheduleRaid,
+  reinforceRaid,
   advanceConstruction,
   advanceForge,
+  settleForgeProduction,
   constructionRuns,
   constructionReady,
   finishConstruction,
@@ -336,9 +339,17 @@ export const useCampaignStore = defineStore('campaign', {
       this.accrueSaloonIncome(Date.now(), false);
       next.coins = this.town.coins;
       next.income = this.town.income;
-      this.town = next;
+      const previous = this.town;
+      const previousStock = this.shopStock;
+      const previousVisit = this.shopVisit;
+      this.town = settleForgeProduction(reinforceRaid(next));
       this.ensureShopStock();
-      this.save();
+      if (!this.save()) {
+        this.town = previous;
+        this.shopStock = previousStock;
+        this.shopVisit = previousVisit;
+        return false;
+      }
       return true;
     },
     useBuilderHammer(id, expectedStage) {
@@ -350,9 +361,18 @@ export const useCampaignStore = defineStore('campaign', {
       next.coins = this.town.coins;
       next.income = this.town.income;
       this.builderHammers--;
-      this.town = next;
+      const previous = this.town;
+      const previousStock = this.shopStock;
+      const previousVisit = this.shopVisit;
+      this.town = settleForgeProduction(reinforceRaid(next));
       this.ensureShopStock();
-      this.save();
+      if (!this.save()) {
+        this.town = previous;
+        this.shopStock = previousStock;
+        this.shopVisit = previousVisit;
+        this.builderHammers++;
+        return false;
+      }
       return true;
     },
     awardReward(reward) {
@@ -362,11 +382,16 @@ export const useCampaignStore = defineStore('campaign', {
     },
     resolveBandits() {
       this.accrueSaloonIncome(Date.now(), false);
-      const next = banditEncounter(this.town);
-      if (!next) return false;
-      this.town = next;
-      this.save();
-      return true;
+      const previous = this.town;
+      const scheduled = scheduleRaid(previous);
+      const next = banditEncounter(scheduled);
+      if (!next && scheduled === previous) return false;
+      this.town = next ?? scheduled;
+      if (!this.save()) {
+        this.town = previous;
+        return false;
+      }
+      return !!next;
     },
     markRaidSeen(id) {
       const event = this.town.events[BANDIT_EVENT];

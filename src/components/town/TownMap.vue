@@ -234,21 +234,37 @@
           </g>
         </g>
         <g
-          v-if="indicators[building.id]"
+          v-if="indicators[building.id] === 'upgrade'"
           class="map-upgrade-sparkles"
           :class="indicators[building.id]"
           aria-hidden="true"
         >
           <text
-            v-for="i in 3"
+            v-for="([x, y], i) in sparklePoints"
             :key="i"
-            :x="(i - 2) * 22"
-            :y="-115 - (i % 2) * 10"
+            :x="x"
+            :y="y * (building.kind === 'square' ? 0.35 : building.kind === 'well' ? 0.65 : 1)"
             :style="{ '--i': i }"
           >
             ✦
           </text>
         </g>
+        <image
+          v-if="['ready', 'coins', 'tnt'].includes(indicators[building.id])"
+          class="map-action-icon"
+          x="-28"
+          y="-215"
+          width="56"
+          height="56"
+          :href="
+            indicators[building.id] === 'ready'
+              ? '/art/rewards/builder-hammer.svg'
+              : building.id === 'saloon'
+                ? '/art/rewards/coins.svg'
+                : '/art/powers/tnt.svg'
+          "
+          aria-hidden="true"
+        />
         <g
           v-if="
             town.buildings[building.id] ||
@@ -472,6 +488,14 @@ watch(
       scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
   },
 );
+const sparklePoints = [
+  [-90, -50],
+  [-70, -120],
+  [-25, -160],
+  [45, -145],
+  [85, -80],
+  [65, -15],
+];
 const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
 const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
 const availableIds = computed(() =>

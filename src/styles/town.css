@@ -1389,6 +1389,12 @@
   line-height: 1.5;
   color: #f0dbb7;
 }
+.town-raid-defenses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
 .town-raid-actions {
   grid-column: 2;
   grid-row: 1 / span 3;
@@ -1456,6 +1462,9 @@
 }
 .town-scene.is-raiding .town-scene-labels {
   visibility: hidden;
+}
+.town-scene.is-raiding .town-scene-labels .raid-defense-ready {
+  visibility: visible;
 }
 
 @media (max-width: 550px) {
@@ -2106,6 +2115,32 @@ html:has(.town-museum[open]) {
   min-height: 32px;
 }
 
+.town-action-icons {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.town-action-icon {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  transform: translate(-50%, -100%);
+  pointer-events: auto;
+}
+.town-action-icon img {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 2px #543d3860);
+}
+.map-action-icon {
+  filter: drop-shadow(0 2px 2px #543d3860);
+}
 .town-sparkles {
   position: absolute;
   inset: 0;
@@ -2114,13 +2149,10 @@ html:has(.town-museum[open]) {
 }
 .town-upgrade-sparkles {
   position: absolute;
-  width: 0;
-  height: 0;
+  inset: 0;
 }
 .town-upgrade-sparkles i {
   position: absolute;
-  left: calc((var(--i) - 2) * 9px);
-  top: -24px;
   font: normal 6px/1 sans-serif;
   color: #77d68a;
   text-shadow: 0 0 2px currentColor;
@@ -2133,12 +2165,6 @@ html:has(.town-museum[open]) {
   fill: #77d68a;
   font-size: 12px;
   animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
-}
-.town-upgrade-sparkles.ready i {
-  color: #fff;
-}
-.map-upgrade-sparkles.ready text {
-  fill: #fff;
 }
 @keyframes town-upgrade-shimmer {
   0%,
