@@ -20,6 +20,7 @@ import {
   normalizeTown,
   settleSaloonIncome,
   collectionCooldownRemaining,
+  raidBounty,
   miningPayout,
   purchase,
   banditEncounter,
@@ -208,7 +209,7 @@ export const useCampaignStore = defineStore('campaign', {
   actions: {
     advanceEra(expectedEra) {
       if (this.activeRun) return false;
-      const next = advanceEra(this.town, this.records, expectedEra);
+      const next = advanceEra(this.town, expectedEra);
       if (!next) return false;
       const previous = this.town;
       this.town = next;
@@ -218,9 +219,15 @@ export const useCampaignStore = defineStore('campaign', {
     },
     acknowledgeEra() {
       if (!this.town.transition?.pending) return;
-      this.town.transition.pending = false;
-      this.town.eraTransitionSeen[this.town.era] = true;
-      this.save();
+      const previous = this.town;
+      this.town = {
+        ...previous,
+        transition: { ...previous.transition, pending: false },
+        eraTransitionSeen: { ...previous.eraTransitionSeen, [previous.era]: true },
+      };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
     },
     canPlay(id, mode = 'normal') {
       return (
@@ -435,9 +442,16 @@ export const useCampaignStore = defineStore('campaign', {
     markRaidSeen(id) {
       const event = this.town.events[BANDIT_EVENT];
       if (!event || event.id !== id || event.seen) return false;
-      event.seen = true;
-      this.save();
-      return true;
+      const previous = this.town;
+      const bounty = Math.min(raidBounty(event), Number.MAX_SAFE_INTEGER - previous.coins);
+      this.town = {
+        ...previous,
+        coins: previous.coins + bounty,
+        events: { ...previous.events, [BANDIT_EVENT]: { ...event, seen: true, bounty } },
+      };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
     },
     ensureShopStock(refresh = false) {
       if (!this.town.buildings.shop) return;

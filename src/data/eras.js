@@ -7,7 +7,6 @@ export const ERAS = [
     label: 'River & Rail Boom',
     yearLabel: '1884',
     enabled: true,
-    requiredCampaignMilestone: 'river-discovery',
     story:
       'The river trade is growing, rails are approaching, and Prospect Hollow is becoming a proper town.',
   },

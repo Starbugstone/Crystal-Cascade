@@ -97,9 +97,9 @@ describe('A village with lasting choices', () => {
       expect(campaign.town.projects.armory).toBeUndefined();
       expect(campaign.town.coins).toBe(0);
     }
-    expect(campaign.useBuilderHammer('armory', 3)).toBe(true);
-    expect(campaign.builderHammers).toBe(0);
-    expect(campaign.town.buildings.armory).toBe(4);
+    expect(campaign.useBuilderHammer('armory', 3)).toBe(false);
+    expect(campaign.builderHammers).toBe(1);
+    expect(campaign.town.buildings.armory).toBe(3);
     expect(campaign.records).toEqual({});
   });
   it('rejects locked, unknown, stale, and already funded work without spending a hammer', () => {

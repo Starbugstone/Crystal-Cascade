@@ -34,14 +34,14 @@ try {
   const records = Object.fromEntries(
     Array.from({ length: completed }, (_, i) => [i + 1, { score: 100, stars: 1 }]),
   );
-  const riverRail = advanceEra(town, records, 'frontier');
+  const riverRail = advanceEra(town, 'frontier');
   let complete = {
     ...riverRail,
     transition: { ...riverRail.transition, pending: false },
     eraTransitionSeen: { 'river-rail': true },
   };
   for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
-    complete = buildWithHammer(complete, b.id, 5);
+    complete = buildWithHammer(complete, b.id, b.upgrades.length);
   for (const id of [
     'bridge',
     'riverPort',

@@ -1,3 +1,4 @@
+import { buildingServiceLevel } from '../../data/buildingProgression';
 import { TownUpgradeGlow } from './TownUpgradeGlow';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -311,7 +312,7 @@ export class TownDiorama {
       let movingPart;
       if (id === 'mine') this.mine(group, labels.mine, mineStage);
       else {
-        const stage = town.buildings[id],
+        const stage = buildingServiceLevel(id, town.buildings[id]),
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
         if (kind === 'bridge')
@@ -1027,7 +1028,7 @@ export class TownDiorama {
       this.rebuildActors();
     }
     // Advance life during camera motion too; its scheduled render draws the new pose.
-    if (this.cameraFrame) return;
+    if (this.cameraFrame || (this.cinematic && !this.cinematic.finished)) return;
     this.actorRenderer.update();
     this.drawFrame();
   }
@@ -1062,6 +1063,51 @@ export class TownDiorama {
     this.rebuildActors();
     this.render();
   }
+  setCinematic(enabled) {
+    if (!!this.cinematic === enabled) return;
+    if (enabled) {
+      this.cinematic = {
+        startPosition: this.camera.position.clone(),
+        startTarget: this.controls.target.clone(),
+        era: this.town.era,
+      };
+      this.overview = false;
+    } else {
+      this.cinematic = null;
+      this.overview = true;
+      this.frameTown();
+      this.render();
+    }
+    this.controls.enabled = !enabled;
+  }
+  eraFrame(progress) {
+    const shot = this.cinematic;
+    if (!shot) return;
+    shot.finished = progress >= 1;
+    const [x, z] = PLOTS.square;
+    const square = point(x, 1, z);
+    const distance = this.camera.aspect < 0.8 ? 38 : 26;
+    const close = square
+      .clone()
+      .add(point(Math.sin(0.65) * distance, distance * 0.65, Math.cos(0.65) * distance));
+    const smooth = (value) => value * value * (3 - 2 * value);
+    if (this.town.era !== shot.era && !shot.endPosition) {
+      this.frameTown();
+      shot.endPosition = this.camera.position.clone();
+      shot.endTarget = this.controls.target.clone();
+    }
+    if (progress < 6 / 14 || !shot.endPosition) {
+      const amount = smooth(Math.min(1, (progress * 14) / 6));
+      this.camera.position.lerpVectors(shot.startPosition, close, amount);
+      this.controls.target.lerpVectors(shot.startTarget, square, amount);
+    } else {
+      const amount = smooth((progress * 14 - 6) / 8);
+      this.camera.position.lerpVectors(close, shot.endPosition, amount);
+      this.controls.target.lerpVectors(square, shot.endTarget, amount);
+    }
+    this.camera.lookAt(this.controls.target);
+    this.render();
+  }
   cameraAction(action) {
     if (!this.controls.enabled) return;
     this.overview = action === 'reset';
@@ -1074,7 +1120,7 @@ export class TownDiorama {
     if (action === 'reset') this.frameTown();
   }
   setPaused(paused) {
-    this.controls.enabled = !paused;
+    this.controls.enabled = !paused && !this.cinematic;
   }
   setMotion(enabled) {
     if (this.motionEnabled === enabled) return;

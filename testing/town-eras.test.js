@@ -127,13 +127,13 @@ describe('Frontier additions preserve bounded services and saves', () => {
     town.buildings.farm = 1;
     town.buildings.farm2 = town.buildings.farm3 = 0;
     expect(foodCapacity(town)).toBe(6);
-    for (let stage = 0; stage < 5; stage++) {
+    for (let stage = 0; stage < 3; stage++) {
       town = purchase(town, 'fisherman', stage);
       expect(purchase(town, 'fisherman', stage)).toBeNull();
       town = advanceConstruction(town);
       expect(foodCapacity(town)).toBe(6 + stage);
       town = finishConstruction(normalizeTown(town), 'fisherman', stage + 1);
-      expect(foodCapacity(town)).toBe(7 + stage);
+      expect(foodCapacity(town)).toBe(6 + [1, 2, 5][stage]);
       expect(finishConstruction(town, 'fisherman', stage + 1)).toBeNull();
     }
     expect(residentPopulation(town)).toBe(11);
@@ -336,16 +336,16 @@ describe('Two eras and explicit modernization', () => {
     expect(c.town.era).toBe('frontier');
     expect(c.town.transition).toBeUndefined();
   });
-  it('requires every frontier parcel plus the configured normal campaign milestone', () => {
+  it('requires every frontier parcel without any mine progress', () => {
     const town = frontier(),
       records = milestoneRecords();
     expect(campaignMilestoneReached(records, 'river-discovery')).toBe(true);
-    expect(eraGate(town, {}).available).toBe(false);
+    expect(eraGate(town).available).toBe(true);
     expect(eraGate(town, records).available).toBe(true);
     for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier')) {
       const incomplete = structuredClone(town);
       incomplete.buildings[b.id]--;
-      expect(advanceEra(incomplete, records, 'frontier'), b.id).toBeNull();
+      expect(advanceEra(incomplete, 'frontier'), b.id).toBeNull();
     }
     expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual(['frontier', 'river-rail']);
   });
@@ -365,7 +365,7 @@ describe('Two eras and explicit modernization', () => {
     expect(reloaded.advanceEra('frontier')).toBe(false);
   });
   it('retains services until modernization finishes and rejects duplicate purchases and finishes', () => {
-    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+    let town = advanceEra(frontier(), 'frontier');
     const rate = saloonIncomeRate(town);
     expect(isEraComplete(town)).toBe(false);
     town = purchase(town, 'saloon', 5);
@@ -392,7 +392,7 @@ describe('Two eras and explicit modernization', () => {
     expect(plotUnlocked(town, 'railDepot')).toBe(false);
     expect(railEdges(town)).toEqual([]);
     expect(purchase(town, 'railDepot', 0)).toBeNull();
-    town = advanceEra(town, milestoneRecords(), 'frontier');
+    town = advanceEra(town, 'frontier');
     const coins = town.coins;
     town = purchase(town, 'railDepot', 0);
     const cost = coins - town.coins;
@@ -409,10 +409,10 @@ describe('Two eras and explicit modernization', () => {
     expect(railEdges(normalizeTown(town))).toHaveLength(1);
   });
   it('completes River & Rail without changing landmark service levels and applies the stronger population and happiness income', () => {
-    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+    let town = advanceEra(frontier(), 'frontier');
     town.transition.pending = false;
     for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
-      town = buildWithHammer(town, b.id, 5);
+      town = buildWithHammer(town, b.id, b.upgrades.length);
     for (const id of [
       'bridge',
       'riverPort',
@@ -450,7 +450,7 @@ describe('River, gated parcels and permitted crossings', () => {
     expect(visiblePlots(town).some((p) => p.id === 'railDepot' || p.district === 'east-bank')).toBe(
       false,
     );
-    town = advanceEra(town, milestoneRecords(), 'frontier');
+    town = advanceEra(town, 'frontier');
     expect(visiblePlots(town).some((p) => p.district === 'east-bank')).toBe(false);
     expect(routeBetween(town, plotStreet('home5'), plotStreet('saloon'))).toEqual([]);
     town = buildWithHammer(town, 'bridge', 0);

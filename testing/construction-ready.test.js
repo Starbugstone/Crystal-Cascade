@@ -105,9 +105,9 @@ it('lists only affordable eligible purchases, or all eligible work when a builde
   expect(hammerChoices).toContain('home');
   expect(hammerChoices).toContain('museum');
   expect(hammerChoices).not.toContain('home2');
-  town.buildings.home = 3; // Higher tiers remain eligible regardless of completed runs.
+  town.buildings.home = 2; // The final support tier is available without mine progress.
   town.projects.museum = { id: 'museum', stage: 1, required: 1, wins: 1 };
-  town.buildings.farm = 5;
+  town.buildings.farm = 3;
   const choices = availablePurchases(town, 1).map(({ id }) => id);
   expect(choices).toContain('home');
   expect(choices).not.toContain('museum');
@@ -153,7 +153,7 @@ it('distinguishes collection icons, ready construction and eligible coin purchas
   expect(availablePurchases(town, 1).map(({ id }) => id)).toContain('home');
   expect(buildingIndicators(town).home).toBeUndefined();
   town.coins = 100000;
-  town.buildings.home = 3; // The fourth tier is eligible without a completion gate.
+  town.buildings.home = 2; // The final tier is eligible without mine progress.
   expect(buildingIndicators(town).home).toBe('upgrade');
   expect(buildingIndicators(town).home3).toBeUndefined();
   expect(buildingIndicators(town).saloon).toBe('coins'); // Ready beats affordable.

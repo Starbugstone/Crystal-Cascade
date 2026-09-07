@@ -387,11 +387,13 @@ import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
+import { buildingServiceLevel } from '../../data/buildingProgression';
 const props = defineProps({
   id: { type: String, required: true },
   era: { type: String, default: 'frontier' },
   stage: { type: Number, default: 0 },
 });
+const stage = computed(() => buildingServiceLevel(props.id, props.stage));
 const kind = computed(() => BUILDING_BY_ID[props.id]?.kind ?? props.id);
 const built = computed(() => props.stage > 0);
 const frontColor = computed(

@@ -194,10 +194,12 @@
         role="button"
         tabindex="0"
         :aria-label="
-          t('Inspect {value0}: {value1}', {
-            value0: t(building.name),
-            value1: t(building.stages[town.buildings[building.id]]),
-          })
+          indicators[building.id] === 'era'
+            ? t('Advance to the next era')
+            : t('Inspect {value0}: {value1}', {
+                value0: t(building.name),
+                value1: t(building.stages[town.buildings[building.id]]),
+              })
         "
         :aria-pressed="selected === building.id"
         :transform="`translate(${building.x} ${building.y}) scale(.48)`"
@@ -248,7 +250,7 @@
           </g>
         </g>
         <image
-          v-if="['ready', 'coins', 'tnt', 'bell'].includes(indicators[building.id])"
+          v-if="['ready', 'coins', 'tnt', 'bell', 'era'].includes(indicators[building.id])"
           class="map-action-icon"
           x="-28"
           y="-60"
@@ -261,7 +263,9 @@
                 ? '/art/rewards/coins.svg'
                 : indicators[building.id] === 'bell'
                   ? '/art/rewards/town-bell.svg'
-                  : '/art/powers/tnt.svg'
+                  : indicators[building.id] === 'era'
+                    ? '/art/rewards/era-compass.svg'
+                    : '/art/powers/tnt.svg'
           "
           aria-hidden="true"
         />

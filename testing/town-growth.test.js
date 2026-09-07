@@ -53,7 +53,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Five levels and a growing frontier', () => {
+describe('Substantial building stages and a growing frontier', () => {
   it.each([
     ['home', ['home2', 'home3', 'home4']],
     ['farm', ['farm2', 'farm3']],
@@ -114,10 +114,14 @@ describe('Five levels and a growing frontier', () => {
     expect(finishConstruction(town, 'home4', 2).buildings.home4).toBe(2);
     expect(plotUnlocked(town, 'unknown')).toBe(false);
   });
-  it('caps every building at level five and preserves existing benefits during improvements', () => {
+  it('caps supporting buildings at three and core services at five and preserves existing benefits during improvements', () => {
     for (const building of frontierBuildings) {
-      expect(building.upgrades).toHaveLength(5);
-      const town = village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 5])));
+      expect(building.upgrades).toHaveLength(
+        ['saloon', 'sheriff', 'bank', 'square', 'blacksmith'].includes(building.id) ? 5 : 3,
+      );
+      const town = village(
+        Object.fromEntries(frontierBuildings.map((b) => [b.id, b.upgrades.length])),
+      );
       expect(purchase(town, building.id, 5)).toBeNull();
     }
     let town = village({ saloon: 1, home: 2 });
@@ -133,9 +137,9 @@ describe('Five levels and a growing frontier', () => {
     const town = village({ home: 3, home2: 3, home3: 3, home4: 3 });
     expect(population(town)).toBe(6);
     town.buildings.well = town.buildings.farm = 3;
-    expect(population(town)).toBe(18);
+    expect(population(town)).toBe(30);
     town.buildings.well2 = town.buildings.farm2 = 1;
-    expect(population(town)).toBe(24);
+    expect(population(town)).toBe(36);
     expect(roadLevel(createTown())).toBe(0);
     expect(roadLevel(village())).toBe(1);
     expect(roadLevel(town)).toBeGreaterThan(1);
@@ -246,11 +250,11 @@ describe('A useful square and a longer village economy', () => {
     town.buildings.home = 3;
     expect(residentPopulation(town)).toBe(6);
     expect(visitorPopulation(town)).toBe(0);
-    expect(happiness(town)).toBe(38);
+    expect(happiness(town)).toBe(31);
     town.buildings.well = town.buildings.farm = 2;
-    expect(visitorPopulation(town)).toBe(4);
-    expect(happiness(town)).toBe(54);
-    expect(saloonIncomeRate(town)).toBe(37);
+    expect(visitorPopulation(town)).toBe(2);
+    expect(happiness(town)).toBe(48);
+    expect(saloonIncomeRate(town)).toBe(43);
   });
   it('settles existing visitors and happiness before a square changes the income rate', () => {
     const campaign = useCampaignStore();
@@ -269,7 +273,7 @@ describe('A useful square and a longer village economy', () => {
     expect(happiness(reloaded.town)).toBe(50);
   });
   it('allows fourth and fifth levels without a completed-puzzle gate for either payment', () => {
-    for (const { id } of frontierBuildings) {
+    for (const { id } of frontierBuildings.filter((b) => b.upgrades.length === 5)) {
       let town = {
         ...village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 3]))),
         coins: 10000,
@@ -288,7 +292,9 @@ describe('A useful square and a longer village economy', () => {
     }
   });
   it('supports a mature village with meaningful services at every final tier', () => {
-    const town = village(Object.fromEntries(frontierBuildings.map((b) => [b.id, 5])));
+    const town = village(
+      Object.fromEntries(frontierBuildings.map((b) => [b.id, b.upgrades.length])),
+    );
     expect(residentPopulation(town)).toBe(40);
     expect(visitorPopulation(town)).toBe(18);
     expect(happiness(town)).toBe(100);

@@ -1,7 +1,8 @@
+import { buildingServiceLevel, hasShortProgression } from '../../data/buildingProgression';
 import { t } from '../../i18n';
 import { miningDepthBonus } from '../../data/economy';
 import { forgeProductionRuns } from '../../data/eras';
-import { plotInEra, modernization, normalizeEraState } from './TownEras';
+import { plotInEra, modernization, normalizeEraState, eraGate } from './TownEras';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
 import {
   COMBO_COIN_STEP,
@@ -50,8 +51,15 @@ export function normalizeTown(saved) {
   if (Number.isSafeInteger(saved?.coins) && saved.coins >= 0) town.coins = saved.coins;
   for (const building of BUILDINGS) {
     const stage = saved?.buildings?.[building.id];
-    if (Number.isInteger(stage) && stage >= 0 && stage <= building.upgrades.length)
-      town.buildings[building.id] = stage;
+    if (
+      Number.isInteger(stage) &&
+      stage >= 0 &&
+      stage <=
+        (hasShortProgression(building.id) && !saved?.progressionVersion
+          ? 5
+          : building.upgrades.length)
+    )
+      town.buildings[building.id] = Math.min(stage, building.upgrades.length);
   }
   normalizeEraState(town, saved);
   if (Number.isSafeInteger(saved?.completedRuns) && saved.completedRuns >= 0)
@@ -101,6 +109,12 @@ export function normalizeTown(saved) {
         outcome: event.outcome,
         loss: event.loss,
         seen: event.seen === true,
+        ...(event.seen === true &&
+        Number.isInteger(event.bounty) &&
+        event.bounty >= 0 &&
+        event.bounty <= event.gangSize * 10
+          ? { bounty: event.bounty }
+          : {}),
         ...(event.bellRung === true ? { bellRung: true } : {}),
         targets: [
           'mine',
@@ -114,7 +128,28 @@ export function normalizeTown(saved) {
     }
   }
   for (const { id, upgrades } of BUILDINGS) {
-    const project = saved?.projects?.[id];
+    let project = saved?.projects?.[id];
+    if (!saved?.progressionVersion && hasShortProgression(id)) {
+      if (project?.type === 'modernization')
+        project = { ...project, stage: Math.min(project.stage, upgrades.length) };
+      else if (
+        project?.id === id &&
+        project.stage > upgrades.length &&
+        project.stage <= 5 &&
+        project.stage === saved.buildings[id] + 1 &&
+        project.required === 1 &&
+        Number.isInteger(project.wins) &&
+        project.wins >= 0 &&
+        project.wins <= 1
+      ) {
+        // An already-paid redundant tier is cancelled and refunded exactly once.
+        town.coins = Math.min(
+          Number.MAX_SAFE_INTEGER,
+          town.coins + BUILDING_BY_ID[id].legacyUpgradeCosts[project.stage - 1],
+        );
+        continue;
+      }
+    }
     if (project?.type === 'modernization') {
       const offer = modernization(town, id);
       if (
@@ -225,10 +260,13 @@ export function finishConstruction(town, id, expectedStage) {
 }
 
 export const totalLevels = (town, kind) =>
-  BUILDINGS.filter((b) => b.kind === kind).reduce((sum, b) => sum + (town.buildings[b.id] ?? 0), 0);
+  BUILDINGS.filter((b) => b.kind === kind).reduce(
+    (sum, b) => sum + buildingServiceLevel(b.id, town.buildings[b.id] ?? 0),
+    0,
+  );
 export const foodCapacity = (town) =>
   totalLevels(town, 'farm') * 6 +
-  Math.min(5, Math.max(0, town.buildings.fisherman ?? 0)) +
+  Math.min(5, Math.max(0, buildingServiceLevel('fisherman', town.buildings.fisherman ?? 0))) +
   (town.buildings.market ?? 0) * 10;
 export const housingCapacity = (town) =>
   totalLevels(town, 'home') * 2 + (town.buildings.home5 ?? 0) * 8;
@@ -251,8 +289,8 @@ export function advanceForge(town) {
 export const residentPopulation = (town) =>
   Math.min(housingCapacity(town), totalLevels(town, 'well') * 6, foodCapacity(town));
 export const visitorCapacity = (town) =>
-  town.buildings.stable * 2 +
-  Math.max(0, town.buildings.museum - 1) * 2 +
+  buildingServiceLevel('stable', town.buildings.stable) * 2 +
+  Math.max(0, buildingServiceLevel('museum', town.buildings.museum) - 1) * 2 +
   (town.buildings.railDepot ?? 0) * 2 +
   (town.buildings.hotel ?? 0) * 2;
 export const visitorPopulation = (town) =>
@@ -272,9 +310,9 @@ export const happiness = (town) => {
     Math.round(
       needs * 40 +
         (town.buildings.square ?? 0) * 8 +
-        town.buildings.museum * 2 +
+        buildingServiceLevel('museum', town.buildings.museum) * 2 +
         town.buildings.saloon * 2 +
-        Math.min(5, Math.max(0, town.buildings.school ?? 0)),
+        Math.min(5, Math.max(0, buildingServiceLevel('school', town.buildings.school ?? 0))),
     ),
   );
 };
@@ -385,6 +423,7 @@ export function buildingIndicators(town, forgeCollectible = true, now = Date.now
     )
       indicators[id] = 'tnt';
   }
+  if (eraGate(town).available) indicators.square = 'era';
   if (canRingTownBell(town) && !constructionReady(town.projects.square)) indicators.square = 'bell';
   return indicators;
 }
@@ -468,6 +507,11 @@ export function raidReady(town) {
     (!previous || previous.seen)
   );
 }
+export const CAPTURE_BOUNTY = 10;
+export const raidBounty = (event) =>
+  event?.outcome === 'protected' && event.loss === 0
+    ? Math.min(event.gangSize, event.sheriffLevel * 2) * CAPTURE_BOUNTY
+    : 0;
 export const raidProtection = (town, riders = gangSize(town)) =>
   (Math.min(riders, town.buildings.sheriff * 2) +
     Math.min(riders, (town.buildings.bank ?? 0) * 2)) /

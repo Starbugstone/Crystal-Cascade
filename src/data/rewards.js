@@ -1,11 +1,11 @@
 import { POWERS } from './campaign';
 import { chestCoinReward } from './economy';
 
-export const BONUS_CAPACITIES = [3, 5, 8, 12, 16, 20];
+export const BONUS_CAPACITIES = [3, 5, 8, 20];
 export const CONTINUOUS_COIN_CAP = 25;
 export const HAMMER_CAPACITY = 5;
 export const OVERFLOW_COINS = 10;
-export const bonusCapacity = (town) => BONUS_CAPACITIES[town.buildings.armory] ?? 3;
+export const bonusCapacity = (town) => BONUS_CAPACITIES[Math.min(3, town.buildings.armory)] ?? 3;
 export const CHEST_DROPS = [
   ...POWERS.map((power) => ({
     ...power,

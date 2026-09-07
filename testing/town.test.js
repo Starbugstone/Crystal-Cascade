@@ -116,7 +116,7 @@ describe('A small, reachable town', () => {
     expect(runs).toBeGreaterThan(0);
     expect(
       BUILDINGS.filter((b) => b.introducedEra === 'frontier').every(
-        (b) => town.buildings[b.id] === 5,
+        (b) => town.buildings[b.id] === b.upgrades.length,
       ),
     ).toBe(true);
     expect(population(town)).toBe(58);

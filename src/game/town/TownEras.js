@@ -1,7 +1,6 @@
 import { ERAS, ERA_BY_ID, FRONTIER_ERA } from '../../data/eras';
-import { BUILDINGS, BUILDING_BY_ID } from '../../data/town';
+import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
-import { campaignMilestoneReached } from '../../data/campaignMilestones';
 
 export const eraIndex = (era) => ERAS.findIndex(({ id }) => id === era);
 export const plotInEra = (town, id) => {
@@ -39,20 +38,19 @@ export function isEraComplete(town) {
       (b.introducedEra === town.era || town.buildingEras[b.id] === town.era),
   );
 }
-export function eraGate(town, records) {
+export function eraGate(town) {
   const next = ERAS[eraIndex(town.era) + 1];
   const townComplete = isEraComplete(town);
-  const campaignComplete =
-    !!next && campaignMilestoneReached(records, next.requiredCampaignMilestone);
+  const pendingRaid = !!town.events[BANDIT_EVENT] && !town.events[BANDIT_EVENT].seen;
   return {
     next,
     townComplete,
-    campaignComplete,
-    available: !!next?.enabled && townComplete && campaignComplete && !town.transition?.pending,
+    pendingRaid,
+    available: !!next?.enabled && townComplete && !pendingRaid && !town.transition?.pending,
   };
 }
-export function advanceEra(town, records, expectedEra) {
-  const gate = eraGate(town, records);
+export function advanceEra(town, expectedEra) {
+  const gate = eraGate(town);
   if (town.era !== expectedEra || !gate.available) return null;
   return {
     ...town,
@@ -61,7 +59,6 @@ export function advanceEra(town, records, expectedEra) {
       id: `${expectedEra}:${gate.next.id}`,
       from: expectedEra,
       to: gate.next.id,
-      milestone: gate.next.requiredCampaignMilestone,
       pending: true,
     },
   };
@@ -83,7 +80,6 @@ export function normalizeEraState(town, saved) {
       id: receipt.id,
       from: receipt.from,
       to: receipt.to,
-      milestone: ERA_BY_ID[receipt.to].requiredCampaignMilestone,
       pending: receipt.pending === true,
     };
   }

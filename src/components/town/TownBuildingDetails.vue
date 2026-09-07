@@ -180,11 +180,31 @@
       <small>{{ t('Visitor capacity: {count}', { count: visitorCapacity(town) }) }}</small>
     </section>
     <section v-if="id === 'square'" class="town-service">
+      <div class="town-era-service">
+        <h3>{{ t('The next era begins here') }}</h3>
+        <p>
+          {{
+            t(
+              'Complete every building in this era, then tap the compass at the town center to begin the next chapter. No mine progress is required.',
+            )
+          }}
+        </p>
+        <p v-if="eraGate(town).pendingRaid">
+          {{ t('Finish the current raid before beginning a new era.') }}
+        </p>
+        <button v-if="eraGate(town).available" class="town-primary" @click="$emit('advance-era')">
+          <img src="/art/rewards/era-compass.svg" width="28" height="28" alt="" />
+          {{ t('Advance to the next era') }}
+        </button>
+        <p v-else-if="eraGate(town).townComplete && !eraGate(town).next?.enabled">
+          {{ t('This era is complete. More chapters of Prospect Hollow are still to come.') }}
+        </p>
+      </div>
       <h3>{{ t('Happiness: {value}%', { value: happiness(town) }) }}</h3>
       <p>
         {{
           t(
-            'Food and water contribute up to 40 happiness points. Each square level adds 8, each museum and saloon level adds 2, and the school adds up to 5. Each happiness point boosts saloon income by 1.25%.',
+            'Food and water contribute up to 40 happiness points. Each square level adds 8 and each saloon level adds 2. The museum adds up to 10 and the school up to 5. Each happiness point boosts saloon income by 1.25%.',
           )
         }}
       </p>
@@ -200,6 +220,13 @@
       </button>
     </section>
     <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
+      <p v-if="id === 'sheriff'">
+        {{
+          t(
+            'Stop a raid completely with the sheriff and bank to earn 10 coins per captured bandit. The bounty is paid once when the raid ends. An empty wallet alone does not earn a bounty.',
+          )
+        }}
+      </p>
       <h3>{{ t('Keep pace with the town') }}</h3>
       <p>
         {{
@@ -243,6 +270,7 @@
 import { computed } from 'vue';
 import { t } from '../../i18n';
 import { BUILDING_BY_ID } from '../../data/town';
+import { eraGate } from '../../game/town/TownEras';
 import { forgeProductionRuns } from '../../data/eras';
 import {
   upgradeOffer,
@@ -275,7 +303,7 @@ const props = defineProps({
   lastIncome: Number,
   now: { type: Number, default: Date.now },
 });
-defineEmits(['build', 'hammer', 'finish', 'ring-bell', 'select', 'museum', 'mine']);
+defineEmits(['build', 'hammer', 'finish', 'ring-bell', 'advance-era', 'select', 'museum', 'mine']);
 const cooldownSeconds = computed(() =>
   Math.ceil(collectionCooldownRemaining(props.town, props.id, props.now) / 1000),
 );

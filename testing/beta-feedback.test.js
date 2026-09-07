@@ -241,10 +241,14 @@ describe('Roulette receipts', () => {
 });
 
 describe('Shop purchases and refresh', () => {
-  it.each([1, 2, 3, 4, 5])('offers level %i stock without exceeding the catalog', (level) => {
+  it.each([
+    [1, 1],
+    [2, 2],
+    [3, 5],
+  ])('offers level %i stock without exceeding the catalog', (level, slots) => {
     const stock = rollShopStock(level, () => 0);
-    expect(stock).toHaveLength(level);
-    expect(new Set(stock.map((item) => item.id)).size).toBe(level);
+    expect(stock).toHaveLength(slots);
+    expect(new Set(stock.map((item) => item.id)).size).toBe(slots);
     expect(stock.every((offer) => SHOP_ITEMS.some((item) => item.id === offer.id))).toBe(true);
   });
   it('requires a shop, funds purchases once, rejects full storage, and preserves stock after reload', () => {
@@ -272,7 +276,7 @@ describe('Shop purchases and refresh', () => {
   });
   it('removes legacy builder hammer offers while preserving purchases and earned hammers', () => {
     let campaign = useCampaignStore();
-    campaign.town.buildings.shop = 5;
+    campaign.town.buildings.shop = 3;
     campaign.town.coins = 300;
     campaign.builderHammers = 2;
     campaign.shopStock = [

@@ -34,6 +34,9 @@
         t(defended ? 'VILLAGE DEFENDED!' : 'Bandits stole {coins} coins!', { coins: number(coins) })
       }}
     </h2>
+    <p v-if="bounty" class="raid-bounty">
+      {{ t('Capture bounty: +{coins} coins', { coins: number(bounty) }) }}
+    </p>
     <p>
       {{
         t(
@@ -49,7 +52,12 @@
 import { onMounted, onBeforeUnmount } from 'vue';
 import { t, number } from '../../i18n';
 import TownIcon from './TownIcon.vue';
-defineProps({ coins: { type: Number, default: 0 }, defended: Boolean, reducedMotion: Boolean });
+defineProps({
+  bounty: { type: Number, default: 0 },
+  coins: { type: Number, default: 0 },
+  defended: Boolean,
+  reducedMotion: Boolean,
+});
 const emit = defineEmits(['close']);
 let timeout;
 onMounted(() => {
@@ -104,6 +112,12 @@ onBeforeUnmount(() => clearTimeout(timeout));
   margin: 10px 0 8px;
   font-size: 18px;
   color: #ffe7c0;
+}
+.town-raid-notice .raid-bounty {
+  color: #ffdc7d;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
 }
 .town-raid-notice p {
   margin: 0;

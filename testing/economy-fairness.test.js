@@ -46,7 +46,11 @@ it('lets a chapter-three town complete both defenses with coins and stop the lar
     ...createTown(),
     completedRuns: 12,
     coins: 20000,
-    buildings: { ...Object.fromEntries(BUILDINGS.map((b) => [b.id, 4])), sheriff: 3, bank: 3 },
+    buildings: {
+      ...Object.fromEntries(BUILDINGS.map((b) => [b.id, Math.min(4, b.upgrades.length)])),
+      sheriff: 3,
+      bank: 3,
+    },
   };
   for (const id of ['sheriff', 'bank'])
     for (const stage of [3, 4]) {
@@ -73,11 +77,11 @@ it('funds any final Frontier upgrade from six chapter-three mining payouts witho
     ...createTown(),
     coins,
     completedRuns: 12,
-    buildings: Object.fromEntries(BUILDINGS.map((b) => [b.id, 4])),
+    buildings: Object.fromEntries(BUILDINGS.map((b) => [b.id, Math.max(0, b.upgrades.length - 1)])),
   };
   for (const building of BUILDINGS.filter((b) => b.introducedEra === 'frontier')) {
     expect(upgradeOffer(town, building.id).reason).toBe('');
-    expect(purchase(town, building.id, 4)).not.toBeNull();
+    expect(purchase(town, building.id, building.upgrades.length - 1)).not.toBeNull();
   }
   expect(chestCoinReward(13)).toBe(1500);
 });

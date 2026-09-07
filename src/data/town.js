@@ -1,3 +1,4 @@
+import { hasShortProgression } from './buildingProgression';
 import { purchasePrice } from './economy';
 import { FRONTIER_BUILDINGS } from './frontier';
 import { FRONTIER_ERA, createEraState } from './eras';
@@ -580,12 +581,23 @@ export const BUILDINGS = [
       }),
     ),
   })),
-].map((building) => ({
-  ...building,
-  introducedEra: building.introducedEra ?? FRONTIER_ERA,
-  requiredForEraCompletion: true,
-  upgrades: building.upgrades.map((upgrade) => ({ ...upgrade, cost: purchasePrice(upgrade.cost) })),
-}));
+].map((building) => {
+  const upgrades = building.upgrades.map((upgrade) => ({
+    ...upgrade,
+    cost: purchasePrice(upgrade.cost),
+  }));
+  const short = hasShortProgression(building.id);
+  return {
+    ...building,
+    introducedEra: building.introducedEra ?? FRONTIER_ERA,
+    requiredForEraCompletion: true,
+    legacyUpgradeCosts: short ? upgrades.map((upgrade) => upgrade.cost) : undefined,
+    stages: short ? [...building.stages.slice(0, 3), building.stages.at(-1)] : building.stages,
+    upgrades: short
+      ? [upgrades[0], upgrades[1], { ...upgrades.at(-1), cost: upgrades[2].cost }]
+      : upgrades,
+  };
+});
 
 export const BUILDING_BY_ID = Object.fromEntries(
   BUILDINGS.map((building) => [building.id, building]),
@@ -610,4 +622,5 @@ export const createTown = () => ({
   nextRaidRun: null,
   income: { at: null, remainder: 0, stored: 0 },
   lastCollections: { saloon: null, blacksmith: null },
+  progressionVersion: 1,
 });

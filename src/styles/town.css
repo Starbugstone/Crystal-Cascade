@@ -2107,32 +2107,19 @@ html:has(.town-museum[open]) {
 .town-labels-hidden .mine-label {
   display: none;
 }
-.town-era-goal {
-  margin: 0.6rem 0;
-  padding: 0.65rem 1rem;
-  border: 1px solid currentColor;
-  border-radius: 0.8rem;
-  color: var(--town-ink, #574b37);
-  background: #f3e8cf;
+.town-in-cinematic > button,
+.town-in-cinematic > .town-map-wallet,
+.town-in-cinematic > .town-map-caption,
+.town-in-cinematic .town-scene-labels,
+.town-in-cinematic .town-action-icons,
+.town-in-cinematic .town-camera-bar,
+.town-in-cinematic .map-label,
+.town-in-cinematic .map-action-icon,
+.town-in-cinematic .mine-label {
+  visibility: hidden;
 }
-.town-era-control {
-  position: absolute;
-  top: 112px;
-  left: 16px;
-  z-index: 4;
-  max-width: calc(100% - 32px);
-  border-radius: 10px;
-  background: #fbf5e3;
-  color: #40593f;
-  padding: 6px 9px;
-  font-size: 11px;
-  box-shadow: 0 2px 8px #7c633218;
-}
-.town-era-control button {
-  color: inherit;
-  background: transparent;
-  padding: 6px;
-  min-height: 32px;
+.town-in-cinematic .map-upgrade-glow {
+  opacity: 0;
 }
 
 .town-action-icons {
@@ -2167,4 +2154,10 @@ html:has(.town-museum[open]) {
 .town-plot-ready {
   color: #426654;
   font-weight: 800;
+}
+
+.town-era-icon img {
+  width: 36px;
+  height: 36px;
+  filter: drop-shadow(0 0 7px #ffe7a6);
 }

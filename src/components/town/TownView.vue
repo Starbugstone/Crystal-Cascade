@@ -15,20 +15,6 @@
         </div>
       </div>
     </div>
-    <section v-if="gate.townComplete" class="town-era-goal" aria-live="polite">
-      <button v-if="gate.available" class="town-primary" @click="campaign.advanceEra(town.era)">
-        {{ t('Advance to the next era') }} → {{ t(gate.next.label) }}
-      </button>
-      <p v-else>
-        {{
-          t(
-            gate.next?.enabled
-              ? 'Prospect Hollow is ready for its next chapter. Keep mining to reach the next era.'
-              : 'This era is complete. More chapters of Prospect Hollow are still to come.',
-          )
-        }}
-      </p>
-    </section>
     <div class="town-tools">
       <button :aria-label="t('Village tour')" @click="tourOpen = true">
         <GameIcon name="info" />
@@ -54,6 +40,7 @@
           'town-has-raid': activeRaid,
           'town-fullscreen': fullscreen,
           'town-labels-hidden': !settings.showVillageLabels,
+          'town-in-cinematic': town.transition?.pending,
         }"
       >
         <button
@@ -108,14 +95,6 @@
         <button v-if="!activeRaid" class="town-plots-button" @click="openDirectory">
           {{ t('Available plots') }} <TownIcon name="arrow" />
         </button>
-        <div v-if="!activeRaid" class="town-era-control">
-          <button v-if="gate.available" @click="campaign.advanceEra(town.era)">
-            {{ t('Advance to the next era') }} →
-          </button>
-          <span v-else
-            >{{ t(ERA_BY_ID[town.era].label) }} · {{ t(ERA_BY_ID[town.era].yearLabel) }}</span
-          >
-        </div>
         <div v-if="activeRaid" class="town-raid-banner" role="status" aria-live="polite">
           <span class="town-kicker"
             >{{ t('FRONTIER ENCOUNTER') }} ·
@@ -160,7 +139,8 @@
           ref="townScene"
           :active="active"
           :fullscreen="fullscreen"
-          :town="town"
+          :town="sceneTown"
+          :cinematic="!!town.transition?.pending"
           :forge-collectible="campaign.canCollectForge(collectionNow)"
           :now="collectionNow"
           :builder-hammers="campaign.builderHammers"
@@ -168,13 +148,7 @@
           :population="people"
           :reduced-motion="settings.reducedMotion"
           :paused="
-            !active ||
-            paused ||
-            settings.isSettingsOpen ||
-            museumOpen ||
-            !!dialogMode ||
-            tourOpen ||
-            !!town.transition?.pending
+            !active || paused || settings.isSettingsOpen || museumOpen || !!dialogMode || tourOpen
           "
           :next-level="campaign.nextLevel"
           :mine-stage="campaign.mineStage"
@@ -199,6 +173,7 @@
           v-if="raidNotice"
           :key="raidNotice.id"
           :coins="raidNotice.loss"
+          :bounty="raidNotice.bounty ?? 0"
           :defended="raidNotice.outcome === 'protected'"
           :reduced-motion="settings.reducedMotion"
           @close="raidNotice = null"
@@ -412,6 +387,13 @@
             </span>
           </button>
         </section>
+        <p class="town-service">
+          {{
+            t(
+              'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
+            )
+          }}
+        </p>
         <details class="town-service">
           <summary>{{ t('All current-era plots') }}</summary>
           <section class="town-building-list" :aria-label="t('All current-era plots')">
@@ -450,6 +432,7 @@
         @hammer="useHammer"
         @finish="finishBuilding(selected)"
         @ring-bell="ringBell"
+        @advance-era="beginEra"
         @select="inspectBuilding"
         @museum="visitMuseum"
         @mine="goMining"
@@ -470,22 +453,16 @@
       @replay="$emit('replay', $event)"
       @continuous="$emit('continuous', $event)"
     />
-    <TownDialog
+    <TownEraCinematic
       v-if="active && town.transition?.pending"
-      :title="`${t(ERA_BY_ID[town.era].yearLabel)} · ${t(ERA_BY_ID[town.era].label)}`"
-      :close-label="'Continue'"
-      @close="campaign.acknowledgeEra()"
-    >
-      <p>{{ t(ERA_BY_ID[town.era].story) }}</p>
-      <p>
-        {{
-          t('Modernize your landmarks, build the railway station and open the bridge to new land.')
-        }}
-      </p>
-      <button class="town-primary" @click="campaign.acknowledgeEra()">
-        {{ t('Explore the new era') }}
-      </button>
-    </TownDialog>
+      :era-id="town.era"
+      :reduced-motion="settings.reducedMotion"
+      @reveal="eraRevealed = true"
+      @frame="townScene?.cinematicFrame($event)"
+      @complete="completeEraCinematic"
+      @sound="playEraSound"
+      @silence="stopEraSound"
+    />
   </main>
 </template>
 <script setup>
@@ -524,6 +501,7 @@ import TownTour from './TownTour.vue';
 import GameIcon from '../GameIcon.vue';
 import { useTownAudio } from '../../composables/useTownAudio';
 import TownScene from './TownScene.vue';
+import TownEraCinematic from './TownEraCinematic.vue';
 import TownDialog from './TownDialog.vue';
 import TownBuildingDetails from './TownBuildingDetails.vue';
 import TownIcon from './TownIcon.vue';
@@ -572,9 +550,41 @@ const showConstructionTip = computed(
     props.active && !town.value.constructionTipSeen && activeProjects.value.some(constructionReady),
 );
 const goal = computed(() => nextGoal(town.value));
-const gate = computed(() => eraGate(town.value, campaign.records));
+const gate = computed(() => eraGate(town.value));
 const directoryPlots = computed(() => availableParcels(town.value, campaign.builderHammers));
 const townScene = ref(null);
+const eraRevealed = ref(false);
+const sceneTown = computed(() =>
+  town.value.transition?.pending && !eraRevealed.value
+    ? { ...town.value, era: town.value.transition.from }
+    : town.value,
+);
+watch(
+  () => town.value.transition?.id,
+  () => {
+    eraRevealed.value = false;
+  },
+);
+function beginEra() {
+  if (activeRaid.value || !campaign.advanceEra(town.value.era)) return;
+  closeDialog();
+  fullscreen.value = true;
+  eraRevealed.value = false;
+}
+let cancelEraSound = () => {};
+function stopEraSound() {
+  cancelEraSound();
+  cancelEraSound = () => {};
+}
+function playEraSound(cue) {
+  stopEraSound();
+  cancelEraSound = game.audioManager?.playArcadeCue?.(cue) ?? (() => {});
+}
+function completeEraCinematic() {
+  eraRevealed.value = true;
+  if (campaign.acknowledgeEra())
+    nextTick(() => mapFrame.value?.querySelector('canvas')?.focus({ preventScroll: true }));
+}
 const collectionNow = ref(Date.now());
 let collectionClock;
 const currentEraPlots = computed(() => BUILDINGS.filter(({ id }) => plotInEra(town.value, id)));
@@ -689,7 +699,17 @@ const banditStory = computed(() =>
     ? {
         speaker: 'Sam · the sheriff',
         title: 'The town stood its ground.',
-        text: 'The patrol sent the gang back to the prairie. Every coin is safe.',
+        text: event.value.bounty
+          ? t(
+              'The sheriff captured {count} bandits. Every coin is safe, and the town earned a {coins}-coin bounty.',
+              {
+                count: Math.min(event.value.gangSize, event.value.sheriffLevel * 2),
+                coins: event.value.bounty,
+              },
+            )
+          : t(
+              'The sheriff stopped the gang. Every coin is safe. A capture bounty is awarded when the raid ends.',
+            ),
       }
     : event.value?.outcome === 'stolen'
       ? {
@@ -763,6 +783,10 @@ async function selectBuilding(id) {
     return;
   }
   if (id === 'saloon' && collectIncome()) return;
+  if (id === 'square' && gate.value.available && !activeRaid.value) {
+    beginEra();
+    return;
+  }
   if (id === 'square' && canRingTownBell(town.value)) {
     ringBell();
     return;
@@ -872,12 +896,11 @@ function useHammer(stage) {
 
 function finishRaid() {
   if (!activeRaid.value) return;
-  const receipt = activeRaid.value;
-  // Present the saved outcome once; replaying a raid cannot repeat its receipt.
-  if (campaign.markRaidSeen(receipt.id)) {
-    if (receipt.outcome === 'protected' || receipt.loss > 0) raidNotice.value = receipt;
-    if (receipt.outcome === 'protected') game.audioManager?.playArcadeCue?.('jackpot');
-  }
+  const id = activeRaid.value.id;
+  if (!event.value?.seen && !campaign.markRaidSeen(id)) return;
+  const receipt = { ...event.value };
+  if (receipt.outcome === 'protected' || receipt.loss > 0) raidNotice.value = receipt;
+  if (receipt.bounty) game.audioManager?.playArcadeCue?.('jackpot');
   activeRaid.value = null;
   latestMoment.value = banditStory.value;
   announcement.value = banditStory.value.text;

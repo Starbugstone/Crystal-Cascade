@@ -40,6 +40,7 @@
         v-for="anchor in actionAnchors"
         :key="anchor.id"
         class="town-action-icon"
+        :class="{ 'town-era-icon': indicators[anchor.id] === 'era' }"
         :data-town-plot="anchor.id"
         :style="{ left: `${anchor.collection.x}%`, top: `${anchor.collection.y}%` }"
         :aria-label="
@@ -49,7 +50,9 @@
               ? t('Collect {coins} coins', { coins: town.income.stored })
               : indicators[anchor.id] === 'bell'
                 ? t('Ring town bell · halve the loss')
-                : t('Collect 1 TNT')
+                : indicators[anchor.id] === 'era'
+                  ? t('Advance to the next era')
+                  : t('Collect 1 TNT')
         "
         @click="chooseLabel(anchor.id, $event)"
       >
@@ -61,7 +64,9 @@
                 ? '/art/rewards/coins.svg'
                 : indicators[anchor.id] === 'bell'
                   ? '/art/rewards/town-bell.svg'
-                  : '/art/powers/tnt.svg'
+                  : indicators[anchor.id] === 'era'
+                    ? '/art/rewards/era-compass.svg'
+                    : '/art/powers/tnt.svg'
           "
           alt=""
         />
@@ -82,7 +87,9 @@
             ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
           'has-income': indicators[anchor.id] === 'coins',
-          'has-action-icon': ['ready', 'coins', 'tnt', 'bell'].includes(indicators[anchor.id]),
+          'has-action-icon': ['ready', 'coins', 'tnt', 'bell', 'era'].includes(
+            indicators[anchor.id],
+          ),
         }"
         :aria-label="
           t(
@@ -167,6 +174,7 @@ import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
   fullscreen: Boolean,
+  cinematic: Boolean,
   active: { type: Boolean, default: true },
   town: Object,
   builderHammers: { type: Number, default: 0 },
@@ -199,7 +207,7 @@ const upgradeIds = computed(() =>
 const actionAnchors = computed(() =>
   anchors.value.filter(
     (anchor) =>
-      ['ready', 'coins', 'tnt', 'bell'].includes(indicators.value[anchor.id]) &&
+      ['ready', 'coins', 'tnt', 'bell', 'era'].includes(indicators.value[anchor.id]) &&
       anchor.collection.visible,
   ),
 );
@@ -223,7 +231,7 @@ function collectionOrigin(id) {
     y: Math.max(20, Math.min(90, anchor?.y ?? 50)),
   };
 }
-defineExpose({ collectionOrigin });
+defineExpose({ collectionOrigin, cinematicFrame: (progress) => scene?.eraFrame(progress) });
 const cameraActions = [
   { id: 'out', label: 'Zoom out', path: 'M6 12h12' },
   { id: 'in', label: 'Zoom in', path: 'M6 12h12M12 6v12' },
@@ -315,8 +323,9 @@ function update() {
     lastVisual = visual;
     lastConstruction = props.construction?.serial;
   }
+  scene.setCinematic(props.cinematic);
   scene.setAvailable([...availableIds.value, ...(props.town.income.stored > 0 ? ['saloon'] : [])]);
-  scene.setUpgradeable(upgradeIds.value);
+  scene.setUpgradeable(props.cinematic ? [] : upgradeIds.value);
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
   scene.setPaused(props.paused);
@@ -429,8 +438,15 @@ watch(
       ]);
   },
 );
+watch(
+  () => props.cinematic,
+  (value) => {
+    scene?.setCinematic(value);
+    scene?.setUpgradeable(value ? [] : upgradeIds.value);
+  },
+);
 watch(upgradeIds, (ids) => {
-  if (props.active) scene?.setUpgradeable(ids);
+  if (props.active) scene?.setUpgradeable(props.cinematic ? [] : ids);
 });
 watch(
   () => props.raid,
