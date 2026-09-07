@@ -59,6 +59,13 @@
           )
         }}
       </p>
+      <p>
+        {{
+          t(
+            'When construction is ready, tap its hammer icon in the town or use Finish construction on this card to open the building.',
+          )
+        }}
+      </p>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
       <h3>{{ t(offer.title, { building: t(building.name), name: t(offer.name) }) }}</h3>
@@ -121,19 +128,17 @@
       <p>
         {{
           t(
-            'The blacksmith holds one TNT. Collect it to restart production. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.',
+            'The blacksmith holds one TNT. Tap the blacksmith or its TNT icon in the town to collect it and restart production. Opening this card does not collect it. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.',
           )
         }}
       </p>
     </section>
     <section v-if="id === 'saloon' && stage" class="town-service">
-      <button v-if="town.income.stored" class="town-primary" @click="$emit('collect-income')">
-        <TownIcon name="coin" />{{ t('Collect {coins} coins', { coins: town.income.stored }) }}
-      </button>
+      <h3>{{ t('Stored earnings: {coins} coins', { coins: town.income.stored }) }}</h3>
       <p>
         {{
           t(
-            'Earnings stay in the saloon until you tap it to collect. Storage holds up to eight hours of income.',
+            'Tap the saloon or its coin icon in the town to collect stored earnings. Opening this card does not collect them. Storage holds up to eight hours of income.',
           )
         }}
       </p>
@@ -143,7 +148,7 @@
           t('{residents} residents + {visitors} visitors · Happiness bonus: {bonus}%', {
             residents: residentPopulation(town),
             visitors: visitorPopulation(town),
-            bonus: happiness(town),
+            bonus: saloonHappinessBonus(town),
           })
         }}
       </p>
@@ -168,10 +173,20 @@
       <p>
         {{
           t(
-            'Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. The school adds up to 5 points. Happiness boosts saloon income by the same percentage.',
+            'Food and water contribute up to 40 happiness points. Each square level adds 8, each museum and saloon level adds 2, and the school adds up to 5. Each happiness point boosts saloon income by 1.25%.',
           )
         }}
       </p>
+      <p>
+        {{
+          t(
+            'At level 4, the town square gains a warning bell. During a raid, tap the square, its bell icon, or the raid bell button to halve the remaining coin loss. The bell works once per raid and is only needed when coins are at risk.',
+          )
+        }}
+      </p>
+      <button v-if="canRingTownBell(town)" class="town-primary" @click="$emit('ring-bell')">
+        <TownIcon name="bell" />{{ t('Ring town bell · halve the loss') }}
+      </button>
     </section>
     <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
       <h3>{{ t('Keep pace with the town') }}</h3>
@@ -185,7 +200,7 @@
       </p>
       <small>{{
         t(
-          'The bank and sheriff each protect up to half the coins at risk. Upgrade both as gangs grow for full protection. Your last 50 coins are always safe.',
+          'The bank and sheriff each protect up to half the coins at risk. At level 5, both together stop all raid losses. Finish their construction during a raid to apply the new protection immediately. Your last 50 coins are always safe.',
         )
       }}</small>
     </section>
@@ -226,12 +241,14 @@ import {
   plotUnlocked,
   plotRequirement,
   saloonIncomeRate,
+  saloonHappinessBonus,
   residentPopulation,
   visitorPopulation,
   visitorCapacity,
   happiness,
   gangSize,
   raidProtection,
+  canRingTownBell,
 } from '../../game/town/TownRules';
 import TownBuilding from './TownBuilding.vue';
 import TownShop from './TownShop.vue';
@@ -245,7 +262,7 @@ const props = defineProps({
   powers: Array,
   lastIncome: Number,
 });
-defineEmits(['build', 'hammer', 'finish', 'collect-income', 'select', 'museum', 'mine']);
+defineEmits(['build', 'hammer', 'finish', 'ring-bell', 'select', 'museum', 'mine']);
 const building = computed(() => BUILDING_BY_ID[props.id]);
 const requirement = computed(() => plotRequirement(props.town, props.id));
 const stage = computed(() => props.town.buildings[props.id]);

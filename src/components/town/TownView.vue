@@ -41,10 +41,10 @@
           })
         }}</span
       >
-      <button v-if="town.buildings.saloon" @click="selectBuilding('saloon')">
+      <button v-if="town.buildings.saloon" @click="inspectBuilding('saloon')">
         <TownIcon name="coin" />{{ t('{rate}/hour', { rate: incomeRate }) }}
       </button>
-      <button @click="selectBuilding('armory')">{{ t('Supplies') }} →</button>
+      <button @click="inspectBuilding('armory')">{{ t('Supplies') }} →</button>
     </div>
     <section class="town-world" :aria-label="t('Your town')">
       <div
@@ -131,7 +131,10 @@
               )
             }}
           </p>
-          <div v-if="readyRaidDefenses.length" class="town-raid-defenses">
+          <p v-if="activeRaid.bellRung" class="town-bell-feedback">
+            {{ t('Bell rung · remaining loss: {coins} coins', { coins: activeRaid.loss }) }}
+          </p>
+          <div v-if="readyRaidDefenses.length || canRingTownBell(town)" class="town-raid-defenses">
             <button
               v-for="id in readyRaidDefenses"
               :key="id"
@@ -139,6 +142,9 @@
               @click="selectBuilding(id)"
             >
               {{ t('Finish {building}', { building: t(BUILDING_BY_ID[id].shortName) }) }}
+            </button>
+            <button v-if="canRingTownBell(town)" class="town-secondary" @click="ringBell">
+              <TownIcon name="bell" />{{ t('Ring town bell · halve the loss') }}
             </button>
           </div>
           <div class="town-raid-actions">
@@ -214,7 +220,7 @@
         <span class="town-sr-only" role="status">{{ t(announcement) }}</span>
       </div>
       <div class="town-needs" :aria-label="t('Basic town needs')">
-        <button @click="selectBuilding('well')">
+        <button @click="inspectBuilding('well')">
           <TownIcon name="water" /><span
             >{{ t('Water')
             }}<small>{{
@@ -222,13 +228,13 @@
             }}</small></span
           >
         </button>
-        <button @click="selectBuilding('farm')">
+        <button @click="inspectBuilding('farm')">
           <TownIcon name="food" /><span
             >{{ t('Food')
             }}<small>{{ t('Food for {count} people', { count: foodCapacity(town) }) }}</small></span
           >
         </button>
-        <button @click="selectBuilding('home')">
+        <button @click="inspectBuilding('home')">
           <TownIcon name="people" /><span
             >{{ t('{count} people', { count: people })
             }}<small>{{
@@ -237,13 +243,15 @@
           >
         </button>
       </div>
-      <button class="town-happiness" @click="selectBuilding('square')">
+      <button class="town-happiness" @click="inspectBuilding('square')">
         <TownIcon name="happiness" />
         <span
           >{{ t('Happiness') }} <strong>{{ happiness(town) }}%</strong>
           <meter :value="happiness(town)" min="0" max="100" :aria-label="t('Village happiness')" />
           <small>{{
-            t('Saloon income +{bonus}% · Improve the town square', { bonus: happiness(town) })
+            t('Saloon income +{bonus}% · Improve the town square', {
+              bonus: saloonHappinessBonus(town),
+            })
           }}</small>
         </span>
         <TownIcon name="arrow" />
@@ -341,7 +349,7 @@
             >
               {{ t('Watch the last raid again') }}
             </button>
-            <button class="town-secondary" @click="selectBuilding('sheriff')">
+            <button class="town-secondary" @click="inspectBuilding('sheriff')">
               {{ t('Visit the sheriff') }}
             </button>
           </section>
@@ -357,7 +365,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Ready buildings come first: tap to finish construction. Coin purchases follow, then buildings you can complete with a builder hammer.',
+              'Select a parcel to open its building card. Ready construction comes first, followed by coin purchases and work available with a builder hammer. Collect resources by tapping buildings in the town.',
             )
           }}
         </p>
@@ -374,13 +382,17 @@
           }}
         </p>
         <section class="town-building-list" :aria-label="t('Available buildings')">
-          <button v-for="place in directoryPlots" :key="place.id" @click="selectBuilding(place.id)">
+          <button
+            v-for="place in directoryPlots"
+            :key="place.id"
+            @click="inspectBuilding(place.id)"
+          >
             <span class="building-list-dot" :style="{ background: place.color }"></span>
             <span
               >{{ t(place.shortName) }}<small>{{ plotStatus(place) }}</small></span
             >
             <span v-if="place.ready" class="town-plot-price town-plot-ready">
-              ✦ {{ t('Tap to finish') }}
+              ✦ {{ t('Ready to finish') }}
             </span>
             <span
               v-else-if="town.coins < place.offer.cost"
@@ -409,7 +421,7 @@
             <button
               v-for="place in currentEraPlots"
               :key="place.id"
-              @click="selectBuilding(place.id)"
+              @click="inspectBuilding(place.id)"
             >
               <span>{{ t(place.shortName) }}</span>
               <small>{{
@@ -439,8 +451,8 @@
         @build="repair"
         @hammer="useHammer"
         @finish="finishBuilding(selected)"
-        @collect-income="collectIncome"
-        @select="selectBuilding"
+        @ring-bell="ringBell"
+        @select="inspectBuilding"
         @museum="visitMuseum"
         @mine="goMining"
       />
@@ -495,6 +507,8 @@ import {
   availableParcels,
   constructionReady,
   saloonIncomeRate,
+  saloonHappinessBonus,
+  canRingTownBell,
   totalLevels,
   foodCapacity,
   housingCapacity,
@@ -748,6 +762,10 @@ async function selectBuilding(id) {
     return;
   }
   if (id === 'saloon' && collectIncome()) return;
+  if (id === 'square' && canRingTownBell(town.value)) {
+    ringBell();
+    return;
+  }
   collection.value = null;
   if (id === 'blacksmith' && campaign.collectForgeTNT()) {
     closeDialog();
@@ -755,6 +773,18 @@ async function selectBuilding(id) {
     game.audioManager?.playArcadeCue?.('jackpot');
     return;
   }
+  await inspectBuilding(id);
+}
+function ringBell() {
+  if (!campaign.ringTownBell(event.value?.id)) return false;
+  game.audioManager?.playArcadeCue?.('town-bell');
+  announcement.value = t('Bell rung · remaining loss: {coins} coins', { coins: event.value.loss });
+  return true;
+}
+async function inspectBuilding(id) {
+  if (!Object.hasOwn(BUILDING_BY_ID, id)) return;
+  selected.value = id;
+  forgeCollected.value = false;
   dialogMode.value = 'building';
   await nextTick();
   const dialog = document.querySelector('.town-dialog');

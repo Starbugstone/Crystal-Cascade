@@ -253,7 +253,7 @@
           </text>
         </g>
         <image
-          v-if="['ready', 'coins', 'tnt'].includes(indicators[building.id])"
+          v-if="['ready', 'coins', 'tnt', 'bell'].includes(indicators[building.id])"
           class="map-action-icon"
           x="-28"
           y="-60"
@@ -264,7 +264,9 @@
               ? '/art/rewards/builder-hammer.svg'
               : building.id === 'saloon'
                 ? '/art/rewards/coins.svg'
-                : '/art/powers/tnt.svg'
+                : indicators[building.id] === 'bell'
+                  ? '/art/rewards/town-bell.svg'
+                  : '/art/powers/tnt.svg'
           "
           aria-hidden="true"
         />

@@ -1393,10 +1393,27 @@
   color: #f0dbb7;
 }
 .town-raid-defenses {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+.town-raid-banner .town-raid-defenses button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: none;
+  font-size: 12px;
+}
+.town-raid-banner .town-bell-feedback {
+  display: block;
+  grid-column: 1 / -1;
+}
+.town-raid-defenses svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 .town-raid-actions {
   grid-column: 2;

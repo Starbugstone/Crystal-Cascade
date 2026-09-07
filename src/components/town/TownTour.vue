@@ -57,7 +57,7 @@ const steps = [
   {
     id: 'square',
     title: 'A happier village',
-    text: 'The open town square adds happiness. Stables and museum galleries attract visitors when food and water are available. More people and more happiness mean more saloon income. Buildings have five levels; the last two unlock after 18 and 36 completed puzzles.',
+    text: 'The town square adds happiness and gains a raid warning bell at level 4. Stables and museum galleries attract visitors when food and water are available. More people and happiness increase saloon income. All five building levels are available without a completed-puzzle requirement.',
   },
   {
     id: 'saloon',

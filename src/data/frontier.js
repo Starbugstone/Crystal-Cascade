@@ -125,7 +125,6 @@ export const FRONTIER_BUILDINGS = [
     title,
     cost: costs[index],
     runs: 1,
-    unlockRuns: index === 4 ? 36 : index === 3 ? 18 : 0,
     benefit: benefits?.[index] ?? benefit,
     story: stages[index],
     speaker,

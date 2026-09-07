@@ -97,6 +97,7 @@ export function normalizeTown(saved) {
         outcome: event.outcome,
         loss: event.loss,
         seen: event.seen === true,
+        ...(event.bellRung === true ? { bellRung: true } : {}),
         targets: [
           'mine',
           ...(Array.isArray(event.targets)
@@ -287,8 +288,11 @@ export function plotUnlocked(town, id) {
 }
 export const HOUR_MS = 3_600_000;
 export const INCOME_HOURS_CAP = 8;
+export const saloonHappinessBonus = (town) => 1.25 * happiness(town);
 export const saloonIncomeRate = (town) =>
-  Math.floor((2 * town.buildings.saloon * population(town) * (100 + happiness(town))) / 100);
+  Math.floor(
+    (2.25 * town.buildings.saloon * population(town) * (100 + saloonHappinessBonus(town))) / 100,
+  );
 // Remainder is stored as coin-milliseconds, avoiding rounding loss between visits.
 // Settle BEFORE changing buildings, so their new rates never apply to old time.
 export function settleSaloonIncome(town, now) {
@@ -330,10 +334,7 @@ export function upgradeOffer(town, id) {
     cost,
     stage,
     runs: upgrade.runs ?? projectRuns(id, stage + 1),
-    available:
-      plotUnlocked(town, id) &&
-      !town.projects[id] &&
-      town.completedRuns >= (upgrade.unlockRuns ?? 0),
+    available: plotUnlocked(town, id) && !town.projects[id],
     reason: !plotInEra(town, id)
       ? 'Available in the next era.'
       : requirement
@@ -343,13 +344,9 @@ export function upgradeOffer(town, id) {
           })
         : town.projects[id]
           ? 'This building is already under construction.'
-          : town.completedRuns < (upgrade.unlockRuns ?? 0)
-            ? t('Complete {count} more puzzles to unlock this improvement.', {
-                count: upgrade.unlockRuns - town.completedRuns,
-              })
-            : town.coins < cost
-              ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
-              : '',
+          : town.coins < cost
+            ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
+            : '',
   };
 }
 
@@ -369,6 +366,7 @@ export function buildingIndicators(town, forgeCollectible = true) {
     )
       indicators[id] = 'tnt';
   }
+  if (canRingTownBell(town) && !constructionReady(town.projects.square)) indicators.square = 'bell';
   return indicators;
 }
 
@@ -456,6 +454,30 @@ export const raidProtection = (town, riders = gangSize(town)) =>
     Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
   (riders * 2);
 
+export function canRingTownBell(town) {
+  const event = town.events[BANDIT_EVENT];
+  return !!(
+    town.buildings.square >= 4 &&
+    event &&
+    !event.seen &&
+    !event.bellRung &&
+    event.loss > 0
+  );
+}
+export function ringTownBell(town, raidId) {
+  const event = town.events[BANDIT_EVENT];
+  if (!canRingTownBell(town) || event.id !== raidId) return null;
+  const loss = Math.floor(event.loss / 2);
+  return {
+    ...town,
+    coins: Math.min(Number.MAX_SAFE_INTEGER, town.coins + event.loss - loss),
+    events: {
+      ...town.events,
+      [BANDIT_EVENT]: { ...event, loss, bellRung: true, outcome: loss ? 'stolen' : 'harmless' },
+    },
+  };
+}
+
 export function banditEncounter(town, random = Math.random) {
   if (!raidReady(town)) return null;
   const riders = gangSize(town),
@@ -506,7 +528,8 @@ export function reinforceRaid(town) {
     { buildings: { sheriff: sheriffLevel, bank: bankLevel } },
     event.gangSize,
   );
-  const loss = Math.min(event.loss, Math.ceil(5 * event.gangSize * (1 - protection)));
+  const defenseLoss = Math.ceil(5 * event.gangSize * (1 - protection));
+  const loss = Math.min(event.loss, event.bellRung ? Math.floor(defenseLoss / 2) : defenseLoss);
   return {
     ...town,
     coins: Math.min(Number.MAX_SAFE_INTEGER, town.coins + event.loss - loss),

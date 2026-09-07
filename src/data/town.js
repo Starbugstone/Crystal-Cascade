@@ -91,7 +91,7 @@ const ORIGINAL_BUILDINGS = [
         runs: 1,
         title: 'Bring back the good times',
         benefit:
-          'Store 2 coins per person each hour, plus the happiness bonus. Adds 2 happiness points.',
+          'Store 2.25 coins per person each hour, plus the happiness bonus. Adds 2 happiness points.',
         story: 'First round of lemonade is on the house. Someone dust off that piano!',
         speaker: 'Nell · the saloon keeper',
       },
@@ -350,14 +350,14 @@ const IMPROVEMENTS = {
       1,
       'Room for the evening crowd',
       'Open the upstairs lounge',
-      'Store 4 coins per person each hour, plus the happiness bonus. Adds 4 happiness points.',
+      'Store 4.5 coins per person each hour, plus the happiness bonus. Adds 4 happiness points.',
     ],
     [
       350,
       1,
       'The heart of the frontier',
       'Complete the grand saloon',
-      'Store 6 coins per person each hour, plus the happiness bonus. Adds 6 happiness points.',
+      'Store 6.75 coins per person each hour, plus the happiness bonus. Adds 6 happiness points.',
     ],
   ],
   stable: [
@@ -445,12 +445,12 @@ const LATE_IMPROVEMENTS = {
     [
       'Music on the terrace',
       'Open the garden terrace',
-      'Store 8 coins per person each hour, plus the happiness bonus.',
+      'Store 9 coins per person each hour, plus the happiness bonus.',
     ],
     [
       'The frontier gathering place',
       'Complete the grand terrace',
-      'Store 10 coins per person each hour, plus the happiness bonus.',
+      'Store 11.25 coins per person each hour, plus the happiness bonus.',
     ],
   ],
   stable: [
@@ -529,12 +529,12 @@ const LATE_IMPROVEMENTS = {
     [
       'Flowers around the square',
       'Plant the border gardens',
-      'Low flower beds raise the square to 32 happiness points.',
+      'Low flower beds raise the square to 32 happiness points. A warning bell halves the remaining coin loss once per raid.',
     ],
     [
       'The pride of Prospect Hollow',
       'Complete the town square',
-      'An open gathering place with 40 happiness points.',
+      'An open gathering place with 40 happiness points and a warning bell that halves the remaining coin loss once per raid.',
     ],
   ],
 };
@@ -545,7 +545,6 @@ for (const building of ORIGINAL_BUILDINGS) {
     building.upgrades.push({
       cost: Math.ceil((cost * (index ? 5 : 2)) / 10) * 10,
       runs: 1,
-      unlockRuns: index ? 36 : 18,
       title,
       benefit,
       story: benefit,

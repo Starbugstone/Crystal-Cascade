@@ -19,7 +19,7 @@ beforeEach(() => {
     id: 'coins',
     kind: 'coins',
     label: 'Coins',
-    quantity: 25,
+    quantity: 500,
   });
 });
 afterEach(() => {
@@ -92,7 +92,7 @@ it.each([
   const reward = campaign.recordVictory({ id: 1, score, target: 6000, combo: 1 });
   expect(reward[0]?.items.length ?? 0).toBe(count);
   expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(0);
-  expect(campaign.town.coins).toBe(count * 25);
+  expect(campaign.town.coins).toBe(count * 500);
   expect(getChestTier(score, 0)).toBeNull();
 });
 it('keeps the best score and stars on replay, and saves used powers', () => {
@@ -141,7 +141,7 @@ it('makes one weighted roll per earned chest and saves exactly those awards', ()
   expect(random).toHaveBeenCalledTimes(2);
   expect(rewards.map((reward) => reward.items)).toEqual([
     [{ id: 'clear-row', kind: 'power', label: 'Clear Row', quantity: 1, overflowCoins: 0 }],
-    [{ id: 'coins', kind: 'coins', label: 'Coins', quantity: 25, overflowCoins: 0 }],
+    [{ id: 'coins', kind: 'coins', label: 'Coins', quantity: 500, overflowCoins: 0 }],
   ]);
   expect(rewards.every((reward) => reward.count === 1)).toBe(true);
   setActivePinia(createPinia());

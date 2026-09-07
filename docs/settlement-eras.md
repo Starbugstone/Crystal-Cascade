@@ -32,7 +32,7 @@ The first fixture leaves the Rail Connections chapter (levels 67–72) unfinishe
 - The first era gate requires every Frontier plot at maximum level, no unfinished work, and the complete **River Discovery** chapter. The gate uses the chapter ID rather than a hard-coded level number. Two new six-level chapters extend the normal campaign to 72 levels.
 - River & Rail introduces eight separate projects: bridge, wharf, station, post office, warehouse, hotel, riverside home and market. Station and hotel each add two visitor places; the new home adds ten resident places and market ten food. Food and water still constrain occupancy. The other projects add access, presentation and civic milestones.
 - Modernizing existing plots costs 300 coins and two normal completions, with no extra service multiplier. Builder hammers can finish eligible new work or modernization immediately, following existing rules.
-- A fully developed second era supports 50 residents and 10 visitors, capped by 60 water places. With 98% happiness and the existing base rate, saloon income is **1,188 coins/hour**. Collection and eight-hour storage remain unchanged.
+- A fully developed second era supports 50 residents and 10 visitors, capped by 60 water places. With 98% happiness and the increased population and happiness rates, saloon income is **1,501 coins/hour**. Collection and eight-hour storage remain unchanged.
 - Existing bandit events and protection remain intact; new raids use a saved random gap of 3–7 normal completions in Frontier and 6–14 in River & Rail. Reopening the village does not reroll the gap.
 
 ## Persistence and rendering

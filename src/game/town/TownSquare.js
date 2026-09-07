@@ -39,6 +39,15 @@ export function buildTownSquare(d, parent, stage) {
     }
   }
   if (stage >= 4) {
+    const bell = d.group(parent, 0, 0.15, -2.05);
+    bell.name = 'Town warning bell';
+    for (const x of [-0.55, 0.55]) d.box(bell, 0.13, 2.1, 0.15, x, 1.05, 0, '#94744f');
+    d.box(bell, 1.35, 0.17, 0.2, 0, 2.1, 0, '#94744f');
+    d.rod(bell, [0, 2.05, 0], [0, 1.8, 0], 0.06, '#84613b');
+    d.mesh(bell, 'cone', [0.34, 0.5, 0.34], [0, 1.55, 0], '#e9bc61');
+    d.mesh(bell, 'cylinder', [0.38, 0.08, 0.38], [0, 1.3, 0], '#d7a64e');
+    d.ball(bell, 0, 1.2, 0, 0.09, '#84613b');
+    d.rod(bell, [0, 1.2, 0], [0, 0.55, 0], 0.025, '#cdb58b');
     for (const x of [-1.5, 1.5])
       for (const z of [-2.1, 2.1]) {
         d.box(parent, 0.9, 0.35, 0.65, x, 0.3, z, '#9c9276');

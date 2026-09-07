@@ -13,7 +13,7 @@ beforeEach(() => {
     id: 'coins',
     kind: 'coins',
     label: 'Coins',
-    quantity: 25,
+    quantity: 500,
   });
 });
 afterEach(() => {
@@ -75,7 +75,7 @@ it.each([
     elapsedMs,
     speedTargetMs: 60000,
   });
-  expect(campaign.town.coins).toBe(count * 25);
+  expect(campaign.town.coins).toBe(count * 500);
   expect(rewards.map((reward) => reward.source)).toEqual(sources);
   rewards.forEach((reward) => expect(reward.items).toHaveLength(1));
   expect(campaign.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(0);

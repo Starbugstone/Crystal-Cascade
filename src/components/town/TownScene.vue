@@ -68,7 +68,9 @@
             ? t('Finish {building}', { building: t(BUILDING_BY_ID[anchor.id].shortName) })
             : anchor.id === 'saloon'
               ? t('Collect {coins} coins', { coins: town.income.stored })
-              : t('Collect 1 TNT')
+              : indicators[anchor.id] === 'bell'
+                ? t('Ring town bell · halve the loss')
+                : t('Collect 1 TNT')
         "
         @click="chooseLabel(anchor.id, $event)"
       >
@@ -78,7 +80,9 @@
               ? '/art/rewards/builder-hammer.svg'
               : anchor.id === 'saloon'
                 ? '/art/rewards/coins.svg'
-                : '/art/powers/tnt.svg'
+                : indicators[anchor.id] === 'bell'
+                  ? '/art/rewards/town-bell.svg'
+                  : '/art/powers/tnt.svg'
           "
           alt=""
         />
@@ -99,7 +103,7 @@
             ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
           'has-income': anchor.id === 'saloon' && town.income.stored > 0,
-          'has-action-icon': ['ready', 'coins', 'tnt'].includes(indicators[anchor.id]),
+          'has-action-icon': ['ready', 'coins', 'tnt', 'bell'].includes(indicators[anchor.id]),
         }"
         :aria-label="
           t(
@@ -217,7 +221,8 @@ const sparkleAnchors = computed(() =>
 const actionAnchors = computed(() =>
   anchors.value.filter(
     (anchor) =>
-      ['ready', 'coins', 'tnt'].includes(indicators.value[anchor.id]) && anchor.collection.visible,
+      ['ready', 'coins', 'tnt', 'bell'].includes(indicators.value[anchor.id]) &&
+      anchor.collection.visible,
   ),
 );
 function collectionOrigin(id) {

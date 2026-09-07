@@ -13,7 +13,7 @@ export const CHEST_DROPS = [
     quantity: 1,
     weight: power.dropWeight * 0.7,
   })),
-  { id: 'coins', label: 'Coins', kind: 'coins', quantity: 25, weight: 20 },
+  { id: 'coins', label: 'Coins', kind: 'coins', quantity: chestCoinReward(1), weight: 20 },
   {
     id: 'builder-hammer',
     label: 'Builder hammer',

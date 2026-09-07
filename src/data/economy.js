@@ -3,11 +3,12 @@ import { CHAPTERS, LEVEL_COUNT } from './campaign';
 // Coin prices share one multiplier so buildings and supplies stay in step.
 export const purchasePrice = (basePrice) => Math.ceil(basePrice * 1.5);
 
-// Depth adds five percentage points per chapter, rather than compounding rewards.
-export const depthBonusPercent = (levelId) =>
+export const miningChapter = (levelId) =>
   Number.isInteger(levelId) && levelId >= 1 && levelId <= LEVEL_COUNT
-    ? Math.floor((levelId - 1) / (LEVEL_COUNT / CHAPTERS.length)) * 5
-    : 0;
+    ? 1 + Math.floor((levelId - 1) / (LEVEL_COUNT / CHAPTERS.length))
+    : 1;
+// Each chapter adds another full mining subtotal: 1x, 2x, 3x, ... 12x.
+export const depthBonusPercent = (levelId) => (miningChapter(levelId) - 1) * 100;
 export const miningDepthBonus = (baseCoins, levelId) =>
   Math.min(
     Number.MAX_SAFE_INTEGER - baseCoins,
@@ -15,4 +16,4 @@ export const miningDepthBonus = (baseCoins, levelId) =>
   );
 
 // Chest coins grow with each six-level chapter as village upgrades become dearer.
-export const chestCoinReward = (levelId = 1) => 25 * (1 + depthBonusPercent(levelId) / 5);
+export const chestCoinReward = (levelId = 1) => 500 * miningChapter(levelId);

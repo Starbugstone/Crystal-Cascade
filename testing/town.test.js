@@ -34,7 +34,7 @@ beforeEach(() => {
     id: 'coins',
     kind: 'coins',
     label: 'Coins',
-    quantity: 25,
+    quantity: 500,
   });
 });
 afterEach(() => {
@@ -270,7 +270,7 @@ describe('Profile and reward integrity', () => {
     const id = campaign.beginRun();
     const rewards = campaign.recordVictory(victory(id));
     const checkpoint = JSON.parse(saved.get(SAVE_KEY));
-    expect(checkpoint.town.coins).toBe(140);
+    expect(checkpoint.town.coins).toBe(1090);
     expect(checkpoint.settledRun).toBe(id);
     expect(checkpoint.powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(0);
     expect(rewards).toHaveLength(2);
@@ -280,7 +280,7 @@ describe('Profile and reward integrity', () => {
     const reloaded = useCampaignStore();
     expect(reloaded.recordVictory(victory(id))).toEqual([]);
     reloaded.recordVictory(victory(reloaded.beginRun()));
-    expect(reloaded.town.coins).toBe(280);
+    expect(reloaded.town.coins).toBe(2180);
   });
   it('rejects a replaced run and leaves power spending consistent with town purchases', () => {
     const campaign = useCampaignStore();
@@ -296,7 +296,7 @@ describe('Profile and reward integrity', () => {
     useInventoryStore().consumeItem('tnt');
     setActivePinia(createPinia());
     expect(useCampaignStore().town).toMatchObject({
-      coins: 140,
+      coins: 1090,
       buildings: { well: 1 },
       projects: {},
     });
@@ -319,7 +319,7 @@ describe('Profile and reward integrity', () => {
     expect(campaign.finishConstruction('museum', 1)).toBe(false);
     expect(campaign.canReplay).toBe(true);
     expect(campaign.town.projects).toEqual({});
-    expect(campaign.town.coins).toBe(140);
+    expect(campaign.town.coins).toBe(1090);
   });
   it('settles all construction and one payout atomically, including retries after reload', () => {
     let campaign = useCampaignStore();
@@ -335,7 +335,7 @@ describe('Profile and reward integrity', () => {
     campaign = useCampaignStore();
     expect(campaign.recordVictory(victory(run))).toEqual([]);
     expect(saved.get(SAVE_KEY)).toBe(checkpoint);
-    expect(campaign.town.coins).toBe(140);
+    expect(campaign.town.coins).toBe(1090);
     expect(Object.keys(campaign.town.projects)).toHaveLength(3);
     for (const id of ['saloon', 'stable', 'sheriff'])
       expect(campaign.finishConstruction(id, 1)).toBe(true);
@@ -390,7 +390,7 @@ describe('Profile and reward integrity', () => {
     });
     const campaign = useCampaignStore();
     campaign.recordVictory(victory(campaign.beginRun()));
-    expect(campaign.town.coins).toBe(140);
+    expect(campaign.town.coins).toBe(1090);
     expect(campaign.saveWarning).toContain('not saving');
     expect(campaign.upgradeBuilding('well', 0)).toBe(true);
   });

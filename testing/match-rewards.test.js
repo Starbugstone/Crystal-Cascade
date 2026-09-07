@@ -43,28 +43,32 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('modest rewards for mining deeper chapters', () => {
+describe('chapter-scaled rewards for mining deeper chapters', () => {
   it.each([
     [1, 200],
     [6, 200],
-    [7, 210],
-    [12, 210],
-    [13, 220],
-    [19, 230],
-    [25, 240],
-    [31, 250],
-    [37, 260],
-    [43, 270],
-    [49, 280],
-    [55, 290],
-    [60, 290],
+    [7, 400],
+    [12, 400],
+    [13, 600],
+    [19, 800],
+    [25, 1000],
+    [31, 1200],
+    [37, 1400],
+    [43, 1600],
+    [49, 1800],
+    [55, 2000],
+    [60, 2000],
+    [61, 2200],
+    [66, 2200],
+    [67, 2400],
+    [72, 2400],
   ])('pays the gem, leftover bonus and combo subtotal at level %i as %i coins', (id, coins) => {
     // 140 gems + 20 leftover bonuses + 10 cascade + 30 simultaneous matches = 200.
     expect(miningPayout(140, 2, { 2: 2 }, { 2: 3 }, id)).toBe(coins);
   });
-  it('rounds the depth bonus down once and retains safe integer totals', () => {
-    expect(miningPayout(19, 0, {}, {}, 7)).toBe(19);
-    expect(miningPayout(20, 0, {}, {}, 7)).toBe(21);
+  it('keeps whole-coin chapter payouts and safe integer totals', () => {
+    expect(miningPayout(19, 0, {}, {}, 7)).toBe(38);
+    expect(miningPayout(20, 0, {}, {}, 7)).toBe(40);
     expect(miningPayout(0, 0, {}, {}, 60)).toBe(0);
     expect(miningPayout(Number.MAX_SAFE_INTEGER, 0, {}, {}, 60)).toBe(Number.MAX_SAFE_INTEGER);
     for (const id of [0, -1, 1.5, 73, NaN, Infinity, '7', null])
@@ -82,16 +86,16 @@ describe('modest rewards for mining deeper chapters', () => {
     game.board = [createGem('bomb'), createGem('cross')];
     game.remainingLayers = 0;
     game.completeLevel();
-    expect(game.coinReward).toBe(210);
-    expect(campaign.town.coins).toBe(210);
-    expect(JSON.parse(saved.get(SAVE_KEY)).town.coins).toBe(210);
+    expect(game.coinReward).toBe(400);
+    expect(campaign.town.coins).toBe(400);
+    expect(JSON.parse(saved.get(SAVE_KEY)).town.coins).toBe(400);
     game.completeLevel();
-    expect(campaign.town.coins).toBe(210);
+    expect(campaign.town.coins).toBe(400);
     const runId = game.runId;
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
     reloaded.recordVictory({ id: 7, runId, score: 0, target: 100000, jewels: 1000 });
-    expect(reloaded.town.coins).toBe(210);
+    expect(reloaded.town.coins).toBe(400);
     reloaded.recordVictory({
       id: 1,
       runId: reloaded.beginRun(),
@@ -99,7 +103,7 @@ describe('modest rewards for mining deeper chapters', () => {
       target: 100000,
       jewels: 200,
     });
-    expect(reloaded.town.coins).toBe(410);
+    expect(reloaded.town.coins).toBe(600);
   });
   it('adds depth to continuous gem income without increasing its cap or double-crediting moves', () => {
     const campaign = useCampaignStore();
@@ -107,12 +111,12 @@ describe('modest rewards for mining deeper chapters', () => {
     for (let id = 1; id <= 7; id++) campaign.records[id] = { score: 100, stars: 1 };
     const runId = campaign.beginRun('continuous', 7);
     const record = (jewels) => campaign.recordContinuous({ id: 7, runId, jewels, score: 100 });
-    record(190);
-    expect(campaign.town.coins).toBe(19);
-    record(200);
-    expect(campaign.town.coins).toBe(21);
-    record(200);
-    expect(campaign.town.coins).toBe(21);
+    record(90);
+    expect(campaign.town.coins).toBe(18);
+    record(100);
+    expect(campaign.town.coins).toBe(20);
+    record(100);
+    expect(campaign.town.coins).toBe(20);
     record(10000);
     expect(campaign.town.coins).toBe(25);
     expect(campaign.continuousRecords[7].coins).toBe(25);

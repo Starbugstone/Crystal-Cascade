@@ -24,6 +24,7 @@ import {
   banditEncounter,
   scheduleRaid,
   reinforceRaid,
+  ringTownBell,
   advanceConstruction,
   advanceForge,
   settleForgeProduction,
@@ -392,6 +393,17 @@ export const useCampaignStore = defineStore('campaign', {
         return false;
       }
       return !!next;
+    },
+    ringTownBell(raidId) {
+      const previous = this.town;
+      const next = ringTownBell(previous, raidId);
+      if (!next) return false;
+      this.town = next;
+      if (!this.save()) {
+        this.town = previous;
+        return false;
+      }
+      return true;
     },
     markRaidSeen(id) {
       const event = this.town.events[BANDIT_EVENT];

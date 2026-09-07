@@ -192,10 +192,10 @@ describe('Roulette receipts', () => {
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
     expect(reloaded.builderHammers).toBe(1);
-    expect(reloaded.town.coins).toBe(25); // The unopened speed chest falls back to coins.
+    expect(reloaded.town.coins).toBe(500); // The unopened speed chest falls back to coins.
     expect(reloaded.pendingChests).toEqual([]);
     setActivePinia(createPinia());
-    expect(useCampaignStore().town.coins).toBe(25);
+    expect(useCampaignStore().town.coins).toBe(500);
   });
   it('settles skipped chests and converts a tapped full item within the storage rules', () => {
     const campaign = useCampaignStore();
@@ -209,7 +209,7 @@ describe('Roulette receipts', () => {
     expect(campaign.powers[0].quantity).toBe(3);
     expect(campaign.settlePendingChests()).toHaveLength(1);
     expect(campaign.settlePendingChests()).toEqual([]);
-    expect(campaign.town.coins).toBe(35);
+    expect(campaign.town.coins).toBe(510);
   });
   it('guarantees an automatic builder hammer within ten chests and persists the countdown', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.8);
@@ -234,9 +234,9 @@ describe('Roulette receipts', () => {
         pendingChests: [{ id: '1-score', source: 'score', runId: 1, items: [{ id: 'coins' }] }],
       }),
     );
-    expect(useCampaignStore().town.coins).toBe(45);
+    expect(useCampaignStore().town.coins).toBe(520);
     setActivePinia(createPinia());
-    expect(useCampaignStore().town.coins).toBe(45);
+    expect(useCampaignStore().town.coins).toBe(520);
   });
 });
 

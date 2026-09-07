@@ -408,7 +408,7 @@ describe('Two eras and explicit modernization', () => {
     expect(purchase(town, 'railDepot', 0)).toBeNull();
     expect(railEdges(normalizeTown(town))).toHaveLength(1);
   });
-  it('completes River & Rail without changing landmark service levels or exceeding 1200 coins/hour', () => {
+  it('completes River & Rail without changing landmark service levels and applies the stronger population and happiness income', () => {
     let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
     town.transition.pending = false;
     for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
@@ -428,8 +428,7 @@ describe('Two eras and explicit modernization', () => {
     expect(eraGate(town, milestoneRecords()).available).toBe(false);
     expect(residentPopulation(town)).toBe(50);
     expect(visitorPopulation(town)).toBe(10);
-    expect(saloonIncomeRate(town)).toBe(1188);
-    expect(saloonIncomeRate(town)).toBeLessThanOrEqual(1200);
+    expect(saloonIncomeRate(town)).toBe(1501);
   });
 });
 
