@@ -253,7 +253,7 @@
           v-if="['ready', 'coins', 'tnt'].includes(indicators[building.id])"
           class="map-action-icon"
           x="-28"
-          y="-215"
+          y="-60"
           width="56"
           height="56"
           :href="

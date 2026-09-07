@@ -968,6 +968,9 @@
 .town-scene-labels button:active:not(:disabled) {
   transform: translate(-50%, -30%) scale(0.97);
 }
+.town-scene-labels button.has-action-icon {
+  margin-top: 24px;
+}
 .town-scene-labels button.selected {
   outline: 2px solid #789788;
   outline-offset: 2px;
@@ -2130,7 +2133,7 @@ html:has(.town-museum[open]) {
   padding: 8px;
   border: 0;
   background: transparent;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -50%);
   pointer-events: auto;
 }
 .town-action-icon img {

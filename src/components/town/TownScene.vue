@@ -93,6 +93,7 @@
             ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
           'has-income': anchor.id === 'saloon' && town.income.stored > 0,
+          'has-action-icon': ['ready', 'coins', 'tnt'].includes(indicators[anchor.id]),
         }"
         :aria-label="
           t(

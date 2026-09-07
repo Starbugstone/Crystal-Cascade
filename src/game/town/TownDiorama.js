@@ -328,7 +328,8 @@ export class TownDiorama {
       const bounds = new THREE.Box3().setFromObject(group);
       const center = bounds.getCenter(new THREE.Vector3());
       const size = bounds.getSize(new THREE.Vector3());
-      this.anchors.at(-1).collection = point(center.x, bounds.max.y + 0.6, center.z);
+      // Keep action icons at the front porch, below the roofline.
+      this.anchors.at(-1).collection = point(x, 1, z + 2.2);
       this.anchors.at(-1).sparkles = [
         point(bounds.min.x - 0.15, bounds.min.y + size.y * 0.3, bounds.max.z),
         point(bounds.max.x + 0.15, bounds.min.y + size.y * 0.55, bounds.max.z),
