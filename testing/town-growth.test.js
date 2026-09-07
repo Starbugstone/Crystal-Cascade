@@ -99,6 +99,25 @@ describe('Substantial building stages and a growing frontier', () => {
       }
     },
   );
+  it.each([
+    ['home', 'home2', 'home3', 'home4'],
+    ['farm', 'farm2', 'farm3'],
+    ['well', 'well2'],
+  ])('charges more for each successive %s parcel at every building level', (...ids) => {
+    for (let stage = 0; stage < 3; stage++) {
+      let previousCost = 0;
+      for (const id of ids) {
+        const town = village(Object.fromEntries(ids.map((plot) => [plot, stage || 2])));
+        town.buildings[id] = stage;
+        town.coins = 10000;
+        const offer = upgradeOffer(town, id);
+        expect(offer.available).toBe(true);
+        expect(offer.cost).toBeGreaterThan(previousCost);
+        expect(purchase(town, id, stage).coins).toBe(town.coins - offer.cost);
+        previousCost = offer.cost;
+      }
+    }
+  });
   it('explains the missing prerequisite and keeps saved buildings and projects accessible', () => {
     let town = village({ farm: 2 });
     expect(plotRequirement(town, 'farm3')).toEqual({ id: 'farm2', level: 2 });
@@ -317,7 +336,7 @@ describe('A useful square and a longer village economy', () => {
   it('quotes the next price while keeping locked plots out of the first-build discount', () => {
     const town = createTown();
     expect(upgradeOffer(town, 'well').cost).toBe(0);
-    expect(upgradeOffer(town, 'well2')).toMatchObject({ cost: 75, available: false });
+    expect(upgradeOffer(town, 'well2')).toMatchObject({ cost: 113, available: false });
     town.buildings.well = 1;
     expect(upgradeOffer(town, 'well')).toMatchObject({ cost: 210, stage: 1, available: true });
   });

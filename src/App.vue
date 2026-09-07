@@ -87,9 +87,11 @@
 
     <LandingView v-if="!game.sessionActive && view === 'landing'" @enter="showTown" />
     <TownView
+      ref="townView"
       v-if="townVisited"
       v-show="townActive"
       :active="townActive"
+      :mine-entry-pending="!!pendingMineEntry"
       :key="townVisit"
       :open-museum="returnToMuseum"
       @museum-change="returnToMuseum = $event"
@@ -97,6 +99,25 @@
       @replay="startLevel"
       @continuous="startLevel($event, 'continuous')"
     />
+
+    <TownDialog
+      v-if="pendingMineEntry"
+      :title="t('Buildings are ready to finish')"
+      :close-label="'Cancel mine entry'"
+      @close="pendingMineEntry = null"
+    >
+      <p>
+        {{
+          t(
+            'Some buildings are ready but still need a final tap to finish construction. Enter the mine anyway?',
+          )
+        }}
+      </p>
+      <div class="mine-entry-actions">
+        <button class="town-primary" @click="returnToConstruction">{{ t('Back to town') }}</button>
+        <button class="town-secondary" @click="confirmMineEntry">{{ t('Continue anyway') }}</button>
+      </div>
+    </TownDialog>
 
     <main v-if="game.sessionActive" class="game-layout">
       <aside class="game-sidebar">
@@ -335,9 +356,19 @@
 
 <script setup>
 import { t } from './i18n';
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 const TownView = defineAsyncComponent(() => import('./components/town/TownView.vue'));
 const BoardCanvas = defineAsyncComponent(() => import('./components/BoardCanvas.vue'));
+import TownDialog from './components/town/TownDialog.vue';
+import { constructionReady } from './game/town/TownRules';
 import MineBackdrop from './components/MineBackdrop.vue';
 import HudPanel from './components/HudPanel.vue';
 import ArcadeBanner from './components/ArcadeBanner.vue';
@@ -360,6 +391,8 @@ import ObstacleGuide from './components/ObstacleGuide.vue';
 const game = useGameStore();
 const campaign = useCampaignStore();
 const view = ref('landing');
+const townView = ref(null);
+const pendingMineEntry = ref(null);
 const townVisit = ref(0);
 const townVisited = ref(false);
 const townActive = computed(() => !game.sessionActive && view.value === 'town');
@@ -447,6 +480,24 @@ const levelName = computed(() => LEVEL_NAMES[game.currentLevelId - 1]);
 const powerName = computed(() => game.activeBonusMode?.replaceAll('_', ' '));
 const scoreTarget = computed(() => game.objectives.find((o) => o.type === 'score')?.target ?? 0);
 const startLevel = (id, mode = 'normal') => {
+  if (!campaign.canPlay(id, mode)) return;
+  if (!game.sessionActive && Object.values(campaign.town.projects).some(constructionReady)) {
+    pendingMineEntry.value = { id, mode };
+    return;
+  }
+  enterMine(id, mode);
+};
+const confirmMineEntry = () => {
+  const entry = pendingMineEntry.value;
+  pendingMineEntry.value = null;
+  if (entry) enterMine(entry.id, entry.mode);
+};
+const returnToConstruction = () => {
+  pendingMineEntry.value = null;
+  showVillage();
+  nextTick(() => townView.value?.showConstructionSites());
+};
+const enterMine = (id, mode) => {
   if (!campaign.canPlay(id, mode)) return;
   view.value = 'town';
   returnToMuseum.value = false;

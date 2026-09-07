@@ -87,3 +87,16 @@ export function grantReward(state, reward) {
   }
   return { ...reward, quantity: accepted, overflowCoins: overflow * OVERFLOW_COINS };
 }
+
+// Settled chest receipts include both coin prizes and converted overflow bonuses.
+export const chestCoinsEarned = (chests) =>
+  chests.reduce(
+    (total, chest) =>
+      total +
+      chest.items.reduce(
+        (coins, item) =>
+          coins + (item.kind === 'coins' ? item.quantity : 0) + (item.overflowCoins ?? 0),
+        0,
+      ),
+    0,
+  );

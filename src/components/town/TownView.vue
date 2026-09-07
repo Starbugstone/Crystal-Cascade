@@ -148,7 +148,13 @@
           :population="people"
           :reduced-motion="settings.reducedMotion"
           :paused="
-            !active || paused || settings.isSettingsOpen || museumOpen || !!dialogMode || tourOpen
+            !active ||
+            paused ||
+            settings.isSettingsOpen ||
+            mineEntryPending ||
+            museumOpen ||
+            !!dialogMode ||
+            tourOpen
           "
           :next-level="campaign.nextLevel"
           :mine-stage="campaign.mineStage"
@@ -341,7 +347,7 @@
         <p class="town-directory-hint">
           {{
             t(
-              'Select a parcel to open its building card. Select ready construction to finish it and close this list. Collect resources by tapping buildings in the town.',
+              'Select a parcel to open its building card. Select ready construction to finish it and keep this list open. Collect resources by tapping buildings in the town.',
             )
           }}
         </p>
@@ -509,6 +515,7 @@ import TownRaidNotice from './TownRaidNotice.vue';
 import TownCoinCollection from './TownCoinCollection.vue';
 
 const props = defineProps({
+  mineEntryPending: Boolean,
   openMuseum: Boolean,
   active: { type: Boolean, default: true },
 });
@@ -536,7 +543,13 @@ watch(fullscreen, (open) => {
   }
 });
 function leaveFullscreen(event) {
-  if (event.key === 'Escape' && !dialogMode.value && !tourOpen.value && !settings.isSettingsOpen)
+  if (
+    event.key === 'Escape' &&
+    !props.mineEntryPending &&
+    !dialogMode.value &&
+    !tourOpen.value &&
+    !settings.isSettingsOpen
+  )
     fullscreen.value = false;
 }
 
@@ -675,6 +688,7 @@ useTownAudio(() => ({
     !props.active ||
     paused.value ||
     settings.isSettingsOpen ||
+    props.mineEntryPending ||
     museumOpen.value ||
     !!dialogMode.value ||
     tourOpen.value ||
@@ -808,7 +822,7 @@ function ringBell() {
   return true;
 }
 function selectParcel(id) {
-  if (constructionReady(town.value.projects[id])) finishBuilding(id);
+  if (constructionReady(town.value.projects[id])) finishBuilding(id, true);
   else inspectBuilding(id);
 }
 async function inspectBuilding(id) {
@@ -827,6 +841,12 @@ function visitMuseum() {
   closeDialog();
   if (campaign.canReplay) museumOpen.value = true;
 }
+function showConstructionSites() {
+  museumOpen.value = false;
+  closeDialog();
+  fullscreen.value = true;
+}
+defineExpose({ showConstructionSites });
 function goMining() {
   forgeCollected.value = false;
   collection.value = null;
@@ -865,16 +885,16 @@ function repair(stage) {
       : 'The materials are ready. Complete one puzzle, then tap the scaffolding to open this building.',
   };
 }
-function showConstruction() {
-  closeDialog();
+function showConstruction(keepDirectory = false) {
+  if (!keepDirectory) closeDialog();
   construction.value = { id: selected.value, serial: (construction.value?.serial ?? 0) + 1 };
-  mapFrame.value?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+  if (!keepDirectory) mapFrame.value?.scrollIntoView({ behavior: 'instant', block: 'nearest' });
 }
-function finishBuilding(id) {
+function finishBuilding(id, keepDirectory = false) {
   const stage = town.value.projects[id]?.stage;
   if (!campaign.finishConstruction(id, stage)) return;
   selected.value = id;
-  showConstruction();
+  showConstruction(keepDirectory);
   celebrateBuilding();
 }
 function celebrateBuilding() {

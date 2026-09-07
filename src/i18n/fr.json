@@ -1204,7 +1204,7 @@
   "Bell rung · remaining loss: {coins} coins": "Cloche sonnée · perte restante : {coins} pièces",
   "Collect again in {seconds}s. Production and accumulation continue.": "Nouvelle collecte dans {seconds}s. La production et l’accumulation continuent.",
   "After collecting, wait 30 seconds before collecting again. Tap again during this time to open the building card. Production and accumulation continue.": "Après une collecte, attendez 30 secondes avant la suivante. Touchez à nouveau le bâtiment pendant ce délai pour ouvrir sa fiche. La production et l’accumulation continuent.",
-  "Select a parcel to open its building card. Select ready construction to finish it and close this list. Collect resources by tapping buildings in the town.": "Sélectionnez une parcelle pour ouvrir sa fiche. Sélectionnez une construction prête pour la terminer et fermer cette liste. Récupérez les ressources en touchant les bâtiments dans le village.",
+  "Select a parcel to open its building card. Select ready construction to finish it and keep this list open. Collect resources by tapping buildings in the town.": "Sélectionnez une parcelle pour ouvrir sa fiche. Sélectionnez une construction prête pour la terminer en gardant cette liste ouverte. Récupérez les ressources en touchant les bâtiments dans le village.",
   "A new era for Prospect Hollow": "Une nouvelle époque pour Prospect Hollow",
   "THE TOWN YOU BUILT": "LE VILLAGE QUE VOUS AVEZ BÂTI",
   "A NEW HORIZON": "UN NOUVEL HORIZON",
@@ -1221,5 +1221,11 @@
   "Stop a raid completely with the sheriff and bank to earn 10 coins per captured bandit. The bounty is paid once when the raid ends. An empty wallet alone does not earn a bounty.": "Repoussez entièrement un raid grâce au shérif et à la banque pour gagner 10 pièces par bandit capturé. La prime est versée une seule fois à la fin du raid. Un portefeuille vide ne suffit pas à obtenir une prime.",
   "Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.": "Les bâtiments de soutien atteignent tous leurs avantages au niveau 3. La place du village, le shérif, la banque, le saloon et le forgeron ont 5 niveaux.",
   "Finish the current raid before beginning a new era.": "Terminez le raid en cours avant de commencer une nouvelle époque.",
-  "Food and water contribute up to 40 happiness points. Each square level adds 8 and each saloon level adds 2. The museum adds up to 10 and the school up to 5. Each happiness point boosts saloon income by 1.25%.": "La nourriture et l’eau apportent jusqu’à 40 points de bonheur. Chaque niveau de la place ajoute 8 points et chaque niveau du saloon 2 points. Le musée en ajoute jusqu’à 10 et l’école jusqu’à 5. Chaque point de bonheur augmente les revenus du saloon de 1,25 %."
+  "Food and water contribute up to 40 happiness points. Each square level adds 8 and each saloon level adds 2. The museum adds up to 10 and the school up to 5. Each happiness point boosts saloon income by 1.25%.": "La nourriture et l’eau apportent jusqu’à 40 points de bonheur. Chaque niveau de la place ajoute 8 points et chaque niveau du saloon 2 points. Le musée en ajoute jusqu’à 10 et l’école jusqu’à 5. Chaque point de bonheur augmente les revenus du saloon de 1,25 %.",
+  "Buildings are ready to finish": "Des bâtiments sont prêts à être terminés",
+  "Cancel mine entry": "Annuler l’entrée dans la mine",
+  "Some buildings are ready but still need a final tap to finish construction. Enter the mine anyway?": "Des bâtiments sont prêts, mais attendent encore votre dernier clic pour terminer leur construction. Entrer dans la mine quand même ?",
+  "Back to town": "Retour au village",
+  "Continue anyway": "Continuer quand même",
+  "Bonus chest coins": "Pièces des coffres bonus"
 }

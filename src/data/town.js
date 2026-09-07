@@ -568,6 +568,7 @@ export const BUILDINGS = [
     ...ORIGINAL_BUILDINGS.find((building) => building.id === kind),
     id,
     kind,
+    costMultiplier: 1 + (Number(id.slice(kind.length)) - 1) * 0.5,
     name,
     shortName,
     x,
@@ -593,9 +594,13 @@ export const BUILDINGS = [
     requiredForEraCompletion: true,
     legacyUpgradeCosts: short ? upgrades.map((upgrade) => upgrade.cost) : undefined,
     stages: short ? [...building.stages.slice(0, 3), building.stages.at(-1)] : building.stages,
-    upgrades: short
+    upgrades: (short
       ? [upgrades[0], upgrades[1], { ...upgrades.at(-1), cost: upgrades[2].cost }]
-      : upgrades,
+      : upgrades
+    ).map((upgrade) => ({
+      ...upgrade,
+      cost: Math.ceil(upgrade.cost * (building.costMultiplier ?? 1)),
+    })),
   };
 });
 

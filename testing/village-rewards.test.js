@@ -7,6 +7,7 @@ import { SAVE_KEY } from '../src/services/localProfile';
 import { BUILDINGS, createTown } from '../src/data/town';
 import {
   BONUS_CAPACITIES,
+  chestCoinsEarned,
   CHEST_DROPS,
   CONTINUOUS_COIN_CAP,
   HAMMER_CAPACITY,
@@ -349,4 +350,26 @@ describe('Continuous play for amusement', () => {
     expect(reset.bonusLimit).toBe(3);
     expect(reset.town.coins).toBe(0);
   });
+});
+
+it('totals chest coin prizes and overflow once without counting inventory items', () => {
+  expect(chestCoinsEarned([])).toBe(0);
+  expect(chestCoinsEarned([{ items: [{ kind: 'power', quantity: 1, overflowCoins: 0 }] }])).toBe(0);
+  expect(
+    chestCoinsEarned([
+      { items: [{ kind: 'coins', quantity: 1500 }] },
+      { items: [{ kind: 'coins', quantity: 1500, overflowCoins: 0 }] },
+    ]),
+  ).toBe(3000);
+  expect(
+    chestCoinsEarned([
+      { items: [{ kind: 'coins', quantity: 10, convertedFrom: 'TNT' }] },
+      {
+        items: [
+          { kind: 'power', quantity: 1, overflowCoins: 20 },
+          { kind: 'builder-hammer', quantity: 1, overflowCoins: 0 },
+        ],
+      },
+    ]),
+  ).toBe(30);
 });

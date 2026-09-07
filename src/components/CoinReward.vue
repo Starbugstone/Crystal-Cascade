@@ -68,6 +68,10 @@
         <span>{{ t('Depth bonus · +{percent}%', { percent: depthPercent }) }}</span>
         <b>+{{ number(depthCoins) }}</b>
       </div>
+      <div v-if="chestCoins" class="coin-chest-bonus">
+        <span>{{ t('Bonus chest coins') }}</span
+        ><b>+{{ number(chestCoins) }}</b>
+      </div>
     </div>
   </div>
 </template>
@@ -86,6 +90,7 @@ import { useGameStore } from '../stores/gameStore';
 const props = defineProps({
   levelId: { type: Number, default: 1 },
   coins: { type: Number, default: 0 },
+  chestCoins: { type: Number, default: 0 },
   jewels: { type: Number, default: 0 },
   bonusGems: { type: Number, default: 0 },
   comboCounts: { type: Object, default: () => ({}) },
@@ -137,6 +142,7 @@ watch(
     if (value) finish();
   },
 );
+watch(() => props.coins, finish);
 onBeforeUnmount(() => cancelAnimationFrame(frame));
 </script>
 <style scoped>
@@ -210,7 +216,8 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   letter-spacing: 1px;
   text-align: left;
 }
-.coin-depth-bonus {
+.coin-depth-bonus,
+.coin-chest-bonus {
   margin-top: 6px;
   padding-top: 10px;
   border-top: 1px solid #f8c64a30;

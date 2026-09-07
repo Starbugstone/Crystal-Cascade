@@ -2161,3 +2161,13 @@ html:has(.town-museum[open]) {
   height: 36px;
   filter: drop-shadow(0 0 7px #ffe7a6);
 }
+
+.mine-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.mine-entry-actions button {
+  flex: 1 1 140px;
+}
