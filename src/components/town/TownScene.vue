@@ -40,7 +40,10 @@
         v-for="anchor in actionAnchors"
         :key="anchor.id"
         class="town-action-icon"
-        :class="{ 'town-era-icon': indicators[anchor.id] === 'era' }"
+        :class="{
+          'town-era-icon': indicators[anchor.id] === 'era',
+          'town-completion-icon': indicators[anchor.id] === 'ready',
+        }"
         :data-town-plot="anchor.id"
         :style="{ left: `${anchor.collection.x}%`, top: `${anchor.collection.y}%` }"
         :aria-label="

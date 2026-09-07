@@ -252,10 +252,10 @@
         <image
           v-if="['ready', 'coins', 'tnt', 'bell', 'era'].includes(indicators[building.id])"
           class="map-action-icon"
-          x="-28"
-          y="-60"
-          width="56"
-          height="56"
+          :x="indicators[building.id] === 'ready' ? -36 : -28"
+          :y="indicators[building.id] === 'ready' ? -68 : -60"
+          :width="indicators[building.id] === 'ready' ? 72 : 56"
+          :height="indicators[building.id] === 'ready' ? 72 : 56"
           :href="
             indicators[building.id] === 'ready'
               ? '/art/rewards/builder-hammer.svg'
