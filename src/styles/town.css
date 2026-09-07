@@ -2156,30 +2156,35 @@ html:has(.town-museum[open]) {
 }
 .town-upgrade-sparkles i {
   position: absolute;
-  font: normal 6px/1 sans-serif;
-  color: #77d68a;
-  text-shadow: 0 0 2px currentColor;
+  font: normal 12px/1 sans-serif;
+  color: #258b45;
+  text-shadow:
+    0 0 2px #f2ffcf,
+    0 0 5px #91f2a5;
   animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
 }
 .map-upgrade-sparkles {
   pointer-events: none;
 }
 .map-upgrade-sparkles text {
-  fill: #77d68a;
-  font-size: 12px;
+  fill: #258b45;
+  stroke: #f2ffcf;
+  stroke-width: 1.5px;
+  paint-order: stroke fill;
+  font-size: 26px;
   animation: town-upgrade-shimmer 2.8s calc(var(--i) * -0.8s) ease-in-out infinite;
 }
 @keyframes town-upgrade-shimmer {
   0%,
   100% {
-    opacity: 0.2;
+    opacity: 0.65;
     transform: translateY(0);
   }
   45% {
     opacity: 1;
   }
   80% {
-    opacity: 0;
+    opacity: 0.5;
     transform: translateY(-9px);
   }
 }
