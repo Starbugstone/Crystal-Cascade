@@ -388,6 +388,13 @@ export const useGameStore = defineStore('game', {
         const queued = this.queuedSwap;
         this.queuedSwap = null;
         this.renderer?.animator?.clearQueuedSwapHighlight?.();
+        if (
+          queued.gems?.some(
+            ({ index, id, type }) =>
+              this.board[index]?.id !== id || this.board[index]?.type !== type,
+          )
+        )
+          return;
         this.resolveSwap(queued.aIndex, queued.bIndex);
       }
     },
@@ -800,9 +807,13 @@ export const useGameStore = defineStore('game', {
           rows,
           bonusesCreated: evaluation.bonusesCreated,
           bonusIndices: evaluation.bonusIndices,
+          pendingBonus: evaluation.pendingBonus,
         });
         if (resolution.steps.length && evaluation.bonusSwap) {
-          resolution.steps[0].bonusSwap = evaluation.bonusSwap;
+          const activationStep = resolution.steps.find((step) =>
+            step.matches.some((match) => match.type === 'bonus-activation'),
+          );
+          if (activationStep) activationStep.bonusSwap = evaluation.bonusSwap;
         }
         this._applyScoring(resolution.steps);
 
@@ -858,7 +869,17 @@ export const useGameStore = defineStore('game', {
         return false;
       }
 
-      this.queuedSwap = { aIndex, bIndex };
+      // Bind input to visible pieces, never the not-yet-shown final cascade board.
+      const animator = this.renderer?.animator;
+      const gems = [aIndex, bIndex].map((index) => {
+        if (animator?.indexToGemId) {
+          const id = animator.indexToGemId[index];
+          return { index, id, type: animator.gemSprites.get(id)?.__gemType };
+        }
+        return { index, id: this.board[index]?.id, type: this.board[index]?.type };
+      });
+      if (gems.some((gem) => !gem.id || !gem.type)) return false;
+      this.queuedSwap = { aIndex, bIndex, gems };
       this.renderer?.animator?.showQueuedSwap(aIndex, bIndex);
       return true;
     },

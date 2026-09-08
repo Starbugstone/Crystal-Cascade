@@ -1,3 +1,4 @@
+import { buildingServiceLevel } from './buildingProgression';
 import { purchasePrice } from './economy';
 import { POWERS } from './campaign';
 import { bonusCapacity } from './rewards';
@@ -10,7 +11,8 @@ export const SHOP_ITEMS = POWERS.map((power) => ({
   quantity: 1,
   price: purchasePrice(['shuffle', 'clear-row'].includes(power.id) ? 40 : 60),
 }));
-export const shopSlots = (level) => (level > 0 ? Math.min(SHOP_ITEMS.length, level) : 0);
+export const shopSlots = (level) =>
+  level > 0 ? Math.min(SHOP_ITEMS.length, buildingServiceLevel('shop', level)) : 0;
 export function rollShopStock(level, random = Math.random, existing = []) {
   const stock = existing
     .filter(

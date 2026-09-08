@@ -5,6 +5,7 @@
     :town="town"
     :builder-hammers="builderHammers"
     :forge-collectible="forgeCollectible"
+    :now="now"
     :selected="selected"
     :population="population"
     :reduced-motion="reducedMotion"
@@ -34,33 +35,15 @@
       :aria-label="t('Town camera. Arrow keys rotate, plus and minus zoom, Home resets the view.')"
       @keydown="cameraKey"
     />
-    <div class="town-sparkles" :class="{ still: reducedMotion || paused }" aria-hidden="true">
-      <span
-        v-for="anchor in sparkleAnchors"
-        :key="anchor.id"
-        class="town-upgrade-sparkles"
-        :class="indicators[anchor.id]"
-        :data-building="anchor.id"
-        ><i
-          v-for="(particle, i) in anchor.sparkles"
-          :key="i"
-          v-show="particle.visible"
-          :style="{
-            '--i': i,
-            '--rise-x': `${particle.riseX}px`,
-            '--rise-y': `${particle.riseY}px`,
-            left: `${particle.x}%`,
-            top: `${particle.y}%`,
-          }"
-          >✦</i
-        ></span
-      >
-    </div>
     <div class="town-action-icons">
       <button
         v-for="anchor in actionAnchors"
         :key="anchor.id"
         class="town-action-icon"
+        :class="{
+          'town-era-icon': indicators[anchor.id] === 'era',
+          'town-completion-icon': indicators[anchor.id] === 'ready',
+        }"
         :data-town-plot="anchor.id"
         :style="{ left: `${anchor.collection.x}%`, top: `${anchor.collection.y}%` }"
         :aria-label="
@@ -68,7 +51,11 @@
             ? t('Finish {building}', { building: t(BUILDING_BY_ID[anchor.id].shortName) })
             : anchor.id === 'saloon'
               ? t('Collect {coins} coins', { coins: town.income.stored })
-              : t('Collect 1 TNT')
+              : indicators[anchor.id] === 'bell'
+                ? t('Ring town bell · halve the loss')
+                : indicators[anchor.id] === 'era'
+                  ? t('Advance to the next era')
+                  : t('Collect 1 TNT')
         "
         @click="chooseLabel(anchor.id, $event)"
       >
@@ -78,7 +65,11 @@
               ? '/art/rewards/builder-hammer.svg'
               : anchor.id === 'saloon'
                 ? '/art/rewards/coins.svg'
-                : '/art/powers/tnt.svg'
+                : indicators[anchor.id] === 'bell'
+                  ? '/art/rewards/town-bell.svg'
+                  : indicators[anchor.id] === 'era'
+                    ? '/art/rewards/era-compass.svg'
+                    : '/art/powers/tnt.svg'
           "
           alt=""
         />
@@ -98,8 +89,10 @@
           'raid-defense-ready':
             ['sheriff', 'bank'].includes(anchor.id) && constructionReady(town.projects[anchor.id]),
           'can-build': availableIds.includes(anchor.id),
-          'has-income': anchor.id === 'saloon' && town.income.stored > 0,
-          'has-action-icon': ['ready', 'coins', 'tnt'].includes(indicators[anchor.id]),
+          'has-income': indicators[anchor.id] === 'coins',
+          'has-action-icon': ['ready', 'coins', 'tnt', 'bell', 'era'].includes(
+            indicators[anchor.id],
+          ),
         }"
         :aria-label="
           t(
@@ -118,12 +111,21 @@
         <small v-else-if="constructionReady(town.projects[anchor.id])">{{
           t('Tap to finish')
         }}</small>
-        <small v-else-if="town.projects[anchor.id]"
-          >{{ town.projects[anchor.id].wins }}/{{
-            constructionRuns(town.projects[anchor.id])
-          }}</small
+        <small
+          v-else-if="town.projects[anchor.id]"
+          class="construction-count"
+          :title="
+            t('Construction: {wins} of {required} mining runs completed', {
+              wins: Math.min(town.projects[anchor.id].wins, 2),
+              required: constructionRuns(town.projects[anchor.id]),
+            })
+          "
         >
-        <small v-else-if="anchor.id === 'saloon' && town.income.stored > 0">{{
+          <GameIcon name="wall" />{{ Math.min(town.projects[anchor.id].wins, 2) }}/{{
+            constructionRuns(town.projects[anchor.id])
+          }}
+        </small>
+        <small v-else-if="indicators[anchor.id] === 'coins'">{{
           t('Collect {coins} coins', { coins: town.income.stored })
         }}</small>
         <small v-else-if="anchor.id === 'blacksmith' && forgeCollectible">{{
@@ -133,7 +135,7 @@
           t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
         }}</small>
         <small v-else-if="town.buildings[anchor.id]">{{
-          t('Lv. {level}', { level: town.buildings[anchor.id] })
+          t('Lv. {level}', { level: eraBuildingLevel(town, anchor.id) })
         }}</small>
         <span v-else aria-hidden="true">+</span>
       </button>
@@ -171,6 +173,8 @@
   </div>
 </template>
 <script setup>
+import GameIcon from '../GameIcon.vue';
+import { eraBuildingLevel } from '../../game/town/TownEras';
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
 import {
@@ -184,10 +188,12 @@ import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
   fullscreen: Boolean,
+  cinematic: Boolean,
   active: { type: Boolean, default: true },
   town: Object,
   builderHammers: { type: Number, default: 0 },
   forgeCollectible: Boolean,
+  now: { type: Number, default: Date.now },
   selected: String,
   population: Number,
   reducedMotion: Boolean,
@@ -197,27 +203,33 @@ const props = defineProps({
   raid: Object,
   construction: Object,
 });
-const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete', 'camera-distance']);
+const emit = defineEmits([
+  'select',
+  'mine',
+  'raid-phase',
+  'raid-cue',
+  'raid-complete',
+  'camera-distance',
+]);
 const canvas = ref(null),
   canvasVersion = ref(0),
   map = ref(null),
   anchors = ref([]),
   fallback = ref(false);
-const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
+const indicators = computed(() =>
+  buildingIndicators(props.town, props.forgeCollectible, props.now),
+);
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
-const sparkleAnchors = computed(() =>
-  anchors.value.filter(
-    (anchor) =>
-      indicators.value[anchor.id] === 'upgrade' &&
-      anchor.sparkles.some((particle) => particle.visible),
-  ),
+const upgradeIds = computed(() =>
+  Object.keys(indicators.value).filter((id) => indicators.value[id] === 'upgrade'),
 );
 const actionAnchors = computed(() =>
   anchors.value.filter(
     (anchor) =>
-      ['ready', 'coins', 'tnt'].includes(indicators.value[anchor.id]) && anchor.collection.visible,
+      ['ready', 'coins', 'tnt', 'bell', 'era'].includes(indicators.value[anchor.id]) &&
+      anchor.collection.visible,
   ),
 );
 function collectionOrigin(id) {
@@ -240,7 +252,7 @@ function collectionOrigin(id) {
     y: Math.max(20, Math.min(90, anchor?.y ?? 50)),
   };
 }
-defineExpose({ collectionOrigin });
+defineExpose({ collectionOrigin, cinematicFrame: (progress) => scene?.eraFrame(progress) });
 const cameraActions = [
   { id: 'out', label: 'Zoom out', path: 'M6 12h12' },
   { id: 'in', label: 'Zoom in', path: 'M6 12h12M12 6v12' },
@@ -318,6 +330,7 @@ function update() {
         constructionVisual(props.town.projects[id]),
         labels[id],
         props.town.buildingEras[id],
+        props.town.buildingEraLevels?.[id],
       ]),
     ) +
     props.town.era;
@@ -332,7 +345,9 @@ function update() {
     lastVisual = visual;
     lastConstruction = props.construction?.serial;
   }
+  scene.setCinematic(props.cinematic);
   scene.setAvailable([...availableIds.value, ...(props.town.income.stored > 0 ? ['saloon'] : [])]);
+  scene.setUpgradeable(props.cinematic ? [] : upgradeIds.value);
   scene.select(props.selected);
   scene.setMotion(!props.paused && !props.reducedMotion);
   scene.setPaused(props.paused);
@@ -433,6 +448,7 @@ function startRaid() {
       props.raid,
       (phase) => emit('raid-phase', phase),
       () => emit('raid-complete'),
+      (cue) => emit('raid-cue', cue),
     );
 }
 watch(
@@ -445,6 +461,16 @@ watch(
       ]);
   },
 );
+watch(
+  () => props.cinematic,
+  (value) => {
+    scene?.setCinematic(value);
+    scene?.setUpgradeable(value ? [] : upgradeIds.value);
+  },
+);
+watch(upgradeIds, (ids) => {
+  if (props.active) scene?.setUpgradeable(props.cinematic ? [] : ids);
+});
 watch(
   () => props.raid,
   (raid, previous) => {
@@ -467,6 +493,7 @@ watch(
     JSON.stringify(props.town.buildings),
     JSON.stringify(props.town.projects),
     JSON.stringify(props.town.buildingEras),
+    JSON.stringify(props.town.buildingEraLevels),
     props.town.era,
     props.mineStage,
     props.construction?.serial,

@@ -1,11 +1,11 @@
 import { POWERS } from './campaign';
 import { chestCoinReward } from './economy';
 
-export const BONUS_CAPACITIES = [3, 5, 8, 12, 16, 20];
+export const BONUS_CAPACITIES = [3, 5, 8, 20];
 export const CONTINUOUS_COIN_CAP = 25;
 export const HAMMER_CAPACITY = 5;
 export const OVERFLOW_COINS = 10;
-export const bonusCapacity = (town) => BONUS_CAPACITIES[town.buildings.armory] ?? 3;
+export const bonusCapacity = (town) => BONUS_CAPACITIES[Math.min(3, town.buildings.armory)] ?? 3;
 export const CHEST_DROPS = [
   ...POWERS.map((power) => ({
     ...power,
@@ -13,7 +13,7 @@ export const CHEST_DROPS = [
     quantity: 1,
     weight: power.dropWeight * 0.7,
   })),
-  { id: 'coins', label: 'Coins', kind: 'coins', quantity: 25, weight: 20 },
+  { id: 'coins', label: 'Coins', kind: 'coins', quantity: chestCoinReward(1), weight: 20 },
   {
     id: 'builder-hammer',
     label: 'Builder hammer',
@@ -35,8 +35,21 @@ export function chestReward(id, levelId = 1) {
     : null;
 }
 // Shuffle the visual reel without changing the catalog used by weighted awards.
-export function shuffleChestDrops(random = Math.random) {
-  const drops = [...CHEST_DROPS];
+export const availableChestDrops = (state) =>
+  CHEST_DROPS.filter((drop) =>
+    drop.kind === 'coins'
+      ? true
+      : drop.kind === 'builder-hammer'
+        ? state.builderHammers < HAMMER_CAPACITY
+        : state.powers.some(
+            (power) => power.id === drop.id && power.quantity < bonusCapacity(state.town),
+          ),
+  );
+export const rewardUse = (item) =>
+  item.kind === 'coins' || item.kind === 'builder-hammer' ? 'Village' : 'Mine';
+
+export function shuffleChestDrops(random = Math.random, eligible = CHEST_DROPS) {
+  const drops = [...eligible];
   for (let index = drops.length - 1; index > 0; index--) {
     const other = Math.floor(random() * (index + 1));
     [drops[index], drops[other]] = [drops[other], drops[index]];
@@ -87,3 +100,16 @@ export function grantReward(state, reward) {
   }
   return { ...reward, quantity: accepted, overflowCoins: overflow * OVERFLOW_COINS };
 }
+
+// Settled chest receipts include both coin prizes and converted overflow bonuses.
+export const chestCoinsEarned = (chests) =>
+  chests.reduce(
+    (total, chest) =>
+      total +
+      chest.items.reduce(
+        (coins, item) =>
+          coins + (item.kind === 'coins' ? item.quantity : 0) + (item.overflowCoins ?? 0),
+        0,
+      ),
+    0,
+  );

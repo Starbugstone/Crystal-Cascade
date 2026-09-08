@@ -328,7 +328,8 @@ export class BonusEffects {
 
   created(gem, index) {
     const a = this.a;
-    if (a.reducedMotion) return;
+    // Still let the new piece register visually when decorative motion is disabled.
+    if (a.reducedMotion) return a.tween({ phase: 0 }, { phase: 1, duration: 120 });
     const p = a.position(index);
     a.ring(p, POWER_COLOR[gem.type], a.cellSize);
     a.particles?.emitBurst(p, POWER_COLOR[gem.type], 28);
@@ -342,7 +343,7 @@ export class BonusEffects {
       POWER_COLOR[gem.type],
     );
     const icon = this.icon(gem.type, p, a.cellSize * 0.4);
-    a.effect(icon, {
+    return a.effect(icon, {
       scaleX: icon.scaleX * 3.2,
       scaleY: icon.scaleY * 3.2,
       alpha: 0,

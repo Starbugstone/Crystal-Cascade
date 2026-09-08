@@ -15,6 +15,11 @@
       "
     >
       <defs>
+        <radialGradient :id="`${uid}-upgrade-glow`">
+          <stop stop-color="#b5ffc2" stop-opacity=".95" />
+          <stop offset=".65" stop-color="#84f69a" stop-opacity=".85" />
+          <stop offset="1" stop-color="#84f69a" stop-opacity="0" />
+        </radialGradient>
         <clipPath :id="`${uid}-land`"><path :d="land" /></clipPath>
         <linearGradient :id="`${uid}-sky`" x2="0" y2="1">
           <stop stop-color="#e9ece0" />
@@ -106,7 +111,7 @@
         <path :d="riverOutline(mapPoint)" fill="#6e9d9a" />
         <path :d="riverOutline(mapPoint, 0.35)" fill="#89b3ac" opacity=".5" />
         <g
-          v-if="town.era === 'river-rail' && town.buildings.riverPort"
+          v-if="town.era !== 'frontier' && town.buildings.riverPort"
           :transform="`translate(${mapPoint([riverCenterX(-8), -8])})`"
         >
           <path d="M-15-31Q0-44 15-31L15 28Q0 41-15 28Z" fill="#725d45" />
@@ -189,10 +194,12 @@
         role="button"
         tabindex="0"
         :aria-label="
-          t('Inspect {value0}: {value1}', {
-            value0: t(building.name),
-            value1: t(building.stages[town.buildings[building.id]]),
-          })
+          indicators[building.id] === 'era'
+            ? t('Advance to the next era')
+            : t('Inspect {value0}: {value1}', {
+                value0: t(building.name),
+                value1: t(building.stages[town.buildings[building.id]]),
+              })
         "
         :aria-pressed="selected === building.id"
         :transform="`translate(${building.x} ${building.y}) scale(.48)`"
@@ -216,6 +223,15 @@
           stroke-width="2"
           stroke-dasharray="5 6"
         />
+        <ellipse
+          v-if="indicators[building.id] === 'upgrade'"
+          class="map-upgrade-glow"
+          cy="-8"
+          rx="130"
+          ry="48"
+          :fill="`url(#${uid}-upgrade-glow)`"
+          aria-hidden="true"
+        />
         <g
           :key="`${town.buildings[building.id]}-${construction?.id === building.id ? construction.serial : 0}`"
           aria-hidden="true"
@@ -226,6 +242,7 @@
               :id="building.id"
               :stage="town.buildings[building.id]"
               :era="town.buildingEras[building.id]"
+              :era-level="town.buildingEraLevels[building.id] || town.buildings[building.id]"
               :wins="constructionVisual(town.projects[building.id])"
             />
           </g>
@@ -233,38 +250,23 @@
             <image href="/art/rewards/builder-hammer.svg" x="65" y="-165" width="80" height="80" />
           </g>
         </g>
-        <g
-          v-if="indicators[building.id] === 'upgrade'"
-          class="map-upgrade-sparkles"
-          :class="indicators[building.id]"
-          aria-hidden="true"
-        >
-          <text
-            v-for="([x, y], i) in sparklePoints"
-            :key="i"
-            :x="x"
-            :y="y"
-            :style="{
-              '--i': i,
-              '--rise-y': `${building.kind === 'square' ? -20 : building.kind === 'well' ? -40 : -65}px`,
-            }"
-          >
-            ✦
-          </text>
-        </g>
         <image
-          v-if="['ready', 'coins', 'tnt'].includes(indicators[building.id])"
+          v-if="['ready', 'coins', 'tnt', 'bell', 'era'].includes(indicators[building.id])"
           class="map-action-icon"
-          x="-28"
-          y="-60"
-          width="56"
-          height="56"
+          :x="indicators[building.id] === 'ready' ? -36 : -28"
+          :y="indicators[building.id] === 'ready' ? -68 : -60"
+          :width="indicators[building.id] === 'ready' ? 72 : 56"
+          :height="indicators[building.id] === 'ready' ? 72 : 56"
           :href="
             indicators[building.id] === 'ready'
               ? '/art/rewards/builder-hammer.svg'
               : building.id === 'saloon'
                 ? '/art/rewards/coins.svg'
-                : '/art/powers/tnt.svg'
+                : indicators[building.id] === 'bell'
+                  ? '/art/rewards/town-bell.svg'
+                  : indicators[building.id] === 'era'
+                    ? '/art/rewards/era-compass.svg'
+                    : '/art/powers/tnt.svg'
           "
           aria-hidden="true"
         />
@@ -312,6 +314,16 @@
             }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
           </text>
+        </g>
+      </g>
+      <g v-if="hasElectricity(town)" aria-hidden="true">
+        <g
+          v-for="(lamp, index) in ELECTRIC_LAMPS"
+          :key="index"
+          :transform="`translate(${mapPoint(lamp)})`"
+        >
+          <path d="M0 0V-42" stroke="#4d7065" stroke-width="3" />
+          <circle cy="-45" r="8" fill="#fff0b6" stroke="#a89965" stroke-width="2" />
         </g>
       </g>
       <g aria-hidden="true">
@@ -403,6 +415,7 @@
 </template>
 <script setup>
 import { t } from '../../i18n';
+import { hasElectricity, ELECTRIC_LAMPS } from '../../data/industrial';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import {
   constructionVisual,
@@ -428,6 +441,7 @@ const props = defineProps({
   town: { type: Object, required: true },
   builderHammers: { type: Number, default: 0 },
   forgeCollectible: Boolean,
+  now: { type: Number, default: Date.now },
   selected: String,
   population: Number,
   mineStage: { type: Number, default: 0 },
@@ -491,18 +505,10 @@ watch(
       scene.value.scrollLeft = open ? (scene.value.scrollWidth - scene.value.clientWidth) / 2 : 0;
   },
 );
-const sparklePoints = [
-  [-110, -15],
-  [-105, 5],
-  [-75, 23],
-  [-25, 32],
-  [25, 32],
-  [75, 23],
-  [105, 5],
-  [110, -15],
-];
-const hasIncome = (id) => id === 'saloon' && props.town.income.stored > 0;
-const indicators = computed(() => buildingIndicators(props.town, props.forgeCollectible));
+const hasIncome = (id) => indicators.value[id] === 'coins';
+const indicators = computed(() =>
+  buildingIndicators(props.town, props.forgeCollectible, props.now),
+);
 const availableIds = computed(() =>
   availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );

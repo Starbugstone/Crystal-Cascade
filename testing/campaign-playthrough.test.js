@@ -100,7 +100,8 @@ it.each(levels.map((level) => [level.id, level]))(
       turnCounts.sort((a, b) => a - b);
       const median = (turnCounts[14] + turnCounts[15]) / 2;
       // Guard both ends: approachable should not mean a two-move level.
-      expect(median).toBeGreaterThanOrEqual(id <= 6 ? 8 : 9);
+      // Match-before-blast swaps can finish the early puzzles a move sooner.
+      expect(median).toBeGreaterThanOrEqual(id <= 6 ? 7 : 8);
       expect(median).toBeLessThanOrEqual(id <= 6 ? 10 : 13);
     }
   },

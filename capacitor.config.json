@@ -1,6 +1,6 @@
 {
-  "appId": "com.crystal.cascade",
-  "appName": "Crystal Cascade",
+  "appId": "com.starbugstone.prospecthollow",
+  "appName": "Prospect Hollow",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "plugins": {}

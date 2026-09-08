@@ -1,3 +1,7 @@
+import { bridgeDeckHeight } from './TownRiver';
+import { eraBuildingLevel } from './TownEras';
+import { buildingServiceLevel } from '../../data/buildingProgression';
+import { TownUpgradeGlow } from './TownUpgradeGlow';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -12,8 +16,11 @@ import { renderBuilding, renderModernization } from './buildings/BuildingRendere
 import { addEraActivity } from './TownEraActivity';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
+import { TownEraIncident } from './TownEraIncident';
+import { eventKind } from '../../data/townEvents';
 import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
+import { addElectricLighting, renderIndustrialLandmark } from './buildings/industrial';
 
 import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL, visiblePlots } from './TownLayout';
 import { riverCenterX } from './TownRiver';
@@ -95,6 +102,7 @@ export class TownDiorama {
       if (object.isLight) object.layers.enable(2);
     });
     this.frameCache = new TownFrameCache(this.renderer);
+    this.upgradeGlow = new TownUpgradeGlow(this.scene);
     this.raycaster = new THREE.Raycaster();
     this.raycaster.layers.enable(1);
     this.elapsed = 0;
@@ -282,6 +290,7 @@ export class TownDiorama {
     this.construction = null;
     this.actorRenderer.clear();
     this.buildingRenderer.clear();
+    this.upgradeGlow.clear();
     this.clearGroup(this.world);
     this.world = new THREE.Group();
     this.scene.add(this.world);
@@ -291,7 +300,12 @@ export class TownDiorama {
     this.anchors = [];
     this.town = town;
     addTownRoads(this, town, PLOTS);
-    this.controls.maxDistance = town.era === 'river-rail' ? 160 : 110;
+    this.controls.maxDistance = town.era !== 'frontier' ? 160 : 110;
+    // Expanded towns need a farther overview on phones; keep buildings ahead of the fog.
+    if (this.scene.fog) {
+      this.scene.fog.near = town.era !== 'frontier' ? 215 : 125;
+      this.scene.fog.far = town.era !== 'frontier' ? 295 : 205;
+    }
     for (const {
       id,
       position: [x, z],
@@ -308,40 +322,53 @@ export class TownDiorama {
       let movingPart;
       if (id === 'mine') this.mine(group, labels.mine, mineStage);
       else {
-        const stage = town.buildings[id],
+        const stage = buildingServiceLevel(id, town.buildings[id]),
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
-        if (kind === 'bridge')
+        if (kind === 'bridge') {
           renderBuilding({ town: this, parent: group, kind, level: stage, label: labels[id] });
-        else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
+          if (stage)
+            renderModernization(
+              this,
+              group,
+              kind,
+              town.buildingEras[id],
+              town.buildingEraLevels[id] || stage,
+            );
+          if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
+        } else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
-          if (kind === 'square') buildTownSquare(this, group, stage);
-          else if (kind === 'well') this.well(group);
-          else this.building(group, kind, stage, labels[id]);
-          if (!['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
+          const industrial =
+            town.buildingEras[id] === 'industrial' &&
+            renderIndustrialLandmark(
+              this,
+              group,
+              kind,
+              labels[id],
+              town.buildingEraLevels[id] || 1,
+            );
+          if (!industrial) {
+            if (kind === 'square') buildTownSquare(this, group, stage);
+            else if (kind === 'well') this.well(group);
+            else this.building(group, kind, stage, labels[id]);
+          }
+          if (!industrial && !['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
             movingPart = addImprovements(this, group, kind, stage);
-          renderModernization(this, group, kind, town.buildingEras[id]);
+          if (!industrial)
+            renderModernization(
+              this,
+              group,
+              kind,
+              town.buildingEras[id],
+              town.buildingEraLevels[id] || stage,
+            );
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
-      // Keep upgrade sparkles at ground level around the building's footprint.
       const bounds = new THREE.Box3().setFromObject(group);
-      const center = bounds.getCenter(new THREE.Vector3());
-      const baseY = bounds.min.y + 0.2;
+      if (id !== 'mine') this.upgradeGlow.add(id, bounds);
       // Keep action icons at the front porch, below the roofline.
       this.anchors.at(-1).collection = point(x, 1, z + 2.2);
-      this.anchors.at(-1).sparkleCenter = center;
-      this.anchors.at(-1).sparkleRise = Math.max(0.45, (bounds.max.y - bounds.min.y) * 0.4);
-      this.anchors.at(-1).sparkles = [
-        point(bounds.min.x - 0.2, baseY, bounds.max.z + 0.2),
-        point(center.x, baseY, bounds.max.z + 0.2),
-        point(bounds.max.x + 0.2, baseY, bounds.max.z + 0.2),
-        point(bounds.max.x + 0.2, baseY, center.z),
-        point(bounds.max.x + 0.2, baseY, bounds.min.z - 0.2),
-        point(center.x, baseY, bounds.min.z - 0.2),
-        point(bounds.min.x - 0.2, baseY, bounds.min.z - 0.2),
-        point(bounds.min.x - 0.2, baseY, center.z),
-      ];
       // Keep the windmill rotor articulated while batching the rest of its building.
       if (movingPart) {
         group.updateMatrixWorld(true);
@@ -354,8 +381,11 @@ export class TownDiorama {
       else this.batch(group);
       if (movingPart) this.motions.push(movingPart.update);
     }
+    // Model preparation can be expensive. Start the reveal clock on its first visible frame.
+    if (this.construction) this.lastFrame = 0;
     const household = population(town);
     addEraActivity(this, town);
+    addElectricLighting(this, town);
     addTownVisitors(this, town);
     this.person({
       color: '#738a83',
@@ -702,8 +732,18 @@ export class TownDiorama {
       legs.push({ upper: thigh, lower: shin });
     }
     if (dress) this.mesh(body, 'cone', [0.2, 0.29, 0.17], [0, -0.085, 0], color);
-    const points = route.map(([x, z]) =>
-      point(x, linear && x >= 24 && x <= 38 && z === 7.5 ? 0.36 : 0.07, z),
+    const sampledRoute = [];
+    route.forEach((p, i) => {
+      const previous = route[i - 1];
+      if (linear && previous?.[1] === 7.5 && p[1] === 7.5) {
+        const count = Math.ceil(Math.abs(p[0] - previous[0]) * 4);
+        for (let n = 1; n < count; n++)
+          sampledRoute.push([previous[0] + ((p[0] - previous[0]) * n) / count, 7.5]);
+      }
+      sampledRoute.push(p);
+    });
+    const points = sampledRoute.map(([x, z]) =>
+      point(x, linear && x >= 24 && x <= 38 && z === 7.5 ? bridgeDeckHeight(x) + 0.17 : 0.07, z),
     );
     const journey = loop ? points : [...points, ...points.slice(1, -1).reverse()];
     const curve = linear
@@ -805,6 +845,9 @@ export class TownDiorama {
     shadow.position.y = -0.04;
     parent.add(shadow);
   }
+  setUpgradeable(ids) {
+    if (this.upgradeGlow.setAvailable(ids)) this.render();
+  }
   setAvailable(ids) {
     const key = ids.join(',');
     if (this.availableKey === key) return;
@@ -871,7 +914,16 @@ export class TownDiorama {
     if (!this.anchors?.length) return;
     const bounds = new THREE.Box3();
     const corners = [];
-    for (const { id } of this.anchors) {
+    for (const { id } of this.raid
+      ? eventKind(this.raid.event) !== 'bandits'
+        ? [...this.raid.event.targets, this.raid.responder].map((id) => ({ id }))
+        : [
+            { id: 'mine' },
+            { id: 'bank' },
+            { id: 'shop' },
+            ...(this.raid.phase === 'Back to the open trail' ? [{ id: 'sheriff' }] : []),
+          ]
+      : this.anchors) {
       const [x, z] = PLOTS[id];
       bounds.expandByPoint(point(x - 3, 0, z - 3));
       bounds.expandByPoint(point(x + 3, 5, z + 3));
@@ -879,7 +931,7 @@ export class TownDiorama {
         for (const y of [0, 5]) for (const dz of [-3, 3]) corners.push(point(x + dx, y, z + dz));
     }
     // Include a glimpse of the near river from the first visit, without framing future land.
-    if (this.town) {
+    if (this.town && !this.raid) {
       const river = point(riverCenterX(2) + 1, 0, 2);
       bounds.expandByPoint(river);
       corners.push(river);
@@ -960,67 +1012,39 @@ export class TownDiorama {
     const distant = cameraDistance > 66;
     const width = this.canvas.clientWidth,
       height = this.canvas.clientHeight;
-    const projected = this.anchors.map(
-      ({ id, position, width: labelWidth, sparkles, sparkleCenter, sparkleRise, collection }) => {
-        const p = position.clone().project(this.camera);
-        const reward = collection.clone().project(this.camera);
-        return {
-          id,
-          x: (p.x + 1) * 50,
-          y: (1 - p.y) * 50,
-          collection: {
-            x: (reward.x + 1) * 50,
-            y: (1 - reward.y) * 50,
-            visible:
-              reward.z > -1 &&
-              reward.z < 1 &&
-              Math.abs(reward.x) < 0.95 &&
-              Math.abs(reward.y) < 0.9,
-          },
-          sparkles: sparkles.map((position) => {
-            const sparkle = position.clone().project(this.camera);
-            const end = position.clone();
-            end.y += sparkleRise;
-            end.project(this.camera);
-            // Rear ground points would otherwise paint over the roof in this HTML overlay.
-            const facingCamera =
-              (position.x - sparkleCenter.x) * (this.camera.position.x - sparkleCenter.x) +
-                (position.z - sparkleCenter.z) * (this.camera.position.z - sparkleCenter.z) >=
-              0;
-            return {
-              x: (sparkle.x + 1) * 50,
-              y: (1 - sparkle.y) * 50,
-              riseX: ((end.x - sparkle.x) * width) / 2,
-              riseY: ((sparkle.y - end.y) * height) / 2,
-              visible:
-                (!this.town.buildings[id] || facingCamera) &&
-                sparkle.z > -1 &&
-                sparkle.z < 1 &&
-                Math.abs(sparkle.x) < 1 &&
-                Math.abs(sparkle.y) < 1,
-            };
-          }),
-          depth: p.z,
-          inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
-          width: labelWidth,
+    const projected = this.anchors.map(({ id, position, width: labelWidth, collection }) => {
+      const p = position.clone().project(this.camera);
+      const reward = collection.clone().project(this.camera);
+      return {
+        id,
+        x: (p.x + 1) * 50,
+        y: (1 - p.y) * 50,
+        collection: {
+          x: (reward.x + 1) * 50,
+          y: (1 - reward.y) * 50,
           visible:
-            (id === 'mine' ||
-              this.town.buildings[id] > 0 ||
-              !!this.town.projects[id] ||
-              this.availablePlots?.has(id)) &&
-            p.z > -1 &&
-            p.z < 1 &&
-            (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
-            p.y < 0.84 &&
-            p.y > (width < 600 ? -0.42 : -0.78) &&
-            (!distant ||
-              id === 'mine' ||
-              id === this.selected ||
-              constructionReady(this.town.projects[id]) ||
-              this.availablePlots?.has(id)),
-        };
-      },
-    );
+            reward.z > -1 && reward.z < 1 && Math.abs(reward.x) < 0.95 && Math.abs(reward.y) < 0.9,
+        },
+        depth: p.z,
+        inView: p.z > -1 && p.z < 1 && Math.abs(p.x) < 0.95 && Math.abs(p.y) < 0.9,
+        width: labelWidth,
+        visible:
+          (id === 'mine' ||
+            this.town.buildings[id] > 0 ||
+            !!this.town.projects[id] ||
+            this.availablePlots?.has(id)) &&
+          p.z > -1 &&
+          p.z < 1 &&
+          (Math.abs(p.x) * width) / 2 + labelWidth / 2 + 8 < width / 2 &&
+          p.y < 0.84 &&
+          p.y > (width < 600 ? -0.42 : -0.78) &&
+          (!distant ||
+            id === 'mine' ||
+            id === this.selected ||
+            constructionReady(this.town.projects[id]) ||
+            this.availablePlots?.has(id)),
+      };
+    });
     const shown = [];
     const priority = (id) =>
       id === this.selected
@@ -1061,9 +1085,10 @@ export class TownDiorama {
     if (this.raid?.update(this.elapsed)) {
       this.raid = null;
       this.rebuildActors();
+      if (this.overview) this.frameTown();
     }
     // Advance life during camera motion too; its scheduled render draws the new pose.
-    if (this.cameraFrame) return;
+    if (this.cameraFrame || (this.cinematic && !this.cinematic.finished)) return;
     this.actorRenderer.update();
     this.drawFrame();
   }
@@ -1078,9 +1103,20 @@ export class TownDiorama {
     this.renderer.shadowMap.needsUpdate = true;
     this.render();
   }
-  playRaid(event, onPhase, onComplete) {
+  playRaid(event, onPhase, onComplete, onCue) {
     this.raid?.dispose();
-    this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
+    const Incident = eventKind(event) === 'bandits' ? TownRaid : TownEraIncident;
+    this.raid = new Incident(
+      this,
+      event,
+      PLOTS,
+      (phase) => {
+        onPhase(phase);
+        if (this.raid) this.frameTown();
+      },
+      onComplete,
+      onCue,
+    );
     this.rebuildActors();
     this.frameTown();
     this.render();
@@ -1096,6 +1132,52 @@ export class TownDiorama {
     this.raid.dispose();
     this.raid = null;
     this.rebuildActors();
+    if (this.overview) this.frameTown();
+    this.render();
+  }
+  setCinematic(enabled) {
+    if (!!this.cinematic === enabled) return;
+    if (enabled) {
+      this.cinematic = {
+        startPosition: this.camera.position.clone(),
+        startTarget: this.controls.target.clone(),
+        era: this.town.era,
+      };
+      this.overview = false;
+    } else {
+      this.cinematic = null;
+      this.overview = true;
+      this.frameTown();
+      this.render();
+    }
+    this.controls.enabled = !enabled;
+  }
+  eraFrame(progress) {
+    const shot = this.cinematic;
+    if (!shot) return;
+    shot.finished = progress >= 1;
+    const [x, z] = PLOTS.square;
+    const square = point(x, 1, z);
+    const distance = this.camera.aspect < 0.8 ? 38 : 26;
+    const close = square
+      .clone()
+      .add(point(Math.sin(0.65) * distance, distance * 0.65, Math.cos(0.65) * distance));
+    const smooth = (value) => value * value * (3 - 2 * value);
+    if (this.town.era !== shot.era && !shot.endPosition) {
+      this.frameTown();
+      shot.endPosition = this.camera.position.clone();
+      shot.endTarget = this.controls.target.clone();
+    }
+    if (progress < 6 / 14 || !shot.endPosition) {
+      const amount = smooth(Math.min(1, (progress * 14) / 6));
+      this.camera.position.lerpVectors(shot.startPosition, close, amount);
+      this.controls.target.lerpVectors(shot.startTarget, square, amount);
+    } else {
+      const amount = smooth((progress * 14 - 6) / 8);
+      this.camera.position.lerpVectors(close, shot.endPosition, amount);
+      this.controls.target.lerpVectors(square, shot.endTarget, amount);
+    }
+    this.camera.lookAt(this.controls.target);
     this.render();
   }
   cameraAction(action) {
@@ -1110,7 +1192,7 @@ export class TownDiorama {
     if (action === 'reset') this.frameTown();
   }
   setPaused(paused) {
-    this.controls.enabled = !paused;
+    this.controls.enabled = !paused && !this.cinematic;
   }
   setMotion(enabled) {
     if (this.motionEnabled === enabled) return;
@@ -1122,6 +1204,7 @@ export class TownDiorama {
     this.canvas.removeEventListener('webglcontextlost', this.contextLost);
     cancelAnimationFrame(this.cameraFrame);
     this.frameCache.dispose();
+    this.upgradeGlow.dispose();
     this.actorRenderer.dispose();
     this.buildingRenderer.dispose();
     this.sceneryRenderer.dispose();

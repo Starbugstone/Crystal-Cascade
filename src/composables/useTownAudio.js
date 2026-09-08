@@ -48,4 +48,10 @@ export function useTownAudio(readVillage) {
     document.removeEventListener('keydown', unlock);
     stop();
   });
+  return {
+    playRaidCue(cue) {
+      update();
+      return soundscape?.playRaidCue(cue);
+    },
+  };
 }

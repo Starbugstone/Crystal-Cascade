@@ -91,7 +91,12 @@ export const RIVER_RAIL_BUILDINGS = projects.map(
     kind: id === 'home5' ? 'home' : id,
     introducedEra: 'river-rail',
     requiredForEraCompletion: true,
-    stages: ['Empty plot', 'Ready for the River & Rail town'],
+    stages: [
+      'Empty plot',
+      'River & Rail · Level 1',
+      'River & Rail · Level 2',
+      'River & Rail · Level 3',
+    ],
     upgrades: [
       {
         cost,
@@ -101,6 +106,18 @@ export const RIVER_RAIL_BUILDINGS = projects.map(
         story: benefit,
         speaker: 'Ada · the caretaker',
       },
+      ...[2, 3].map((level) => ({
+        cost: cost + (level - 1) * 200,
+        runs: 2,
+        title: 'Expand {building}',
+        benefit: ['home5', 'market'].includes(id)
+          ? 'Adds room or food for ten more residents.'
+          : ['railDepot', 'hotel'].includes(id)
+            ? 'Room for two more visitors, with spare food and water.'
+            : 'Expand the structure and improve its River & Rail appearance.',
+        story: 'A larger landmark for a growing River & Rail town.',
+        speaker: 'Ada · the caretaker',
+      })),
     ],
   }),
 );

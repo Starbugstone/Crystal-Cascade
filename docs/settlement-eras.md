@@ -1,45 +1,51 @@
-# Settlement eras: Frontier and River & Rail
+# Settlement eras: Frontier, River & Rail and Industrial
 
-Issue [#22](https://github.com/Starbugstone/Crystal-Cascade/issues/22) is an umbrella roadmap. This implementation makes only its first two eras playable. Industrial, Motor Age, Post-war and Contemporary remain disabled content entries. The issue contains the later station evolution and building ideas.
+Three eras are playable. Industrial / Electric Town follows River & Rail in 1908. Motor Age, Post-war and Contemporary remain disabled. See the [accepted Industrial design](industrial-era-planning.md) for building, event and campaign scope.
 
-## Try the transition immediately
+## Try the eras immediately
 
-Run `npm run dev` and `npm run demo:eras`. The latter creates three local fixtures under the ignored `output/era-demo/` directory:
+Run `npm run dev` and `npm run demo:eras`. The latter creates eight local fixtures under the ignored `output/era-demo/` directory:
 
-| Fixture               | Starting point                                                                                                                                    |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `frontier-ready`      | All 21 Frontier buildings at level 5, the River Discovery chapter completed, 30,000 coins and one Forge Charge. Advance the era from the village. |
-| `river-rail`          | The saved transition story is pending; acknowledge it and build the station, bridge and wharf.                                                    |
-| `river-rail-complete` | All 29 plots and all modernizations finished. Check the completed-era message, town activity and retained service levels.                         |
+| Fixture               | Starting point                                                       |
+| --------------------- | -------------------------------------------------------------------- |
+| `frontier-ready`      | All Frontier buildings completed; advance with the town compass      |
+| `river-rail`          | Pending second-era transition                                        |
+| `river-rail-complete` | All 29 plots at River & Rail level three; Industrial available       |
+| `industrial`          | Pending Industrial transition, completed older architecture retained |
+| `industrial-lights`   | Power house finished; First Lights story pending                     |
+| `industrial-complete` | All 33 plots at Industrial level three                               |
+| `cargo-theft`         | Saved River & Rail freight-yard encounter                            |
+| `workshop-fire`       | Saved Industrial fire with an unprotected workshop                   |
 
-Use a **disposable browser profile** because importing a fixture replaces progress for that browser origin. Open the local game, open browser developer tools, and execute the matching `.console.js` file in the Console. Alternatively, in Application → Local Storage, set `crystal-cascade-profile-v3` to the contents of the matching `.json` file and reload. Enter the village from the welcome screen. These fixtures are developer files and are not bundled into the game.
+Use a **disposable browser profile**: fixtures replace that origin's progress. Execute the matching `.console.js` file from the browser console, then enter the village. Fixtures are developer files, not bundled game content.
 
-Suggested test sequence:
+Check a transition across reload, dismiss its story, buy a project, complete the required normal puzzles and finish construction. Inspect all three modernization levels, preserved services, the First Lights acknowledgement, and event skip/replay/settlement. Museum replay also advances work; continuous play does not advance construction or Forge Charge.
 
-1. Import `frontier-ready`. Choose **Advance to the next era**. Reload while the date card is open: it resumes the same transition. Choose **Explore the new era**.
-2. From **Available plots**, build the **Railway station** for 975 coins. The station and railroad share one project. Complete two normal puzzles, then tap the ready station to finish it. Tracks and train activity appear together; there is no additional railroad payment.
-3. Fund the **Bridge** (900 coins, two completions), **Wharf** (750 coins, one completion), and any 300-coin modernization. Work progresses concurrently. Finish the bridge to expose the warehouse, hotel, riverside home and market on the east bank.
-4. Modernize a level-5 landmark. Its original service stays active during its two-completion project and remains unchanged when the new facade opens. Functional levels remain 5.
-5. Tap the blacksmith with a stored Forge Charge to collect one TNT into your armory. The TNT persists until used; if storage is full, the charge waits at the blacksmith. Entering the mine requires no Forge prompt.
-6. Use `river-rail-complete` to check the final state. The later eras stay unavailable.
+## Completion, construction and rewards
 
-The first fixture leaves the Rail Connections chapter (levels 67–72) unfinished, so construction can be tested with new normal puzzles. Museum replay also advances work. Continuous play never advances construction, the era milestone or Forge Charge.
+Era advancement requires every available building at its functional cap and, after Frontier, all three current-era levels. It has no mine-progress gate. Pending construction or an unresolved encounter blocks advancement. River & Rail levels cost 800, 1,200 and 1,400 coins; Industrial levels cost 1,200, 1,600 and 2,000 coins. Modernization takes two normal puzzle completions and retains existing services.
 
-## Content and balance
+The 120-level campaign has twenty chapters. Industrial adds 48 levels with familiar puzzle rules and new mine backdrops. Mine earnings and coin chests retain the chapter-based economy. The power house unlocks electric modernization; row houses add up to sixteen resident places, and the main well's completed Industrial modernization adds twenty water places.
 
-- Four additional Frontier landmarks have five normal levels: fisherman (+1 food each, maximum 5), blacksmith, school (+1 happiness each, maximum 5), and doctor (civic/story service).
-- The blacksmith earns one charge after 20, 16, 12, 8 or 5 completed normal puzzles at levels 1–5. Production pauses while that charge is waiting; collecting it starts a fresh cycle with no banked progress. Upgrades preserve earned progress and shorten the cycle, making the charge ready immediately if the new requirement has already been reached. One charge is the storage limit; tapping the blacksmith collects one inventory TNT, and full TNT storage leaves the charge waiting.
-- The first era gate requires every Frontier plot at maximum level, no unfinished work, and the complete **River Discovery** chapter. The gate uses the chapter ID rather than a hard-coded level number. Two new six-level chapters extend the normal campaign to 72 levels.
-- River & Rail introduces eight separate projects: bridge, wharf, station, post office, warehouse, hotel, riverside home and market. Station and hotel each add two visitor places; the new home adds ten resident places and market ten food. Food and water still constrain occupancy. The other projects add access, presentation and civic milestones.
-- Modernizing existing plots costs 300 coins and two normal completions, with no extra service multiplier. Builder hammers can finish eligible new work or modernization immediately, following existing rules.
-- A fully developed second era supports 50 residents and 10 visitors, capped by 60 water places. With 98% happiness and the existing base rate, saloon income is **1,188 coins/hour**. Collection and eight-hour storage remain unchanged.
-- Existing bandit events and protection remain intact; new raids use a saved random gap of 3–7 normal completions in Frontier and 6–14 in River & Rail. Reopening the village does not reroll the gap.
+The blacksmith's bounded Forge service, saloon income, inventory and existing town progress remain intact. Frontier bandits evolve into cargo theft in River & Rail, then workshop fires in Industrial. Saved old raids keep their original behavior. Later events occur after 6–14 normal completions, with no offline accrual. Fires never destroy buildings, cap losses at 30 coins, protect the last 50 coins and become fully protected at fire station level three.
+
+## Current implementation checks
+
+`npm run verify` checks formatting, unit/integration tests, deterministic campaign playthroughs and production compilation. Industrial regression tests cover every plot's three tiers, era gates, modernization services, v3 persistence, failed-save rollback, event refunds and settlement, render geometry and bridge-crossing actors. `npm run demo:eras` supplies reproducible browser states.
+
+Industrial verification passed all 686 tests and the production build. Disposable Chromium checks at `http://127.0.0.1:5173/` covered 1440×900 and 390×844 views, the saved Industrial transition across reload, power-house purchase and completion, the persisted First Lights acknowledgement, completed-town architecture, event skipping, the fire bell's 30-to-15-coin reduction, and cargo bounty persistence. Construction completions were supplied through the store for this UI check; deterministic tests cover puzzle playthroughs.
+
+Forced WebGL unavailability successfully used the SVG village with French text, high contrast and reduced motion. Normal rendering produced no application errors; forced fallback emitted its expected WebGL creation diagnostic. Screenshots and browser logs are in ignored `output/playwright/`. Physical-device performance and a human playthrough of all 48 new levels remain unverified. The build retains the existing large Phaser chunk warning.
+
+The historical browser report below describes the earlier River & Rail release.
+
+## Earlier River & Rail implementation notes
 
 ## Persistence and rendering
 
 The existing `crystal-cascade-profile-v3` key is unchanged. Missing era fields default to Frontier while preserving building levels, projects, coins, inventory, records, stock, income and raid receipts. Functional levels and `buildingEras` are separate. Era advancement saves its receipt before showing the date card and rolls back if saving fails. Forge collection saves the spent charge and inventory TNT together, rolling both back if saving fails.
 
-`eras.js`, `frontier.js`, `riverRail.js` and `campaignMilestones.js` hold content and gates. `TownEras` handles eligibility, modernization and normalization; the renderer modules under `game/town/buildings/` handle visual families. Existing plot positions remain stable. Shared layout metadata controls visible plots, SVG projection and permitted transport edges. The bridge exposes the east-bank route graph; the station lays a near-bank rail terminus that does not cross the river.
+`eras.js`, `frontier.js`, `riverRail.js` and `buildingProgression.js` define eras, buildings and caps. `TownEras` handles eligibility, modernization and normalization; the renderer modules under `game/town/buildings/` handle visual families. Existing plot positions remain stable. Shared layout metadata controls visible plots, SVG projection and permitted transport edges. The bridge exposes the east-bank route graph; the station track crosses the river on its own railway bridge.
 
 The river is carved into the existing deterministic landscape with a gradual valley and wet-bank vegetation exclusions. One lightweight water mesh animates separately from cached terrain. The fisherman, one steamboat and one train use the existing actor/motion lifecycle. Audio adds a quiet river loop and occasional procedural boat/train effects; sources are documented in the audio credits. New construction, modernization and transport details also appear in the SVG fallback. Reduced motion freezes ambient movement, and hidden/paused village state suspends town animation and audio.
 
@@ -54,3 +60,7 @@ Browser checks ran at `http://127.0.0.1:5174/` in Chromium at 1440×900, 390×84
 ![River and rail expansion in the 3D village](images/river-rail-desktop.png)
 
 ![The same river, station and bridge in the accessible fallback](images/river-rail-svg.png)
+
+Era advancement requires only completed town buildings, with no mine-progress gate. The town-center compass and its building card start a 14-second cinematic with a camera sweep, dawn reveal, date and music cues. Skip and reduced-motion paths retain the same saved transition; a reload resumes the pending presentation. The cinematic hides normal town controls and keeps keyboard focus inside its dialog.
+
+A fully defended raid pays 10 coins per captured bandit when dismissed, once per saved raid. The sheriff card and defense receipt explain the bounty. Empty-wallet and partial-defense outcomes pay nothing; defenses completed during the raid can qualify it. Save failures roll back payment and leave the receipt unclaimed.

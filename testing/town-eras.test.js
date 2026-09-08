@@ -127,13 +127,13 @@ describe('Frontier additions preserve bounded services and saves', () => {
     town.buildings.farm = 1;
     town.buildings.farm2 = town.buildings.farm3 = 0;
     expect(foodCapacity(town)).toBe(6);
-    for (let stage = 0; stage < 5; stage++) {
+    for (let stage = 0; stage < 3; stage++) {
       town = purchase(town, 'fisherman', stage);
       expect(purchase(town, 'fisherman', stage)).toBeNull();
       town = advanceConstruction(town);
       expect(foodCapacity(town)).toBe(6 + stage);
       town = finishConstruction(normalizeTown(town), 'fisherman', stage + 1);
-      expect(foodCapacity(town)).toBe(7 + stage);
+      expect(foodCapacity(town)).toBe(6 + [1, 2, 5][stage]);
       expect(finishConstruction(town, 'fisherman', stage + 1)).toBeNull();
     }
     expect(residentPopulation(town)).toBe(11);
@@ -294,11 +294,11 @@ describe('Collecting Forge TNT into inventory', () => {
     c.town.buildings.blacksmith = 1;
     const slot = c.powers.find((p) => p.id === 'tnt');
     slot.quantity = c.bonusLimit;
-    expect(c.canCollectForge).toBe(false);
+    expect(c.canCollectForge()).toBe(false);
     expect(c.collectForgeTNT()).toBe(false);
     expect(c.town.forge.charge).toBe(1);
     slot.quantity--;
-    expect(c.canCollectForge).toBe(true);
+    expect(c.canCollectForge()).toBe(true);
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
       throw Error('full');
     });
@@ -336,18 +336,22 @@ describe('Two eras and explicit modernization', () => {
     expect(c.town.era).toBe('frontier');
     expect(c.town.transition).toBeUndefined();
   });
-  it('requires every frontier parcel plus the configured normal campaign milestone', () => {
+  it('requires every frontier parcel without any mine progress', () => {
     const town = frontier(),
       records = milestoneRecords();
     expect(campaignMilestoneReached(records, 'river-discovery')).toBe(true);
-    expect(eraGate(town, {}).available).toBe(false);
+    expect(eraGate(town).available).toBe(true);
     expect(eraGate(town, records).available).toBe(true);
     for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier')) {
       const incomplete = structuredClone(town);
       incomplete.buildings[b.id]--;
-      expect(advanceEra(incomplete, records, 'frontier'), b.id).toBeNull();
+      expect(advanceEra(incomplete, 'frontier'), b.id).toBeNull();
     }
-    expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual(['frontier', 'river-rail']);
+    expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual([
+      'frontier',
+      'river-rail',
+      'industrial',
+    ]);
   });
   it('saves the transition before presenting it and cannot advance twice across reload', () => {
     const c = useCampaignStore();
@@ -365,7 +369,7 @@ describe('Two eras and explicit modernization', () => {
     expect(reloaded.advanceEra('frontier')).toBe(false);
   });
   it('retains services until modernization finishes and rejects duplicate purchases and finishes', () => {
-    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+    let town = advanceEra(frontier(), 'frontier');
     const rate = saloonIncomeRate(town);
     expect(isEraComplete(town)).toBe(false);
     town = purchase(town, 'saloon', 5);
@@ -373,7 +377,7 @@ describe('Two eras and explicit modernization', () => {
       type: 'modernization',
       stage: 5,
       required: 2,
-      cost: 300,
+      cost: 800,
     });
     expect(town.buildingEras.saloon).toBe('frontier');
     expect(saloonIncomeRate(town)).toBe(rate);
@@ -384,7 +388,7 @@ describe('Two eras and explicit modernization', () => {
     expect(town.buildings.saloon).toBe(5);
     expect(town.buildingEras.saloon).toBe('river-rail');
     expect(saloonIncomeRate(town)).toBe(rate);
-    expect(upgradeOffer(town, 'saloon')).toBeNull();
+    expect(upgradeOffer(town, 'saloon')).toMatchObject({ eraLevel: 2, cost: 1200 });
     expect(finishConstruction(town, 'saloon', 5)).toBeNull();
   });
   it('builds the station and railway in one receipt and enables both only on its first finish', () => {
@@ -392,7 +396,7 @@ describe('Two eras and explicit modernization', () => {
     expect(plotUnlocked(town, 'railDepot')).toBe(false);
     expect(railEdges(town)).toEqual([]);
     expect(purchase(town, 'railDepot', 0)).toBeNull();
-    town = advanceEra(town, milestoneRecords(), 'frontier');
+    town = advanceEra(town, 'frontier');
     const coins = town.coins;
     town = purchase(town, 'railDepot', 0);
     const cost = coins - town.coins;
@@ -408,11 +412,11 @@ describe('Two eras and explicit modernization', () => {
     expect(purchase(town, 'railDepot', 0)).toBeNull();
     expect(railEdges(normalizeTown(town))).toHaveLength(1);
   });
-  it('completes River & Rail without changing landmark service levels or exceeding 1200 coins/hour', () => {
-    let town = advanceEra(frontier(), milestoneRecords(), 'frontier');
+  it('completes River & Rail without changing landmark service levels and applies the stronger population and happiness income', () => {
+    let town = advanceEra(frontier(), 'frontier');
     town.transition.pending = false;
     for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
-      town = buildWithHammer(town, b.id, 5);
+      town = buildWithHammer(town, b.id, b.upgrades.length);
     for (const id of [
       'bridge',
       'riverPort',
@@ -424,12 +428,18 @@ describe('Two eras and explicit modernization', () => {
       'market',
     ])
       town = buildWithHammer(town, id, 0);
+    expect(isEraComplete(town)).toBe(false);
+    for (const building of BUILDINGS.filter((b) => b.introducedEra !== 'industrial')) {
+      for (let level = 2; level <= 3; level++) {
+        const offer = upgradeOffer(town, building.id);
+        town = buildWithHammer(town, building.id, offer.stage);
+      }
+    }
     expect(isEraComplete(town)).toBe(true);
-    expect(eraGate(town, milestoneRecords()).available).toBe(false);
-    expect(residentPopulation(town)).toBe(50);
-    expect(visitorPopulation(town)).toBe(10);
-    expect(saloonIncomeRate(town)).toBe(1188);
-    expect(saloonIncomeRate(town)).toBeLessThanOrEqual(1200);
+    expect(eraGate(town, milestoneRecords()).available).toBe(true);
+    expect(residentPopulation(town)).toBe(60);
+    expect(visitorPopulation(town)).toBe(0); // Water is now the limiting service.
+    expect(saloonIncomeRate(town)).toBe(1425);
   });
 });
 
@@ -451,7 +461,7 @@ describe('River, gated parcels and permitted crossings', () => {
     expect(visiblePlots(town).some((p) => p.id === 'railDepot' || p.district === 'east-bank')).toBe(
       false,
     );
-    town = advanceEra(town, milestoneRecords(), 'frontier');
+    town = advanceEra(town, 'frontier');
     expect(visiblePlots(town).some((p) => p.district === 'east-bank')).toBe(false);
     expect(routeBetween(town, plotStreet('home5'), plotStreet('saloon'))).toEqual([]);
     town = buildWithHammer(town, 'bridge', 0);

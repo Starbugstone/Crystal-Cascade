@@ -1,6 +1,6 @@
 <template>
   <g v-if="stage">
-    <TownBuilding :id="id" :stage="stage" :era="era" />
+    <TownBuilding :id="id" :stage="stage" :era="era" :era-level="eraLevel" />
     <path
       v-if="wins !== null && id === 'square'"
       d="M-125-25 0-83 125-25 0 32Z"
@@ -54,5 +54,11 @@
 </template>
 <script setup>
 import TownBuilding from './TownBuilding.vue';
-defineProps({ id: String, era: String, stage: Number, wins: { type: Number, default: null } });
+defineProps({
+  id: String,
+  era: String,
+  eraLevel: Number,
+  stage: Number,
+  wins: { type: Number, default: null },
+});
 </script>

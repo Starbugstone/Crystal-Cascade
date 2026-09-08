@@ -1,0 +1,55 @@
+Prospect Hollow Source Available License 1.0
+
+Copyright (c) 2025-2026 Starbugstone. All rights reserved.
+
+This license applies to the Prospect Hollow source code, documentation, and original assets distributed with this license (the “Software”), except for third-party software and assets that are identified as being subject to separate licenses.
+
+1. LIMITED PERMISSION
+
+Subject to the terms of this license, you may:
+
+(a) view and inspect the source code;
+(b) clone or download the Software and run it privately for personal evaluation, education, testing, security research, or development;
+(c) modify the Software privately for those purposes;
+(d) use GitHub’s built-in repository forking functionality for evaluation or contribution; and
+(e) submit issues, pull requests, patches, documentation, or other contributions to the project.
+
+2. RESTRICTIONS
+
+Except with prior written permission from Starbugstone, you may not:
+
+(a) distribute, publish, sublicense, sell, rent, lease, or otherwise provide the Software or a derivative work to any third party, except for a GitHub fork used solely as permitted by Section 1;
+(b) use the Software or a derivative work for any commercial purpose, including a paid, advertising-supported, sponsored, subscription, or revenue-generating product or service;
+(c) publish, distribute, or make available any compiled, packaged, hosted, or executable build of the Software or a derivative work, including through the Apple App Store, Google Play, Steam, itch.io, another application store, a public website, or a similar distribution channel;
+(d) create, release, or distribute a game, application, service, or other product substantially derived from the Software;
+(e) extract, reuse, redistribute, or commercially exploit original Prospect Hollow artwork, audio, story material, level designs, user-interface designs, characters, locations, worldbuilding, or other creative assets outside the private uses permitted by Section 1;
+(f) remove or obscure copyright, attribution, or license notices; or
+(g) use the Prospect Hollow or Starbugstone names, logos, branding, or other identifiers in a way that implies endorsement, sponsorship, affiliation, or official status.
+
+3. CONTRIBUTIONS
+
+By intentionally submitting a contribution for inclusion in Prospect Hollow, you grant Starbugstone a perpetual, worldwide, irrevocable, non-exclusive, royalty-free license to use, reproduce, modify, adapt, distribute, publicly perform, publicly display, sublicense, relicense, commercialize, and create derivative works from that contribution under any terms.
+
+You represent that you have the rights necessary to grant this license for anything you contribute.
+
+4. THIRD-PARTY MATERIAL
+
+Third-party software and assets retain their own licenses. Nothing in this license changes, replaces, or expands the rights granted by those third-party licenses. Where a third-party license conflicts with this license for that third-party material, the third-party license controls for that material.
+
+5. NO TRADEMARK LICENSE
+
+This license grants no trademark, trade-name, logo, or branding rights. “Prospect Hollow” and associated branding may be used only to identify the project factually unless Starbugstone gives written permission for another use.
+
+6. TERMINATION
+
+Your permissions under this license terminate automatically if you breach its terms. Upon termination, you must stop exercising the permissions granted by this license. Termination does not affect rights or obligations that accrued before termination.
+
+7. COMMERCIAL LICENSING
+
+Commercial, redistribution, publishing, and other rights not granted by this license may be available under a separate written agreement with Starbugstone.
+
+8. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.

@@ -1,7 +1,8 @@
 {
   "name": "crystal-cascade",
   "version": "1.0.0",
-  "description": "A crystal match-3 game with responsive swipes, luminous cascades, and 72 progressive puzzles with chains, colored seals, lost relics, and earned power-up chests.",
+  "private": true,
+  "description": "Prospect Hollow is a frontier town-building puzzle game where gem mining funds a settlement that grows through new eras.",
   "main": "src/main.js",
   "scripts": {
     "dev": "vite",
@@ -24,7 +25,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
     "node": ">=20.19.0"

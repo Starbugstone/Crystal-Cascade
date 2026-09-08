@@ -6,7 +6,10 @@ import { useInventoryStore } from '../src/stores/inventoryStore';
 import { SAVE_KEY } from '../src/services/localProfile';
 import { BUILDINGS, createTown } from '../src/data/town';
 import {
+  availableChestDrops,
+  rewardUse,
   BONUS_CAPACITIES,
+  chestCoinsEarned,
   CHEST_DROPS,
   CONTINUOUS_COIN_CAP,
   HAMMER_CAPACITY,
@@ -99,6 +102,7 @@ describe('A village with lasting choices', () => {
     }
     expect(campaign.useBuilderHammer('armory', 3)).toBe(false);
     expect(campaign.builderHammers).toBe(1);
+    expect(campaign.town.buildings.armory).toBe(3);
     expect(campaign.records).toEqual({});
   });
   it('rejects locked, unknown, stale, and already funded work without spending a hammer', () => {
@@ -151,6 +155,25 @@ describe('A village with lasting choices', () => {
 });
 
 describe('Bounded, saved chest rewards', () => {
+  it('omits full inventory from every reel position and keeps coins available', () => {
+    const campaign = useCampaignStore();
+    campaign.powers.find((p) => p.id === 'tnt').quantity = campaign.bonusLimit;
+    campaign.builderHammers = HAMMER_CAPACITY;
+    const eligible = availableChestDrops(campaign);
+    expect(eligible.map((p) => p.id)).not.toContain('tnt');
+    expect(eligible.map((p) => p.id)).not.toContain('builder-hammer');
+    expect(shuffleChestDrops(() => 0, eligible)).toHaveLength(CHEST_DROPS.length - 2);
+    campaign.powers.forEach((p) => (p.quantity = campaign.bonusLimit));
+    expect(availableChestDrops(campaign).map((p) => p.id)).toEqual(['coins']);
+    campaign.town.buildings.armory = 1;
+    expect(availableChestDrops(campaign).some((p) => p.id === 'tnt')).toBe(true);
+  });
+  it('identifies where each chest reward is used', () => {
+    for (const drop of CHEST_DROPS)
+      expect(rewardUse(drop)).toBe(
+        ['coins', 'builder-hammer'].includes(drop.id) ? 'Village' : 'Mine',
+      );
+  });
   it('randomizes each visual order while preserving every reward and the weighted catalog', () => {
     const catalog = CHEST_DROPS.map((drop) => ({ ...drop }));
     const first = shuffleChestDrops(() => 0);
@@ -221,7 +244,7 @@ describe('Bounded, saved chest rewards', () => {
     };
     const rewards = campaign.recordVictory(input);
     expect(rewards.map((r) => r.items[0].kind)).toEqual(['coins', 'builder-hammer']);
-    expect(campaign.town.coins).toBe(25);
+    expect(campaign.town.coins).toBe(500);
     expect(campaign.builderHammers).toBe(1);
     const snapshot = saved.get(SAVE_KEY);
     expect(campaign.recordVictory(input)).toEqual([]);
@@ -348,4 +371,26 @@ describe('Continuous play for amusement', () => {
     expect(reset.bonusLimit).toBe(3);
     expect(reset.town.coins).toBe(0);
   });
+});
+
+it('totals chest coin prizes and overflow once without counting inventory items', () => {
+  expect(chestCoinsEarned([])).toBe(0);
+  expect(chestCoinsEarned([{ items: [{ kind: 'power', quantity: 1, overflowCoins: 0 }] }])).toBe(0);
+  expect(
+    chestCoinsEarned([
+      { items: [{ kind: 'coins', quantity: 1500 }] },
+      { items: [{ kind: 'coins', quantity: 1500, overflowCoins: 0 }] },
+    ]),
+  ).toBe(3000);
+  expect(
+    chestCoinsEarned([
+      { items: [{ kind: 'coins', quantity: 10, convertedFrom: 'TNT' }] },
+      {
+        items: [
+          { kind: 'power', quantity: 1, overflowCoins: 20 },
+          { kind: 'builder-hammer', quantity: 1, overflowCoins: 0 },
+        ],
+      },
+    ]),
+  ).toBe(30);
 });

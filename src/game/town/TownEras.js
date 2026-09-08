@@ -1,34 +1,62 @@
+import { RIVER_RAIL_LEVEL_PRICES } from '../../data/economy';
 import { ERAS, ERA_BY_ID, FRONTIER_ERA } from '../../data/eras';
-import { BUILDINGS, BUILDING_BY_ID } from '../../data/town';
+import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
-import { campaignMilestoneReached } from '../../data/campaignMilestones';
+import { INDUSTRIAL_VARIANTS, INDUSTRIAL_LEVEL_PRICES } from '../../data/industrial';
 
 export const eraIndex = (era) => ERAS.findIndex(({ id }) => id === era);
 export const plotInEra = (town, id) => {
   const plot = BUILDING_BY_ID[id];
   return !!plot && eraIndex(plot.introducedEra) <= eraIndex(town.era ?? FRONTIER_ERA);
 };
+export const ERA_BUILDING_LEVELS = 3;
+export const eraBuildingLevel = (town, id) => {
+  if (town.era === 'frontier' || BUILDING_BY_ID[id]?.introducedEra === town.era)
+    return town.buildings[id] ?? 0;
+  return town.buildingEras[id] === town.era ? town.buildingEraLevels?.[id] || 1 : 0;
+};
 export function modernization(town, id) {
-  const building = BUILDING_BY_ID[id];
+  const building = BUILDING_BY_ID[id],
+    level = eraBuildingLevel(town, id);
   if (
     !building ||
-    town.era !== 'river-rail' ||
-    building.introducedEra !== FRONTIER_ERA ||
+    eraIndex(building.introducedEra) >= eraIndex(town.era) ||
     town.buildings[id] !== building.upgrades.length ||
-    town.buildingEras[id] === town.era
+    level >= ERA_BUILDING_LEVELS
   )
     return null;
-  const [name, description] = RIVER_RAIL_VARIANTS[building.kind];
+  const variant = (town.era === 'industrial' ? INDUSTRIAL_VARIANTS : RIVER_RAIL_VARIANTS)[
+    building.kind
+  ];
+  if (!variant) return null;
+  const [name, description] = variant;
   return {
     type: 'modernization',
     targetEra: town.era,
-    stage: town.buildings[id],
-    cost: 300,
+    eraLevel: level + 1,
+    stage: town.buildings[id] + level,
+    cost: (town.era === 'industrial' ? INDUSTRIAL_LEVEL_PRICES : RIVER_RAIL_LEVEL_PRICES)[level],
     runs: 2,
     name,
-    description,
-    title: 'Modernize {building} → {name}',
-    benefit: 'Visual modernization. Existing services stay unchanged.',
+    description:
+      level === 0
+        ? description
+        : town.era === 'industrial'
+          ? level === 1
+            ? 'Add a substantial service wing and sheltered entrance.'
+            : 'Complete the landmark with its final civic and utility structures.'
+          : level === 1
+            ? 'Add a substantial extension and a covered veranda.'
+            : 'Complete the landmark with a clock tower and ornamental roof.',
+    title:
+      town.era === 'industrial'
+        ? 'Industrial level {level}: {name}'
+        : 'River & Rail level {level}: {name}',
+    requiresPower: town.era === 'industrial' && id !== 'railDepot',
+    benefit:
+      town.era === 'industrial' && id === 'well' && level === 2
+        ? 'Adds water for twenty people when finished. Existing water stays available during work.'
+        : 'Visual modernization. Existing services stay unchanged.',
   };
 }
 export function isEraComplete(town) {
@@ -36,23 +64,22 @@ export function isEraComplete(town) {
     (b) =>
       town.buildings[b.id] === b.upgrades.length &&
       !town.projects[b.id] &&
-      (b.introducedEra === town.era || town.buildingEras[b.id] === town.era),
+      (town.era === 'frontier' || eraBuildingLevel(town, b.id) === ERA_BUILDING_LEVELS),
   );
 }
-export function eraGate(town, records) {
+export function eraGate(town) {
   const next = ERAS[eraIndex(town.era) + 1];
   const townComplete = isEraComplete(town);
-  const campaignComplete =
-    !!next && campaignMilestoneReached(records, next.requiredCampaignMilestone);
+  const pendingRaid = !!town.events[BANDIT_EVENT] && !town.events[BANDIT_EVENT].seen;
   return {
     next,
     townComplete,
-    campaignComplete,
-    available: !!next?.enabled && townComplete && campaignComplete && !town.transition?.pending,
+    pendingRaid,
+    available: !!next?.enabled && townComplete && !pendingRaid && !town.transition?.pending,
   };
 }
-export function advanceEra(town, records, expectedEra) {
-  const gate = eraGate(town, records);
+export function advanceEra(town, expectedEra) {
+  const gate = eraGate(town);
   if (town.era !== expectedEra || !gate.available) return null;
   return {
     ...town,
@@ -61,7 +88,6 @@ export function advanceEra(town, records, expectedEra) {
       id: `${expectedEra}:${gate.next.id}`,
       from: expectedEra,
       to: gate.next.id,
-      milestone: gate.next.requiredCampaignMilestone,
       pending: true,
     },
   };
@@ -71,23 +97,32 @@ export function normalizeEraState(town, saved) {
   for (const id of Object.keys(town.buildings)) {
     const era = saved?.buildingEras?.[id];
     if (ERA_BY_ID[era]?.enabled && eraIndex(era) <= eraIndex(town.era)) town.buildingEras[id] = era;
+    const level = saved?.buildingEraLevels?.[id];
+    town.buildingEraLevels[id] =
+      town.buildingEras[id] !== 'frontier'
+        ? Number.isInteger(level) && level >= 1 && level <= ERA_BUILDING_LEVELS
+          ? level
+          : 1
+        : 0;
   }
   const receipt = saved?.transition;
   if (
-    receipt?.id === 'frontier:river-rail' &&
-    receipt.from === FRONTIER_ERA &&
+    receipt &&
+    receipt.id === `${receipt.from}:${receipt.to}` &&
+    ERA_BY_ID[receipt.from]?.enabled &&
+    eraIndex(receipt.to) === eraIndex(receipt.from) + 1 &&
     receipt.to === town.era &&
-    receipt.to === 'river-rail'
+    ERA_BY_ID[receipt.to]?.enabled
   ) {
     town.transition = {
       id: receipt.id,
       from: receipt.from,
       to: receipt.to,
-      milestone: ERA_BY_ID[receipt.to].requiredCampaignMilestone,
       pending: receipt.pending === true,
     };
   }
-  if (saved?.eraTransitionSeen?.['river-rail'] === true)
-    town.eraTransitionSeen['river-rail'] = true;
+  for (const era of ERAS.filter((era) => era.enabled && eraIndex(era.id) <= eraIndex(town.era)))
+    if (saved?.eraTransitionSeen?.[era.id] === true) town.eraTransitionSeen[era.id] = true;
+  town.firstLightsSeen = saved?.firstLightsSeen === true && town.buildings.powerHouse > 0;
   return town;
 }

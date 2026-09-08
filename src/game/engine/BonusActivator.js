@@ -39,13 +39,20 @@ export class BonusActivator {
     return this.activate(clonedBoard, cols, rows, swap) ?? [];
   }
 
-  activate(board, cols, rows, swap, fusion = getBonusFusion(board, cols, rows, swap)) {
+  activate(
+    board,
+    cols,
+    rows,
+    swap,
+    fusion = getBonusFusion(board, cols, rows, swap),
+    swapGems = null,
+  ) {
     if (!swap) {
       return [];
     }
 
-    const a = board[swap.aIndex];
-    const b = board[swap.bIndex];
+    // A match may already have cleared or transformed the rainbow's chosen color.
+    const { a, b } = swapGems ?? { a: board[swap.aIndex], b: board[swap.bIndex] };
 
     const allCleared = new Set();
     const queue = [];

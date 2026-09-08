@@ -6,11 +6,21 @@
         <h2 id="building-title">{{ t(building.name) }}</h2>
       </div>
       <span class="town-level-badge">{{
-        t('Level {level} / {max}', { level: stage, max: building.upgrades.length })
+        t(
+          town.era === 'industrial'
+            ? 'Industrial · Level {level} of {max}'
+            : town.era !== 'frontier'
+              ? 'River & Rail · Level {level} of {max}'
+              : 'Level {level} / {max}',
+          {
+            level: eraBuildingLevel(town, id),
+            max: town.era !== 'frontier' ? 3 : building.upgrades.length,
+          },
+        )
       }}</span>
     </div>
     <div class="town-building-preview" :style="{ '--building-tint': building.color }">
-      <svg viewBox="-160 -200 320 245" aria-hidden="true">
+      <svg viewBox="-160 -230 320 275" aria-hidden="true">
         <ellipse cy="9" rx="133" ry="26" fill="#a79d7040" />
         <TownSite
           v-if="project"
@@ -18,12 +28,14 @@
           :stage="stage"
           :wins="constructionVisual(project)"
           :era="town.buildingEras[id]"
+          :era-level="town.buildingEraLevels[id] || stage"
         />
         <TownBuilding
           v-else
           :id="id"
           :stage="offer && offer.type !== 'modernization' ? stage + 1 : stage"
           :era="offer?.targetEra ?? town.buildingEras[id]"
+          :era-level="offer?.eraLevel ?? (offer ? stage + 1 : town.buildingEraLevels[id] || stage)"
         />
       </svg>
       <small>{{
@@ -36,8 +48,8 @@
       </h3>
       <p>
         {{
-          t('{wins}/{required} puzzles completed', {
-            wins: project.wins,
+          t('Construction: {wins} of {required} mining runs completed', {
+            wins: Math.min(project.wins, constructionRuns(project)),
             required: constructionRuns(project),
           })
         }}
@@ -59,9 +71,20 @@
           )
         }}
       </p>
+      <p>
+        {{
+          t(
+            'When construction is ready, tap its hammer icon in the town or use Finish construction on this card to open the building.',
+          )
+        }}
+      </p>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
-      <h3>{{ t(offer.title, { building: t(building.name), name: t(offer.name) }) }}</h3>
+      <h3>
+        {{
+          t(offer.title, { building: t(building.name), name: t(offer.name), level: offer.eraLevel })
+        }}
+      </h3>
       <p>{{ t(offer.benefit) }}</p>
       <p v-if="offer.description">{{ t(offer.description) }}</p>
       <button
@@ -108,6 +131,27 @@
     <p v-else class="town-restored-note">
       <TownIcon name="check" />{{ t(building.upgrades.at(-1).benefit) }}
     </p>
+    <p
+      v-if="
+        id === 'well' &&
+        town.buildingEras.well === 'industrial' &&
+        town.buildingEraLevels.well === 3
+      "
+      class="town-service"
+    >
+      {{ t('Municipal waterworks complete: twenty additional water places for the town.') }}
+    </p>
+    <p v-if="stage && ['saloon', 'blacksmith'].includes(id)" class="town-service">
+      {{
+        cooldownSeconds
+          ? t('Collect again in {seconds}s. Production and accumulation continue.', {
+              seconds: cooldownSeconds,
+            })
+          : t(
+              'After collecting, wait 30 seconds before collecting again. Tap again during this time to open the building card. Production and accumulation continue.',
+            )
+      }}
+    </p>
     <section v-if="id === 'blacksmith' && stage" class="town-service">
       <h3>{{ t('Forge Charge: {count}/1', { count: town.forge.charge }) }}</h3>
       <p>
@@ -121,19 +165,17 @@
       <p>
         {{
           t(
-            'The blacksmith holds one TNT. Collect it to restart production. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.',
+            'The blacksmith holds one TNT. Tap the blacksmith or its TNT icon in the town to collect it and restart production. Opening this card does not collect it. Upgrades shorten the cycle and keep your progress. If your armory is full, it waits here.',
           )
         }}
       </p>
     </section>
     <section v-if="id === 'saloon' && stage" class="town-service">
-      <button v-if="town.income.stored" class="town-primary" @click="$emit('collect-income')">
-        <TownIcon name="coin" />{{ t('Collect {coins} coins', { coins: town.income.stored }) }}
-      </button>
+      <h3>{{ t('Stored earnings: {coins} coins', { coins: town.income.stored }) }}</h3>
       <p>
         {{
           t(
-            'Earnings stay in the saloon until you tap it to collect. Storage holds up to eight hours of income.',
+            'Tap the saloon or its coin icon in the town to collect stored earnings. Opening this card does not collect them. Storage holds up to eight hours of income.',
           )
         }}
       </p>
@@ -143,7 +185,7 @@
           t('{residents} residents + {visitors} visitors · Happiness bonus: {bonus}%', {
             residents: residentPopulation(town),
             visitors: visitorPopulation(town),
-            bonus: happiness(town),
+            bonus: saloonHappinessBonus(town),
           })
         }}
       </p>
@@ -164,16 +206,53 @@
       <small>{{ t('Visitor capacity: {count}', { count: visitorCapacity(town) }) }}</small>
     </section>
     <section v-if="id === 'square'" class="town-service">
+      <div class="town-era-service">
+        <h3>{{ t('The next era begins here') }}</h3>
+        <p>
+          {{
+            t(
+              'Complete every building in this era, then tap the compass at the town center to begin the next chapter. No mine progress is required.',
+            )
+          }}
+        </p>
+        <p v-if="eraGate(town).pendingRaid">
+          {{ t('Finish the current raid before beginning a new era.') }}
+        </p>
+        <button v-if="eraGate(town).available" class="town-primary" @click="$emit('advance-era')">
+          <img src="/art/rewards/era-compass.svg" width="28" height="28" alt="" />
+          {{ t('Advance to the next era') }}
+        </button>
+        <p v-else-if="eraGate(town).townComplete && !eraGate(town).next?.enabled">
+          {{ t('This era is complete. More chapters of Prospect Hollow are still to come.') }}
+        </p>
+      </div>
       <h3>{{ t('Happiness: {value}%', { value: happiness(town) }) }}</h3>
       <p>
         {{
           t(
-            'Food and water contribute up to 40 points. Each square level adds 8, and each museum and saloon level adds 2. The school adds up to 5 points. Happiness boosts saloon income by the same percentage.',
+            'Food and water contribute up to 40 happiness points. Each square level adds 8 and each saloon level adds 2. The museum adds up to 10 and the school up to 5. Each happiness point boosts saloon income by 1.25%.',
           )
         }}
       </p>
+      <p>
+        {{
+          t(
+            'At level 4, the town square gains a warning bell. During a raid, tap the square, its bell icon, or the raid bell button to halve the remaining coin loss. The bell works once per raid and is only needed when coins are at risk.',
+          )
+        }}
+      </p>
+      <button v-if="canRingTownBell(town)" class="town-primary" @click="$emit('ring-bell')">
+        <TownIcon name="bell" />{{ t('Ring town bell · halve the loss') }}
+      </button>
     </section>
     <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
+      <p v-if="id === 'sheriff'">
+        {{
+          t(
+            'Stop a raid completely with the sheriff and bank to earn 10 coins per captured bandit. The bounty is paid once when the raid ends. An empty wallet alone does not earn a bounty.',
+          )
+        }}
+      </p>
       <h3>{{ t('Keep pace with the town') }}</h3>
       <p>
         {{
@@ -185,7 +264,7 @@
       </p>
       <small>{{
         t(
-          'The bank and sheriff each protect up to half the coins at risk. Upgrade both as gangs grow for full protection. Your last 50 coins are always safe.',
+          'The bank and sheriff each protect up to half the coins at risk. At level 5, both together stop all raid losses. Finish their construction during a raid to apply the new protection immediately. Your last 50 coins are always safe.',
         )
       }}</small>
     </section>
@@ -217,6 +296,7 @@
 import { computed } from 'vue';
 import { t } from '../../i18n';
 import { BUILDING_BY_ID } from '../../data/town';
+import { eraGate, eraBuildingLevel } from '../../game/town/TownEras';
 import { forgeProductionRuns } from '../../data/eras';
 import {
   upgradeOffer,
@@ -226,12 +306,15 @@ import {
   plotUnlocked,
   plotRequirement,
   saloonIncomeRate,
+  saloonHappinessBonus,
   residentPopulation,
   visitorPopulation,
   visitorCapacity,
   happiness,
   gangSize,
   raidProtection,
+  canRingTownBell,
+  collectionCooldownRemaining,
 } from '../../game/town/TownRules';
 import TownBuilding from './TownBuilding.vue';
 import TownShop from './TownShop.vue';
@@ -244,8 +327,12 @@ const props = defineProps({
   bonusLimit: Number,
   powers: Array,
   lastIncome: Number,
+  now: { type: Number, default: Date.now },
 });
-defineEmits(['build', 'hammer', 'finish', 'collect-income', 'select', 'museum', 'mine']);
+defineEmits(['build', 'hammer', 'finish', 'ring-bell', 'advance-era', 'select', 'museum', 'mine']);
+const cooldownSeconds = computed(() =>
+  Math.ceil(collectionCooldownRemaining(props.town, props.id, props.now) / 1000),
+);
 const building = computed(() => BUILDING_BY_ID[props.id]);
 const requirement = computed(() => plotRequirement(props.town, props.id));
 const stage = computed(() => props.town.buildings[props.id]);

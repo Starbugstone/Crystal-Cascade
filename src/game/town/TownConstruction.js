@@ -7,6 +7,8 @@ export class TownConstruction {
     this.group = group;
     this.rotor = rotor;
     this.start = view.elapsed;
+    this.lastTime = view.elapsed;
+    this.elapsed = 0;
     this.pieces = [];
     group.traverse((object) => {
       if (object.isMesh)
@@ -28,7 +30,10 @@ export class TownConstruction {
     this.update(this.start);
   }
   update(time) {
-    const elapsed = Math.max(0, time - this.start);
+    // A slow frame must not jump over the hammer strike and the entire roof reveal.
+    this.elapsed += Math.min(0.05, Math.max(0, time - this.lastTime));
+    this.lastTime = time;
+    const elapsed = this.elapsed;
     for (const { object, y, visible, delay } of this.pieces) {
       const progress = clamp((elapsed - delay) / 0.3);
       object.visible = visible && elapsed >= delay;

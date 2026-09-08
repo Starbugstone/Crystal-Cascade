@@ -66,7 +66,7 @@ it.each([
     expect(c.markRaidSeen(1)).toBe(true);
     expect(c.markRaidSeen(1)).toBe(false);
     setActivePinia(createPinia());
-    expect(useCampaignStore().town.coins).toBe(600);
+    expect(useCampaignStore().town.coins).toBe(620);
   },
 );
 it('does not change a finished raid when defenses are completed later or the raid is replayed', () => {

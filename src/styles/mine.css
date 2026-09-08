@@ -204,3 +204,32 @@
   --mine-timber: #736044;
   --mine-accent: #d1b87c;
 }
+.is-playing[data-mine-theme='workshop'],
+.is-playing[data-mine-theme='brickworks'] {
+  --mine-dark: #272329;
+  --mine-haze: #4d3833;
+  --mine-rock: #674d45;
+  --mine-edge: #ad8d74;
+  --mine-timber: #6c6056;
+  --mine-accent: #e8bd82;
+}
+.is-playing[data-mine-theme='copper'],
+.is-playing[data-mine-theme='signals'] {
+  --mine-dark: #232a2a;
+  --mine-haze: #384b45;
+  --mine-rock: #566557;
+  --mine-edge: #a3ae87;
+  --mine-timber: #826b57;
+  --mine-accent: #e8b887;
+}
+.is-playing[data-mine-theme='electric'],
+.is-playing[data-mine-theme='waterworks'],
+.is-playing[data-mine-theme='dynamo'],
+.is-playing[data-mine-theme='illuminated'] {
+  --mine-dark: #192c32;
+  --mine-haze: #2e4e53;
+  --mine-rock: #42646a;
+  --mine-edge: #87ada5;
+  --mine-timber: #5b7970;
+  --mine-accent: #f2d693;
+}

@@ -47,7 +47,8 @@
       </div>
       <CoinReward
         :level-id="levelId"
-        :coins="coins"
+        :coins="coins + chestCoins"
+        :chest-coins="chestCoins"
         :jewels="jewels"
         :bonus-gems="bonusGems"
         :combo-counts="comboCounts"
@@ -120,6 +121,7 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
 import RewardChest from './RewardChest.vue';
 import CoinReward from './CoinReward.vue';
+import { chestCoinsEarned } from '../data/rewards';
 import { getStars, formatTime } from '../data/campaign';
 const props = defineProps({
   levelId: { type: Number, default: 1 },
@@ -173,6 +175,7 @@ const nextChest = () => {
     focusAction();
   } else showResults();
 };
+const chestCoins = computed(() => chestCoinsEarned(props.rewards));
 const earnedStars = computed(() => getStars(props.score, props.scoreTarget, props.maxCombo));
 const goalText = (source) => {
   const reward = props.rewards.find((r) => r.source === source);

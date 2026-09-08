@@ -19,11 +19,14 @@ import { advanceEra } from '../game/town/TownEras';
 import {
   normalizeTown,
   settleSaloonIncome,
+  collectionCooldownRemaining,
+  raidBounty,
   miningPayout,
   purchase,
   banditEncounter,
   scheduleRaid,
   reinforceRaid,
+  ringTownBell,
   advanceConstruction,
   advanceForge,
   settleForgeProduction,
@@ -187,10 +190,13 @@ export const useCampaignStore = defineStore('campaign', {
       return chapters;
     },
     bonusLimit: (state) => bonusCapacity(state.town),
-    canCollectForge: (state) =>
-      state.town.buildings.blacksmith > 0 &&
-      state.town.forge.charge === 1 &&
-      state.powers.find((power) => power.id === 'tnt').quantity < bonusCapacity(state.town),
+    canCollectForge:
+      (state) =>
+      (now = Date.now()) =>
+        state.town.buildings.blacksmith > 0 &&
+        state.town.forge.charge === 1 &&
+        state.powers.find((power) => power.id === 'tnt').quantity < bonusCapacity(state.town) &&
+        !collectionCooldownRemaining(state.town, 'blacksmith', now),
     canReplay: (state) => state.town.buildings.museum > 0,
     nextLevel(state) {
       for (let id = 1; id <= LEVEL_COUNT; id++) if (!state.records[id]) return id;
@@ -201,9 +207,22 @@ export const useCampaignStore = defineStore('campaign', {
       Object.values(state.records).reduce((sum, record) => sum + record.stars, 0),
   },
   actions: {
+    acknowledgeFirstLights() {
+      if (
+        this.town.era !== 'industrial' ||
+        !this.town.buildings.powerHouse ||
+        this.town.firstLightsSeen
+      )
+        return false;
+      const previous = this.town;
+      this.town = { ...previous, firstLightsSeen: true };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
+    },
     advanceEra(expectedEra) {
       if (this.activeRun) return false;
-      const next = advanceEra(this.town, this.records, expectedEra);
+      const next = advanceEra(this.town, expectedEra);
       if (!next) return false;
       const previous = this.town;
       this.town = next;
@@ -213,9 +232,15 @@ export const useCampaignStore = defineStore('campaign', {
     },
     acknowledgeEra() {
       if (!this.town.transition?.pending) return;
-      this.town.transition.pending = false;
-      this.town.eraTransitionSeen[this.town.era] = true;
-      this.save();
+      const previous = this.town;
+      this.town = {
+        ...previous,
+        transition: { ...previous.transition, pending: false },
+        eraTransitionSeen: { ...previous.eraTransitionSeen, [previous.era]: true },
+      };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
     },
     canPlay(id, mode = 'normal') {
       return (
@@ -248,15 +273,20 @@ export const useCampaignStore = defineStore('campaign', {
         : 'Your progress is not saving. Keep this page open to continue.';
       return saved;
     },
-    collectForgeTNT() {
-      if (this.activeRun || !this.canCollectForge) return false;
+    collectForgeTNT(now = Date.now()) {
+      if (!Number.isSafeInteger(now) || now < 0 || this.activeRun || !this.canCollectForge(now))
+        return false;
       const slot = this.powers.find((power) => power.id === 'tnt');
-      const previousForge = this.town.forge;
-      this.town.forge = { progress: 0, charge: 0 };
+      const previous = this.town;
+      this.town = {
+        ...previous,
+        forge: { progress: 0, charge: 0 },
+        lastCollections: { ...previous.lastCollections, blacksmith: now },
+      };
       slot.quantity++;
       if (this.save()) return true;
       slot.quantity--;
-      this.town.forge = previousForge;
+      this.town = previous;
       return false;
     },
     beginRun(mode = 'normal', id = null) {
@@ -312,16 +342,34 @@ export const useCampaignStore = defineStore('campaign', {
       return result.earned;
     },
     collectSaloonIncome(now = Date.now()) {
-      if (!this.town.buildings.saloon) return 0;
+      if (!Number.isSafeInteger(now) || now < 0 || !this.town.buildings.saloon) return 0;
       this.accrueSaloonIncome(now, false);
+      if (collectionCooldownRemaining(this.town, 'saloon', now)) {
+        this.save();
+        return 0;
+      }
       const coins = Math.min(
         this.town.income.stored ?? 0,
         Number.MAX_SAFE_INTEGER - this.town.coins,
       );
-      this.town.income.stored = (this.town.income.stored ?? 0) - coins;
-      this.town.coins += coins;
+      if (!coins) {
+        this.save();
+        return 0;
+      }
+      const previous = this.town;
+      const previousIncome = this.lastSaloonIncome;
+      this.town = {
+        ...previous,
+        income: { ...previous.income, stored: previous.income.stored - coins },
+        coins: previous.coins + coins,
+        lastCollections: { ...previous.lastCollections, saloon: now },
+      };
       this.lastSaloonIncome = coins;
-      this.save();
+      if (!this.save()) {
+        this.town = previous;
+        this.lastSaloonIncome = previousIncome;
+        return 0;
+      }
       return coins;
     },
     upgradeBuilding(id, expectedStage) {
@@ -393,12 +441,30 @@ export const useCampaignStore = defineStore('campaign', {
       }
       return !!next;
     },
+    ringTownBell(raidId) {
+      const previous = this.town;
+      const next = ringTownBell(previous, raidId);
+      if (!next) return false;
+      this.town = next;
+      if (!this.save()) {
+        this.town = previous;
+        return false;
+      }
+      return true;
+    },
     markRaidSeen(id) {
       const event = this.town.events[BANDIT_EVENT];
       if (!event || event.id !== id || event.seen) return false;
-      event.seen = true;
-      this.save();
-      return true;
+      const previous = this.town;
+      const bounty = Math.min(raidBounty(event), Number.MAX_SAFE_INTEGER - previous.coins);
+      this.town = {
+        ...previous,
+        coins: previous.coins + bounty,
+        events: { ...previous.events, [BANDIT_EVENT]: { ...event, seen: true, bounty } },
+      };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
     },
     ensureShopStock(refresh = false) {
       if (!this.town.buildings.shop) return;

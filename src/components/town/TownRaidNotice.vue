@@ -31,15 +31,31 @@
     </strong>
     <h2>
       {{
-        t(defended ? 'VILLAGE DEFENDED!' : 'Bandits stole {coins} coins!', { coins: number(coins) })
+        t(
+          defended
+            ? 'VILLAGE DEFENDED!'
+            : kind === 'workshop-fire'
+              ? 'Workshop cleanup: {coins} coins'
+              : kind === 'cargo-theft'
+                ? 'Cargo thieves took {coins} coins!'
+                : 'Bandits stole {coins} coins!',
+          { coins: number(coins) },
+        )
       }}
     </h2>
+    <p v-if="bounty" class="raid-bounty">
+      {{ t('Capture bounty: +{coins} coins', { coins: number(bounty) }) }}
+    </p>
     <p>
       {{
         t(
-          defended
-            ? 'Your sheriff and bank kept every coin safe.'
-            : 'Build and upgrade the sheriff’s department and bank to protect your savings.',
+          kind === 'workshop-fire'
+            ? defended
+              ? 'The fire brigade kept every coin safe. All buildings remain open.'
+              : 'Upgrade the fire station to reduce cleanup costs. Every building is intact.'
+            : defended
+              ? 'Your sheriff and bank kept every coin safe.'
+              : 'Build and upgrade the sheriff’s department and bank to protect your savings.',
         )
       }}
     </p>
@@ -49,7 +65,13 @@
 import { onMounted, onBeforeUnmount } from 'vue';
 import { t, number } from '../../i18n';
 import TownIcon from './TownIcon.vue';
-defineProps({ coins: { type: Number, default: 0 }, defended: Boolean, reducedMotion: Boolean });
+defineProps({
+  kind: { type: String, default: 'bandits' },
+  bounty: { type: Number, default: 0 },
+  coins: { type: Number, default: 0 },
+  defended: Boolean,
+  reducedMotion: Boolean,
+});
 const emit = defineEmits(['close']);
 let timeout;
 onMounted(() => {
@@ -104,6 +126,12 @@ onBeforeUnmount(() => clearTimeout(timeout));
   margin: 10px 0 8px;
   font-size: 18px;
   color: #ffe7c0;
+}
+.town-raid-notice .raid-bounty {
+  color: #ffdc7d;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
 }
 .town-raid-notice p {
   margin: 0;

@@ -110,7 +110,7 @@
       </div>
     </section>
     <footer class="landing-footer">
-      <span>CRYSTAL CASCADE</span
+      <span>PROSPECT HOLLOW</span
       ><span>{{ t(campaign.saveWarning || 'Your adventure is saved on this device.') }}</span>
     </footer>
   </main>

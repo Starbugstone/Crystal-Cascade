@@ -40,14 +40,23 @@ export function groundHeight(x, z) {
     (height, [hx, hz, rise]) => height + rise * Math.exp(-((x - hx) ** 2 + (z - hz) ** 2) / 440),
     0,
   );
-  const eastClearing = Math.hypot(Math.max(37 - x, 0, x - 47), Math.max(-9 - z, 0, z - 25));
+  const eastClearing = Math.hypot(Math.max(37 - x, 0, x - 54), Math.max(-9 - z, 0, z - 25));
   const prairie = smooth(34, 49, distance) * smooth(0, 7, eastClearing) * (hills + ridges);
   const bank = riverDistance(x, z);
   // Lower the surrounding hills gradually so the shallow bank never becomes a cliff.
   const valley = prairie * smooth(RIVER.bankWidth, RIVER.bankWidth + 18, bank);
-  return THREE.MathUtils.lerp(-1.25, valley, smooth(RIVER.halfWidth - 0.4, RIVER.bankWidth, bank));
+  const surface = THREE.MathUtils.lerp(
+    -1.25,
+    valley,
+    smooth(RIVER.halfWidth - 0.4, RIVER.bankWidth, bank),
+  );
+  // A graded railway cutting clears the entire train, not just the engine's center.
+  // Preserve the river bed below the bridge instead of filling the water with an embankment.
+  const cutting = 1 - smooth(1.6, 6, Math.abs(z - RAIL_EDGE.from[1]));
+  return THREE.MathUtils.lerp(surface, Math.min(surface, 0), cutting);
 }
 const reservedGround = (x, z) =>
+  (Math.abs(x) < 4.7 && z > PLOTS.mine[1] + 2 && z < -8) ||
   Object.values(PLOTS).some(([px, pz]) => Math.hypot(x - px, z - pz) < 4.5) ||
   segmentDistance(x, z, RAIL_EDGE.from, RAIL_EDGE.to) < 2;
 

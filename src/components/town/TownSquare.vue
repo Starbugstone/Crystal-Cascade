@@ -11,6 +11,11 @@
       <path d="m-102-30 30-13v8l-30 13Zm175-13 30 13v8L73-35Z" />
       <path d="m-100-22 1 9m26-20 1 9m3-9-1 9m27 2-1 9" fill="none" />
     </g>
+    <g v-if="stage >= 4" transform="translate(54 -64)">
+      <path d="M-17 0v-66h34V0M-22-66h44" fill="none" stroke="#94744f" stroke-width="5" />
+      <image href="/art/rewards/town-bell.svg" x="-18" y="-63" width="36" height="36" />
+      <path d="M0-34v24" stroke="#cdb58b" stroke-width="2" />
+    </g>
     <g class="town-fountain">
       <ellipse cy="-26" rx="34" ry="16" fill="#aaa58f" />
       <path d="M-30-34v9c0 18 60 18 60 0v-9" fill="#d2c9ad" stroke="#aaa58f" stroke-width="2" />

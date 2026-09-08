@@ -33,13 +33,16 @@ it('assembles from the ground up in one second and restores meshes for static re
   expect(group.userData).toMatchObject({ animated: true, static: false });
   expect(rotor.visible).toBe(false);
   expect(roof.visible).toBe(false);
+  for (let t = 4.01; t < 4.35; t += 0.01) construction.update(t);
   expect(construction.update(4.35)).toBe(false);
   expect(foundation.position.y).toBe(0);
   expect(roof.visible).toBe(false);
+  for (let t = 4.36; t < 4.6; t += 0.01) construction.update(t);
   expect(construction.update(4.6)).toBe(false);
   expect(roof.visible).toBe(true);
   expect(roof.position.y).toBeGreaterThan(3);
-  expect(construction.update(5)).toBe(true);
+  for (let t = 4.61; t < 5.01; t += 0.01) construction.update(t);
+  expect(construction.update(5.02)).toBe(true);
   construction.finish();
   expect(roof.position.y).toBe(3);
   expect(hidden.visible).toBe(false);
@@ -48,6 +51,8 @@ it('assembles from the ground up in one second and restores meshes for static re
   expect(group.userData).toMatchObject({ animated: false, static: true });
   // A reduced-motion switch or scene rebuild can also end the effect early.
   const interrupted = new TownConstruction(view, group, rotor);
+  expect(interrupted.update(12)).toBe(false);
+  expect(roof.visible).toBe(false);
   interrupted.finish();
   expect(roof.position.y).toBe(3);
   expect(roof.visible).toBe(true);

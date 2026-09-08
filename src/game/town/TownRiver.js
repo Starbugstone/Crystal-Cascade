@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 
-export const RIVER = Object.freeze({ halfWidth: 1.8, bankWidth: 3.4, waterHeight: -0.45 });
+export const RIVER = Object.freeze({ halfWidth: 3.2, bankWidth: 4.6, waterHeight: -0.45 });
 export const riverCenterX = (z) => 30.5 + Math.sin(z * 0.055) + Math.sin(z * 0.14) * 0.45;
+export const bridgeDeckHeight = (x, z = 7.5) => {
+  const p = Math.max(0, Math.min(1, (7 - Math.abs(x - riverCenterX(z))) / 3.2));
+  return 0.18 + 2.5 * p * p * (3 - 2 * p);
+};
 export const riverDistance = (x, z) => Math.abs(x - riverCenterX(z));
 export const wetBank = (x, z, margin = 0) => riverDistance(x, z) < RIVER.bankWidth + margin;
 export const riverPath = (from = -130, to = 130, step = 1) =>

@@ -12,7 +12,7 @@ export const PLOTS = {
   sheriff: [0, 11],
   museum: [-7, 12],
   armory: [7, 12],
-  mine: [0, -13],
+  mine: [0, -20],
   bank: [-7, -12],
   shop: [7, -12],
   home2: [-15, -4],
@@ -21,18 +21,22 @@ export const PLOTS = {
   well2: [7, 20],
   farm2: [15, -4],
   farm3: [15, 4],
-  fisherman: [24, 12],
+  fisherman: [22, 12],
   blacksmith: [-15, 12],
   school: [-15, -12],
   doctor: [15, 12],
   bridge: [riverCenterX(7.5), 7.5],
-  riverPort: [23, -4],
+  riverPort: [21, -4],
   railDepot: [-15, -20],
   post: [15, -12],
   warehouse: [42, -4],
   hotel: [42, 4],
   home5: [42, 12],
   market: [42, 20],
+  powerHouse: [15, -20],
+  fireStation: [-15, 20],
+  rowHouses: [50, 12],
+  mill: [50, -4],
 };
 export const PLOT_METADATA = Object.fromEntries(
   Object.entries(PLOTS).map(([id, position]) => [
@@ -72,6 +76,7 @@ const road = (from, to, width = 0.85, plot = null) => ({
   modes: ['pedestrian', 'horse', 'wagon'],
 });
 export const TOWN_TRACKS = [
+  road([-LANE_X, -15.5], [LANE_X, -15.5]),
   ...[-LANE_X, LANE_X].map((x) => road([x, -18], [x, 27], 1.05)),
   ...[-8.5, -0.5, 7.5, 15.5, 23.5].map((z) =>
     road([z === -0.5 || z === 7.5 ? -19 : -11, z], [z === -0.5 || z === 7.5 ? 19 : 11, z]),
@@ -84,6 +89,8 @@ export const TOWN_TRACKS = [
   road([11, -8.5], [15, -8.5], 0.85, 'post'),
   road([19, -0.5], [23, -0.5], 0.85, 'riverPort'),
   road([19, 7.5], [24, 7.5], 0.85, 'bridge'),
+  road([15, -16.5], [LANE_X, -16.5], 0.85, 'powerHouse'),
+  road([-15, 23.5], [-LANE_X, 23.5], 0.85, 'fireStation'),
   ...Object.keys(PLOTS)
     .filter((id) => id !== 'bridge' && PLOTS[id][0] < 35)
     .map((id) => road(atPlot(id, 0, id === 'mine' ? 2.6 : 2), plotStreet(id), 0.75, id)),
@@ -96,8 +103,8 @@ export const CROSSING = {
 };
 export const RAIL_EDGE = {
   id: 'station-railroad',
-  from: [-80, -23],
-  to: [24, -23],
+  from: [-140, -23],
+  to: [140, -23],
   width: 1.1,
   modes: ['train'],
   plot: 'railDepot',
@@ -109,12 +116,17 @@ const EAST_TRACKS = [
     road(atPlot(id, 0, 2), plotStreet(id), 0.75),
   ]),
 ];
+const INDUSTRIAL_TRACKS = ['rowHouses', 'mill'].flatMap((id) => [
+  road([38, plotStreet(id)[1]], plotStreet(id), 0.85, id),
+  road(atPlot(id, 0, 2), plotStreet(id), 0.75, id),
+]);
 export const townTracks = (town) => [
   ...TOWN_TRACKS.filter(({ plot }) => !plot || plot === 'mine' || plotUnlocked(town, plot)),
-  ...(town.era === 'river-rail' && town.buildings.bridge ? [CROSSING, ...EAST_TRACKS] : []),
+  ...(town.era !== 'frontier' && town.buildings.bridge ? [CROSSING, ...EAST_TRACKS] : []),
+  ...INDUSTRIAL_TRACKS.filter(({ plot }) => plotUnlocked(town, plot)),
 ];
 export const railEdges = (town) =>
-  town.era === 'river-rail' && town.buildings.railDepot ? [RAIL_EDGE] : [];
+  town.era !== 'frontier' && town.buildings.railDepot ? [RAIL_EDGE] : [];
 
 // Split road intersections into a small deterministic graph. No route may invent a
 // straight-line shortcut through water or a building to reach a newly unlocked district.

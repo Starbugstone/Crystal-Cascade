@@ -281,7 +281,7 @@ describe('Recorded village soundscape', () => {
     },
   );
 
-  it('plays the warning recording only for the visible warning phase and restores village life afterwards', async () => {
+  it('plays gunfire and vocals only on the matching raid cue, then restores village life', async () => {
     const { audio, update } = setup();
     await audio.unlock();
     await flush();
@@ -290,7 +290,19 @@ describe('Recorded village soundscape', () => {
     expect([...audio.sources.keys()]).toEqual(['hooves']);
     update({ raid: '1-Warning shots' });
     await flush();
-    expect([...audio.sources.keys()]).toEqual(['warning']);
+    expect([...audio.sources.keys()]).toEqual([]);
+    await audio.playRaidCue({ raidId: 2, kind: 'bandit-shot' });
+    expect(audio.sources.size).toBe(0);
+    await audio.playRaidCue({ raidId: 1, kind: 'bandit-shot', pan: -0.5 });
+    expect([...audio.sources.keys()]).toEqual(['bandit-shot']);
+    update({ raid: '1-The law holds the line' });
+    await audio.playRaidCue({ raidId: 1, kind: 'yeehaw' });
+    await audio.playRaidCue({ raidId: 1, kind: 'sheriff-shot' });
+    expect([...audio.sources.keys()]).toEqual(['yeehaw', 'sheriff-shot']);
+    update({ paused: true });
+    await audio.playRaidCue({ raidId: 1, kind: 'bandit-shot' });
+    expect(audio.sources.size).toBe(0);
+    update({ paused: false });
     update({ raid: null });
     await flush();
     expect([...audio.sources.keys()]).toEqual(['birds', 'chatter']);

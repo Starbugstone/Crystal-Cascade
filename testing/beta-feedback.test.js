@@ -192,10 +192,10 @@ describe('Roulette receipts', () => {
     setActivePinia(createPinia());
     const reloaded = useCampaignStore();
     expect(reloaded.builderHammers).toBe(1);
-    expect(reloaded.town.coins).toBe(25); // The unopened speed chest falls back to coins.
+    expect(reloaded.town.coins).toBe(500); // The unopened speed chest falls back to coins.
     expect(reloaded.pendingChests).toEqual([]);
     setActivePinia(createPinia());
-    expect(useCampaignStore().town.coins).toBe(25);
+    expect(useCampaignStore().town.coins).toBe(500);
   });
   it('settles skipped chests and converts a tapped full item within the storage rules', () => {
     const campaign = useCampaignStore();
@@ -209,7 +209,7 @@ describe('Roulette receipts', () => {
     expect(campaign.powers[0].quantity).toBe(3);
     expect(campaign.settlePendingChests()).toHaveLength(1);
     expect(campaign.settlePendingChests()).toEqual([]);
-    expect(campaign.town.coins).toBe(35);
+    expect(campaign.town.coins).toBe(510);
   });
   it('guarantees an automatic builder hammer within ten chests and persists the countdown', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.8);
@@ -234,17 +234,21 @@ describe('Roulette receipts', () => {
         pendingChests: [{ id: '1-score', source: 'score', runId: 1, items: [{ id: 'coins' }] }],
       }),
     );
-    expect(useCampaignStore().town.coins).toBe(45);
+    expect(useCampaignStore().town.coins).toBe(520);
     setActivePinia(createPinia());
-    expect(useCampaignStore().town.coins).toBe(45);
+    expect(useCampaignStore().town.coins).toBe(520);
   });
 });
 
 describe('Shop purchases and refresh', () => {
-  it.each([1, 2, 3, 4, 5])('offers level %i stock without exceeding the catalog', (level) => {
+  it.each([
+    [1, 1],
+    [2, 2],
+    [3, 5],
+  ])('offers level %i stock without exceeding the catalog', (level, slots) => {
     const stock = rollShopStock(level, () => 0);
-    expect(stock).toHaveLength(level);
-    expect(new Set(stock.map((item) => item.id)).size).toBe(level);
+    expect(stock).toHaveLength(slots);
+    expect(new Set(stock.map((item) => item.id)).size).toBe(slots);
     expect(stock.every((offer) => SHOP_ITEMS.some((item) => item.id === offer.id))).toBe(true);
   });
   it('requires a shop, funds purchases once, rejects full storage, and preserves stock after reload', () => {
@@ -272,7 +276,7 @@ describe('Shop purchases and refresh', () => {
   });
   it('removes legacy builder hammer offers while preserving purchases and earned hammers', () => {
     let campaign = useCampaignStore();
-    campaign.town.buildings.shop = 5;
+    campaign.town.buildings.shop = 3;
     campaign.town.coins = 300;
     campaign.builderHammers = 2;
     campaign.shopStock = [

@@ -9,6 +9,9 @@ export const VILLAGE_AUDIO = Object.freeze({
   horse: { src: asset('horse'), volume: 0.34 },
   hooves: { src: asset('hooves'), volume: 0.45 },
   warning: { src: asset('warning'), volume: 0.28 },
+  'bandit-shot': { src: asset('bandit-shot'), volume: 0.58 },
+  'sheriff-shot': { src: asset('sheriff-shot'), volume: 0.6 },
+  yeehaw: { src: asset('yeehaw'), volume: 0.75 },
   river: { src: `${import.meta.env.BASE_URL}sound/village/river.wav`, volume: 0.12, loop: true },
   train: { src: `${import.meta.env.BASE_URL}sound/village/train.wav`, volume: 0.1 },
   steamboat: { src: `${import.meta.env.BASE_URL}sound/village/steamboat.wav`, volume: 0.1 },
@@ -130,10 +133,11 @@ export class TownSoundscape {
     } else {
       // Load short, eligible cues ahead of their visible events. Never load music as a buffer.
       for (const kind of villageSounds(state)) this.loadBuffer(kind);
-      if (state.raid) this.loadBuffer('warning');
+      if (state.raid)
+        for (const kind of ['bandit-shot', 'sheriff-shot', 'yeehaw']) this.loadBuffer(kind);
       if (newBuild && !state.raid) this.playConstruction();
       if (raidChanged && state.raid) {
-        this.playLife(String(state.raid).includes('Warning shots') ? 'warning' : 'hooves');
+        if (String(state.raid).includes('Riders on the ridge')) this.playLife('hooves');
       }
       if (!this.lifeTimer) this.scheduleLife();
     }
@@ -186,6 +190,8 @@ export class TownSoundscape {
 
   canPlay(kind) {
     if (!this.running || this.disposed || clamp(this.state.sfxVolume) === 0) return false;
+    if (['bandit-shot', 'sheriff-shot', 'yeehaw'].includes(kind))
+      return !!this.state.raid && !String(this.state.raid).includes('The raid has passed');
     if (kind === 'warning') return String(this.state.raid).includes('Warning shots');
     if (kind === 'building' && this.state.buildCue && !this.state.raid) return true;
     return villageSounds(this.state).includes(kind);
@@ -221,7 +227,18 @@ export class TownSoundscape {
     return pending;
   }
 
-  async playLife(kind) {
+  playRaidCue({ kind, raidId, pan = 0 }) {
+    if (
+      !['bandit-shot', 'sheriff-shot', 'yeehaw'].includes(kind) ||
+      !String(this.state.raid).startsWith(`${raidId}-`)
+    )
+      return;
+    this.pending.delete(kind);
+    this.quietSource(kind);
+    return this.playLife(kind, pan);
+  }
+
+  async playLife(kind, pan = 0) {
     if (!this.canPlay(kind) || this.sources.has(kind) || this.pending.has(kind)) return;
     const request = { generation: this.generation };
     this.pending.set(kind, request);
@@ -239,13 +256,19 @@ export class TownSoundscape {
       this.ctx.currentTime + (source.loop ? 1.8 : 0.015),
     );
     source.connect(gain);
-    gain.connect(this.sfx);
+    const panner = this.ctx.createStereoPanner?.();
+    if (panner) {
+      panner.pan.value = Math.min(1, Math.max(-1, pan));
+      gain.connect(panner);
+      panner.connect(this.sfx);
+    } else gain.connect(this.sfx);
     const voice = { source, gain };
     this.sources.set(kind, voice);
     source.onended = () => {
       if (this.sources.get(kind) === voice) this.sources.delete(kind);
       source.disconnect();
       gain.disconnect();
+      panner?.disconnect();
     };
     // Different start positions keep the two recorded ambience loops from moving in lockstep.
     source.start(0, source.loop ? this.random() * buffer.duration : 0);
