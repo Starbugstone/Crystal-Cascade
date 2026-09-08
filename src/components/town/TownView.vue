@@ -684,15 +684,8 @@ useTownAudio(() => ({
   railDepot: town.value.era === 'river-rail' && town.value.buildings.railDepot > 0,
   riverPort: town.value.era === 'river-rail' && town.value.buildings.riverPort > 0,
   raid: activeRaid.value ? `${activeRaid.value.id}-${raidPhase.value}` : null,
-  paused:
-    !props.active ||
-    paused.value ||
-    settings.isSettingsOpen ||
-    props.mineEntryPending ||
-    museumOpen.value ||
-    !!dialogMode.value ||
-    tourOpen.value ||
-    !!town.value.transition?.pending,
+  // Village panels pause the diorama, but its music and ambience keep playing.
+  paused: !props.active || paused.value || !!town.value.transition?.pending,
 }));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const readyRaidDefenses = computed(() =>
