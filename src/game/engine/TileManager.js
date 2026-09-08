@@ -2,8 +2,10 @@ import { MatchEngine } from './MatchEngine.js';
 import { createGem, randomGemType, GEM_TYPES } from './GemFactory.js';
 import { detectBonusFromMatches } from './MatchPatterns.js';
 import { isAnchored, neighborsOf } from './TileRules.js';
+import { BonusActivator } from './BonusActivator.js';
 
 const matchEngine = new MatchEngine();
+const bonusActivator = new BonusActivator();
 
 export class TileManager {
   getResolution({
@@ -14,6 +16,7 @@ export class TileManager {
     rows,
     bonusesCreated,
     bonusIndices,
+    pendingBonus = null,
     gemTypes = GEM_TYPES,
   }) {
     if (!matches?.length) {
@@ -62,7 +65,7 @@ export class TileManager {
         });
       });
 
-      if (iteration > 0) {
+      if (steps.length > 0) {
         const newBonuses = detectBonusFromMatches(pendingMatches);
         if (newBonuses.length > 0) {
           newBonuses.forEach((bonus) => {
@@ -72,8 +75,8 @@ export class TileManager {
         }
       }
 
-      // Handle bonus from initial swap (iteration 0)
-      if (iteration === 0) {
+      // Only the first step creates and protects bonuses earned by the swap.
+      if (steps.length === 0) {
         const hasBonusArrays = Array.isArray(bonusesCreated) && Array.isArray(bonusIndices);
         if (hasBonusArrays) {
           const loopCount = Math.min(bonusesCreated.length, bonusIndices.length);
@@ -115,7 +118,7 @@ export class TileManager {
         }
       }
 
-      if (!damageTargets.size) {
+      if (!damageTargets.size && !pendingBonus) {
         break;
       }
 
@@ -212,6 +215,24 @@ export class TileManager {
           }
         });
       });
+
+      if (pendingBonus) {
+        // Resolve the direct alignment, then blast the board before anything falls.
+        // Both phases belong to the same cascade tier.
+        steps.push(step);
+        const { swap, fusion, swapGems } = pendingBonus;
+        const indices = bonusActivator.activate(
+          workingBoard,
+          totalCols,
+          totalRows,
+          swap,
+          fusion,
+          swapGems,
+        );
+        pendingMatches = [{ type: 'bonus-activation', indices, ...(fusion ? { fusion } : {}) }];
+        pendingBonus = null;
+        continue;
+      }
 
       this.applyGravity(workingBoard, tiles, totalCols, totalRows, gemTypes, iteration, step);
       steps.push(step);

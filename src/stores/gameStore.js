@@ -800,9 +800,13 @@ export const useGameStore = defineStore('game', {
           rows,
           bonusesCreated: evaluation.bonusesCreated,
           bonusIndices: evaluation.bonusIndices,
+          pendingBonus: evaluation.pendingBonus,
         });
         if (resolution.steps.length && evaluation.bonusSwap) {
-          resolution.steps[0].bonusSwap = evaluation.bonusSwap;
+          const activationStep = resolution.steps.find((step) =>
+            step.matches.some((match) => match.type === 'bonus-activation'),
+          );
+          if (activationStep) activationStep.bonusSwap = evaluation.bonusSwap;
         }
         this._applyScoring(resolution.steps);
 

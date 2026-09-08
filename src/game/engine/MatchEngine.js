@@ -50,9 +50,21 @@ export class MatchEngine {
     [nextBoard[aIndex], nextBoard[bIndex]] = [nextBoard[bIndex], nextBoard[aIndex]];
 
     const swap = { aIndex, bIndex };
-
+    const matches = this.findMatches(nextBoard, cols, rows, tiles);
     const fusion = getBonusFusion(nextBoard, cols, rows, swap);
-    const bonusClear = bonusActivator.activate(nextBoard, cols, rows, swap, fusion);
+    const swapGems = { a: nextBoard[aIndex], b: nextBoard[bIndex] };
+    const usesBonus =
+      bonusActivator.isBonus(swapGems.a.type) || bonusActivator.isBonus(swapGems.b.type);
+    // Keep the swapped pair separate from bonuses caught in the chain reaction.
+    const bonusSwap =
+      bonusActivator.isBonus(swapGems.a.type) && bonusActivator.isBonus(swapGems.b.type)
+        ? [aIndex, bIndex].map((index) => ({ index, type: nextBoard[index].type }))
+        : null;
+    // Remember the original pair before a matched jewel becomes a new bonus.
+    const pendingBonus = matches.length && usesBonus ? { swap, fusion, swapGems } : null;
+    const bonusClear = pendingBonus
+      ? []
+      : bonusActivator.activate(nextBoard, cols, rows, swap, fusion);
     if (bonusClear.length > 0) {
       return {
         matches: [{ type: 'bonus-activation', indices: bonusClear, ...(fusion ? { fusion } : {}) }],
@@ -60,18 +72,11 @@ export class MatchEngine {
         cols,
         rows,
         swap,
-        // Keep the swapped pair separate from bonuses caught in the chain reaction.
-        bonusSwap:
-          bonusActivator.isBonus(nextBoard[aIndex]?.type) &&
-          bonusActivator.isBonus(nextBoard[bIndex]?.type)
-            ? [aIndex, bIndex].map((index) => ({ index, type: nextBoard[index].type }))
-            : null,
+        bonusSwap,
         bonusesCreated: [],
         bonusIndices: [],
       };
     }
-
-    const matches = this.findMatches(nextBoard, cols, rows, tiles);
 
     if (!matches.length) {
       return { matches: [], board, cols, rows, swap: null, bonusesCreated: [], bonusIndices: [] };
@@ -89,15 +94,27 @@ export class MatchEngine {
       });
     }
 
-    return { matches, board: nextBoard, cols, rows, swap, bonusesCreated, bonusIndices };
+    return {
+      matches,
+      board: nextBoard,
+      cols,
+      rows,
+      swap,
+      bonusesCreated,
+      bonusIndices,
+      ...(pendingBonus ? { pendingBonus, bonusSwap } : {}),
+    };
   }
 
   findMatches(board, cols, rows, tiles = []) {
     const matches = [];
     const total = board.length;
 
+    // Bonuses survive passive alignments; only activation can consume them.
     const typeAt = (index) =>
-      board[index]?.type !== 'relic' && !(tiles[index]?.chainHealth > 0)
+      board[index]?.type !== 'relic' &&
+      !bonusActivator.isBonus(board[index]?.type) &&
+      !(tiles[index]?.chainHealth > 0)
         ? board[index]?.type
         : null;
 

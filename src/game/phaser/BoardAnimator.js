@@ -317,15 +317,19 @@ export class BoardAnimator {
         }
       }
       this.drawCells();
+      const reveals = [];
       for (const { index, gem } of step.bonuses ?? []) {
         const oldId = this.indexToGemId[index];
         this.gemSprites.get(oldId)?.destroy();
         this.gemSprites.delete(oldId);
         this.createGem(gem, index);
         this.indexToGemId[index] = gem.id;
-        this.bonuses.created(gem, index);
+        reveals.push(this.bonuses.created(gem, index));
         this.audio?.playBonusAppears?.();
       }
+      // Finish the match's earned-bonus reveal before gravity or the next activation.
+      await Promise.all(reveals);
+      if (generation !== this.generation) return;
       // Drop existing gems and fill empty cells in the same phase.
       const falls = [];
       for (const { from, gem } of step.drops)
@@ -406,21 +410,19 @@ export class BoardAnimator {
     });
   }
 
-  effect(object, config) {
+  async effect(object, config) {
     // Simultaneous special chains have a fixed cosmetic budget.
     if (this.effects.size >= 160) {
       object.destroy();
-      return object;
+      return;
     }
     this.effects.add(object);
     this.fxLayer.add(object);
     const generation = this.generation;
-    this.tween(object, config).then(() => {
-      if (generation !== this.generation) return;
-      object.destroy();
-      this.effects.delete(object);
-    });
-    return object;
+    await this.tween(object, config);
+    if (generation !== this.generation) return;
+    object.destroy();
+    this.effects.delete(object);
   }
 
   ring(p, color, radius) {

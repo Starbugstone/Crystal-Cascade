@@ -1,6 +1,7 @@
 import { MatchEngine } from './MatchEngine.js';
 import { BonusActivator } from './BonusActivator.js';
 import { canSwapGem, neighborsOf } from './TileRules.js';
+import { detectBonusFromMatches } from './MatchPatterns.js';
 const bonusActivator = new BonusActivator();
 
 const SPECIAL = new Set(['bomb', 'cross', 'rainbow']);
@@ -28,7 +29,7 @@ export class HintEngine {
           ? null
           : this.matchEngine.evaluateSwap(board, cols, rows, a, b, tiles);
         if (!usesBonus && !evaluation.matches.length) continue;
-        const createsBonus = !!evaluation?.bonusesCreated.length;
+        let createsBonus = !!evaluation?.bonusesCreated.length;
         let indices = [...new Set(evaluation?.matches.flatMap((match) => match.indices) ?? [a, b])];
         const usesFusion = SPECIAL.has(board[a].type) && SPECIAL.has(board[b].type);
         if (usesFusion) {
@@ -36,7 +37,10 @@ export class HintEngine {
         } else if (usesBonus) {
           const swapped = [...board];
           [swapped[a], swapped[b]] = [swapped[b], swapped[a]];
-          const affected = new Set([a, b]);
+          const matches = this.matchEngine.findMatches(swapped, cols, rows, tiles);
+          createsBonus =
+            detectBonusFromMatches(matches, { swap: { aIndex: a, bIndex: b } }).length > 0;
+          const affected = new Set([a, b, ...matches.flatMap((match) => match.indices)]);
           for (const [index, counterpart] of [
             [a, b],
             [b, a],
