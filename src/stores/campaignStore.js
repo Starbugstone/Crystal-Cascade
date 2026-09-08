@@ -207,6 +207,19 @@ export const useCampaignStore = defineStore('campaign', {
       Object.values(state.records).reduce((sum, record) => sum + record.stars, 0),
   },
   actions: {
+    acknowledgeFirstLights() {
+      if (
+        this.town.era !== 'industrial' ||
+        !this.town.buildings.powerHouse ||
+        this.town.firstLightsSeen
+      )
+        return false;
+      const previous = this.town;
+      this.town = { ...previous, firstLightsSeen: true };
+      if (this.save()) return true;
+      this.town = previous;
+      return false;
+    },
     advanceEra(expectedEra) {
       if (this.activeRun) return false;
       const next = advanceEra(this.town, expectedEra);

@@ -111,7 +111,7 @@
         <path :d="riverOutline(mapPoint)" fill="#6e9d9a" />
         <path :d="riverOutline(mapPoint, 0.35)" fill="#89b3ac" opacity=".5" />
         <g
-          v-if="town.era === 'river-rail' && town.buildings.riverPort"
+          v-if="town.era !== 'frontier' && town.buildings.riverPort"
           :transform="`translate(${mapPoint([riverCenterX(-8), -8])})`"
         >
           <path d="M-15-31Q0-44 15-31L15 28Q0 41-15 28Z" fill="#725d45" />
@@ -242,7 +242,7 @@
               :id="building.id"
               :stage="town.buildings[building.id]"
               :era="town.buildingEras[building.id]"
-              :era-level="eraBuildingLevel(town, building.id)"
+              :era-level="town.buildingEraLevels[building.id] || town.buildings[building.id]"
               :wins="constructionVisual(town.projects[building.id])"
             />
           </g>
@@ -314,6 +314,16 @@
             }}
             <tspan v-if="town.buildings[building.id]" font-size="13">✓</tspan>
           </text>
+        </g>
+      </g>
+      <g v-if="hasElectricity(town)" aria-hidden="true">
+        <g
+          v-for="(lamp, index) in ELECTRIC_LAMPS"
+          :key="index"
+          :transform="`translate(${mapPoint(lamp)})`"
+        >
+          <path d="M0 0V-42" stroke="#4d7065" stroke-width="3" />
+          <circle cy="-45" r="8" fill="#fff0b6" stroke="#a89965" stroke-width="2" />
         </g>
       </g>
       <g aria-hidden="true">
@@ -404,8 +414,8 @@
   </div>
 </template>
 <script setup>
-import { eraBuildingLevel } from '../../game/town/TownEras';
 import { t } from '../../i18n';
+import { hasElectricity, ELECTRIC_LAMPS } from '../../data/industrial';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import {
   constructionVisual,

@@ -1,5 +1,13 @@
 <template>
-  <g v-if="kind === 'bridge'" fill="none" stroke-linejoin="round">
+  <TownIndustrialBuilding
+    v-if="
+      built &&
+      (era === 'industrial' || ['powerHouse', 'fireStation', 'rowHouses', 'mill'].includes(kind))
+    "
+    :kind="kind"
+    :level="eraLevel"
+  />
+  <g v-else-if="kind === 'bridge'" fill="none" stroke-linejoin="round">
     <path d="M-155 8 155 8" stroke="#b3a07b" stroke-width="33" />
     <path d="M-155-20H155M-155 24H155" stroke="#68776d" stroke-width="5" />
     <path
@@ -457,6 +465,7 @@
 import { BUILDING_BY_ID } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';
+import TownIndustrialBuilding from './TownIndustrialBuilding.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 import { buildingServiceLevel } from '../../data/buildingProgression';

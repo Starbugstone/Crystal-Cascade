@@ -2,12 +2,18 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createServer } from 'vite';
 
-const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
+const server = await createServer({
+  server: { middlewareMode: true },
+  appType: 'custom',
+  optimizeDeps: { noDiscovery: true, entries: [] },
+});
 try {
   const { BUILDINGS, BANDIT_EVENT, createTown } = await server.ssrLoadModule('/src/data/town.js');
   const { CHAPTERS } = await server.ssrLoadModule('/src/data/campaign.js');
   const { advanceEra } = await server.ssrLoadModule('/src/game/town/TownEras.js');
-  const { buildWithHammer } = await server.ssrLoadModule('/src/game/town/TownRules.js');
+  const { buildWithHammer, upgradeOffer, banditEncounter } = await server.ssrLoadModule(
+    '/src/game/town/TownRules.js',
+  );
   const { SAVE_KEY } = await server.ssrLoadModule('/src/services/localProfile.js');
   const town = createTown();
   const completed = (CHAPTERS.findIndex((chapter) => chapter.id === 'river-discovery') + 1) * 6;
@@ -40,30 +46,59 @@ try {
     transition: { ...riverRail.transition, pending: false },
     eraTransitionSeen: { 'river-rail': true },
   };
-  for (const b of BUILDINGS.filter((b) => b.introducedEra === 'frontier'))
-    complete = buildWithHammer(complete, b.id, b.upgrades.length);
-  for (const id of [
-    'bridge',
-    'riverPort',
-    'railDepot',
-    'post',
-    'warehouse',
-    'hotel',
-    'home5',
-    'market',
-  ])
-    complete = buildWithHammer(complete, id, 0);
+  function finishEra(state) {
+    for (const b of BUILDINGS.filter((b) => b.introducedEra === state.era)) {
+      let offer;
+      while ((offer = upgradeOffer(state, b.id))) state = buildWithHammer(state, b.id, offer.stage);
+    }
+    for (const b of BUILDINGS.filter(
+      (b) => b.introducedEra !== state.era && state.buildings[b.id],
+    )) {
+      let offer;
+      while ((offer = upgradeOffer(state, b.id))) state = buildWithHammer(state, b.id, offer.stage);
+    }
+    return state;
+  }
+  complete = finishEra(complete);
+  complete.coins = 250000;
+  const industrial = advanceEra(complete, 'river-rail');
+  const industrialOpen = {
+    ...industrial,
+    transition: { ...industrial.transition, pending: false },
+    eraTransitionSeen: { 'river-rail': true, industrial: true },
+    nextRaidRun: 999,
+  };
+  const lights = buildWithHammer(industrialOpen, 'powerHouse', 0);
+  const industrialComplete = { ...finishEra(industrialOpen), firstLightsSeen: true };
+  const cargo = banditEncounter({ ...complete, nextRaidRun: complete.completedRuns }, () => 0);
+  const fire = banditEncounter(
+    { ...lights, firstLightsSeen: true, nextRaidRun: lights.completedRuns },
+    () => 0,
+  );
   const directory = 'output/era-demo';
   await mkdir(directory, { recursive: true });
   for (const [name, state] of Object.entries({
     'frontier-ready': town,
     'river-rail': riverRail,
     'river-rail-complete': complete,
+    industrial: industrial,
+    'industrial-lights': lights,
+    'industrial-complete': industrialComplete,
+    'cargo-theft': cargo,
+    'workshop-fire': fire,
   })) {
     const profile = JSON.stringify({
       schemaVersion: 2,
       town: state,
-      records,
+      records:
+        state.era === 'industrial'
+          ? {
+              ...records,
+              ...Object.fromEntries(
+                Array.from({ length: 6 }, (_, i) => [67 + i, { score: 100, stars: 1 }]),
+              ),
+            }
+          : records,
       issuedRun: completed,
       settledRun: completed,
     });
@@ -74,7 +109,7 @@ try {
     );
   }
   console.log(
-    `Created three disposable profiles in ${directory}/. See docs/settlement-eras.md for testing steps.`,
+    `Created eight disposable profiles in ${directory}/. See docs/settlement-eras.md for testing steps.`,
   );
 } finally {
   await server.close();

@@ -30,7 +30,7 @@ afterEach(() => {
 
 it('stages obstacles while leaving a lighter fifth puzzle in every chapter', () => {
   const levels = generateLevelConfigs();
-  expect(levels).toHaveLength(72);
+  expect(levels).toHaveLength(120);
   for (let start = 0; start < levels.length; start += 6) {
     const chapter = levels.slice(start, start + 6);
     const workload = chapter.map((level) => level.objectives[0].target);

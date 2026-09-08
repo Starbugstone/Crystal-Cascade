@@ -33,8 +33,8 @@
           {{
             t(
               chapter === 1
-                ? 'The river calls. The railway is coming.'
-                : 'New shores. New neighbors. A future built together.',
+                ? (era.horizon ?? 'The river calls. The railway is coming.')
+                : (era.finale ?? 'New shores. New neighbors. A future built together.'),
             )
           }}
         </p>

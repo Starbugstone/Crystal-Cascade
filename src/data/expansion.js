@@ -185,4 +185,244 @@ export const EXPANSION_LEVELS = [
     ice: 84,
     tip: 'Deliver both relics to complete the river and rail discoveries.',
   },
+  {
+    map: '......./......./......./..c.c../......./......./......./......./.......',
+    ice: 60,
+    tip: 'Open the workshop entrance. Match beside the two chains.',
+  },
+  {
+    map: '......./......./..#..../......./....c../......./..#..../......./.......',
+    ice: 64,
+    tip: 'Clear a passage between the workshop shelves.',
+  },
+  {
+    map: '......./......./.c...c./......./...#.../......./..c.c../......./.......',
+    ice: 68,
+    tip: 'Free the outer chains before working into the center.',
+  },
+  {
+    map: '......./......./.X...X./......./..c.c../......./...c.../......./.......',
+    ice: 72,
+    tip: 'Break the reinforced shelves and reconnect the galleries.',
+  },
+  {
+    map: '......./......./......./...c.../......./......./......./......./.......',
+    ice: 56,
+    tip: 'A quiet workshop leaves room for a long cascade.',
+  },
+  {
+    map: '......./..R.R../......./..c.c../......./.#...#./......./......./..E.E..',
+    ice: 76,
+    tip: 'Deliver the workshop treasures through the open shafts.',
+  },
+  {
+    map: '......./......./......./..r.b../......./......./......./......./.......',
+    ice: 62,
+    tip: 'Ruby and sapphire seals mark the copper gallery entrance.',
+  },
+  {
+    map: '......./......./..r..../......./....b../......./..c..../......./.......',
+    ice: 66,
+    tip: 'Follow the copper seam from one seal to the next.',
+  },
+  {
+    map: '......./..R..../......./.#...#./......./...b.../......./......./..E....',
+    ice: 70,
+    tip: 'Clear the central gallery and bring its treasure home.',
+  },
+  {
+    map: '......./......./.X.r.X./......./..c.c../......./...b.../......./.......',
+    ice: 74,
+    tip: 'Open the side approaches to reach both colored seals.',
+  },
+  {
+    map: '......./......./......./..r.b../......./......./......./......./.......',
+    ice: 58,
+    tip: 'An open copper chamber gives you room to build bonuses.',
+  },
+  {
+    map: '......./..RR.../......./.#...#./......./..r.b../......./......./..EE...',
+    ice: 78,
+    tip: 'Two relics complete the copper discoveries.',
+  },
+  {
+    map: '......./......./......./..c.c../......./...r.../......./......./.......',
+    ice: 64,
+    tip: 'Open the first powerhouse chamber with chains and one ruby seal.',
+  },
+  {
+    map: '......./......./.#...#./......./..r.b../......./......./......./.......',
+    ice: 68,
+    tip: 'Connect the bright chambers through the open middle.',
+  },
+  {
+    map: '......./..R..../......./..c..../......./....b../......./......./..E....',
+    ice: 72,
+    tip: 'Free the treasure shaft and clear the remaining seal.',
+  },
+  {
+    map: '......./......./.X...X./......./..r.b../......./..c.c../......./.......',
+    ice: 76,
+    tip: 'Build a bonus in the open lanes to reach the deeper chambers.',
+  },
+  {
+    map: '......./......./......./...#.../......./......./......./......./.......',
+    ice: 60,
+    tip: 'A moment of calm before the town celebration.',
+  },
+  {
+    map: '......./..RR.../......./.c...c./......./..r.b../......./......./..EE...',
+    ice: 80,
+    tip: 'Bring both discoveries home. Prospect Hollow is ready to shine.',
+  },
+  {
+    map: '......./......./...r.../......./..b.b../......./......./......./.......',
+    ice: 66,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./......./.#...c./......./..b..../......./....r../......./.......',
+    ice: 70,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./..R..../......./.c...c./......./...#.../......./......./..E....',
+    ice: 74,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./......./..X.X../......./.r...b./......./..c.c../......./.......',
+    ice: 78,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./......./......./...b.../......./...c.../......./......./.......',
+    ice: 62,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./...RR../......./..c.c../......./.r...b./......./......./...EE..',
+    ice: 82,
+    tip: 'Open the signals and reconnect the underground passages.',
+  },
+  {
+    map: '......./......./..#.#../......./......./......./......./......./.......',
+    ice: 66,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./......./..X..../......./....#../......./.c...c./......./.......',
+    ice: 70,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./......./.#...#./......./..r.b../......./...c.../......./.......',
+    ice: 74,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./..R.R../......./..#.#../......./...X.../......./......./..E.E..',
+    ice: 78,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./......./......./..#..../......./....c../......./......./.......',
+    ice: 62,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./..RR.../......./.X...X./......./...c.../......./......./..EE...',
+    ice: 82,
+    tip: 'Clear the masonry shelves and recover the buried relics.',
+  },
+  {
+    map: '......./......./....c../......./..c..../......./......./......./.......',
+    ice: 66,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./......./...b.../......./.c...c./......./...r.../......./.......',
+    ice: 70,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./...R.../......./..#.#../......./...c.../......./......./...E...',
+    ice: 74,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./......./.r...b./......./.X...X./......./...c.../......./.......',
+    ice: 78,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./......./......./..b.b../......./......./......./......./.......',
+    ice: 62,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./..R.R../......./.r...b./......./..c.c../......./......./..E.E..',
+    ice: 82,
+    tip: 'Follow the water channels through chains and colored seals.',
+  },
+  {
+    map: '......./......./...#.../......./..r.b../......./......./......./.......',
+    ice: 66,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./......./.c...c./......./..#.#../......./......./......./.......',
+    ice: 70,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./....R../......./....c../......./.b...r./......./......./....E..',
+    ice: 74,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./......./..r.b../......./...X.../......./.c...c./......./.......',
+    ice: 78,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./......./......./...r.../......./..#.#../......./......./.......',
+    ice: 62,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./...RR../......./.X...X./......./...c.../......./......./...EE..',
+    ice: 82,
+    tip: 'Connect the final galleries beneath the electric town.',
+  },
+  {
+    map: '......./......./...c.../......./..r.b../......./......./......./.......',
+    ice: 66,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
+  {
+    map: '......./......./.#...#./......./..c.c../......./...b.../......./.......',
+    ice: 70,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
+  {
+    map: '......./..R..../......./..r..../......./....b../......./......./..E....',
+    ice: 74,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
+  {
+    map: '......./......./..X.X../......./.b...r./......./...c.../......./.......',
+    ice: 78,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
+  {
+    map: '......./......./......./..c.c../......./...#.../......./......./.......',
+    ice: 62,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
+  {
+    map: '......./..RRR../......./.c...c./......./..r.b../......./......./..EEE..',
+    ice: 82,
+    tip: 'Bring the last treasures into the light of Prospect Hollow.',
+  },
 ];

@@ -40,7 +40,7 @@ export function groundHeight(x, z) {
     (height, [hx, hz, rise]) => height + rise * Math.exp(-((x - hx) ** 2 + (z - hz) ** 2) / 440),
     0,
   );
-  const eastClearing = Math.hypot(Math.max(37 - x, 0, x - 47), Math.max(-9 - z, 0, z - 25));
+  const eastClearing = Math.hypot(Math.max(37 - x, 0, x - 54), Math.max(-9 - z, 0, z - 25));
   const prairie = smooth(34, 49, distance) * smooth(0, 7, eastClearing) * (hills + ridges);
   const bank = riverDistance(x, z);
   // Lower the surrounding hills gradually so the shallow bank never becomes a cliff.

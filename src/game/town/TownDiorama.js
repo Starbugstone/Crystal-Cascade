@@ -16,8 +16,11 @@ import { renderBuilding, renderModernization } from './buildings/BuildingRendere
 import { addEraActivity } from './TownEraActivity';
 import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
+import { TownEraIncident } from './TownEraIncident';
+import { eventKind } from '../../data/townEvents';
 import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
+import { addElectricLighting, renderIndustrialLandmark } from './buildings/industrial';
 
 import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL, visiblePlots } from './TownLayout';
 import { riverCenterX } from './TownRiver';
@@ -297,7 +300,12 @@ export class TownDiorama {
     this.anchors = [];
     this.town = town;
     addTownRoads(this, town, PLOTS);
-    this.controls.maxDistance = town.era === 'river-rail' ? 160 : 110;
+    this.controls.maxDistance = town.era !== 'frontier' ? 160 : 110;
+    // Expanded towns need a farther overview on phones; keep buildings ahead of the fog.
+    if (this.scene.fog) {
+      this.scene.fog.near = town.era !== 'frontier' ? 215 : 125;
+      this.scene.fog.far = town.era !== 'frontier' ? 295 : 205;
+    }
     for (const {
       id,
       position: [x, z],
@@ -317,16 +325,43 @@ export class TownDiorama {
         const stage = buildingServiceLevel(id, town.buildings[id]),
           project = town.projects[id],
           kind = BUILDING_BY_ID[id].kind;
-        if (kind === 'bridge')
+        if (kind === 'bridge') {
           renderBuilding({ town: this, parent: group, kind, level: stage, label: labels[id] });
-        else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
+          if (stage)
+            renderModernization(
+              this,
+              group,
+              kind,
+              town.buildingEras[id],
+              town.buildingEraLevels[id] || stage,
+            );
+          if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
+        } else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
-          if (kind === 'square') buildTownSquare(this, group, stage);
-          else if (kind === 'well') this.well(group);
-          else this.building(group, kind, stage, labels[id]);
-          if (!['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
+          const industrial =
+            town.buildingEras[id] === 'industrial' &&
+            renderIndustrialLandmark(
+              this,
+              group,
+              kind,
+              labels[id],
+              town.buildingEraLevels[id] || 1,
+            );
+          if (!industrial) {
+            if (kind === 'square') buildTownSquare(this, group, stage);
+            else if (kind === 'well') this.well(group);
+            else this.building(group, kind, stage, labels[id]);
+          }
+          if (!industrial && !['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
             movingPart = addImprovements(this, group, kind, stage);
-          renderModernization(this, group, kind, town.buildingEras[id], eraBuildingLevel(town, id));
+          if (!industrial)
+            renderModernization(
+              this,
+              group,
+              kind,
+              town.buildingEras[id],
+              town.buildingEraLevels[id] || stage,
+            );
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
@@ -350,6 +385,7 @@ export class TownDiorama {
     if (this.construction) this.lastFrame = 0;
     const household = population(town);
     addEraActivity(this, town);
+    addElectricLighting(this, town);
     addTownVisitors(this, town);
     this.person({
       color: '#738a83',
@@ -879,12 +915,14 @@ export class TownDiorama {
     const bounds = new THREE.Box3();
     const corners = [];
     for (const { id } of this.raid
-      ? [
-          { id: 'mine' },
-          { id: 'bank' },
-          { id: 'shop' },
-          ...(this.raid.phase === 'Back to the open trail' ? [{ id: 'sheriff' }] : []),
-        ]
+      ? eventKind(this.raid.event) !== 'bandits'
+        ? [...this.raid.event.targets, this.raid.responder].map((id) => ({ id }))
+        : [
+            { id: 'mine' },
+            { id: 'bank' },
+            { id: 'shop' },
+            ...(this.raid.phase === 'Back to the open trail' ? [{ id: 'sheriff' }] : []),
+          ]
       : this.anchors) {
       const [x, z] = PLOTS[id];
       bounds.expandByPoint(point(x - 3, 0, z - 3));
@@ -1067,7 +1105,8 @@ export class TownDiorama {
   }
   playRaid(event, onPhase, onComplete, onCue) {
     this.raid?.dispose();
-    this.raid = new TownRaid(
+    const Incident = eventKind(event) === 'bandits' ? TownRaid : TownEraIncident;
+    this.raid = new Incident(
       this,
       event,
       PLOTS,

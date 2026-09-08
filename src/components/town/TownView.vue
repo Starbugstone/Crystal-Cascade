@@ -97,8 +97,10 @@
         </button>
         <div v-if="activeRaid" class="town-raid-banner" role="status" aria-live="polite">
           <span class="town-kicker"
-            >{{ t('FRONTIER ENCOUNTER') }} ·
-            {{ t('{count} riders', { count: activeRaid.gangSize }) }}</span
+            >{{ t(eventHeading(activeRaid))
+            }}<template v-if="eventKind(activeRaid) === 'bandits'">
+              · {{ t('{count} riders', { count: activeRaid.gangSize }) }}</template
+            ></span
           >
           <strong>{{ t(raidPhase) }}</strong>
           <p>
@@ -106,7 +108,9 @@
               t(
                 raidPhase === 'The raid has passed'
                   ? banditStory.text
-                  : 'The riders are here. Watch the story unfold in your village.',
+                  : eventKind(activeRaid) === 'bandits'
+                    ? 'The riders are here. Watch the story unfold in your village.'
+                    : 'Watch the town respond, or skip to the saved outcome.',
               )
             }}
           </p>
@@ -154,6 +158,7 @@
             mineEntryPending ||
             museumOpen ||
             !!dialogMode ||
+            firstLightsOpen ||
             tourOpen
           "
           :next-level="campaign.nextLevel"
@@ -180,6 +185,7 @@
           v-if="raidNotice"
           :key="raidNotice.id"
           :coins="raidNotice.loss"
+          :kind="eventKind(raidNotice)"
           :bounty="raidNotice.bounty ?? 0"
           :defended="raidNotice.outcome === 'protected'"
           :reduced-motion="settings.reducedMotion"
@@ -207,7 +213,7 @@
           <TownIcon name="water" /><span
             >{{ t('Water')
             }}<small>{{
-              t('Water for {count} people', { count: totalLevels(town, 'well') * 6 })
+              t('Water for {count} people', { count: waterCapacity(town) })
             }}</small></span
           >
         </button>
@@ -299,26 +305,45 @@
           <p>{{ t(moment.text) }}</p>
           <section v-if="residents" class="town-raid-report">
             <div>
-              <h3>{{ t(event ? banditStory.title : 'Eyes on the dusty trail') }}</h3>
+              <h3>
+                {{
+                  t(
+                    event
+                      ? banditStory.title
+                      : town.era === 'frontier'
+                        ? 'Eyes on the dusty trail'
+                        : eventHeading({ kind: eraEventKind(town.era) }),
+                  )
+                }}
+              </h3>
               <p>
                 {{
                   t(
                     event
                       ? banditStory.text
-                      : 'As the town grows, larger gangs may ride in. Build the bank and sheriff to protect your savings.',
+                      : town.era === 'industrial'
+                        ? 'Workshop fires can cost cleanup coins. Upgrade the fire station; no building can be destroyed.'
+                        : town.era === 'river-rail'
+                          ? 'Cargo thieves may visit the freight yard. The police and bank protect your savings.'
+                          : 'As the town grows, larger gangs may ride in. Build the bank and sheriff to protect your savings.',
                   )
                 }}
               </p>
               <small>{{
-                t('Gang: {gang} riders · Savings protected: {protection}%', {
-                  gang: gangSize(town),
-                  protection: Math.round(raidProtection(town) * 100),
-                })
+                t(
+                  town.era === 'frontier'
+                    ? 'Gang: {gang} riders · Savings protected: {protection}%'
+                    : 'Savings protected: {protection}%',
+                  {
+                    gang: gangSize(town),
+                    protection: Math.round(raidProtection(town) * 100),
+                  },
+                )
               }}</small>
               <p>
                 {{
                   t(
-                    'Raids arrive unpredictably, {min}–{max} completed puzzles apart. Never while you are away. Your last 50 coins are always safe.',
+                    'Events arrive unpredictably, {min}–{max} completed puzzles apart. Never while you are away. Your last 50 coins are always safe.',
                     { min: raidIntervalRange(town)[0], max: raidIntervalRange(town)[1] },
                   )
                 }}
@@ -330,15 +355,25 @@
               :disabled="!!activeRaid"
               @click="replayRaid"
             >
-              {{ t('Watch the last raid again') }}
+              {{ t('Watch the last event again') }}
             </button>
-            <button class="town-secondary" @click="inspectBuilding('sheriff')">
-              {{ t('Visit the sheriff') }}
+            <button
+              class="town-secondary"
+              @click="inspectBuilding(town.era === 'industrial' ? 'fireStation' : 'sheriff')"
+            >
+              {{ t(town.era === 'industrial' ? 'Visit the fire station' : 'Visit the sheriff') }}
             </button>
           </section>
         </div>
       </template>
       <template v-else-if="dialogMode === 'directory'">
+        <p v-if="town.era === 'industrial'" class="town-service">
+          {{
+            t(
+              'First Lights: finish every new building and modernize every existing plot to complete this era. Build the power house to unlock electric modernization.',
+            )
+          }}
+        </p>
         <p class="town-kicker">
           {{ t(ERA_BY_ID[town.era].label) }} · {{ t('Current era available') }}
         </p>
@@ -397,9 +432,11 @@
         <p class="town-service">
           {{
             t(
-              town.era === 'river-rail'
-                ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
-                : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
+              town.era === 'industrial'
+                ? 'Every Industrial building has 3 levels. Finish all upgrades to complete the era.'
+                : town.era === 'river-rail'
+                  ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
+                  : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
             )
           }}
         </p>
@@ -462,6 +499,38 @@
       @replay="$emit('replay', $event)"
       @continuous="$emit('continuous', $event)"
     />
+    <TownDialog
+      v-if="firstLightsOpen"
+      :title="t('First Lights in Prospect Hollow')"
+      close-label="Continue building"
+      @close="campaign.acknowledgeFirstLights()"
+    >
+      <div class="town-first-lights">
+        <svg viewBox="0 0 320 145" aria-hidden="true">
+          <rect width="320" height="145" rx="16" fill="#294c49" />
+          <path d="M0 116H320" stroke="#9aa88b" stroke-width="3" />
+          <g v-for="x in [60, 160, 260]" :key="x" :transform="`translate(${x} 0)`">
+            <circle cy="49" r="30" fill="#f7d782" opacity=".15" />
+            <path d="M0 116V57" stroke="#c9c7a3" stroke-width="5" />
+            <circle cy="47" r="12" fill="#ffecae" />
+          </g>
+        </svg>
+        <h2>{{ t('The lights are on.') }}</h2>
+        <p>
+          {{
+            t(
+              'From the fountain to the station, warm electric globes welcome the evening. Your power house is ready, and every landmark can now take its next step.',
+            )
+          }}
+        </p>
+        <p>
+          {{ t('Electricity needs no fuel or upkeep. The town stays bright whenever you return.') }}
+        </p>
+        <button class="town-primary" @click="campaign.acknowledgeFirstLights()">
+          {{ t('Continue building') }}
+        </button>
+      </div>
+    </TownDialog>
     <TownEraCinematic
       v-if="active && town.transition?.pending"
       :era-id="town.era"
@@ -478,6 +547,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
+import {
+  eventKind,
+  eraEventKind,
+  eventHeading,
+  incidentStory,
+  incidentPhases,
+} from '../../data/townEvents';
 import { ERA_BY_ID } from '../../data/eras';
 import { eraGate, plotInEra, eraBuildingLevel } from '../../game/town/TownEras';
 import {
@@ -493,7 +569,7 @@ import {
   saloonIncomeRate,
   saloonHappinessBonus,
   canRingTownBell,
-  totalLevels,
+  waterCapacity,
   foodCapacity,
   housingCapacity,
   gangSize,
@@ -625,7 +701,7 @@ const villageStats = computed(() => {
       id: 'water',
       icon: 'water',
       label: t('Water'),
-      value: number(totalLevels(town.value, 'well') * 6),
+      value: number(waterCapacity(town.value)),
       detail: t('Capacity in people · Demand: {count}', { count: demand }),
     },
     {
@@ -665,6 +741,19 @@ const villageStats = computed(() => {
 const selected = ref(goal.value?.id ?? 'home');
 const museumOpen = ref(props.openMuseum && campaign.canReplay),
   dialogMode = ref('');
+const firstLightsOpen = computed(
+  () =>
+    props.active &&
+    town.value.era === 'industrial' &&
+    town.value.buildings.powerHouse > 0 &&
+    !town.value.firstLightsSeen &&
+    !town.value.transition?.pending &&
+    !dialogMode.value &&
+    !museumOpen.value &&
+    !tourOpen.value &&
+    !settings.isSettingsOpen &&
+    !props.mineEntryPending,
+);
 const paused = ref(false),
   construction = ref(null),
   announcement = ref(''),
@@ -684,16 +773,21 @@ const { playRaidCue } = useTownAudio(() => ({
   buildCue: construction.value?.serial,
   stable: town.value.buildings.stable > 0,
   river: true,
-  railDepot: town.value.era === 'river-rail' && town.value.buildings.railDepot > 0,
-  riverPort: town.value.era === 'river-rail' && town.value.buildings.riverPort > 0,
-  raid: activeRaid.value ? `${activeRaid.value.id}-${raidPhase.value}` : null,
+  railDepot: town.value.era !== 'frontier' && town.value.buildings.railDepot > 0,
+  riverPort: town.value.era !== 'frontier' && town.value.buildings.riverPort > 0,
+  raid:
+    activeRaid.value && eventKind(activeRaid.value) === 'bandits'
+      ? `${activeRaid.value.id}-${raidPhase.value}`
+      : null,
   // Village panels pause the diorama, but its music and ambience keep playing.
   paused: !props.active || paused.value || !!town.value.transition?.pending,
 }));
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const readyRaidDefenses = computed(() =>
   activeRaid.value && !event.value?.seen
-    ? ['sheriff', 'bank'].filter((id) => constructionReady(town.value.projects[id]))
+    ? (eventKind(event.value) === 'workshop-fire' ? ['fireStation'] : ['sheriff', 'bank']).filter(
+        (id) => constructionReady(town.value.projects[id]),
+      )
     : [],
 );
 watch(
@@ -705,36 +799,41 @@ watch(
   { flush: 'sync' },
 );
 const banditStory = computed(() =>
-  event.value?.outcome === 'protected'
+  event.value && eventKind(event.value) !== 'bandits'
     ? {
-        speaker: 'Sam · the sheriff',
-        title: 'The town stood its ground.',
-        text: event.value.bounty
-          ? t(
-              'The sheriff captured {count} bandits. Every coin is safe, and the town earned a {coins}-coin bounty.',
-              {
-                count: Math.min(event.value.gangSize, event.value.sheriffLevel * 2),
-                coins: event.value.bounty,
-              },
-            )
-          : t(
-              'The sheriff stopped the gang. Every coin is safe. A capture bounty is awarded when the raid ends.',
-            ),
+        ...incidentStory(event.value),
+        text: t(incidentStory(event.value).text, { coins: event.value.loss }),
       }
-    : event.value?.outcome === 'stolen'
+    : event.value?.outcome === 'protected'
       ? {
-          speaker: 'Ada · the caretaker',
-          title: 'Trouble rode through town.',
-          text: t(
-            'The gang took {coins} coins. Upgrade both bank and sheriff to protect against {gang} riders.',
-            { coins: event.value.loss, gang: event.value.gangSize },
-          ),
+          speaker: 'Sam · the sheriff',
+          title: 'The town stood its ground.',
+          text: event.value.bounty
+            ? t(
+                'The sheriff captured {count} bandits. Every coin is safe, and the town earned a {coins}-coin bounty.',
+                {
+                  count: Math.min(event.value.gangSize, event.value.sheriffLevel * 2),
+                  coins: event.value.bounty,
+                },
+              )
+            : t(
+                'The sheriff stopped the gang. Every coin is safe. A capture bounty is awarded when the raid ends.',
+              ),
         }
-      : {
-          speaker: 'Ada · the caretaker',
-          title: 'The riders moved on.',
-          text: 'The gang found no spare coins. Your last savings are safe.',
-        },
+      : event.value?.outcome === 'stolen'
+        ? {
+            speaker: 'Ada · the caretaker',
+            title: 'Trouble rode through town.',
+            text: t(
+              'The gang took {coins} coins. Upgrade both bank and sheriff to protect against {gang} riders.',
+              { coins: event.value.loss, gang: event.value.gangSize },
+            ),
+          }
+        : {
+            speaker: 'Ada · the caretaker',
+            title: 'The riders moved on.',
+            text: 'The gang found no spare coins. Your last savings are safe.',
+          },
 );
 const moment = computed(
   () =>
@@ -856,7 +955,7 @@ function plotStatus(place) {
   return town.value.buildings[place.id]
     ? t('Level {level} / {max}', {
         level: eraBuildingLevel(town.value, place.id),
-        max: town.value.era === 'river-rail' ? 3 : place.upgrades.length,
+        max: town.value.era !== 'frontier' ? 3 : place.upgrades.length,
       })
     : t('Empty plot');
 }
@@ -926,7 +1025,10 @@ function replayRaid() {
   raidNotice.value = null;
   if (!event.value || activeRaid.value) return;
   activeRaid.value = { ...event.value };
-  raidPhase.value = 'Riders on the ridge';
+  raidPhase.value =
+    eventKind(event.value) === 'bandits'
+      ? 'Riders on the ridge'
+      : incidentPhases(eventKind(event.value), 0);
   document
     .querySelector('.town-map-frame')
     ?.scrollIntoView({ behavior: settings.reducedMotion ? 'instant' : 'smooth', block: 'start' });
@@ -943,7 +1045,13 @@ function enterVillage() {
   campaign.lastConstruction = [];
   campaign.accrueSaloonIncome();
   campaign.resolveBandits();
-  if (event.value && !event.value.seen) activeRaid.value = { ...event.value };
+  if (event.value && !event.value.seen) {
+    activeRaid.value = { ...event.value };
+    raidPhase.value =
+      eventKind(event.value) === 'bandits'
+        ? 'Riders on the ridge'
+        : incidentPhases(eventKind(event.value), 0);
+  }
   if (props.openMuseum && !campaign.canReplay) {
     selectBuilding('museum');
     emit('museum-change', false);
