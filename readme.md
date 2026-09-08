@@ -1,6 +1,11 @@
-# Crystal Cascade
+# Prospect Hollow
 
-A jewel match-3 game built with Vue, Pinia, Phaser and Three.js. 72 levels across twelve chapters, faceted crystal artwork, breakable stone barriers, cascading matches, earned power-up chests, and a small 3D Old West town to build.
+Prospect Hollow is a frontier town-building puzzle game built with Vue, Pinia, Phaser and Three.js. Match jewels through 72 levels across twelve chapters, earn resources, build a small 3D Old West settlement, and carry the town into new eras.
+
+> [!IMPORTANT]
+> **Source available — not open source.** Current development is licensed under the [Prospect Hollow Source Available License 1.0](LICENSE). You may inspect, clone, build, run, and modify it privately for evaluation and contribution, but you may not redistribute it, publish derivative builds, release it through an app store, or use it commercially without written permission. Third-party dependencies and credited assets retain their own licenses.
+>
+> Historical repository content through commit `c773a0c5be6c5dea41b9c8b99e31ef5017304fca` keeps any permissive rights already granted, and Starbugstone additionally licenses the copyright it owns in that historical snapshot under MIT. See [historical licensing](LICENSE-HISTORY.md).
 
 ## Run locally
 
@@ -31,10 +36,10 @@ See the [town demo guide](docs/town-demo.md) for the story, the one-time release
 
 ```sh
 npm test              # Game logic and input regression tests
-npm run build        # Production output in dist/
-npm run preview      # Serve the production build
-npm run format:check # Check source formatting
-npm run assets       # Regenerate gem, bonus, power and ice artwork
+npm run build         # Production output in dist/
+npm run preview       # Serve the production build
+npm run format:check  # Check source formatting
+npm run assets        # Regenerate gem, bonus, power and ice artwork
 ```
 
 ## Playing
@@ -47,7 +52,7 @@ Swipe a gem, or tap two neighboring gems. Match at least three to break the ice 
 - **Shuffle:** mixes the board.
 - **Tile Breaker:** clears the selected row and column.
 
-Power-ups start empty, with room for three of each before building the armory. Completed levels, best scores, stars, inventory and town progress save together in local storage (`crystal-cascade-profile-v3`). This release deliberately resets earlier v1/v2 progress for every player. New progress persists normally; keep this save key unchanged in future releases. Saves stay on this device; clearing browser storage can erase them. No-move boards reshuffle automatically without a score penalty.
+Power-ups start empty, with room for three of each before building the armory. Completed levels, best scores, stars, inventory and town progress save together in local storage (`crystal-cascade-profile-v3`). This legacy storage key is deliberately retained across the Prospect Hollow rebrand so existing progress survives. New progress persists normally; keep this save key unchanged in future releases. Saves stay on this device; clearing browser storage can erase them. No-move boards reshuffle automatically without a score penalty.
 
 The normal-run coin recap includes every cascade bonus: ×2 adds 5 coins, ×3 adds 10, ×4 adds 15, and each higher tier adds another 5. These stack within and across moves, so a cascade reaching ×4 earns 30 extra coins. Clearing two lines in the same step also earns 10 extra coins, three earns 20, and each additional simultaneous line adds 10. T/L shapes count as two lines; bonus blast footprints and relic pickups do not. Simultaneous matches get a special banner, and the recap groups both bonus types by tier and occurrence count. Coins are saved once on level completion; abandoning a run discards its bonuses. Continuous mode keeps its existing gem-based payout and cap.
 
