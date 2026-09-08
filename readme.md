@@ -68,6 +68,8 @@ On phones, a compact status strip shows the level, score, active time and cleare
 
 Keyboard controls: focus the board with Tab, use arrows to move, Enter or Space to select, and Shift + arrow to swap. Escape cancels a selection or closes settings. Settings include music, sound effects, reduced motion and high contrast. Desktop focus mode enlarges the play area.
 
+Mining is accompanied by **“Lanterns Below”**, an original two-minute, 64 BPM instrumental with warm plucked strings, low sustained tones and distant crystal echoes. Its seamless loop and soft entrance sit beneath the gem effects, at the same restrained music level as the village. The score uses no external samples; regenerate its OGG and MP3 assets with `FFMPEG=/path/to/ffmpeg node scripts/generate-mining-music.mjs`.
+
 ## Project structure
 
 - `src/game/engine/`: level generation, matches, bonuses, gravity and deterministic hints.

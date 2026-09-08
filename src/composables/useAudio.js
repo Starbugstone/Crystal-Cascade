@@ -4,7 +4,9 @@ import { useSettingsStore } from '../stores/settingsStore';
 
 const clampVolume = (value) => Math.min(1, Math.max(0, value ?? 0));
 
-const AMBIENT_SRC = '/sound/knickknack.ogg';
+const AMBIENT_SOURCES = ['/sound/mining/lanterns-below.ogg', '/sound/mining/lanterns-below.mp3'];
+// Match the village's restrained music mix, leaving room for crystal effects.
+const AMBIENT_VOLUME = 0.45;
 
 export const SFX_VOLUME = Object.freeze({
   MATCH: 0.55,
@@ -58,10 +60,10 @@ const sfxHowls = new Map();
 const ensureAmbientHowl = (settingsStore) => {
   if (!ambientHowl) {
     ambientHowl = new Howl({
-      src: [AMBIENT_SRC],
+      src: AMBIENT_SOURCES,
       loop: true,
       preload: true,
-      volume: clampVolume(settingsStore.musicVolume),
+      volume: clampVolume(settingsStore.musicVolume) * AMBIENT_VOLUME,
     });
     ambientHowl.on('loaderror', (_id, error) => {
       console.error('Failed to load ambient loop audio', error);
@@ -104,7 +106,7 @@ export const useAudio = () => {
     if (!ambientHowl) {
       return;
     }
-    const effective = clampVolume(settingsStore.musicVolume);
+    const effective = clampVolume(settingsStore.musicVolume) * AMBIENT_VOLUME;
     if (ambientSoundId != null) {
       ambientHowl.volume(effective, ambientSoundId);
     } else {
@@ -224,7 +226,7 @@ export const useAudio = () => {
   const playAmbientLoop = () => {
     Object.keys(SFX_DEFINITIONS).forEach((key) => ensureSfxHowl(key, settingsStore));
     const loop = ensureAmbientHowl(settingsStore);
-    const targetVolume = clampVolume(settingsStore.musicVolume);
+    const targetVolume = clampVolume(settingsStore.musicVolume) * AMBIENT_VOLUME;
 
     if (ambientSoundId != null && loop.playing(ambientSoundId)) {
       const currentVolume = loop.volume(ambientSoundId);
@@ -234,8 +236,9 @@ export const useAudio = () => {
       return ambientSoundId;
     }
 
+    loop.volume(0);
     ambientSoundId = loop.play();
-    loop.volume(targetVolume, ambientSoundId);
+    if (targetVolume > 0) loop.fade(0, targetVolume, 1400, ambientSoundId);
     return ambientSoundId;
   };
 
@@ -248,8 +251,11 @@ export const useAudio = () => {
     const soundId = ambientSoundId;
     ambientSoundId = null;
 
-    if (fadeMs > 0) {
-      const startingVolume = loop.volume(soundId);
+    const startingVolume = loop.volume(soundId);
+    // Howler never completes a zero-to-zero fade; stop muted music immediately.
+    if (fadeMs > 0 && startingVolume > 0) {
+      // Cancel an entrance fade before subscribing to the exit fade's completion.
+      loop.volume(startingVolume, soundId);
       loop.once(
         'fade',
         () => {
