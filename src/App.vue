@@ -25,9 +25,9 @@
     </div>
     <div class="starlight" aria-hidden="true"></div>
     <header class="app-header">
-      <button class="brand" :aria-label="t('Crystal Cascade home')" @click="showHome">
+      <button class="brand" :aria-label="t('Prospect Hollow home')" @click="showHome">
         <img src="/art/amethyst.svg" alt="" />
-        <span>CRYSTAL <b>CASCADE</b></span>
+        <span>PROSPECT <b>HOLLOW</b></span>
       </button>
       <nav class="world-nav" :aria-label="t('Choose your adventure')">
         <button
@@ -313,7 +313,7 @@
       </section>
     </main>
     <footer class="app-footer">
-      <span>CRYSTAL CASCADE</span><span> {{ t('Big combos. Double chests. One more run.') }} </span
+      <span>PROSPECT HOLLOW</span><span> {{ t('Big combos. Double chests. One more run.') }} </span
       ><span class="footer-spark">✦</span>
     </footer>
     <VictoryModal
