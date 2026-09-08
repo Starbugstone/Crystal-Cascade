@@ -22,7 +22,7 @@ export function renderBuilding({
   construction = false,
   label,
 }) {
-  if (kind === 'bridge') return renderBridge(d, parent, level > 0);
+  if (kind === 'bridge') return renderBridge(d, parent, level);
   renderFrontierBuilding(d, parent, kinds[kind] ?? kind, level, label, construction);
   if (construction) return;
   if (['blacksmith', 'school', 'doctor'].includes(kind)) addCivicDetails(d, parent, kind, level);
@@ -31,8 +31,32 @@ export function renderBuilding({
   if (kind === 'railDepot') addStationDetails(d, parent);
   if (era !== 'frontier') renderModernization(d, parent, kind, era);
 }
-export function renderModernization(d, parent, kind, era) {
-  if (era !== 'river-rail' || !RIVER_RAIL_VARIANTS[kind]) return;
+export function renderModernization(d, parent, kind, era, level = 1) {
+  if (era !== 'river-rail') return;
+  kind = kinds[kind] ?? kind;
+  if (!RIVER_RAIL_VARIANTS[kind]) return;
+  const modern = d.group(parent);
+  modern.name = `River & Rail ${kind}`;
+  parent = modern;
+  modern.userData.eraLevel = level;
+  if (level >= 2 && !['well', 'square', 'fisherman'].includes(kind)) {
+    d.box(parent, 1.15, 2.15, 2.1, -1.95, 1.22, -0.2, '#ad725c');
+    d.box(parent, 1.45, 0.18, 2.35, -1.95, 2.4, -0.2, '#526e79');
+    d.window(parent, -1.95, 1.4, 0.9);
+  }
+  if (level >= 3 && !['well', 'square', 'fisherman'].includes(kind)) {
+    d.box(parent, 0.9, 1.55, 0.85, 0.45, 3.55, -0.4, '#b9aa8b');
+    d.mesh(parent, 'cone', [0.7, 0.85, 0.7], [0.45, 4.72, -0.4], '#526e79');
+    d.ball(parent, 0.45, 3.95, 0.04, [0.28, 0.28, 0.035], '#f0e0b9');
+    d.rod(parent, [0.45, 3.95, 0.085], [0.45, 4.15, 0.085], 0.018, '#52605c');
+    d.rod(parent, [0.45, 3.95, 0.085], [0.59, 3.89, 0.085], 0.018, '#52605c');
+  }
+  if (level >= 2 && ['well', 'square', 'fisherman'].includes(kind)) {
+    for (const side of [-1, 1]) {
+      d.box(parent, 0.6, 0.55, 1.2, side * 1.75, 0.3, 0.3, '#aaa58f');
+      if (level >= 3) d.mesh(parent, 'cone', [0.45, 1.1, 0.45], [side * 1.75, 1.1, 0.3], '#5d8176');
+    }
+  }
   const colors = {
     home: '#ad8e79',
     farm: '#ad795c',
@@ -51,16 +75,52 @@ export function renderModernization(d, parent, kind, era) {
     doctor: '#9daa9b',
   };
   if (kind === 'square') {
-    for (const x of [-2.3, 2.3]) {
-      d.rod(parent, [x, 0, -2], [x, 2.3, -2], 0.05, '#69766c');
-      d.box(parent, 0.25, 0.35, 0.25, x, 2.35, -2, '#ebd2a0');
-    }
+    for (const x of [-2.3, 2.3])
+      for (const z of [-2, 2]) {
+        d.rod(parent, [x, 0, z], [x, 2.8, z], 0.05, '#69766c');
+        d.box(parent, 0.25, 0.35, 0.25, x, 2.85, z, '#ebd2a0');
+      }
     return;
   }
   if (kind === 'well') {
+    for (const x of [-0.85, 0.85])
+      for (const z of [-0.65, 0.65]) {
+        d.rod(parent, [x, 0, z], [x, 2.55, z], 0.07, '#657d79');
+        d.rod(parent, [x, 0.5, z], [-x, 2.4, z], 0.035, '#657d79');
+      }
+    d.mesh(parent, 'cylinder', [0.95, 0.85, 0.95], [0, 2.8, 0], '#698e8c');
+    for (const y of [2.42, 3.18])
+      d.mesh(parent, 'cylinder', [0.99, 0.08, 0.99], [0, y, 0], '#d3c9a7');
+    d.mesh(parent, 'cone', [1.05, 0.45, 1.05], [0, 3.42, 0], '#526e75');
     d.rod(parent, [1.1, 0.2, 0.4], [1.1, 1.5, 0.4], 0.08, '#81918b');
     d.rod(parent, [1.1, 1.5, 0.4], [0.6, 1.5, 0.4], 0.08, '#81918b');
     return;
+  }
+  // Brick side walls and slate roof replace the timber appearance on the first modernization.
+  const brick = ['home', 'saloon', 'school', 'blacksmith', 'farm'].includes(kind)
+    ? '#a5624f'
+    : '#9d9484';
+  for (const side of [-1, 1]) {
+    d.box(parent, 0.14, 1.9, 2.48, side * 1.4, 1.2, 0, brick);
+    for (let row = 0; row < 9; row++) {
+      const y = 0.37 + row * 0.2;
+      d.box(parent, 0.16, 0.027, 2.5, side * 1.4, y, 0, '#d6c9ad');
+      for (let z = -1; z <= 1; z += 0.5)
+        d.box(parent, 0.16, 0.18, 0.025, side * 1.4, y + 0.1, z + (row % 2) * 0.23, '#d6c9ad');
+    }
+    const roof = d.box(parent, 1.9, 0.13, 2.95, side * 0.77, 2.61, 0, '#526e79');
+    roof.rotation.z = -side * 0.54;
+  }
+  // A taller masonry street front, cornice and porch change the building silhouette.
+  d.box(parent, 2.95, 1.12, 0.24, 0, 2.71, 1.45, brick);
+  for (const y of [2.21, 3.22, 3.36]) d.box(parent, 3.32, 0.12, 0.4, 0, y, 1.49, '#e0cfac');
+  for (const x of [-1.05, 0, 1.05]) d.box(parent, 0.25, 0.3, 0.35, x, 3.47, 1.49, '#c9ba99');
+  d.box(parent, 3.25, 0.18, 0.95, 0, 0.23, 1.8, '#b7ad94');
+  for (const x of [-1.4, 1.4]) d.box(parent, 0.11, 1.75, 0.11, x, 1.18, 2.2, '#e0cfac');
+  if (['home', 'saloon', 'doctor'].includes(kind)) {
+    for (let x = -1.3; x <= 1.3; x += 0.26)
+      d.rod(parent, [x, 2.17, 2.1], [x, 2.56, 2.1], 0.025, '#e0cfac');
+    d.rod(parent, [-1.45, 2.56, 2.1], [1.45, 2.56, 2.1], 0.04, '#e0cfac');
   }
   for (const x of [-1.47, 1.47]) {
     d.box(parent, 0.25, 1.9, 0.3, x, 1.02, 1.4, colors[kind]);
@@ -68,6 +128,6 @@ export function renderModernization(d, parent, kind, era) {
   }
   d.box(parent, 3.25, 0.17, 0.95, 0, 2.05, 1.65, '#738f87');
   d.box(parent, 3.2, 0.22, 2.7, 0, 0.13, 0, colors[kind]);
-  d.sign(parent, t(RIVER_RAIL_VARIANTS[kind][0]), 2.65, 0, 2.5, 1.6);
+  d.sign(parent, t(RIVER_RAIL_VARIANTS[kind][0]), 2.65, 0, 2.73, 1.61);
   if (kind === 'fisherman') d.box(parent, 2.8, 0.15, 1.5, 3, 0.15, 0, '#889c90');
 }

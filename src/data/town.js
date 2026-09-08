@@ -1,5 +1,5 @@
 import { hasShortProgression } from './buildingProgression';
-import { purchasePrice } from './economy';
+import { purchasePrice, RIVER_RAIL_LEVEL_PRICES } from './economy';
 import { FRONTIER_BUILDINGS } from './frontier';
 import { FRONTIER_ERA, createEraState } from './eras';
 import { RIVER_RAIL_BUILDINGS } from './riverRail';
@@ -583,9 +583,12 @@ export const BUILDINGS = [
     ),
   })),
 ].map((building) => {
-  const upgrades = building.upgrades.map((upgrade) => ({
+  const upgrades = building.upgrades.map((upgrade, index) => ({
     ...upgrade,
-    cost: purchasePrice(upgrade.cost),
+    cost:
+      building.introducedEra === 'river-rail'
+        ? RIVER_RAIL_LEVEL_PRICES[index]
+        : purchasePrice(upgrade.cost),
   }));
   const short = hasShortProgression(building.id);
   return {

@@ -6,11 +6,19 @@
         <h2 id="building-title">{{ t(building.name) }}</h2>
       </div>
       <span class="town-level-badge">{{
-        t('Level {level} / {max}', { level: stage, max: building.upgrades.length })
+        t(
+          town.era === 'river-rail'
+            ? 'River & Rail · Level {level} of {max}'
+            : 'Level {level} / {max}',
+          {
+            level: eraBuildingLevel(town, id),
+            max: town.era === 'river-rail' ? 3 : building.upgrades.length,
+          },
+        )
       }}</span>
     </div>
     <div class="town-building-preview" :style="{ '--building-tint': building.color }">
-      <svg viewBox="-160 -200 320 245" aria-hidden="true">
+      <svg viewBox="-160 -230 320 275" aria-hidden="true">
         <ellipse cy="9" rx="133" ry="26" fill="#a79d7040" />
         <TownSite
           v-if="project"
@@ -18,12 +26,16 @@
           :stage="stage"
           :wins="constructionVisual(project)"
           :era="town.buildingEras[id]"
+          :era-level="eraBuildingLevel(town, id)"
         />
         <TownBuilding
           v-else
           :id="id"
           :stage="offer && offer.type !== 'modernization' ? stage + 1 : stage"
           :era="offer?.targetEra ?? town.buildingEras[id]"
+          :era-level="
+            offer?.eraLevel ?? (town.era === 'river-rail' ? (offer ? stage + 1 : stage) : 0)
+          "
         />
       </svg>
       <small>{{
@@ -36,8 +48,8 @@
       </h3>
       <p>
         {{
-          t('{wins}/{required} puzzles completed', {
-            wins: project.wins,
+          t('Construction: {wins} of {required} mining runs completed', {
+            wins: Math.min(project.wins, constructionRuns(project)),
             required: constructionRuns(project),
           })
         }}
@@ -68,7 +80,11 @@
       </p>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
-      <h3>{{ t(offer.title, { building: t(building.name), name: t(offer.name) }) }}</h3>
+      <h3>
+        {{
+          t(offer.title, { building: t(building.name), name: t(offer.name), level: offer.eraLevel })
+        }}
+      </h3>
       <p>{{ t(offer.benefit) }}</p>
       <p v-if="offer.description">{{ t(offer.description) }}</p>
       <button
@@ -270,7 +286,7 @@
 import { computed } from 'vue';
 import { t } from '../../i18n';
 import { BUILDING_BY_ID } from '../../data/town';
-import { eraGate } from '../../game/town/TownEras';
+import { eraGate, eraBuildingLevel } from '../../game/town/TownEras';
 import { forgeProductionRuns } from '../../data/eras';
 import {
   upgradeOffer,

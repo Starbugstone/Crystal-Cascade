@@ -1,14 +1,40 @@
-export function renderBridge(d, parent, built) {
-  if (!built) {
+import { bridgeDeckHeight, riverCenterX } from '../TownRiver';
+export function renderBridge(d, parent, level) {
+  if (!level) {
     for (const x of [-6, 6]) d.box(parent, 0.22, 1, 0.22, x, 0.5, 0, '#b1976c');
     return;
   }
-  for (let i = 0; i < 56; i++) d.box(parent, 0.24, 0.2, 2.3, -7 + i * 0.25, 0.16, 0, '#a48e69');
-  for (const z of [-1.12, 1.12]) {
-    d.rod(parent, [-7, 1, z], [7, 1, z], 0.07, '#646e66');
-    for (let x = -7; x <= 7; x++) d.rod(parent, [x, -0.05, z], [x, 1, z], 0.045, '#677269');
-    for (const x of [-5, 0, 5]) d.box(parent, 0.45, 1.5, 0.45, x, -0.5, z, '#8c9183');
+  const center = riverCenterX(7.5);
+  for (let i = 0; i < 56; i++) {
+    const x = -7 + i * 0.25,
+      height = bridgeDeckHeight(center + x);
+    d.box(parent, 0.26, 0.18, 2.3, x, height - 0.08, 0, '#a48e69');
+    for (const z of [-1.12, 1.12]) {
+      d.rod(
+        parent,
+        [x, height + 0.75, z],
+        [x + 0.25, bridgeDeckHeight(center + x + 0.25) + 0.75, z],
+        0.055,
+        '#646e66',
+      );
+      if (i % 4 === 0) d.rod(parent, [x, height, z], [x, height + 0.75, z], 0.045, '#677269');
+    }
   }
+  if (level >= 2)
+    for (const x of [-4.4, 4.4]) {
+      d.box(parent, 0.9, 2.8, 2.5, x, 0.8, 0, '#b7ae98');
+      d.box(parent, 1.2, 0.2, 2.7, x, 2.3, 0, '#d9ccad');
+    }
+  if (level >= 3)
+    for (const x of [-3.5, 3.5])
+      for (const z of [-1.1, 1.1]) {
+        d.rod(parent, [x, 2.65, z], [x, 4.15, z], 0.055, '#526e70');
+        d.box(parent, 0.25, 0.4, 0.25, x, 4.35, z, '#f5dc9c');
+        d.mesh(parent, 'cone', [0.22, 0.25, 0.22], [x, 4.65, z], '#526e70');
+      }
+  // Abutments stand outside the navigation channel; no central pier blocks the boat.
+  for (const x of [-4.4, 4.4])
+    for (const z of [-1.12, 1.12]) d.box(parent, 0.5, 3, 0.5, x, 0.9, z, '#8c9183');
 }
 export function addStationDetails(d, parent) {
   d.box(parent, 6, 0.22, 1.8, 0, 0.17, -2.4, '#b5a27e');

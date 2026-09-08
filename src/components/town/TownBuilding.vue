@@ -9,8 +9,38 @@
       stroke="#68776d"
       stroke-width="3"
     />
+    <path
+      v-if="stage >= 2"
+      d="M-100 14v32h25V14M75 14v32h25V14"
+      fill="#b7ae98"
+      stroke="#8c9183"
+      stroke-width="3"
+    />
+    <g v-if="stage >= 3" v-for="x in [-95, 95]" :key="x" :transform="`translate(${x} -20)`">
+      <path d="M0 0v-45" stroke="#526e70" stroke-width="4" /><path
+        d="M-6-45h12v-15H-6Z"
+        fill="#f5dc9c"
+        stroke="#526e70"
+        stroke-width="3"
+      />
+    </g>
   </g>
-  <TownSquare v-else-if="kind === 'square'" :stage="stage" />
+  <g v-else-if="kind === 'square'">
+    <TownSquare :stage="stage" />
+    <g
+      v-if="built && era === 'river-rail'"
+      v-for="x in [-90, 90]"
+      :key="x"
+      :transform="`translate(${x} -25)`"
+    >
+      <path d="M0 0v-80" stroke="#526e70" stroke-width="5" /><path
+        d="M-7-80h14v-18H-7Z"
+        fill="#f5dc9c"
+        stroke="#526e70"
+        stroke-width="3"
+      />
+    </g>
+  </g>
   <g v-else class="town-building-art" stroke-linejoin="round" stroke-linecap="round">
     <ellipse
       cx="8"
@@ -369,7 +399,49 @@
       <circle cx="-15" cy="-115" r="10" fill="#efdfb4" stroke="#7d785a" stroke-width="2" />
       <path d="M-15-123v9h6" fill="none" stroke="#7d785a" stroke-width="2" />
     </g>
-    <g v-if="built && era === 'river-rail' && RIVER_RAIL_VARIANTS[kind]">
+    <g v-if="built && era === 'river-rail'">
+      <g v-if="eraLevel >= 2 && kind !== 'well'">
+        <path d="M-120-6v-82l39 8v85Z" fill="#ad725c" stroke="#e0cfac" stroke-width="3" /><path
+          d="m-127-88 48 9 12-14-48-9Z"
+          fill="#526e79"
+        />
+        <path d="M-109-60v24l17 3v-24Z" fill="#a8d5d4" stroke="#e0cfac" stroke-width="3" />
+      </g>
+      <g v-if="eraLevel >= 3 && kind !== 'well'">
+        <path d="M-8-136v-48l28 5v48Z" fill="#c9ba99" stroke="#8c8471" stroke-width="2" /><path
+          d="m-16-184 23-29 22 38Z"
+          fill="#526e79"
+        />
+        <circle cx="7" cy="-168" r="9" fill="#f0e0b9" /><path
+          d="M7-175v8l5 3"
+          fill="none"
+          stroke="#52605c"
+          stroke-width="2"
+        />
+      </g>
+      <g v-if="kind !== 'well'">
+        <path d="m-84-93 122 24v-43l-122-24Z" fill="#a5624f" stroke="#e0cfac" stroke-width="5" />
+        <path d="m-92-137 136 26v9l-136-26Z" fill="#e0cfac" />
+        <path
+          v-for="n in 4"
+          :key="n"
+          :d="`M-80 ${-128 + n * 9}l114 22`"
+          stroke="#d6c9ad"
+          stroke-width="2"
+        />
+        <path d="m-91-67 134 26 18-13-134-27Z" fill="#526e79" />
+        <path d="M-78-68v59m110-38v58" stroke="#e0cfac" stroke-width="6" />
+      </g>
+      <g v-else>
+        <path
+          d="M-43 0v-146M43-15v-146M-43-20 43-140M43-30-43-135"
+          fill="none"
+          stroke="#526e70"
+          stroke-width="6"
+        />
+        <path d="M-48-167v45q48 25 96 0v-45Z" fill="#698e8c" stroke="#d3c9a7" stroke-width="5" />
+        <ellipse cy="-167" rx="48" ry="15" fill="#526e79" />
+      </g>
       <path d="M-81-80v66m117-43v65" stroke="#9b8d78" stroke-width="12" />
       <path d="m-89-71 132 25 14-13-132-24Z" fill="#78968b" />
       <path
@@ -391,34 +463,36 @@ import { buildingServiceLevel } from '../../data/buildingProgression';
 const props = defineProps({
   id: { type: String, required: true },
   era: { type: String, default: 'frontier' },
+  eraLevel: { type: Number, default: 1 },
   stage: { type: Number, default: 0 },
 });
 const stage = computed(() => buildingServiceLevel(props.id, props.stage));
 const kind = computed(() => BUILDING_BY_ID[props.id]?.kind ?? props.id);
 const built = computed(() => props.stage > 0);
-const frontColor = computed(
-  () =>
-    ({
-      home: '#d6a08a',
-      farm: '#b17b5b',
-      stable: '#c09a70',
-      saloon: '#d7b46c',
-      sheriff: '#93aaa7',
-      museum: '#c9b18a',
-      armory: '#8c9e91',
-      bank: '#b2af94',
-      shop: '#bd977b',
-      fisherman: '#8ca39a',
-      riverPort: '#8ca39a',
-      blacksmith: '#a8785b',
-      school: '#c8b383',
-      doctor: '#a3b4a4',
-      railDepot: '#baa07a',
-      post: '#c2ae86',
-      hotel: '#c3a77d',
-      warehouse: '#9f9480',
-      market: '#99a786',
-    })[kind.value],
+const frontColor = computed(() =>
+  props.era === 'river-rail'
+    ? '#ad725c'
+    : {
+        home: '#d6a08a',
+        farm: '#b17b5b',
+        stable: '#c09a70',
+        saloon: '#d7b46c',
+        sheriff: '#93aaa7',
+        museum: '#c9b18a',
+        armory: '#8c9e91',
+        bank: '#b2af94',
+        shop: '#bd977b',
+        fisherman: '#8ca39a',
+        riverPort: '#8ca39a',
+        blacksmith: '#a8785b',
+        school: '#c8b383',
+        doctor: '#a3b4a4',
+        railDepot: '#baa07a',
+        post: '#c2ae86',
+        hotel: '#c3a77d',
+        warehouse: '#9f9480',
+        market: '#99a786',
+      }[kind.value],
 );
 const sideColor = computed(
   () =>

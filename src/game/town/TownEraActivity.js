@@ -1,6 +1,30 @@
-import { groundHeight } from './TownLandscape';
 import { RIVER, riverCenterX } from './TownRiver';
 import { PLOTS, RAIL_EDGE, railEdges, routeBetween, plotStreet } from './TownLayout';
+
+export const RAIL_HEIGHT = 0.18;
+export const railHeight = (x) => {
+  const p = Math.max(0, Math.min(1, (16 - Math.abs(x - riverCenterX(RAIL_EDGE.from[1]))) / 11));
+  return RAIL_HEIGHT + 2.5 * p * p * (3 - 2 * p);
+};
+// One eastbound journey, a station dwell, then a full departure beyond the far map edge.
+export function trainJourney(time) {
+  const speed = 4,
+    stop = -16,
+    start = RAIL_EDGE.from[0] - 7,
+    end = RAIL_EDGE.to[0] + 7;
+  const arrival = (stop - start) / speed,
+    dwell = 9,
+    finish = (end - start) / speed + dwell;
+  const phase = (time + 25) % (finish + 25);
+  const moving = phase < arrival || phase >= arrival + dwell;
+  const x =
+    phase < arrival
+      ? start + phase * speed
+      : phase < arrival + dwell
+        ? stop
+        : stop + (phase - arrival - dwell) * speed;
+  return { x, visible: phase < finish, moving, distance: x - start };
+}
 
 export function addEraActivity(d, town) {
   if (town.buildings.fisherman) {
@@ -49,7 +73,7 @@ export function addEraActivity(d, town) {
     d.motions.push((time) => {
       const phase = (time + 18) % 95;
       boat.visible = phase < 55;
-      const z = phase < 23 ? -65 + phase * 2.5 : phase < 32 ? -7.5 : -7.5 + (phase - 32) * 3;
+      const z = phase < 23 ? -65 + phase * (61 / 23) : phase < 32 ? -4 : -4 + (phase - 32) * 3;
       boat.position.set(riverCenterX(z), RIVER.waterHeight + 0.12, z);
       boat.rotation.y = Math.atan2(riverCenterX(z + 0.2) - riverCenterX(z), 0.2);
       wheel.rotation.x = time * 1.6;
@@ -64,13 +88,54 @@ export function addEraActivity(d, town) {
       for (const dz of [-0.52, 0.52])
         d.rod(
           rails,
-          [x, groundHeight(x, z) + 0.08, z + dz],
-          [x + 1, groundHeight(x + 1, z) + 0.08, z + dz],
+          [x, railHeight(x), z + dz],
+          [x + 1, railHeight(x + 1), z + dz],
           0.035,
           '#6e7770',
         );
-      d.box(rails, 0.17, 0.1, 1.45, x, groundHeight(x, z) + 0.04, z, '#8b7756');
+      d.box(rails, 0.17, 0.1, 1.45, x, railHeight(x) - 0.09, z, '#8b7756');
+      const fill = railHeight(x) - 0.14;
+      if (Math.abs(x - riverCenterX(z)) > RIVER.bankWidth + 1.2)
+        d.box(rails, 1.02, fill, 1.7, x + 0.5, fill / 2, z, '#a99d80');
     }
+    const center = riverCenterX(RAIL_EDGE.from[1]),
+      span = RIVER.bankWidth + 1.2,
+      z = RAIL_EDGE.from[1];
+    const bridge = d.group(rails);
+    bridge.name = 'Railway river bridge';
+    d.box(bridge, span * 2, 0.15, 1.8, center, railHeight(center) - 0.2, z, '#766e5d');
+    for (const side of [-1, 1]) {
+      const edge = z + side * 0.87;
+      const deck = railHeight(center);
+      d.rod(
+        bridge,
+        [center - span, deck + 0.1, edge],
+        [center + span, deck + 0.1, edge],
+        0.075,
+        '#515f5a',
+      );
+      d.rod(
+        bridge,
+        [center - span, deck + 1.5, edge],
+        [center + span, deck + 1.5, edge],
+        0.07,
+        '#65766d',
+      );
+      for (let n = 0; n <= 6; n++) {
+        const x = center - span + (n * span) / 3;
+        d.rod(bridge, [x, deck + 0.1, edge], [x, deck + 1.5, edge], 0.055, '#65766d');
+        if (n < 6)
+          d.rod(
+            bridge,
+            [x, deck + (n % 2 ? 1.5 : 0.1), edge],
+            [x + span / 3, deck + (n % 2 ? 0.1 : 1.5), edge],
+            0.05,
+            '#65766d',
+          );
+      }
+    }
+    for (const x of [center - span + 0.35, center + span - 0.35])
+      d.box(bridge, 0.65, 3.7, 2, x, 0.65, z, '#a39d88');
     d.batch(rails);
     const train = d.group(d.world, -17, 0.3, -23);
     train.name = 'Station train';
@@ -86,13 +151,21 @@ export function addEraActivity(d, town) {
         wheel.rotation.x = Math.PI / 2;
         wheels.push(wheel);
       }
+    const parts = train.children.map((part) => ({ part, y: part.position.y, x: part.position.x }));
     d.motions.push((time) => {
-      const phase = (time + 25) % 90;
-      train.visible = phase < 45;
-      const x = phase < 18 ? -70 + phase * 3 : phase < 27 ? -16 : -16 - (phase - 27) * 3;
-      train.position.set(x, groundHeight(x, -23) + 0.14, -23);
+      const journey = trainJourney(time);
+      train.visible = journey.visible;
+      train.position.set(journey.x, 0.035, RAIL_EDGE.from[1]);
+      for (const { part, y, x } of parts) {
+        part.position.y = y + railHeight(journey.x + x);
+        if (!wheels.includes(part))
+          part.rotation.z = Math.atan2(
+            railHeight(journey.x + x + 0.5) - railHeight(journey.x + x - 0.5),
+            1,
+          );
+      }
       wheels.forEach((wheel) => {
-        wheel.rotation.y = time * 3;
+        wheel.rotation.y = -journey.distance / 0.25;
       });
     });
   }

@@ -1,3 +1,5 @@
+import { bridgeDeckHeight } from './TownRiver';
+import { eraBuildingLevel } from './TownEras';
 import { buildingServiceLevel } from '../../data/buildingProgression';
 import { TownUpgradeGlow } from './TownUpgradeGlow';
 import * as THREE from 'three';
@@ -324,7 +326,7 @@ export class TownDiorama {
           else this.building(group, kind, stage, labels[id]);
           if (!['fisherman', 'blacksmith', 'school', 'doctor'].includes(kind))
             movingPart = addImprovements(this, group, kind, stage);
-          renderModernization(this, group, kind, town.buildingEras[id]);
+          renderModernization(this, group, kind, town.buildingEras[id], eraBuildingLevel(town, id));
           if (project) addScaffolding(this, group, kind, stage, constructionVisual(project));
         }
       }
@@ -344,6 +346,8 @@ export class TownDiorama {
       else this.batch(group);
       if (movingPart) this.motions.push(movingPart.update);
     }
+    // Model preparation can be expensive. Start the reveal clock on its first visible frame.
+    if (this.construction) this.lastFrame = 0;
     const household = population(town);
     addEraActivity(this, town);
     addTownVisitors(this, town);
@@ -692,8 +696,18 @@ export class TownDiorama {
       legs.push({ upper: thigh, lower: shin });
     }
     if (dress) this.mesh(body, 'cone', [0.2, 0.29, 0.17], [0, -0.085, 0], color);
-    const points = route.map(([x, z]) =>
-      point(x, linear && x >= 24 && x <= 38 && z === 7.5 ? 0.36 : 0.07, z),
+    const sampledRoute = [];
+    route.forEach((p, i) => {
+      const previous = route[i - 1];
+      if (linear && previous?.[1] === 7.5 && p[1] === 7.5) {
+        const count = Math.ceil(Math.abs(p[0] - previous[0]) * 4);
+        for (let n = 1; n < count; n++)
+          sampledRoute.push([previous[0] + ((p[0] - previous[0]) * n) / count, 7.5]);
+      }
+      sampledRoute.push(p);
+    });
+    const points = sampledRoute.map(([x, z]) =>
+      point(x, linear && x >= 24 && x <= 38 && z === 7.5 ? bridgeDeckHeight(x) + 0.17 : 0.07, z),
     );
     const journey = loop ? points : [...points, ...points.slice(1, -1).reverse()];
     const curve = linear
@@ -864,7 +878,14 @@ export class TownDiorama {
     if (!this.anchors?.length) return;
     const bounds = new THREE.Box3();
     const corners = [];
-    for (const { id } of this.anchors) {
+    for (const { id } of this.raid
+      ? [
+          { id: 'mine' },
+          { id: 'bank' },
+          { id: 'shop' },
+          ...(this.raid.phase === 'Back to the open trail' ? [{ id: 'sheriff' }] : []),
+        ]
+      : this.anchors) {
       const [x, z] = PLOTS[id];
       bounds.expandByPoint(point(x - 3, 0, z - 3));
       bounds.expandByPoint(point(x + 3, 5, z + 3));
@@ -872,7 +893,7 @@ export class TownDiorama {
         for (const y of [0, 5]) for (const dz of [-3, 3]) corners.push(point(x + dx, y, z + dz));
     }
     // Include a glimpse of the near river from the first visit, without framing future land.
-    if (this.town) {
+    if (this.town && !this.raid) {
       const river = point(riverCenterX(2) + 1, 0, 2);
       bounds.expandByPoint(river);
       corners.push(river);
@@ -1026,6 +1047,7 @@ export class TownDiorama {
     if (this.raid?.update(this.elapsed)) {
       this.raid = null;
       this.rebuildActors();
+      if (this.overview) this.frameTown();
     }
     // Advance life during camera motion too; its scheduled render draws the new pose.
     if (this.cameraFrame || (this.cinematic && !this.cinematic.finished)) return;
@@ -1043,9 +1065,19 @@ export class TownDiorama {
     this.renderer.shadowMap.needsUpdate = true;
     this.render();
   }
-  playRaid(event, onPhase, onComplete) {
+  playRaid(event, onPhase, onComplete, onCue) {
     this.raid?.dispose();
-    this.raid = new TownRaid(this, event, PLOTS, onPhase, onComplete);
+    this.raid = new TownRaid(
+      this,
+      event,
+      PLOTS,
+      (phase) => {
+        onPhase(phase);
+        if (this.raid) this.frameTown();
+      },
+      onComplete,
+      onCue,
+    );
     this.rebuildActors();
     this.frameTown();
     this.render();
@@ -1061,6 +1093,7 @@ export class TownDiorama {
     this.raid.dispose();
     this.raid = null;
     this.rebuildActors();
+    if (this.overview) this.frameTown();
     this.render();
   }
   setCinematic(enabled) {

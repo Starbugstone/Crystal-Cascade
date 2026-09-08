@@ -12,7 +12,7 @@ export const PLOTS = {
   sheriff: [0, 11],
   museum: [-7, 12],
   armory: [7, 12],
-  mine: [0, -13],
+  mine: [0, -20],
   bank: [-7, -12],
   shop: [7, -12],
   home2: [-15, -4],
@@ -21,12 +21,12 @@ export const PLOTS = {
   well2: [7, 20],
   farm2: [15, -4],
   farm3: [15, 4],
-  fisherman: [24, 12],
+  fisherman: [22, 12],
   blacksmith: [-15, 12],
   school: [-15, -12],
   doctor: [15, 12],
   bridge: [riverCenterX(7.5), 7.5],
-  riverPort: [23, -4],
+  riverPort: [21, -4],
   railDepot: [-15, -20],
   post: [15, -12],
   warehouse: [42, -4],
@@ -72,6 +72,7 @@ const road = (from, to, width = 0.85, plot = null) => ({
   modes: ['pedestrian', 'horse', 'wagon'],
 });
 export const TOWN_TRACKS = [
+  road([-LANE_X, -15.5], [LANE_X, -15.5]),
   ...[-LANE_X, LANE_X].map((x) => road([x, -18], [x, 27], 1.05)),
   ...[-8.5, -0.5, 7.5, 15.5, 23.5].map((z) =>
     road([z === -0.5 || z === 7.5 ? -19 : -11, z], [z === -0.5 || z === 7.5 ? 19 : 11, z]),
@@ -96,8 +97,8 @@ export const CROSSING = {
 };
 export const RAIL_EDGE = {
   id: 'station-railroad',
-  from: [-80, -23],
-  to: [24, -23],
+  from: [-140, -23],
+  to: [140, -23],
   width: 1.1,
   modes: ['train'],
   plot: 'railDepot',

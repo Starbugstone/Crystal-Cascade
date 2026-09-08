@@ -232,3 +232,40 @@ it('keeps keyboard focus usable when replaying a smaller board', () => {
   input.handleKey({ key: 'ArrowLeft', preventDefault: vi.fn() });
   expect(input.focusIndex).toBe(40);
 });
+
+it.each(['replaced', 'transformed'])(
+  'does not redirect a queued swipe onto a %s bomb after a cascade',
+  (change) => {
+    const game = useGameStore();
+    const ruby = createGem('ruby'),
+      sapphire = createGem('sapphire');
+    game.sessionActive = true;
+    game.animationInProgress = true;
+    game.boardCols = 3;
+    game.board = [ruby, sapphire, createGem('emerald')];
+    const bomb = change === 'transformed' ? { ...ruby, type: 'bomb' } : createGem('bomb');
+    game.pendingBoardState = [bomb, sapphire, game.board[2]];
+    expect(game.queueSwap(0, 1)).toBe(true);
+    game.board = game.pendingBoardState;
+    game.pendingBoardState = null;
+    game.animationInProgress = false;
+    const swap = vi.spyOn(game, 'resolveSwap').mockResolvedValue(true);
+    game.processQueuedInput();
+    expect(swap).not.toHaveBeenCalled();
+    expect(game.board[0]).toEqual(bomb);
+    expect(game.queuedSwap).toBeNull();
+  },
+);
+
+it('executes a queued swipe when both visible pieces survive in their cells', () => {
+  const game = useGameStore();
+  game.sessionActive = true;
+  game.animationInProgress = true;
+  game.boardCols = 3;
+  game.board = [createGem('bomb'), createGem('ruby'), createGem('emerald')];
+  expect(game.queueSwap(0, 1)).toBe(true);
+  game.animationInProgress = false;
+  const swap = vi.spyOn(game, 'resolveSwap').mockResolvedValue(true);
+  game.processQueuedInput();
+  expect(swap).toHaveBeenCalledExactlyOnceWith(0, 1);
+});

@@ -183,7 +183,12 @@
                 class="slot-symbol"
                 :class="{ 'winning-symbol': index === stopIndex }"
               >
-                <img :src="rewardArt(power)" alt="" />
+                <div class="reward-art">
+                  <img :src="rewardArt(power)" alt="" />
+                  <span class="reward-use" :title="t(rewardUse(power))">
+                    <GameIcon :name="rewardUse(power) === 'Village' ? 'home' : 'pickaxe'" />
+                  </span>
+                </div>
                 <span>{{ t(power.label) }}</span>
               </div>
             </div>
@@ -195,6 +200,10 @@
           <template v-if="phase === 'opened'"
             ><b>+{{ prize.quantity ?? 1 }}</b
             ><strong>{{ t(prize.label) }}</strong
+            ><span class="prize-use"
+              ><GameIcon :name="rewardUse(prize) === 'Village' ? 'home' : 'pickaxe'" />{{
+                t(rewardUse(prize))
+              }}</span
             ><span>
               {{
                 t(
@@ -244,7 +253,14 @@
 <script setup>
 import { t } from '../i18n';
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { shuffleChestDrops, rewardArt } from '../data/rewards';
+import {
+  shuffleChestDrops,
+  rewardArt,
+  availableChestDrops,
+  chestReward,
+  rewardUse,
+} from '../data/rewards';
+import GameIcon from './GameIcon.vue';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 import { useCampaignStore } from '../stores/campaignStore';
@@ -259,9 +275,15 @@ const game = useGameStore();
 const phase = ref('closed');
 const roulette = ref(null);
 const campaign = useCampaignStore();
-const prize = ref(props.reward.items[0]);
+const eligibleDrops = availableChestDrops(campaign);
+const savedPrize = props.reward.items[0];
+const prize = ref(
+  eligibleDrops.some((drop) => drop.id === savedPrize.id)
+    ? savedPrize
+    : chestReward('coins', props.reward.levelId),
+);
 // Each chest gets a fresh order, with two chances to catch every reward.
-const reelOrder = shuffleChestDrops();
+const reelOrder = shuffleChestDrops(Math.random, eligibleDrops);
 const symbolDurationMs = 326 / 1.05;
 const stopIndex = ref(reelOrder.length * 2);
 const spinDurationMs = stopIndex.value * symbolDurationMs;
@@ -277,7 +299,7 @@ const clearTimers = () => {
 const finish = (selection) => {
   if (phase.value === 'opened') return;
   clearTimers();
-  const granted = campaign.claimChest(props.reward.id, selection);
+  const granted = campaign.claimChest(props.reward.id, selection ?? prize.value.id);
   if (granted) {
     prize.value = granted;
     emit('claimed', granted);
@@ -307,7 +329,7 @@ const stopRoulette = () => {
 const open = () => {
   if (phase.value !== 'closed') return;
   game.audioManager?.playArcadeCue?.('chest-charge');
-  if (settings.reducedMotion) return finish();
+  if (settings.reducedMotion || reelOrder.length === 1) return finish();
   phase.value = 'charging';
   timers.push(
     setTimeout(() => {
@@ -896,11 +918,45 @@ onBeforeUnmount(clearTimers);
   color: #4b2458;
   border-bottom: 1px solid #7d4b6b22;
 }
-.slot-symbol img {
+.reward-art {
+  position: relative;
   height: 73%;
   width: 85%;
+}
+.reward-art img {
+  height: 100%;
+  width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 3px 3px #71335b44);
+}
+.reward-use {
+  position: absolute;
+  bottom: 0;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #b88b46;
+  border-radius: 50%;
+  background: #fff2cb;
+  color: #694b2c;
+  box-shadow: 0 2px 4px #43252b44;
+}
+.reward-use svg {
+  width: 17px;
+  height: 17px;
+}
+.prize-use {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.prize-use svg {
+  width: 17px;
+  height: 17px;
 }
 .slot-symbol > span {
   font-size: 10px;

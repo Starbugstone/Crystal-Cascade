@@ -647,6 +647,7 @@
   "Warning shots": "Des coups de semonce",
   "The law holds the line": "La patrouille tient bon",
   "Bandits at the mine": "Des bandits à la mine",
+  "Hands up!": "Haut les mains !",
   "Back to the open trail": "Le retour vers la prairie",
   "The raid has passed": "L’attaque est terminée",
   "The riders are here. Watch the story unfold in your village.": "Les cavaliers sont là. Regardez l’histoire se dérouler dans votre village.",
@@ -1227,5 +1228,19 @@
   "Some buildings are ready but still need a final tap to finish construction. Enter the mine anyway?": "Des bâtiments sont prêts, mais attendent encore votre dernier clic pour terminer leur construction. Entrer dans la mine quand même ?",
   "Back to town": "Retour au village",
   "Continue anyway": "Continuer quand même",
-  "Bonus chest coins": "Pièces des coffres bonus"
+  "Bonus chest coins": "Pièces des coffres bonus",
+  "Construction: {wins} of {required} mining runs completed": "Construction : {wins} expéditions minières terminées sur {required}",
+  "River & Rail · Level {level} of {max}": "Fleuve et chemin de fer · Niveau {level} sur {max}",
+  "River & Rail level {level}: {name}": "Fleuve et chemin de fer, niveau {level} : {name}",
+  "Add a substantial extension and a covered veranda.": "Ajoutez une grande extension et une véranda couverte.",
+  "Complete the landmark with a clock tower and ornamental roof.": "Complétez le bâtiment avec une tour à horloge et un toit ornemental.",
+  "Expand {building}": "Agrandir {building}",
+  "Adds room or food for ten more residents.": "Ajoute des logements ou de la nourriture pour dix habitants supplémentaires.",
+  "Room for two more visitors, with spare food and water.": "De la place pour deux visiteurs supplémentaires, avec suffisamment de nourriture et d’eau.",
+  "Expand the structure and improve its River & Rail appearance.": "Agrandissez le bâtiment et améliorez son apparence de l’ère du fleuve et du chemin de fer.",
+  "A larger landmark for a growing River & Rail town.": "Un bâtiment plus grand pour une ville en plein essor.",
+  "River & Rail · Level 1": "Fleuve et chemin de fer · Niveau 1",
+  "River & Rail · Level 2": "Fleuve et chemin de fer · Niveau 2",
+  "River & Rail · Level 3": "Fleuve et chemin de fer · Niveau 3",
+  "Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.": "Chaque bâtiment de l’ère du fleuve et du chemin de fer a 3 niveaux. Chaque construction demande au plus 2 expéditions minières."
 }

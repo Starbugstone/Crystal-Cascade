@@ -204,6 +204,7 @@ describe('Queued swap buffering', () => {
       createGem('sapphire'),
       createGem('emerald'),
     ];
+    gameStore.board = [...gameStore.pendingBoardState];
     gameStore.renderer = {
       animator: {
         showQueuedSwap: vi.fn(),
@@ -214,7 +215,13 @@ describe('Queued swap buffering', () => {
   it('queues swaps even if they do not immediately form a match', () => {
     const result = gameStore.queueSwap(0, 1);
     expect(result).toBe(true);
-    expect(gameStore.queuedSwap).toEqual({ aIndex: 0, bIndex: 1 });
+    expect(gameStore.queuedSwap).toMatchObject({
+      aIndex: 0,
+      bIndex: 1,
+      gems: gameStore.board
+        .slice(0, 2)
+        .map((gem, index) => ({ index, id: gem.id, type: gem.type })),
+    });
     expect(gameStore.renderer.animator.showQueuedSwap).toHaveBeenCalledWith(0, 1);
   });
 

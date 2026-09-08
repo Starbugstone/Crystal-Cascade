@@ -163,6 +163,7 @@
           @select="selectBuilding"
           @mine="goMining"
           @raid-phase="raidPhase = $event"
+          @raid-cue="playRaidCue"
           @raid-complete="finishRaid"
           @camera-distance="cameraDistance = $event"
         />
@@ -396,7 +397,9 @@
         <p class="town-service">
           {{
             t(
-              'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
+              town.era === 'river-rail'
+                ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
+                : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
             )
           }}
         </p>
@@ -476,7 +479,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { t, number } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
 import { ERA_BY_ID } from '../../data/eras';
-import { eraGate, plotInEra } from '../../game/town/TownEras';
+import { eraGate, plotInEra, eraBuildingLevel } from '../../game/town/TownEras';
 import {
   population,
   residentPopulation,
@@ -673,7 +676,7 @@ let collectionSerial = 0;
 const activeRaid = ref(null),
   raidPhase = ref('Riders on the ridge');
 const cameraDistance = ref(55);
-useTownAudio(() => ({
+const { playRaidCue } = useTownAudio(() => ({
   active: props.active,
   cameraDistance: cameraDistance.value,
   population: people.value,
@@ -852,8 +855,8 @@ function plotStatus(place) {
   if (place.ready) return t('Construction complete');
   return town.value.buildings[place.id]
     ? t('Level {level} / {max}', {
-        level: town.value.buildings[place.id],
-        max: place.upgrades.length,
+        level: eraBuildingLevel(town.value, place.id),
+        max: town.value.era === 'river-rail' ? 3 : place.upgrades.length,
       })
     : t('Empty plot');
 }

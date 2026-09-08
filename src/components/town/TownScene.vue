@@ -111,11 +111,20 @@
         <small v-else-if="constructionReady(town.projects[anchor.id])">{{
           t('Tap to finish')
         }}</small>
-        <small v-else-if="town.projects[anchor.id]"
-          >{{ town.projects[anchor.id].wins }}/{{
-            constructionRuns(town.projects[anchor.id])
-          }}</small
+        <small
+          v-else-if="town.projects[anchor.id]"
+          class="construction-count"
+          :title="
+            t('Construction: {wins} of {required} mining runs completed', {
+              wins: Math.min(town.projects[anchor.id].wins, 2),
+              required: constructionRuns(town.projects[anchor.id]),
+            })
+          "
         >
+          <GameIcon name="wall" />{{ Math.min(town.projects[anchor.id].wins, 2) }}/{{
+            constructionRuns(town.projects[anchor.id])
+          }}
+        </small>
         <small v-else-if="indicators[anchor.id] === 'coins'">{{
           t('Collect {coins} coins', { coins: town.income.stored })
         }}</small>
@@ -126,7 +135,7 @@
           t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
         }}</small>
         <small v-else-if="town.buildings[anchor.id]">{{
-          t('Lv. {level}', { level: town.buildings[anchor.id] })
+          t('Lv. {level}', { level: eraBuildingLevel(town, anchor.id) })
         }}</small>
         <span v-else aria-hidden="true">+</span>
       </button>
@@ -164,6 +173,8 @@
   </div>
 </template>
 <script setup>
+import GameIcon from '../GameIcon.vue';
+import { eraBuildingLevel } from '../../game/town/TownEras';
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { BUILDING_BY_ID, BUILDINGS } from '../../data/town';
 import {
@@ -192,7 +203,14 @@ const props = defineProps({
   raid: Object,
   construction: Object,
 });
-const emit = defineEmits(['select', 'mine', 'raid-phase', 'raid-complete', 'camera-distance']);
+const emit = defineEmits([
+  'select',
+  'mine',
+  'raid-phase',
+  'raid-cue',
+  'raid-complete',
+  'camera-distance',
+]);
 const canvas = ref(null),
   canvasVersion = ref(0),
   map = ref(null),
@@ -312,6 +330,7 @@ function update() {
         constructionVisual(props.town.projects[id]),
         labels[id],
         props.town.buildingEras[id],
+        props.town.buildingEraLevels?.[id],
       ]),
     ) +
     props.town.era;
@@ -429,6 +448,7 @@ function startRaid() {
       props.raid,
       (phase) => emit('raid-phase', phase),
       () => emit('raid-complete'),
+      (cue) => emit('raid-cue', cue),
     );
 }
 watch(
@@ -473,6 +493,7 @@ watch(
     JSON.stringify(props.town.buildings),
     JSON.stringify(props.town.projects),
     JSON.stringify(props.town.buildingEras),
+    JSON.stringify(props.town.buildingEraLevels),
     props.town.era,
     props.mineStage,
     props.construction?.serial,

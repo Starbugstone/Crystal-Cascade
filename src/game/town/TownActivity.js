@@ -6,7 +6,7 @@ import { LANE_X, townTracks, atPlot, plotStreet } from './TownLayout';
 export function mountedRider(
   d,
   parent,
-  { color = '#886650', hat = '#a78758', bandit = false, seed = 0 } = {},
+  { color = '#886650', hat = '#a78758', bandit = false, sheriff = false, seed = 0 } = {},
 ) {
   const root = d.group(parent),
     horse = d.group(root);
@@ -43,6 +43,7 @@ export function mountedRider(
   const rider = d.person({
     parent: horse,
     manual: true,
+    sheriff,
     color,
     skin: seed % 2 ? '#b88863' : '#d7af8a',
     hat,
@@ -84,7 +85,7 @@ export function mountedRider(
     loot,
     flash,
     gun,
-    animate(time, moving = true, aiming = false) {
+    animate(time, moving = true, aiming = false, surrender = false) {
       const stride = time * 9 + seed;
       horse.position.y = moving ? Math.sin(stride * 2) * 0.035 : Math.sin(time * 1.6) * 0.007;
       legs.forEach(({ leg, knee }, i) => {
@@ -97,7 +98,11 @@ export function mountedRider(
       rider.torso.rotation.x = moving ? -0.06 + Math.sin(stride) * 0.025 : 0;
       rider.arms[1].upper.rotation.x = aiming ? -1.65 : -0.65;
       rider.arms[1].lower.rotation.x = aiming ? -0.45 : -0.65;
-      gun.visible = aiming;
+      rider.arms.forEach((arm, i) => {
+        arm.upper.rotation.z = surrender ? (i ? -2.4 : 2.4) : 0;
+        if (surrender) arm.lower.rotation.x = -0.2;
+      });
+      gun.visible = aiming && !surrender;
     },
   };
 }
@@ -205,87 +210,141 @@ export function addTownVisitors(d, town) {
     }
 }
 
-export const RAID_DURATION = 21;
+export const RAID_DURATION = 48;
 export const raidPhase = (time, protectedTown) =>
-  time < 5
+  time < 8
     ? 'Riders on the ridge'
-    : time < 9
+    : time < 12
       ? 'Warning shots'
-      : time < 14
+      : time < 17
         ? protectedTown
           ? 'The law holds the line'
           : 'Bandits at the mine'
-        : 'Back to the open trail';
+        : time < 22
+          ? 'Hands up!'
+          : 'Back to the open trail';
+
+// All positions use the open forecourt, with a separate column for each capture team.
 export class TownRaid {
-  constructor(d, event, plots, onPhase, onComplete) {
-    this.d = d;
-    this.event = event;
-    this.onPhase = onPhase;
-    this.onComplete = onComplete;
+  constructor(d, event, plots, onPhase, onComplete, onCue = () => {}) {
+    Object.assign(this, { d, event, onPhase, onComplete, onCue });
     this.root = d.group(d.scene);
     this.root.name = 'Frontier raid';
     this.started = d.elapsed;
-    this.bandits = Array.from({ length: event.gangSize }, (_, n) =>
-      mountedRider(d, this.root, {
-        bandit: true,
-        seed: n,
-        color: n % 2 ? '#5d5b50' : '#825b4b',
-        hat: '#574d3c',
-      }),
-    );
-    this.patrol = Array.from({ length: event.sheriffLevel }, (_, n) =>
-      mountedRider(d, this.root, { seed: n + 1, color: '#688d98', hat: '#c3a05a' }),
-    );
-    const targetId = plots[event.targets[1]] ? event.targets[1] : 'mine';
-    const target = plots[targetId];
-    this.targetStreet = plotStreet(targetId);
     this.mine = plots.mine;
     this.sheriff = plots.sheriff;
-    this.target = [target[0], target[1] + 2.1];
-    this.dust = Array.from({ length: event.gangSize * 3 }, () =>
-      d.ball(this.root, 0, 0.2, 0, 0.2, '#cbb78d', 'rock'),
+    this.columns = Math.min(
+      5,
+      event.gangSize,
+      Math.max(Math.ceil(event.gangSize / 2), event.sheriffLevel),
     );
-    this.dust.forEach((dust) => {
+    this.cues = new Set();
+    this.civilians = (d.world?.children ?? [])
+      .filter((o) => o.userData.animated)
+      .map((o) => [o, o.visible]);
+    this.bandits = Array.from({ length: event.gangSize }, (_, n) => {
+      const actor = mountedRider(d, this.root, {
+        bandit: true,
+        seed: n,
+        color: n % 2 ? '#514c47' : '#82513f',
+        hat: '#493e32',
+      });
+      const rope = d.rod(this.root, [0, 0, 0], [0, 1, 0], 0.018, '#e9ca84');
+      rope.userData.animated = true;
+      const loop = d.group(actor.rider.torso, 0, 0.12, 0);
+      // A faceted rope loop around the surrendered rider's waist.
+      for (let k = 0; k < 12; k++) {
+        const a = (k * Math.PI) / 6,
+          b = ((k + 1) * Math.PI) / 6;
+        d.rod(
+          loop,
+          [Math.cos(a) * 0.24, 0, Math.sin(a) * 0.19],
+          [Math.cos(b) * 0.24, 0, Math.sin(b) * 0.19],
+          0.017,
+          '#e9ca84',
+        );
+      }
+      return Object.assign(actor, { rope, loop });
+    });
+    this.patrol = [];
+    this.updateEvent(event);
+    this.dust = Array.from({ length: event.gangSize * 3 }, () => {
+      const dust = d.ball(this.root, 0, 0.2, 0, 0.2, '#cbb78d', 'rock');
       dust.userData.animated = true;
+      return dust;
     });
     this.update(d.elapsed);
   }
   updateEvent(event) {
     this.event = event;
-    while (this.patrol.length < event.sheriffLevel) {
+    while (this.patrol.length < Math.min(event.sheriffLevel, this.columns))
       this.patrol.push(
         mountedRider(this.d, this.root, {
+          sheriff: true,
           seed: this.patrol.length + 1,
-          color: '#688d98',
-          hat: '#c3a05a',
+          color: '#315d83',
+          hat: '#f0d390',
         }),
       );
-    }
   }
-  move(actor, from, to, progress) {
-    const p = THREE.MathUtils.clamp(progress, 0, 1);
-    actor.root.position.set(
-      THREE.MathUtils.lerp(from[0], to[0], p),
-      0.07,
-      THREE.MathUtils.lerp(from[1], to[1], p),
-    );
-    actor.root.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
+  slot(n) {
+    return [
+      ((this.columns - 1) / 2 - (n % this.columns)) * 1.7,
+      this.mine[1] + 8 - Math.floor(n / this.columns) * 2.8,
+    ];
   }
-  travel(actor, points, progress) {
-    const lengths = points
+  line(n) {
+    return [this.slot(n)[0], this.mine[1] + 10.2];
+  }
+  escort(n) {
+    const line = this.line(n);
+    return [
+      line,
+      [line[0], -8.5],
+      [LANE_X, -8.5],
+      [LANE_X, this.sheriff[1] + 2.1],
+      [this.sheriff[0] + 0.8, this.sheriff[1] + 2.1],
+    ];
+  }
+  pathLength(points) {
+    return points
       .slice(1)
-      .map((p, i) => Math.hypot(p[0] - points[i][0], p[1] - points[i][1]));
-    let distance =
-      THREE.MathUtils.clamp(progress, 0, 1) * lengths.reduce((sum, length) => sum + length, 0);
-    for (let i = 0; i < lengths.length; i++) {
-      if (distance <= lengths[i] || i === lengths.length - 1) {
-        this.move(actor, points[i], points[i + 1], lengths[i] ? distance / lengths[i] : 1);
-        return;
+      .reduce((sum, p, i) => sum + Math.hypot(p[0] - points[i][0], p[1] - points[i][1]), 0);
+  }
+  travel(actor, points, distance) {
+    let remaining = Math.max(0, distance);
+    for (let i = 1; i < points.length; i++) {
+      const from = points[i - 1],
+        to = points[i],
+        length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+      if (remaining <= length || i === points.length - 1) {
+        const p = Math.min(1, remaining / (length || 1));
+        actor.root.position.set(
+          THREE.MathUtils.lerp(from[0], to[0], p),
+          0.07,
+          THREE.MathUtils.lerp(from[1], to[1], p),
+        );
+        actor.root.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
+        return remaining <= length;
       }
-      distance -= lengths[i];
+      remaining -= length;
     }
+    return false;
+  }
+  cue(id, at, time, kind, actor) {
+    if (time < at || this.cues.has(id)) return;
+    this.cues.add(id);
+    // Never replay missed gunfire after a suspended tab or a skipped timeline.
+    if (time - at < 0.25)
+      this.onCue({
+        id,
+        raidId: this.event.id,
+        kind,
+        pan: THREE.MathUtils.clamp(actor.root.position.x / 10, -0.7, 0.7),
+      });
   }
   update(elapsed) {
+    if (this.disposed) return true;
     const time = elapsed - this.started,
       { event } = this;
     const phase = raidPhase(time, event.outcome === 'protected');
@@ -293,85 +352,112 @@ export class TownRaid {
       this.phase = phase;
       this.onPhase(phase);
     }
-    this.bandits.forEach((actor, n) => {
-      const stop = [-1.2 + (n % 3) * 1.1, this.mine[1] + 4.5 + Math.floor(n / 3) * 0.95];
-      const entry = [24 - n * 0.3, -18 - n * 0.4];
-      const caught =
-        event.outcome === 'protected' || n < Math.min(event.gangSize / 2, event.sheriffLevel);
-      const retreat = caught ? 10 : 14;
-      let moving = time < 5 || time >= retreat;
-      if (time < 5) this.travel(actor, [entry, [18, -8.5], [11, -8.5], stop], time / 5);
-      else if (time < 9) this.move(actor, stop, stop, 0);
-      else if (time < retreat && !caught) {
-        // Half the gang circles to the second completed building.
-        const target = n % 2 ? [this.target[0] + (n - 2) * 0.35, this.target[1]] : stop;
-        const lane = target[0] < 0 ? -LANE_X : LANE_X;
-        this.travel(
-          actor,
-          [stop, [lane, stop[1]], [lane, this.targetStreet[1]], this.targetStreet, target],
-          (time - 9) / 3,
-        );
-        moving = time < 12 && n % 2 === 1;
-      } else if (time >= retreat) {
-        const start = !caught && n % 2 ? [this.target[0] + (n - 2) * 0.35, this.target[1]] : stop;
-        // Leave by the front of town, away from the residential plots.
-        const corner = [LANE_X + n * 0.15, 26.5 + n * 0.1];
-        const lane = start[0] < -2 ? -LANE_X : LANE_X;
-        if (time < retreat + 3)
-          this.travel(
-            actor,
-            [
-              start,
-              ...(!caught && n % 2 ? [this.targetStreet] : []),
-              [lane, !caught && n % 2 ? this.targetStreet[1] : start[1]],
-              [lane, corner[1]],
-              corner,
-            ],
-            (time - retreat) / 3,
-          );
-        else this.move(actor, corner, [23 - n * 0.2, 27], (time - retreat - 3) / 4);
+    this.civilians.forEach(([actor]) => (actor.visible = false));
+    const caughtCount =
+      event.outcome === 'protected'
+        ? Math.min(event.gangSize, this.patrol.length * 2)
+        : Math.min(Math.floor(event.gangSize / 2), this.patrol.length);
+    this.patrol.forEach((actor, n) => {
+      const line = this.line(n),
+        route = this.escort(n),
+        depart = 22 + n * 3;
+      const entry = [...route].reverse();
+      const arrival = 8 + n * 0.8;
+      let moving = false;
+      actor.root.visible = time >= arrival;
+      if (time < 17) moving = this.travel(actor, entry, Math.max(0, time - arrival) * 5.5);
+      else if (time < depart) {
+        this.travel(actor, [line, [line[0], line[1] - 1]], 0);
+      } else {
+        actor.root.visible = this.travel(actor, route, (time - depart) * 4);
+        moving = actor.root.visible;
       }
-      actor.root.visible = time < retreat + 7;
-      const aiming = time >= 5 && time < 9;
-      actor.animate(time, moving, aiming);
-      actor.flash.visible =
-        aiming && Math.floor((time - 5) / 1.1) % event.gangSize === n && (time - 5) % 1.1 < 0.1;
+      const aiming = time >= 14 && time < 17;
+      actor.animate(time + n, moving, aiming);
+      const shot = 14.3 + n * 0.45;
+      actor.flash.visible = aiming && time >= shot && time < shot + 0.12;
+      if (aiming) actor.root.rotation.y = Math.PI;
+      this.cue(`sheriff-${n}`, shot, time, 'sheriff-shot', actor);
+      if (n === 0) this.cue('law-call', 12.2, time, 'yeehaw', actor);
+    });
+    this.bandits.forEach((actor, n) => {
+      const stop = this.slot(n),
+        col = n % this.columns,
+        row = Math.floor(n / this.columns);
+      const entry = [[22 + n * 2.5, this.mine[1] + 3.5], [stop[0], this.mine[1] + 3.5], stop];
+      const caught = n < caughtCount && col < this.patrol.length;
+      const captureAt = 17 + row * 1.2 + col * 0.15;
+      actor.captured = caught && time >= captureAt;
+      actor.captor = caught ? col : null;
+      actor.root.visible = true;
+      let moving = false;
+      if (time < 8) moving = this.travel(actor, entry, time * 6.8);
+      else if (caught && time >= 22 + col * 3) {
+        const route = [stop, ...this.escort(col)];
+        moving = true;
+        actor.root.visible = this.travel(actor, route, (time - 22 - col * 3) * 4);
+      } else if (!caught && time >= 19 + (1 - row) * 1.1) {
+        moving = true;
+        actor.root.visible = this.travel(
+          actor,
+          [...entry].reverse(),
+          (time - 19 - (1 - row) * 1.1) * 6.8,
+        );
+      } else this.travel(actor, [stop, [stop[0], stop[1] + 1]], 0);
+      const aiming = time >= 8 && time < 14;
+      actor.animate(time + n, moving, aiming, actor.captured && time < 22 + col * 3);
+      actor.flash.visible = false;
+      for (let shot = 0; shot < 3; shot++) {
+        const at = 8.2 + shot * 1.15;
+        if (n === shot % event.gangSize) {
+          actor.flash.visible ||= time >= at && time < at + 0.12;
+          this.cue(`bandit-${shot}`, at, time, 'bandit-shot', actor);
+        }
+      }
       actor.loot.visible = !caught && event.loss > 0 && time > 12;
+      actor.loop.visible = actor.captured;
+      actor.rope.visible =
+        actor.root.visible && caught && time >= captureAt - 0.65 && this.patrol[col].root.visible;
+      if (actor.rope.visible) {
+        const hand = this.patrol[col].root.position.clone().add(new THREE.Vector3(0.2, 1.65, 0));
+        const target = actor.root.position.clone().add(new THREE.Vector3(0, 1.6, 0));
+        target.lerpVectors(
+          hand,
+          target,
+          THREE.MathUtils.clamp((time - captureAt + 0.65) / 0.65, 0, 1),
+        );
+        const delta = target.clone().sub(hand);
+        actor.rope.position.copy(hand).addScaledVector(delta, 0.5);
+        actor.rope.scale.set(0.018, delta.length(), 0.018);
+        actor.rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+      }
       for (let k = 0; k < 3; k++) {
         const dust = this.dust[n * 3 + k],
           drift = (time * 1.8 + k / 3) % 1;
-        dust.visible = actor.root.visible && moving;
+        dust.visible = actor.root.visible && (moving || actor.flash.visible);
         dust.position
           .copy(actor.root.position)
           .add(
             new THREE.Vector3(
               Math.sin(n + k) * drift * 0.5,
-              0.1 + drift * 0.25,
+              0.1 + drift * 0.3,
               -Math.cos(actor.root.rotation.y) * (0.5 + drift),
             ),
           );
         dust.scale.setScalar(0.12 + drift * 0.3);
       }
     });
-    this.patrol.forEach((actor, n) => {
-      actor.root.visible = time >= 6 && time < 19;
-      const home = [this.sheriff[0] + 0.65 + n * 0.6, this.sheriff[1] + 2.1],
-        line = [-1.5 + n * 1.4, this.mine[1] + 7.75];
-      if (time < 10)
-        this.travel(actor, [home, [LANE_X, home[1]], [LANE_X, line[1]], line], (time - 6) / 4);
-      else if (time < 15) this.move(actor, line, line, 0);
-      else this.travel(actor, [line, [LANE_X, line[1]], [LANE_X, home[1]], home], (time - 15) / 4);
-      if (time >= 10 && time < 15) actor.root.rotation.y = Math.PI;
-      actor.animate(time, time < 10 || time >= 15, time >= 10 && time < 14);
-    });
     if (time >= RAID_DURATION) {
-      this.onComplete();
       this.dispose();
+      this.onComplete();
       return true;
     }
     return false;
   }
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.civilians.forEach(([actor, visible]) => (actor.visible = visible));
     this.d.clearGroup(this.root);
   }
 }

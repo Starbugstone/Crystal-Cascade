@@ -32,6 +32,7 @@ export const forgeProductionRuns = (level) => FORGE_PRODUCTION_RUNS[level - 1] ?
 export const createEraState = (plotIds) => ({
   era: FRONTIER_ERA,
   buildingEras: Object.fromEntries(plotIds.map((id) => [id, FRONTIER_ERA])),
+  buildingEraLevels: Object.fromEntries(plotIds.map((id) => [id, 0])),
   eraTransitionSeen: {},
   infrastructure: { bridge: 0, rail: 0, riverPort: 0 },
   forge: { progress: 0, charge: 0 },

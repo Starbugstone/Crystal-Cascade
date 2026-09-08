@@ -373,7 +373,7 @@ describe('Two eras and explicit modernization', () => {
       type: 'modernization',
       stage: 5,
       required: 2,
-      cost: 300,
+      cost: 800,
     });
     expect(town.buildingEras.saloon).toBe('frontier');
     expect(saloonIncomeRate(town)).toBe(rate);
@@ -384,7 +384,7 @@ describe('Two eras and explicit modernization', () => {
     expect(town.buildings.saloon).toBe(5);
     expect(town.buildingEras.saloon).toBe('river-rail');
     expect(saloonIncomeRate(town)).toBe(rate);
-    expect(upgradeOffer(town, 'saloon')).toBeNull();
+    expect(upgradeOffer(town, 'saloon')).toMatchObject({ eraLevel: 2, cost: 1200 });
     expect(finishConstruction(town, 'saloon', 5)).toBeNull();
   });
   it('builds the station and railway in one receipt and enables both only on its first finish', () => {
@@ -424,11 +424,18 @@ describe('Two eras and explicit modernization', () => {
       'market',
     ])
       town = buildWithHammer(town, id, 0);
+    expect(isEraComplete(town)).toBe(false);
+    for (const building of BUILDINGS) {
+      for (let level = 2; level <= 3; level++) {
+        const offer = upgradeOffer(town, building.id);
+        town = buildWithHammer(town, building.id, offer.stage);
+      }
+    }
     expect(isEraComplete(town)).toBe(true);
     expect(eraGate(town, milestoneRecords()).available).toBe(false);
-    expect(residentPopulation(town)).toBe(50);
-    expect(visitorPopulation(town)).toBe(10);
-    expect(saloonIncomeRate(town)).toBe(1501);
+    expect(residentPopulation(town)).toBe(60);
+    expect(visitorPopulation(town)).toBe(0); // Water is now the limiting service.
+    expect(saloonIncomeRate(town)).toBe(1425);
   });
 });
 

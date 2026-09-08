@@ -35,8 +35,21 @@ export function chestReward(id, levelId = 1) {
     : null;
 }
 // Shuffle the visual reel without changing the catalog used by weighted awards.
-export function shuffleChestDrops(random = Math.random) {
-  const drops = [...CHEST_DROPS];
+export const availableChestDrops = (state) =>
+  CHEST_DROPS.filter((drop) =>
+    drop.kind === 'coins'
+      ? true
+      : drop.kind === 'builder-hammer'
+        ? state.builderHammers < HAMMER_CAPACITY
+        : state.powers.some(
+            (power) => power.id === drop.id && power.quantity < bonusCapacity(state.town),
+          ),
+  );
+export const rewardUse = (item) =>
+  item.kind === 'coins' || item.kind === 'builder-hammer' ? 'Village' : 'Mine';
+
+export function shuffleChestDrops(random = Math.random, eligible = CHEST_DROPS) {
+  const drops = [...eligible];
   for (let index = drops.length - 1; index > 0; index--) {
     const other = Math.floor(random() * (index + 1));
     [drops[index], drops[other]] = [drops[other], drops[index]];

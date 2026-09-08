@@ -2,7 +2,7 @@ import { RIVER, riverCenterX } from '../TownRiver';
 
 export function addFishingDock(d, parent, level, wharf = false) {
   const world = parent.position;
-  const reach = riverCenterX(world.z) - world.x;
+  const reach = riverCenterX(world.z) - RIVER.halfWidth + 0.3 - world.x;
   const width = wharf ? 2.3 : 1;
   for (let n = 0; n < Math.ceil(reach * 4); n++)
     d.box(parent, 0.22, 0.13, width, 1 + n * 0.25, 0.1, 0, '#a58a62');
@@ -19,7 +19,7 @@ export function addFishingDock(d, parent, level, wharf = false) {
   }
   if (level >= 3) d.box(parent, 2, 0.1, 1, -0.5, 1.2, -1.6, '#947b54');
   if (level >= 4) d.box(parent, 0.7, 0.7, 0.65, 1.8, 0.4, -1.4, '#b89d70');
-  const boat = d.group(parent, reach - 0.4, RIVER.waterHeight - world.y + 0.12, width / 2 + 0.8);
+  const boat = d.group(parent, reach + 0.2, RIVER.waterHeight - world.y + 0.12, width / 2 + 0.8);
   boat.name = 'Fishing skiff';
   d.ball(boat, 0, 0, 0, [0.35, 0.15, 0.9], '#876f4d');
   d.box(boat, 0.43, 0.08, 1.15, 0, 0.11, 0, '#b59b6f');

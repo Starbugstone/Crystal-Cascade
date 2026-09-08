@@ -242,6 +242,7 @@
               :id="building.id"
               :stage="town.buildings[building.id]"
               :era="town.buildingEras[building.id]"
+              :era-level="eraBuildingLevel(town, building.id)"
               :wins="constructionVisual(town.projects[building.id])"
             />
           </g>
@@ -403,6 +404,7 @@
   </div>
 </template>
 <script setup>
+import { eraBuildingLevel } from '../../game/town/TownEras';
 import { t } from '../../i18n';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import {
