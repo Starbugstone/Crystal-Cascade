@@ -13,8 +13,12 @@ export const ERAS = [
   {
     id: 'industrial',
     label: 'Industrial / Electric Town',
-    yearLabel: 'c. 1900–1920',
-    enabled: false,
+    yearLabel: '1908',
+    enabled: true,
+    story:
+      'Brick workshops, a growing neighborhood, and the promise of electric light. Build the power house to illuminate Prospect Hollow.',
+    horizon: 'A new light is coming to Prospect Hollow.',
+    finale: 'The river still flows. The rails still carry us. Now we build a brighter town.',
   },
   { id: 'motor-age', label: 'Motor Age', yearLabel: 'c. 1920–1945', enabled: false },
   { id: 'post-war', label: 'Post-war City', yearLabel: 'c. 1945–1980', enabled: false },
@@ -34,6 +38,7 @@ export const createEraState = (plotIds) => ({
   buildingEras: Object.fromEntries(plotIds.map((id) => [id, FRONTIER_ERA])),
   buildingEraLevels: Object.fromEntries(plotIds.map((id) => [id, 0])),
   eraTransitionSeen: {},
+  firstLightsSeen: false,
   infrastructure: { bridge: 0, rail: 0, riverPort: 0 },
   forge: { progress: 0, charge: 0 },
 });

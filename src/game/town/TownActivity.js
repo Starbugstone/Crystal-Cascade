@@ -129,7 +129,7 @@ export function addTownRoads(d, town, plots) {
     geometry.userData.owned = true;
     const track = new THREE.Mesh(
       geometry,
-      d.material(town.era === 'river-rail' ? '#b3a18a' : '#c3a477'),
+      d.material(town.era !== 'frontier' ? '#b3a18a' : '#c3a477'),
     );
     track.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
     track.position.set((from[0] + to[0]) / 2, 0.028 + index * 0.0002, (from[1] + to[1]) / 2);

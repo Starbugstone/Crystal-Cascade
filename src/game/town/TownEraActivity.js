@@ -42,7 +42,7 @@ export function addEraActivity(d, town) {
     });
     d.rod(fisher.root, [0, 0.8, 0.15], [0.9, 1.5, 1.2], 0.015, '#987c54');
   }
-  if (town.era !== 'river-rail') return;
+  if (town.era === 'frontier') return;
   if (town.buildings.bridge && town.buildings.home5) {
     const route = routeBetween(town, plotStreet('home5'), plotStreet('saloon'));
     if (route.length > 1)

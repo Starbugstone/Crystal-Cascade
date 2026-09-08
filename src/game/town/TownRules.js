@@ -2,6 +2,8 @@ import { RIVER_RAIL_LEVEL_PRICES } from '../../data/economy';
 import { buildingServiceLevel, hasShortProgression } from '../../data/buildingProgression';
 import { t } from '../../i18n';
 import { miningDepthBonus } from '../../data/economy';
+import { hasElectricity } from '../../data/industrial';
+import { eventKind, eraEventKind, fireProtection } from '../../data/townEvents';
 import { forgeProductionRuns } from '../../data/eras';
 import { plotInEra, modernization, normalizeEraState, eraGate } from './TownEras';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
@@ -126,6 +128,21 @@ export function normalizeTown(saved) {
             : []),
         ],
       };
+      if (['cargo-theft', 'workshop-fire'].includes(event.kind)) {
+        const receipt = town.events[BANDIT_EVENT];
+        receipt.kind = event.kind;
+        receipt.fireStationLevel =
+          Number.isInteger(event.fireStationLevel) &&
+          event.fireStationLevel >= 0 &&
+          event.fireStationLevel <= 3
+            ? event.fireStationLevel
+            : 0;
+        receipt.targets = (Array.isArray(event.targets) ? event.targets : [])
+          .filter((id) => Object.hasOwn(BUILDING_BY_ID, id) && town.buildings[id] > 0)
+          .slice(0, 1);
+        if (!receipt.targets.length)
+          receipt.targets = [event.kind === 'workshop-fire' ? 'blacksmith' : 'railDepot'];
+      }
     }
   }
   for (const { id, upgrades } of BUILDINGS) {
@@ -259,15 +276,19 @@ export function finishConstruction(town, id, expectedStage) {
       [id]:
         project.type === 'modernization'
           ? (project.eraLevel ?? 1)
-          : town.era === 'river-rail'
+          : town.era !== 'frontier'
             ? project.stage
             : 0,
     },
     buildingEras: { ...town.buildingEras, [id]: project.targetEra ?? town.era },
     infrastructure: {
       ...town.infrastructure,
-      ...(id === 'bridge' || id === 'riverPort' ? { [id]: project.stage } : {}),
-      ...(id === 'railDepot' ? { rail: project.stage } : {}),
+      ...(id === 'bridge' || id === 'riverPort'
+        ? { [id]: project.type === 'modernization' ? town.buildings[id] : project.stage }
+        : {}),
+      ...(id === 'railDepot'
+        ? { rail: project.type === 'modernization' ? town.buildings[id] : project.stage }
+        : {}),
     },
     projects,
     constructionTipSeen: true,
@@ -283,8 +304,17 @@ export const foodCapacity = (town) =>
   totalLevels(town, 'farm') * 6 +
   Math.min(5, Math.max(0, buildingServiceLevel('fisherman', town.buildings.fisherman ?? 0))) +
   (town.buildings.market ?? 0) * 10;
+export const waterCapacity = (town) =>
+  totalLevels(town, 'well') * 6 +
+  (town.buildingEras.well === 'industrial' &&
+  town.buildingEraLevels.well === 3 &&
+  town.buildings.well > 0
+    ? 20
+    : 0);
 export const housingCapacity = (town) =>
-  totalLevels(town, 'home') * 2 + (town.buildings.home5 ?? 0) * 8;
+  totalLevels(town, 'home') * 2 +
+  (town.buildings.home5 ?? 0) * 8 +
+  [0, 6, 12, 16][town.buildings.rowHouses ?? 0];
 export function settleForgeProduction(town) {
   if (
     !town.buildings.blacksmith ||
@@ -302,7 +332,7 @@ export function advanceForge(town) {
   });
 }
 export const residentPopulation = (town) =>
-  Math.min(housingCapacity(town), totalLevels(town, 'well') * 6, foodCapacity(town));
+  Math.min(housingCapacity(town), waterCapacity(town), foodCapacity(town));
 export const visitorCapacity = (town) =>
   buildingServiceLevel('stable', town.buildings.stable) * 2 +
   Math.max(0, buildingServiceLevel('museum', town.buildings.museum) - 1) * 2 +
@@ -311,15 +341,13 @@ export const visitorCapacity = (town) =>
 export const visitorPopulation = (town) =>
   Math.min(
     visitorCapacity(town),
-    Math.max(0, totalLevels(town, 'well') * 6 - residentPopulation(town)),
+    Math.max(0, waterCapacity(town) - residentPopulation(town)),
     Math.max(0, foodCapacity(town) - residentPopulation(town)),
   );
 export const population = (town) => residentPopulation(town) + visitorPopulation(town);
 export const happiness = (town) => {
   const demand = housingCapacity(town) + visitorCapacity(town);
-  const needs = demand
-    ? Math.min(1, (totalLevels(town, 'well') * 6) / demand, foodCapacity(town) / demand)
-    : 0;
+  const needs = demand ? Math.min(1, waterCapacity(town) / demand, foodCapacity(town) / demand) : 0;
   return Math.min(
     100,
     Math.round(
@@ -392,6 +420,7 @@ export function upgradeOffer(town, id) {
   const requirement = plotRequirement(town, id);
   const upgrade = building.upgrades[stage] ?? modernization(town, id);
   if (!upgrade) return null;
+  const needsPower = upgrade.requiresPower && !hasElectricity(town);
   const firstProject =
     !Object.keys(town.projects).length && BUILDINGS.every(({ id }) => !town.buildings[id]);
   const eraCost =
@@ -407,19 +436,21 @@ export function upgradeOffer(town, id) {
     cost,
     stage: upgrade.stage ?? stage,
     runs: Math.min(2, upgrade.runs ?? projectRuns(id, stage + 1)),
-    available: plotUnlocked(town, id) && !town.projects[id],
+    available: plotUnlocked(town, id) && !town.projects[id] && !needsPower,
     reason: !plotInEra(town, id)
       ? 'Available in the next era.'
-      : requirement
-        ? t('Unlock by upgrading {building} to level {level}.', {
-            building: t(BUILDING_BY_ID[requirement.id].shortName),
-            level: requirement.level,
-          })
-        : town.projects[id]
-          ? 'This building is already under construction.'
-          : town.coins < cost
-            ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
-            : '',
+      : needsPower
+        ? 'Finish the power house to unlock electric modernization.'
+        : requirement
+          ? t('Unlock by upgrading {building} to level {level}.', {
+              building: t(BUILDING_BY_ID[requirement.id].shortName),
+              level: requirement.level,
+            })
+          : town.projects[id]
+            ? 'This building is already under construction.'
+            : town.coins < cost
+              ? t('Earn {value0} more coins in the mine.', { value0: t(cost - town.coins) })
+              : '',
   };
 }
 
@@ -511,7 +542,7 @@ export function purchase(town, id, expectedStage) {
   };
 }
 
-export const raidIntervalRange = (town) => (town.era === 'river-rail' ? [6, 14] : [3, 7]);
+export const raidIntervalRange = (town) => (town.era === 'frontier' ? [3, 7] : [6, 14]);
 export function scheduleRaid(town, random = Math.random) {
   if (town.nextRaidRun !== null || population(town) <= 0) return town;
   const [min, max] = raidIntervalRange(town);
@@ -525,6 +556,8 @@ export const gangSize = (town) => {
 export function raidReady(town) {
   const previous = town.events[BANDIT_EVENT];
   return (
+    (town.era !== 'river-rail' || town.buildings.railDepot > 0 || town.buildings.riverPort > 0) &&
+    (town.era !== 'industrial' || town.buildings.powerHouse > 0 || town.buildings.mill > 0) &&
     population(town) > 0 &&
     Number.isSafeInteger(town.nextRaidRun) &&
     town.completedRuns >= town.nextRaidRun &&
@@ -533,13 +566,15 @@ export function raidReady(town) {
 }
 export const CAPTURE_BOUNTY = 10;
 export const raidBounty = (event) =>
-  event?.outcome === 'protected' && event.loss === 0
+  eventKind(event) !== 'workshop-fire' && event?.outcome === 'protected' && event.loss === 0
     ? Math.min(event.gangSize, event.sheriffLevel * 2) * CAPTURE_BOUNTY
     : 0;
 export const raidProtection = (town, riders = gangSize(town)) =>
-  (Math.min(riders, town.buildings.sheriff * 2) +
-    Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
-  (riders * 2);
+  town.era === 'industrial'
+    ? fireProtection(town.buildings.fireStation)
+    : (Math.min(riders, town.buildings.sheriff * 2) +
+        Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
+      (riders * 2);
 
 export function canRingTownBell(town) {
   const event = town.events[BANDIT_EVENT];
@@ -580,14 +615,22 @@ export function banditEncounter(town, random = Math.random) {
         Math.floor(town.coins / 10),
         Math.max(0, town.coins - 50),
       );
-  const target = ['saloon', 'armory', 'farm', 'home'].find((id) => town.buildings[id]);
+  const kind = eraEventKind(town.era);
+  const target = (
+    kind === 'workshop-fire'
+      ? ['mill', 'blacksmith', 'powerHouse']
+      : kind === 'cargo-theft'
+        ? ['warehouse', 'railDepot', 'riverPort']
+        : ['saloon', 'armory', 'farm', 'home']
+  ).find((id) => town.buildings[id]);
   const event = {
     id: (town.events[BANDIT_EVENT]?.id ?? 0) + 1,
     atRun: town.completedRuns,
     gangSize: riders,
     sheriffLevel,
     bankLevel,
-    targets: ['mine', ...(target ? [target] : [])],
+    ...(kind !== 'bandits' ? { kind, fireStationLevel: town.buildings.fireStation ?? 0 } : {}),
+    targets: [...(kind === 'bandits' ? ['mine'] : []), ...(target ? [target] : [])],
     outcome: protectedTown ? 'protected' : loss ? 'stolen' : 'harmless',
     loss,
     seen: false,
@@ -608,6 +651,26 @@ export function banditEncounter(town, random = Math.random) {
 export function reinforceRaid(town) {
   const event = town.events[BANDIT_EVENT];
   if (!event || event.seen) return town;
+  if (eventKind(event) === 'workshop-fire') {
+    const level = Math.max(event.fireStationLevel ?? 0, town.buildings.fireStation ?? 0);
+    if (level === event.fireStationLevel) return town;
+    const protection = fireProtection(level);
+    const remaining = Math.ceil(5 * event.gangSize * (1 - protection));
+    const loss = Math.min(event.loss, event.bellRung ? Math.floor(remaining / 2) : remaining);
+    return {
+      ...town,
+      coins: Math.min(Number.MAX_SAFE_INTEGER, town.coins + event.loss - loss),
+      events: {
+        ...town.events,
+        [BANDIT_EVENT]: {
+          ...event,
+          fireStationLevel: level,
+          loss,
+          outcome: protection === 1 ? 'protected' : loss ? 'stolen' : 'harmless',
+        },
+      },
+    };
+  }
   const sheriffLevel = Math.max(event.sheriffLevel, town.buildings.sheriff);
   const bankLevel = Math.max(event.bankLevel ?? 0, town.buildings.bank);
   if (sheriffLevel === event.sheriffLevel && bankLevel === (event.bankLevel ?? 0)) return town;
@@ -652,12 +715,16 @@ export function buildWithHammer(town, id, expectedStage) {
     buildingEras: { ...town.buildingEras, [id]: town.era },
     buildingEraLevels: {
       ...town.buildingEraLevels,
-      [id]: offer.eraLevel ?? (town.era === 'river-rail' ? expectedStage + 1 : 0),
+      [id]: offer.eraLevel ?? (town.era !== 'frontier' ? expectedStage + 1 : 0),
     },
     infrastructure: {
       ...town.infrastructure,
-      ...(id === 'bridge' || id === 'riverPort' ? { [id]: expectedStage + 1 } : {}),
-      ...(id === 'railDepot' ? { rail: expectedStage + 1 } : {}),
+      ...(id === 'bridge' || id === 'riverPort'
+        ? { [id]: offer.type === 'modernization' ? town.buildings[id] : expectedStage + 1 }
+        : {}),
+      ...(id === 'railDepot'
+        ? { rail: offer.type === 'modernization' ? town.buildings[id] : expectedStage + 1 }
+        : {}),
     },
   };
 }

@@ -7,12 +7,14 @@
       </div>
       <span class="town-level-badge">{{
         t(
-          town.era === 'river-rail'
-            ? 'River & Rail · Level {level} of {max}'
-            : 'Level {level} / {max}',
+          town.era === 'industrial'
+            ? 'Industrial · Level {level} of {max}'
+            : town.era !== 'frontier'
+              ? 'River & Rail · Level {level} of {max}'
+              : 'Level {level} / {max}',
           {
             level: eraBuildingLevel(town, id),
-            max: town.era === 'river-rail' ? 3 : building.upgrades.length,
+            max: town.era !== 'frontier' ? 3 : building.upgrades.length,
           },
         )
       }}</span>
@@ -26,16 +28,14 @@
           :stage="stage"
           :wins="constructionVisual(project)"
           :era="town.buildingEras[id]"
-          :era-level="eraBuildingLevel(town, id)"
+          :era-level="town.buildingEraLevels[id] || stage"
         />
         <TownBuilding
           v-else
           :id="id"
           :stage="offer && offer.type !== 'modernization' ? stage + 1 : stage"
           :era="offer?.targetEra ?? town.buildingEras[id]"
-          :era-level="
-            offer?.eraLevel ?? (town.era === 'river-rail' ? (offer ? stage + 1 : stage) : 0)
-          "
+          :era-level="offer?.eraLevel ?? (offer ? stage + 1 : town.buildingEraLevels[id] || stage)"
         />
       </svg>
       <small>{{
@@ -130,6 +130,16 @@
     </div>
     <p v-else class="town-restored-note">
       <TownIcon name="check" />{{ t(building.upgrades.at(-1).benefit) }}
+    </p>
+    <p
+      v-if="
+        id === 'well' &&
+        town.buildingEras.well === 'industrial' &&
+        town.buildingEraLevels.well === 3
+      "
+      class="town-service"
+    >
+      {{ t('Municipal waterworks complete: twenty additional water places for the town.') }}
     </p>
     <p v-if="stage && ['saloon', 'blacksmith'].includes(id)" class="town-service">
       {{

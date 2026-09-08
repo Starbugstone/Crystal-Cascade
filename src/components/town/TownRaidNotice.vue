@@ -31,7 +31,16 @@
     </strong>
     <h2>
       {{
-        t(defended ? 'VILLAGE DEFENDED!' : 'Bandits stole {coins} coins!', { coins: number(coins) })
+        t(
+          defended
+            ? 'VILLAGE DEFENDED!'
+            : kind === 'workshop-fire'
+              ? 'Workshop cleanup: {coins} coins'
+              : kind === 'cargo-theft'
+                ? 'Cargo thieves took {coins} coins!'
+                : 'Bandits stole {coins} coins!',
+          { coins: number(coins) },
+        )
       }}
     </h2>
     <p v-if="bounty" class="raid-bounty">
@@ -40,9 +49,13 @@
     <p>
       {{
         t(
-          defended
-            ? 'Your sheriff and bank kept every coin safe.'
-            : 'Build and upgrade the sheriff’s department and bank to protect your savings.',
+          kind === 'workshop-fire'
+            ? defended
+              ? 'The fire brigade kept every coin safe. All buildings remain open.'
+              : 'Upgrade the fire station to reduce cleanup costs. Every building is intact.'
+            : defended
+              ? 'Your sheriff and bank kept every coin safe.'
+              : 'Build and upgrade the sheriff’s department and bank to protect your savings.',
         )
       }}
     </p>
@@ -53,6 +66,7 @@ import { onMounted, onBeforeUnmount } from 'vue';
 import { t, number } from '../../i18n';
 import TownIcon from './TownIcon.vue';
 defineProps({
+  kind: { type: String, default: 'bandits' },
   bounty: { type: Number, default: 0 },
   coins: { type: Number, default: 0 },
   defended: Boolean,

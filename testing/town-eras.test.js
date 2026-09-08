@@ -347,7 +347,11 @@ describe('Two eras and explicit modernization', () => {
       incomplete.buildings[b.id]--;
       expect(advanceEra(incomplete, 'frontier'), b.id).toBeNull();
     }
-    expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual(['frontier', 'river-rail']);
+    expect(ERAS.filter((e) => e.enabled).map((e) => e.id)).toEqual([
+      'frontier',
+      'river-rail',
+      'industrial',
+    ]);
   });
   it('saves the transition before presenting it and cannot advance twice across reload', () => {
     const c = useCampaignStore();
@@ -425,14 +429,14 @@ describe('Two eras and explicit modernization', () => {
     ])
       town = buildWithHammer(town, id, 0);
     expect(isEraComplete(town)).toBe(false);
-    for (const building of BUILDINGS) {
+    for (const building of BUILDINGS.filter((b) => b.introducedEra !== 'industrial')) {
       for (let level = 2; level <= 3; level++) {
         const offer = upgradeOffer(town, building.id);
         town = buildWithHammer(town, building.id, offer.stage);
       }
     }
     expect(isEraComplete(town)).toBe(true);
-    expect(eraGate(town, milestoneRecords()).available).toBe(false);
+    expect(eraGate(town, milestoneRecords()).available).toBe(true);
     expect(residentPopulation(town)).toBe(60);
     expect(visitorPopulation(town)).toBe(0); // Water is now the limiting service.
     expect(saloonIncomeRate(town)).toBe(1425);

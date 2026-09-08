@@ -62,7 +62,7 @@
         />
       </g>
       <g
-        v-if="['amber', 'prism', 'opal'].includes(theme)"
+        v-if="['amber', 'prism', 'opal', 'copper', 'waterworks'].includes(theme)"
         fill="none"
         stroke="var(--mine-accent)"
         stroke-width="3"
@@ -108,6 +108,24 @@
         <rect x="-10" y="-8" width="20" height="31" rx="3" fill="#f4c77b" opacity=".8" />
         <path d="M0-8V23" stroke="#9f794a" stroke-width="3" />
       </g>
+      <g
+        v-if="
+          ['workshop', 'electric', 'signals', 'brickworks', 'dynamo', 'illuminated'].includes(theme)
+        "
+        fill="none"
+        stroke="var(--mine-accent)"
+      >
+        <path
+          d="M95 900V230Q95 190 135 190H200M1345 900V230Q1345 190 1305 190H1240"
+          stroke-width="7"
+          opacity=".35"
+        />
+        <g v-for="x in [100, 1340]" :key="x">
+          <circle :cx="x" cy="475" r="40" fill="url(#lantern-glow)" stroke="none" />
+          <circle :cx="x" cy="475" r="11" fill="#ffdfa0" stroke-width="4" />
+          <path :d="`M${x - 16} 458h32m-32 34h32`" stroke-width="4" />
+        </g>
+      </g>
       <g fill="none" stroke="var(--mine-edge)" opacity=".18">
         <path d="M360 1000 630 785M1090 1000 810 785" stroke-width="9" />
         <path d="M394 971H1052M450 925H993M508 881H935M564 837H876" stroke-width="12" />
@@ -130,6 +148,16 @@ const crystals = computed(() => {
     'forge',
     'opal',
     'relic',
+    'river',
+    'rail',
+    'workshop',
+    'copper',
+    'electric',
+    'signals',
+    'brickworks',
+    'waterworks',
+    'dynamo',
+    'illuminated',
   ].indexOf(props.theme);
   return [
     [90, 550 + offset * 14, -22],

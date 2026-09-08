@@ -3,6 +3,7 @@ import { purchasePrice, RIVER_RAIL_LEVEL_PRICES } from './economy';
 import { FRONTIER_BUILDINGS } from './frontier';
 import { FRONTIER_ERA, createEraState } from './eras';
 import { RIVER_RAIL_BUILDINGS } from './riverRail';
+import { INDUSTRIAL_BUILDINGS, INDUSTRIAL_LEVEL_PRICES } from './industrial';
 
 const ORIGINAL_BUILDINGS = [
   {
@@ -557,6 +558,7 @@ export const BUILDINGS = [
   ...ORIGINAL_BUILDINGS,
   ...FRONTIER_BUILDINGS,
   ...RIVER_RAIL_BUILDINGS,
+  ...INDUSTRIAL_BUILDINGS,
   ...[
     ['home2', 'home', 'Willow house', 'Home II', 95, 320],
     ['home3', 'home', 'Sagebrush house', 'Home III', 90, 465, 'home2'],
@@ -588,7 +590,9 @@ export const BUILDINGS = [
     cost:
       building.introducedEra === 'river-rail'
         ? RIVER_RAIL_LEVEL_PRICES[index]
-        : purchasePrice(upgrade.cost),
+        : building.introducedEra === 'industrial'
+          ? INDUSTRIAL_LEVEL_PRICES[index]
+          : purchasePrice(upgrade.cost),
   }));
   const short = hasShortProgression(building.id);
   return {
