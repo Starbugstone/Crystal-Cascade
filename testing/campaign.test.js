@@ -30,7 +30,7 @@ afterEach(() => {
 
 it('stages obstacles while leaving a lighter fifth puzzle in every chapter', () => {
   const levels = generateLevelConfigs();
-  expect(levels).toHaveLength(120);
+  expect(levels).toHaveLength(144);
   for (let start = 0; start < levels.length; start += 6) {
     const chapter = levels.slice(start, start + 6);
     const workload = chapter.map((level) => level.objectives[0].target);
@@ -82,7 +82,7 @@ it('enforces sequential unlocks in the game action, saves completion and awards 
   expect(useCampaignStore().powers.reduce((sum, power) => sum + power.quantity, 0)).toBe(powers);
 });
 it.each([
-  [5999, 0],
+  [5999, 1],
   [6000, 1],
   [8999, 1],
   [9000, 1],

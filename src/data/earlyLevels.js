@@ -29,9 +29,10 @@ export const getEarlyLevelSpec = (id) => {
     seed: openingSeeds[id] ?? id * 1337,
     ice: chapterIce[chapter][slot],
     doubleIce: chapter < 2 ? 0 : [2, 3, 4, 5, 2, 6][slot],
-    stoneCount: chapter === 0 ? 0 : [1, 2, 3, 4, 1, 5][slot],
+    stoneCount:
+      chapter === 0 ? 0 : chapter === 5 ? [1, 2, 3, 3, 1, 5][slot] : [1, 2, 3, 4, 1, 5][slot],
     reinforcedCount: chapter < 3 ? 0 : [1, 1, 2, 2, 0, 3][slot],
-    frozenCount: chapter === 5 ? [1, 2, 2, 3, 1, 4][slot] : 0,
+    frozenCount: chapter === 5 ? [1, 2, 2, 2, 1, 4][slot] : 0,
     tip:
       chapter === 5
         ? 'Match beside a frozen gem to thaw it, then clear the ice underneath.'

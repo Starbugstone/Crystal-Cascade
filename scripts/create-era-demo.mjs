@@ -70,6 +70,13 @@ try {
   };
   const lights = buildWithHammer(industrialOpen, 'powerHouse', 0);
   const industrialComplete = { ...finishEra(industrialOpen), firstLightsSeen: true };
+  const motor = advanceEra(industrialComplete, 'industrial');
+  const motorOpen = {
+    ...motor,
+    transition: { ...motor.transition, pending: false },
+    eraTransitionSeen: { ...motor.eraTransitionSeen, 'motor-age': true },
+  };
+  const motorComplete = finishEra(motorOpen);
   const cargo = banditEncounter({ ...complete, nextRaidRun: complete.completedRuns }, () => 0);
   const fire = banditEncounter(
     { ...lights, firstLightsSeen: true, nextRaidRun: lights.completedRuns },
@@ -84,6 +91,9 @@ try {
     industrial: industrial,
     'industrial-lights': lights,
     'industrial-complete': industrialComplete,
+    'motor-age': motor,
+    'motor-age-open': motorOpen,
+    'motor-age-complete': motorComplete,
     'cargo-theft': cargo,
     'workshop-fire': fire,
   })) {
@@ -91,14 +101,18 @@ try {
       schemaVersion: 2,
       town: state,
       records:
-        state.era === 'industrial'
-          ? {
-              ...records,
-              ...Object.fromEntries(
-                Array.from({ length: 6 }, (_, i) => [67 + i, { score: 100, stars: 1 }]),
-              ),
-            }
-          : records,
+        state.era === 'motor-age'
+          ? Object.fromEntries(
+              Array.from({ length: 120 }, (_, i) => [i + 1, { score: 100, stars: 1 }]),
+            )
+          : state.era === 'industrial'
+            ? {
+                ...records,
+                ...Object.fromEntries(
+                  Array.from({ length: 6 }, (_, i) => [67 + i, { score: 100, stars: 1 }]),
+                ),
+              }
+            : records,
       issuedRun: completed,
       settledRun: completed,
     });
@@ -109,7 +123,7 @@ try {
     );
   }
   console.log(
-    `Created eight disposable profiles in ${directory}/. See docs/settlement-eras.md for testing steps.`,
+    `Created eleven disposable profiles in ${directory}/. See docs/settlement-eras.md for testing steps.`,
   );
 } finally {
   await server.close();

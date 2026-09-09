@@ -3,6 +3,7 @@ import { ERAS, ERA_BY_ID, FRONTIER_ERA } from '../../data/eras';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import { INDUSTRIAL_VARIANTS, INDUSTRIAL_LEVEL_PRICES } from '../../data/industrial';
+import { MOTOR_AGE_VARIANTS, MOTOR_AGE_LEVEL_PRICES } from '../../data/motorAge';
 
 export const eraIndex = (era) => ERAS.findIndex(({ id }) => id === era);
 export const plotInEra = (town, id) => {
@@ -25,9 +26,13 @@ export function modernization(town, id) {
     level >= ERA_BUILDING_LEVELS
   )
     return null;
-  const variant = (town.era === 'industrial' ? INDUSTRIAL_VARIANTS : RIVER_RAIL_VARIANTS)[
-    building.kind
-  ];
+  const variant = (
+    town.era === 'motor-age'
+      ? MOTOR_AGE_VARIANTS
+      : town.era === 'industrial'
+        ? INDUSTRIAL_VARIANTS
+        : RIVER_RAIL_VARIANTS
+  )[building.kind];
   if (!variant) return null;
   const [name, description] = variant;
   return {
@@ -35,28 +40,44 @@ export function modernization(town, id) {
     targetEra: town.era,
     eraLevel: level + 1,
     stage: town.buildings[id] + level,
-    cost: (town.era === 'industrial' ? INDUSTRIAL_LEVEL_PRICES : RIVER_RAIL_LEVEL_PRICES)[level],
-    runs: 2,
+    cost: (town.era === 'motor-age'
+      ? MOTOR_AGE_LEVEL_PRICES
+      : town.era === 'industrial'
+        ? INDUSTRIAL_LEVEL_PRICES
+        : RIVER_RAIL_LEVEL_PRICES)[level],
+    runs: town.era === 'river-rail' && level > 0 ? 1 : 2,
     name,
     description:
       level === 0
         ? description
-        : town.era === 'industrial'
+        : town.era === 'motor-age'
           ? level === 1
-            ? 'Add a substantial service wing and sheltered entrance.'
-            : 'Complete the landmark with its final civic and utility structures.'
-          : level === 1
-            ? 'Add a substantial extension and a covered veranda.'
-            : 'Complete the landmark with a clock tower and ornamental roof.',
+            ? 'Add a sunny service wing and a broad street canopy.'
+            : 'Complete the landmark with its stepped frontage and planted terrace.'
+          : town.era === 'industrial'
+            ? level === 1
+              ? 'Add a substantial service wing and sheltered entrance.'
+              : 'Complete the landmark with its final civic and utility structures.'
+            : level === 1
+              ? 'Add a substantial extension and a covered veranda.'
+              : 'Complete the landmark with a clock tower and ornamental roof.',
     title:
-      town.era === 'industrial'
-        ? 'Industrial level {level}: {name}'
-        : 'River & Rail level {level}: {name}',
+      town.era === 'motor-age'
+        ? 'Motor Age level {level}: {name}'
+        : town.era === 'industrial'
+          ? 'Industrial level {level}: {name}'
+          : 'River & Rail level {level}: {name}',
     requiresPower: town.era === 'industrial' && id !== 'railDepot',
     benefit:
-      town.era === 'industrial' && id === 'well' && level === 2
-        ? 'Adds water for twenty people when finished. Existing water stays available during work.'
-        : 'Visual modernization. Existing services stay unchanged.',
+      town.era === 'river-rail' && id === 'well' && level >= 1
+        ? 'Adds water for twenty people when finished. All existing water stays available during work.'
+        : town.era === 'motor-age' && id === 'well' && level === 2
+          ? 'Adds water for twenty people when finished. All existing water stays available during work.'
+          : town.era === 'motor-age' && id === 'farm' && level === 2
+            ? 'Adds food for twenty people when finished. Existing harvests stay available during work.'
+            : town.era === 'industrial' && id === 'well' && level === 2
+              ? 'Adds water for twenty people when finished. Existing water stays available during work.'
+              : 'Visual modernization. Existing services stay unchanged.',
   };
 }
 export function isEraComplete(town) {

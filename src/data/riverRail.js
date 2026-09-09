@@ -99,7 +99,9 @@ export const RIVER_RAIL_BUILDINGS = projects.map(
     ],
     upgrades: [
       {
-        cost,
+        // Later mining pays several times the opening yield. Keep a new
+        // district a sequence of choices instead of one cheap shopping trip.
+        cost: cost * 4,
         runs: id === 'bridge' || id === 'railDepot' ? 2 : 1,
         title: 'Build {building}',
         benefit,
@@ -108,7 +110,7 @@ export const RIVER_RAIL_BUILDINGS = projects.map(
       },
       ...[2, 3].map((level) => ({
         cost: cost + (level - 1) * 200,
-        runs: 2,
+        runs: 1,
         title: 'Expand {building}',
         benefit: ['home5', 'market'].includes(id)
           ? 'Adds room or food for ten more residents.'

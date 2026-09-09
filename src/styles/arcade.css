@@ -278,13 +278,6 @@
   white-space: nowrap;
 }
 
-@media (min-width: 641px) and (min-height: 501px) {
-  .expanded-board .board-frame {
-    width: min(100%, calc(max(350px, 100dvh - 430px) * var(--board-ratio) + 24px));
-    margin-inline: auto;
-  }
-}
-
 @media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
   .is-playing .game-sidebar {
     display: none;

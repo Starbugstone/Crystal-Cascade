@@ -34,11 +34,11 @@ afterEach(() => {
 });
 
 describe('Expansion campaign', () => {
-  it('provides 84 authored 7 × 9 puzzles, matching chapter metadata and reachable relic exits', () => {
+  it('provides 108 authored 7 × 9 puzzles, matching chapter metadata and reachable relic exits', () => {
     const levels = generateLevelConfigs();
-    expect(levels).toHaveLength(120);
+    expect(levels).toHaveLength(144);
     expect(LEVEL_COUNT).toBe(LEVEL_NAMES.length);
-    expect(CHAPTERS).toHaveLength(20);
+    expect(CHAPTERS).toHaveLength(24);
     const repeat = generateLevelConfigs();
     for (const [offset, spec] of EXPANSION_LEVELS.entries()) {
       expect(spec.map.split('/')).toHaveLength(9);
@@ -89,15 +89,32 @@ describe('Expansion campaign', () => {
 });
 
 describe('Chains', () => {
-  it('excludes chained gems from matches, swaps and hints', () => {
+  it('suggests and resolves a match through a pinned gem using only its free neighbors', () => {
+    const state = makeBoard();
+    for (const index of [10, 12, 16]) state.board[index] = createGem('ruby');
+    state.tiles[12].chainHealth = 1;
+    const evaluation = engine.evaluateSwap(state.board, 5, 5, 11, 16, state.tiles);
+    expect(evaluation.matches.some(({ indices }) => indices.includes(12))).toBe(true);
+    const hint = new HintEngine().findBestMove(state.board, state.tiles, 5, 5);
+    expect(hint.indices).not.toContain(12);
+    expect(
+      engine
+        .evaluateSwap(state.board, 5, 5, ...hint.indices, state.tiles)
+        .matches.some(({ indices }) => indices.includes(12)),
+    ).toBe(true);
+    singleStep();
+    manager.getResolution({ ...state, ...evaluation });
+    expect(state.tiles[12].chainHealth).toBe(0);
+  });
+  it('includes pinned gems in matches but never swaps them', () => {
     const board = Array.from({ length: 3 }, () => createGem('ruby'));
     const tiles = [{}, { chainHealth: 1 }, {}];
-    expect(engine.findMatches(board, 3, 1, tiles)).toEqual([]);
+    expect(engine.findMatches(board, 3, 1, tiles)[0].indices).toEqual([0, 1, 2]);
     expect(engine.evaluateSwap(board, 3, 1, 0, 1, tiles).matches).toEqual([]);
     expect(new HintEngine().findBestMove(board, tiles, 3, 1)).toBeNull();
   });
 
-  it('anchors gems and prevents refill from crossing a chain', () => {
+  it('pins chained gems while falling gems and refills pass them', () => {
     singleStep();
     const state = makeBoard();
     state.tiles[12].chainHealth = 1;
@@ -108,9 +125,10 @@ describe('Chains', () => {
       matches: [{ type: 'tnt', indices: [22] }],
     });
     expect(result.board[12]).toBe(anchored);
-    expect(result.board[7]).toBe(above);
-    expect(result.board[17]).toBeNull();
-    expect(result.steps[0].spawns.some(({ index }) => index === 17)).toBe(false);
+    expect(result.board[17]).toBe(above);
+    expect(result.board.every(Boolean)).toBe(true);
+    expect(result.steps[0].drops).toContainEqual({ from: 7, to: 17, gem: above });
+    expect(result.steps[0].spawns.some(({ index }) => index === 12)).toBe(false);
   });
 
   it.each(['ruby', 'tnt'])(
@@ -128,7 +146,7 @@ describe('Chains', () => {
       const anchored = state.board[12];
       const result = manager.getResolution({
         ...state,
-        matches: [{ type, indices: type === 'ruby' ? [6, 7, 8, 11] : [7, 11, 12] }],
+        matches: [{ type, indices: [11, 12, 13] }],
       });
       expect(state.tiles[12]).toMatchObject({ chainHealth: 0, health: 2 });
       expect(result.layersCleared).toBe(1);
@@ -137,12 +155,15 @@ describe('Chains', () => {
     },
   );
 
-  it('does not unlock from a diagonal match or wrap adjacency across rows', () => {
+  it('does not unlock from adjacent or diagonal matches', () => {
     singleStep();
     const state = makeBoard();
     state.tiles[12].chainHealth = 1;
     state.tiles[10].chainHealth = 1;
-    manager.getResolution({ ...state, matches: [{ type: 'ruby', indices: [3, 4, 9] }] });
+    manager.getResolution({
+      ...state,
+      matches: [{ type: 'ruby', indices: [3, 4, 9, 7, 11, 13, 17] }],
+    });
     expect(state.tiles[12].chainHealth).toBe(1);
     expect(state.tiles[10].chainHealth).toBe(1);
   });

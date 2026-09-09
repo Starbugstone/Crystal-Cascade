@@ -103,13 +103,14 @@
             ></span
           >
           <strong>{{ t(raidPhase) }}</strong>
+          <TownDefenseStatus class="raid-visual-status" :town="town" @select="inspectBuilding" />
           <p>
             {{
               t(
                 raidPhase === 'The raid has passed'
                   ? banditStory.text
                   : eventKind(activeRaid) === 'bandits'
-                    ? 'The riders are here. Watch the story unfold in your village.'
+                    ? 'A little trouble on the trail. Your buildings and last 50 coins are safe.'
                     : 'Watch the town respond, or skip to the saved outcome.',
               )
             }}
@@ -189,20 +190,27 @@
           :bounty="raidNotice.bounty ?? 0"
           :defended="raidNotice.outcome === 'protected'"
           :reduced-motion="settings.reducedMotion"
+          @protect="
+            inspectBuilding(
+              eventKind(raidNotice) === 'workshop-fire'
+                ? 'fireStation'
+                : town.buildings.sheriff <= town.buildings.bank
+                  ? 'sheriff'
+                  : 'bank',
+            );
+            raidNotice = null;
+          "
           @close="raidNotice = null"
         />
-        <p
-          v-if="showConstructionTip && !forgeCollected"
-          class="town-construction-tip"
-          role="status"
-        >
-          <GameIcon name="info" />
-          {{
-            t(
-              'Your first building is ready! Tap its scaffolding to finish construction and open it.',
-            )
-          }}
-        </p>
+        <TownNextStep
+          v-if="!activeRaid && !town.transition?.pending"
+          :town="town"
+          :hammers="campaign.builderHammers"
+          @select="selectBuilding"
+          @inspect="inspectBuilding"
+          @mine="goMining"
+          @advance-era="beginEra"
+        />
         <p v-if="forgeCollected" class="town-construction-tip" role="status">
           {{ t('Collected 1 TNT · added to your armory') }}
         </p>
@@ -321,7 +329,7 @@
                   t(
                     event
                       ? banditStory.text
-                      : town.era === 'industrial'
+                      : eraEventKind(town.era) === 'workshop-fire'
                         ? 'Workshop fires can cost cleanup coins. Upgrade the fire station; no building can be destroyed.'
                         : town.era === 'river-rail'
                           ? 'Cargo thieves may visit the freight yard. The police and bank protect your savings.'
@@ -359,9 +367,19 @@
             </button>
             <button
               class="town-secondary"
-              @click="inspectBuilding(town.era === 'industrial' ? 'fireStation' : 'sheriff')"
+              @click="
+                inspectBuilding(
+                  eraEventKind(town.era) === 'workshop-fire' ? 'fireStation' : 'sheriff',
+                )
+              "
             >
-              {{ t(town.era === 'industrial' ? 'Visit the fire station' : 'Visit the sheriff') }}
+              {{
+                t(
+                  eraEventKind(town.era) === 'workshop-fire'
+                    ? 'Visit the fire station'
+                    : 'Visit the sheriff',
+                )
+              }}
             </button>
           </section>
         </div>
@@ -432,11 +450,13 @@
         <p class="town-service">
           {{
             t(
-              town.era === 'industrial'
-                ? 'Every Industrial building has 3 levels. Finish all upgrades to complete the era.'
-                : town.era === 'river-rail'
-                  ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
-                  : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
+              town.era === 'motor-age'
+                ? 'Every Motor Age building has 3 levels. Each construction takes at most 2 mining runs.'
+                : town.era === 'industrial'
+                  ? 'Every Industrial building has 3 levels. Finish all upgrades to complete the era.'
+                  : town.era === 'river-rail'
+                    ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
+                    : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
             )
           }}
         </p>
@@ -592,6 +612,8 @@ import TownBuildingDetails from './TownBuildingDetails.vue';
 import TownIcon from './TownIcon.vue';
 import TownRaidNotice from './TownRaidNotice.vue';
 import TownCoinCollection from './TownCoinCollection.vue';
+import TownNextStep from './TownNextStep.vue';
+import TownDefenseStatus from './TownDefenseStatus.vue';
 
 const props = defineProps({
   mineEntryPending: Boolean,
@@ -637,10 +659,6 @@ const visitors = computed(() => visitorPopulation(town.value));
 const people = computed(() => population(town.value));
 const incomeRate = computed(() => saloonIncomeRate(town.value));
 const activeProjects = computed(() => Object.values(town.value.projects));
-const showConstructionTip = computed(
-  () =>
-    props.active && !town.value.constructionTipSeen && activeProjects.value.some(constructionReady),
-);
 const goal = computed(() => nextGoal(town.value));
 const gate = computed(() => eraGate(town.value));
 const directoryPlots = computed(() => availableParcels(town.value, campaign.builderHammers));
@@ -963,12 +981,16 @@ function repair(stage) {
   if (!campaign.upgradeBuilding(selected.value, stage)) return;
   showConstruction();
   const complete = !town.value.projects[selected.value];
+  const puzzles = town.value.projects[selected.value]?.required ?? 0;
   announcement.value = t(
     complete
       ? '{building} is ready!'
-      : 'Work started at {building}. Complete one puzzle, then tap the building to finish.',
+      : puzzles === 1
+        ? 'Work started at {building}. Complete one puzzle, then tap the building to finish.'
+        : 'Work started at {building}. Complete {count} puzzles, then tap the building to finish.',
     {
       building: t(BUILDING_BY_ID[selected.value].shortName),
+      count: puzzles,
     },
   );
   latestMoment.value = {
@@ -977,7 +999,12 @@ function repair(stage) {
     text: complete
       ? (BUILDING_BY_ID[selected.value].upgrades[stage]?.story ??
         'Visual modernization. Existing services stay unchanged.')
-      : 'The materials are ready. Complete one puzzle, then tap the scaffolding to open this building.',
+      : puzzles === 1
+        ? 'The materials are ready. Complete one puzzle, then tap the scaffolding to open this building.'
+        : t(
+            'The materials are ready. Complete {count} puzzles, then tap the scaffolding to open this building.',
+            { count: puzzles },
+          ),
   };
 }
 function showConstruction(keepDirectory = false) {

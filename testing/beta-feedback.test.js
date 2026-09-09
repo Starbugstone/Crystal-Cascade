@@ -361,6 +361,8 @@ describe('Collected gems and unused board bonuses fund the village', () => {
     expect(miningPayout(gems, bonuses)).toBe(coins);
   });
   it('snapshots unused bonuses at completion, saves the displayed payout once, and resets on the next mine', () => {
+    // Leaving the results claims the guaranteed chest; keep this payout test on a power reward.
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     const game = useGameStore(),
       campaign = useCampaignStore();
     game.bootstrap();

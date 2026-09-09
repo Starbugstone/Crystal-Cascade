@@ -1,5 +1,6 @@
 import { RIVER, riverCenterX } from './TownRiver';
 import { PLOTS, RAIL_EDGE, railEdges, routeBetween, plotStreet } from './TownLayout';
+import { modernTransport } from './TownEvolution';
 
 export const RAIL_HEIGHT = 0.18;
 export const railHeight = (x) => {
@@ -57,15 +58,23 @@ export function addEraActivity(d, town) {
   }
   if (town.buildings.riverPort) {
     const boat = d.group(d.world, riverCenterX(-8), RIVER.waterHeight + 0.12, -8);
-    boat.name = 'Paddle-wheel steamboat';
+    const modern = modernTransport(town, 'riverPort');
+    boat.name = modern ? 'Modern river launch' : 'Paddle-wheel steamboat';
     boat.userData.animated = true;
     d.ball(boat, 0, 0, 0, [1.1, 0.35, 2.6], '#725d45');
     d.box(boat, 2.1, 0.15, 4.5, 0, 0.25, 0, '#dfcca2');
     d.box(boat, 1.4, 0.8, 2.4, 0, 0.73, 0, '#e3d3af');
     d.box(boat, 1.85, 0.14, 3, 0, 1.2, 0, '#8c9f91');
-    d.mesh(boat, 'cylinder', [0.18, 1.1, 0.18], [0.3, 1.65, -0.6], '#696d62');
+    if (modern) {
+      d.box(boat, 1.65, 0.55, 1.1, 0, 1.48, 0.35, '#d9ddce');
+      d.box(boat, 1.5, 0.32, 0.06, 0, 1.52, 0.93, '#729d9d');
+      for (const side of [-1, 1])
+        for (const z of [-0.6, 0.1, 0.8])
+          d.ball(boat, side * 0.72, 0.85, z, [0.035, 0.18, 0.18], '#8bb8bd');
+      d.rod(boat, [0, 1.8, 0], [0, 2.3, 0], 0.035, '#617c76');
+    } else d.mesh(boat, 'cylinder', [0.18, 1.1, 0.18], [0.3, 1.65, -0.6], '#696d62');
     const wheel = d.group(boat, 0, 0.2, 2.2);
-    for (let n = 0; n < 8; n++) {
+    for (let n = 0; n < (modern ? 0 : 8); n++) {
       const paddle = d.group(wheel);
       paddle.rotation.x = (n * Math.PI) / 4;
       d.box(paddle, 1.5, 0.15, 0.3, 0, 0.55, 0, '#9b6e51');
@@ -138,12 +147,20 @@ export function addEraActivity(d, town) {
       d.box(bridge, 0.65, 3.7, 2, x, 0.65, z, '#a39d88');
     d.batch(rails);
     const train = d.group(d.world, -17, 0.3, -23);
-    train.name = 'Station train';
+    const modern = modernTransport(town, 'railDepot');
+    train.name = modern ? 'Modern station railcar' : 'Station train';
     train.userData.animated = true;
     d.box(train, 2, 0.6, 0.9, 0, 0.55, 0, '#5d7470');
     d.box(train, 0.65, 1.1, 1, -0.7, 0.9, 0, '#b29b6c');
-    d.mesh(train, 'cylinder', [0.15, 0.7, 0.15], [0.6, 1.2, 0], '#565f56');
+    if (modern) {
+      d.box(train, 2.1, 0.9, 1.05, 0, 1, 0, '#d6c9a1');
+      d.box(train, 0.06, 0.45, 0.82, 1.08, 1.13, 0, '#8db5b6');
+      d.box(train, 2.3, 0.12, 1.12, 0, 1.5, 0, '#607f78');
+    } else d.mesh(train, 'cylinder', [0.15, 0.7, 0.15], [0.6, 1.2, 0], '#565f56');
     for (const dx of [-2.2, -4]) d.box(train, 1.5, 0.9, 1, dx, 0.85, 0, '#a1825c');
+    if (modern)
+      for (const dx of [-4.4, -3.8, -2.6, -2, -0.6, 0.1, 0.7])
+        for (const side of [-1, 1]) d.box(train, 0.4, 0.35, 0.05, dx, 1.08, side * 0.54, '#9ec0bd');
     const wheels = [];
     for (const x of [-4.5, -3.5, -2.7, -1.7, -0.6, 0.6])
       for (const z of [-0.55, 0.55]) {

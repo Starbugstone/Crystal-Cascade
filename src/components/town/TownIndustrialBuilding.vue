@@ -161,6 +161,14 @@
       <circle cx="36" cy="-182" r="9" fill="#f4d795" stroke="#8c8566" stroke-width="2" />
       <path d="M36-188v7l5 3" fill="none" stroke="#637b6c" stroke-width="2" />
     </g>
+    <g v-if="kind === 'stable'"
+      ><path d="M-69-77-3-60V0L-69-17Z" fill="#607c75" /><path
+        v-for="n in 5"
+        :key="n"
+        :d="`M-65 ${-65 + n * 9}l58 15`"
+        stroke="#bbc6b6"
+        stroke-width="2" /><path d="M74-15V-57H86V-15" stroke="#bc9273" stroke-width="8"
+    /></g>
     <path
       v-if="kind === 'bridge' && level >= 2"
       :d="

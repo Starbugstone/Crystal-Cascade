@@ -7,11 +7,13 @@
       </div>
       <span class="town-level-badge">{{
         t(
-          town.era === 'industrial'
-            ? 'Industrial · Level {level} of {max}'
-            : town.era !== 'frontier'
-              ? 'River & Rail · Level {level} of {max}'
-              : 'Level {level} / {max}',
+          town.era === 'motor-age'
+            ? 'Motor Age · Level {level} of {max}'
+            : town.era === 'industrial'
+              ? 'Industrial · Level {level} of {max}'
+              : town.era !== 'frontier'
+                ? 'River & Rail · Level {level} of {max}'
+                : 'Level {level} / {max}',
           {
             level: eraBuildingLevel(town, id),
             max: town.era !== 'frontier' ? 3 : building.upgrades.length,
@@ -42,6 +44,15 @@
         t(project ? 'Under construction' : offer ? 'WHEN THE WORK IS DONE' : building.stages[stage])
       }}</small>
     </div>
+    <div v-if="offer || project" class="town-benefit-preview">
+      <TownIcon :name="benefit.icon" /><span
+        ><small>{{ t(benefit.label) }}</small
+        ><strong
+          >{{ benefit.before }}{{ benefit.suffix }} <TownIcon name="arrow" />
+          <b>{{ benefit.after }}{{ benefit.suffix }}</b></strong
+        ></span
+      >
+    </div>
     <div v-if="project" class="town-project-progress">
       <h3>
         {{ t(constructionReady(project) ? 'Ready to finish' : 'Your building is taking shape') }}
@@ -55,29 +66,44 @@
         }}
       </p>
       <button v-if="constructionReady(project)" class="town-primary" @click="$emit('finish')">
+        <img src="/art/rewards/builder-hammer.svg" width="24" height="24" alt="" />
         {{ t('Finish construction') }}
+      </button>
+      <button v-else class="town-primary town-project-mine" @click="$emit('mine')">
+        <TownIcon name="mine" />{{ t('Go mining') }} · {{ project.wins }}/{{
+          constructionRuns(project)
+        }}
+        <TownIcon name="arrow" /><img
+          src="/art/rewards/builder-hammer.svg"
+          width="24"
+          height="24"
+          alt=""
+        />
       </button>
       <progress
         :value="project.wins"
         :max="constructionRuns(project)"
         :aria-label="t('Construction progress')"
       />
-      <p>
-        {{
-          t(
-            stage
-              ? 'The building stays open during improvements. The new benefits arrive when the scaffolding comes down.'
-              : 'Every completed puzzle adds the next part. Benefits arrive when the building is finished.',
-          )
-        }}
-      </p>
-      <p>
-        {{
-          t(
-            'When construction is ready, tap its hammer icon in the town or use Finish construction on this card to open the building.',
-          )
-        }}
-      </p>
+      <details>
+        <summary>{{ t('How construction works') }}</summary>
+        <p>
+          {{
+            t(
+              stage
+                ? 'The building stays open during improvements. The new benefits arrive when the scaffolding comes down.'
+                : 'Every completed puzzle adds the next part. Benefits arrive when the building is finished.',
+            )
+          }}
+        </p>
+        <p>
+          {{
+            t(
+              'When construction is ready, tap its hammer icon in the town or use Finish construction on this card to open the building.',
+            )
+          }}
+        </p>
+      </details>
     </div>
     <div v-else-if="offer" class="town-detail-offer">
       <h3>
@@ -92,28 +118,33 @@
         :disabled="!!offer.reason"
         @click="$emit('build', offer.stage)"
       >
-        <span>{{
-          t(
-            offer.type === 'modernization'
-              ? 'Start modernization'
-              : stage
-                ? 'Start improvement'
-                : 'Start building',
-          )
-        }}</span>
+        <span
+          ><TownIcon name="home" />{{
+            t(
+              offer.type === 'modernization'
+                ? 'Start modernization'
+                : stage
+                  ? 'Start improvement'
+                  : 'Start building',
+            )
+          }}</span
+        >
         <span><TownIcon v-if="offer.cost" name="coin" />{{ t(offer.cost || 'Free') }}</span>
       </button>
       <p class="town-purchase-hint">
+        <TownIcon :name="offer.runs === 0 ? 'check' : 'mine'" />
         {{
           t(
             offer.reason ||
               (offer.runs === 0
                 ? 'Ready immediately'
-                : t('Ready after {count} normal puzzles', { count: offer.runs })),
+                : offer.runs === 1
+                  ? 'Ready after one completed puzzle'
+                  : t('Ready after {count} normal puzzles', { count: offer.runs })),
           )
         }}
       </p>
-      <template v-if="plotUnlocked(town, id)">
+      <template v-if="plotUnlocked(town, id) && offer.cost > 0">
         <button
           class="town-secondary builder-hammer-action"
           :disabled="!hammers || !offer.available"
@@ -246,6 +277,7 @@
       </button>
     </section>
     <section v-if="id === 'sheriff' || id === 'bank'" class="town-service">
+      <TownDefenseStatus :town="town" @select="$emit('select', $event)" />
       <p v-if="id === 'sheriff'">
         {{
           t(
@@ -284,7 +316,7 @@
       </ul>
     </details>
     <button
-      v-if="project || (offer?.reason && plotUnlocked(town, id))"
+      v-if="!project && offer?.reason && plotUnlocked(town, id)"
       class="town-secondary town-detail-mine"
       @click="$emit('mine')"
     >
@@ -320,6 +352,8 @@ import TownBuilding from './TownBuilding.vue';
 import TownShop from './TownShop.vue';
 import TownSite from './TownSite.vue';
 import TownIcon from './TownIcon.vue';
+import TownDefenseStatus from './TownDefenseStatus.vue';
+import { buildingBenefit } from '../../game/town/TownBenefits';
 const props = defineProps({
   id: String,
   town: Object,
@@ -338,4 +372,74 @@ const requirement = computed(() => plotRequirement(props.town, props.id));
 const stage = computed(() => props.town.buildings[props.id]);
 const project = computed(() => props.town.projects[props.id]);
 const offer = computed(() => upgradeOffer(props.town, props.id));
+const benefit = computed(() =>
+  buildingBenefit(
+    props.town,
+    props.id,
+    project.value?.stage ?? stage.value + 1,
+    (project.value ?? offer.value)?.type === 'modernization'
+      ? (project.value ?? offer.value)
+      : false,
+  ),
+);
 </script>
+<style scoped>
+.town-benefit-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: #e9edd8;
+  border: 1px solid #bdc7a2;
+  border-radius: 12px;
+  color: #445b43;
+}
+.town-benefit-preview > svg {
+  width: 34px;
+  height: 34px;
+}
+.town-benefit-preview small {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.town-benefit-preview strong {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+}
+.town-benefit-preview strong svg {
+  width: 23px;
+  height: 23px;
+}
+.town-benefit-preview b {
+  color: #2f7248;
+}
+.town-project-mine,
+.town-purchase-hint,
+.town-purchase > span:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.town-project-mine svg,
+.town-purchase-hint svg,
+.town-purchase > span:first-child svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.town-project-progress details {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.town-project-progress summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 12px;
+}
+</style>

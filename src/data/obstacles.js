@@ -42,7 +42,7 @@ export const OBSTACLES = [
     name: 'Chained gem',
     art: '/art/obstacles/chain.svg',
     instruction:
-      'Match beside the chain or hit it with a bonus to release the gem. Then clear any ice underneath. Chained gems cannot move or match.',
+      'Match two gems with the chained gem to release it, or hit it with a bonus. It stays in place while other gems fall past. Then clear any ice underneath.',
     present: (tile) => tile.chainHealth > 0,
   },
   ...[

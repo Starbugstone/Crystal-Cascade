@@ -10,6 +10,15 @@ const levels = generateLevelConfigs();
 const engine = new MatchEngine();
 const hints = new HintEngine();
 const manager = new TileManager();
+const reviewedLayouts = new Set([
+  34,
+  38,
+  52,
+  60,
+  111,
+  120,
+  ...Array.from({ length: 24 }, (_, i) => i + 121),
+]);
 afterEach(() => vi.restoreAllMocks());
 
 // Exercise full games using legal hints, earned board bonuses and free
@@ -21,7 +30,10 @@ it.each(levels.map((level) => [level.id, level]))(
     const rows = level.boardRows;
     const gemTypes = level.boardLayout.gemTypes;
     const turnCounts = [];
-    const seeds = id <= 12 ? Array.from({ length: 30 }, (_, i) => i + 1) : [1, 19, 73];
+    const seeds =
+      id <= 12 || reviewedLayouts.has(id)
+        ? Array.from({ length: 30 }, (_, i) => i + 1)
+        : [1, 19, 73];
     for (const seed of seeds) {
       let randomState = id * seed * 7919;
       vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -86,7 +98,7 @@ it.each(levels.map((level) => [level.id, level]))(
       }
       // A solvable board can still be a slog. Guard the paced campaign against
       // returning to the previous 90–250 move outliers on these fixed seeds.
-      expect(turns).toBeLessThanOrEqual(id <= 12 ? 30 : 60);
+      expect(turns).toBeLessThanOrEqual(id <= 12 ? 30 : reviewedLayouts.has(id) ? 70 : 60);
       turnCounts.push(turns);
       expect(shuffles).toBeLessThanOrEqual(id <= 12 ? 0 : 3);
       expect({

@@ -37,6 +37,10 @@ export const PLOTS = {
   fireStation: [-15, 20],
   rowHouses: [50, 12],
   mill: [50, -4],
+  garage: [-23, 12],
+  busDepot: [-23, 4],
+  gardenCourt: [50, 20],
+  diner: [50, 4],
 };
 export const PLOT_METADATA = Object.fromEntries(
   Object.entries(PLOTS).map(([id, position]) => [
@@ -91,6 +95,8 @@ export const TOWN_TRACKS = [
   road([19, 7.5], [24, 7.5], 0.85, 'bridge'),
   road([15, -16.5], [LANE_X, -16.5], 0.85, 'powerHouse'),
   road([-15, 23.5], [-LANE_X, 23.5], 0.85, 'fireStation'),
+  road([-23, 15.5], [-19, 15.5], 0.85, 'garage'),
+  road([-23, 7.5], [-19, 7.5], 0.85, 'busDepot'),
   ...Object.keys(PLOTS)
     .filter((id) => id !== 'bridge' && PLOTS[id][0] < 35)
     .map((id) => road(atPlot(id, 0, id === 'mine' ? 2.6 : 2), plotStreet(id), 0.75, id)),
@@ -116,7 +122,7 @@ const EAST_TRACKS = [
     road(atPlot(id, 0, 2), plotStreet(id), 0.75),
   ]),
 ];
-const INDUSTRIAL_TRACKS = ['rowHouses', 'mill'].flatMap((id) => [
+const INDUSTRIAL_TRACKS = ['rowHouses', 'mill', 'gardenCourt', 'diner'].flatMap((id) => [
   road([38, plotStreet(id)[1]], plotStreet(id), 0.85, id),
   road(atPlot(id, 0, 2), plotStreet(id), 0.75, id),
 ]);

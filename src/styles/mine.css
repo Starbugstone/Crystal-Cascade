@@ -163,10 +163,42 @@
 .high-contrast .mine-backdrop {
   opacity: 0.35;
 }
-@media (min-width: 1000px) and (max-height: 1000px) {
+/* Keep the same gem size when the campaign adds its ninth row at level 37.
+   Spend the space on the board by making the surrounding controls compact. */
+@media (min-width: 641px) and (min-height: 501px) {
   .is-playing:not(.focus-mode) .board-frame {
-    width: min(100%, calc((100dvh - 420px) * var(--board-ratio) + 22px));
+    width: min(100%, calc(max(396px, 100dvh - 330px - var(--mode-space, 0px)) * 7 / 9 + 22px));
     margin-inline: auto;
+  }
+  .is-playing:not(.focus-mode) .play-area .arcade-announcer {
+    height: 40px;
+  }
+  .is-playing:not(.focus-mode) .board-topline {
+    height: 36px;
+    margin-bottom: 4px;
+  }
+  .is-playing:not(.focus-mode) .board-caption {
+    min-height: 28px;
+    padding-block: 3px;
+  }
+  .is-playing:not(.focus-mode) .powerup-section {
+    padding-top: 4px;
+  }
+  .is-playing:not(.focus-mode) .powerup-heading {
+    display: none;
+  }
+  .is-playing:not(.focus-mode) .powerup-button {
+    padding: 6px 3px;
+    gap: 3px;
+    min-height: 60px;
+  }
+  .is-playing:not(.focus-mode) .play-area:has(.continuous-banner) {
+    --mode-space: 70px;
+  }
+}
+@media (min-width: 1000px) and (max-height: 850px) {
+  .is-playing:not(.focus-mode) .game-layout {
+    grid-template-columns: 270px minmax(0, 510px);
   }
 }
 @media (max-width: 640px) {
@@ -195,6 +227,12 @@
   --mine-edge: #6f9b92;
   --mine-timber: #5d6c59;
   --mine-accent: #8bd3bb;
+}
+@media (max-height: 500px) and (min-width: 480px) and (max-width: 1000px) {
+  .mine-jewels,
+  .mine-seam-copy small {
+    display: none;
+  }
 }
 .is-playing[data-mine-theme='rail'] {
   --mine-dark: #232321;
@@ -232,4 +270,29 @@
   --mine-edge: #87ada5;
   --mine-timber: #5b7970;
   --mine-accent: #f2d693;
+}
+
+.is-playing[data-mine-theme='road'] {
+  --mine-accent: #dfbd7d;
+  --mine-edge: #8a8064;
+  --mine-dark: #222e30;
+  --mine-haze: #3c4b46;
+}
+.is-playing[data-mine-theme='garden'] {
+  --mine-accent: #a9d6a2;
+  --mine-edge: #638d79;
+  --mine-dark: #1c2d2c;
+  --mine-haze: #375547;
+}
+.is-playing[data-mine-theme='chrome'] {
+  --mine-accent: #b6dae1;
+  --mine-edge: #829eac;
+  --mine-dark: #212d3c;
+  --mine-haze: #3a4b5c;
+}
+.is-playing[data-mine-theme='sunrise'] {
+  --mine-accent: #f4cc91;
+  --mine-edge: #ae897f;
+  --mine-dark: #342831;
+  --mine-haze: #5f454d;
 }

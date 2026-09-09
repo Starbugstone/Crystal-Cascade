@@ -1,7 +1,15 @@
 import { miningDepthBonus } from '../data/economy';
 import { defineStore } from 'pinia';
 import { SHOP_ITEMS, rollShopStock, shopSlots, shopSpace } from '../data/shop';
-import { LEVEL_COUNT, POWERS, getChestTier, getSpeedChestTier, getStars } from '../data/campaign';
+import {
+  LEVEL_COUNT,
+  POWERS,
+  CHEST_TIERS,
+  getChestTier,
+  getSpeedChestTier,
+  getStars,
+} from '../data/campaign';
+import { grantChapterGift } from '../data/journey';
 
 import { localProfile, SAVE_KEY } from '../services/localProfile';
 import {
@@ -13,6 +21,7 @@ import {
   rollChestReward,
   CHEST_DROPS,
   chestReward,
+  chestRewardFits,
 } from '../data/rewards';
 import { createTown, BANDIT_EVENT } from '../data/town';
 import { advanceEra } from '../game/town/TownEras';
@@ -48,6 +57,7 @@ const defaults = () => ({
   saveWarning: '',
   readOnly: false,
   lastConstruction: [],
+  lastChapterReward: null,
   builderHammers: 0,
   chestsWithoutBuilderHammer: 0,
   pendingChests: [],
@@ -141,7 +151,7 @@ const load = () => {
       (chest) =>
         chest?.runId > 0 &&
         chest.runId === state.settledRun &&
-        ['score', 'speed'].includes(chest.source),
+        ['completion', 'score', 'speed'].includes(chest.source),
     );
     const recoveredSources = new Set();
     for (const chest of recovered) {
@@ -291,6 +301,7 @@ export const useCampaignStore = defineStore('campaign', {
     },
     beginRun(mode = 'normal', id = null) {
       this.settlePendingChests();
+      this.lastChapterReward = null;
       this.issuedRun += 1;
       this.activeRun = this.issuedRun;
       this.continuousRun =
@@ -543,6 +554,7 @@ export const useCampaignStore = defineStore('campaign', {
       if (runId == null) runId = ++this.issuedRun;
       if (runId !== this.issuedRun || runId <= this.settledRun) return [];
       const previous = this.records[id];
+      const previousChapter = this.mineStage;
       this.records[id] = {
         score: Math.max(previous?.score ?? 0, score),
         stars: Math.max(previous?.stars ?? 0, getStars(score, target, combo)),
@@ -569,16 +581,28 @@ export const useCampaignStore = defineStore('campaign', {
         required: constructionRuns(project),
         ready: constructionReady(this.town.projects[project.id]),
       }));
+      this.lastChapterReward =
+        this.mineStage > previousChapter
+          ? { chapter: this.mineStage, gift: grantChapterGift(this, this.mineStage) }
+          : null;
       const rewards = [];
+      const scoreTier = getChestTier(score, target);
+      const speedTier = getSpeedChestTier(elapsedMs, speedTargetMs);
       for (const [source, tier] of [
-        ['score', getChestTier(score, target)],
-        ['speed', getSpeedChestTier(elapsedMs, speedTargetMs)],
+        [scoreTier ? 'score' : 'completion', scoreTier ?? (speedTier ? null : CHEST_TIERS[0])],
+        ['speed', speedTier],
       ]) {
         if (!tier) continue;
         const rolled =
           this.chestsWithoutBuilderHammer >= 9
-            ? CHEST_DROPS.find((drop) => drop.id === 'builder-hammer')
-            : rollChestReward();
+            ? CHEST_DROPS.find(
+                (drop) =>
+                  drop.id ===
+                  (chestRewardFits(this, chestReward('builder-hammer'))
+                    ? 'builder-hammer'
+                    : 'coins'),
+              )
+            : rollChestReward(Math.random, this);
         this.chestsWithoutBuilderHammer =
           rolled.kind === 'builder-hammer' ? 0 : this.chestsWithoutBuilderHammer + 1;
         const reward = chestReward(rolled.id, id);

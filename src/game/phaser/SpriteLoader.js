@@ -1,4 +1,5 @@
 import { GEM_TYPES } from '../engine/GemFactory';
+import { GEM_FINISHES } from '../../data/gemAppearance';
 
 export const BONUS_TYPES = ['bomb', 'rainbow', 'cross'];
 export const BONUS_FRAME_SIZE = 192;
@@ -9,6 +10,12 @@ export function preloadSpriteAssets(scene) {
   GEM_TYPES.forEach((type) =>
     scene.load.svg(`gem-${type}`, `/art/${type}.svg`, { width: 160, height: 160 }),
   );
+  for (const finish of GEM_FINISHES.filter((f) => f !== 'classic'))
+    for (const type of GEM_TYPES)
+      scene.load.svg(`gem-${finish}-${type}`, `/art/gems/${finish}/${type}.svg`, {
+        width: 160,
+        height: 160,
+      });
   scene.load.svg('gem-relic', '/art/relic.svg', { width: 160, height: 160 });
   for (const type of ['chain', 'seal', 'exit', 'seal-ruby', 'seal-sapphire', 'seal-emerald'])
     scene.load.svg(`tile-${type}`, `/art/obstacles/${type}.svg`, { width: 160, height: 160 });

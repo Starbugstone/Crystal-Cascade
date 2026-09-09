@@ -2,9 +2,10 @@
 // node scripts/measure-campaign.mjs [path-to-checkout]
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createServer } from 'vite';
 const source = resolve(process.argv[2] ?? '.', 'src');
 const seedCount = Number(process.argv[3] ?? 0);
-const levelCount = Number(process.argv[4] ?? 60);
+const requestedCount = process.argv[4] ? Number(process.argv[4]) : undefined;
 const selectedIds = process.argv[5]?.split(',').map(Number);
 const seeds = seedCount ? Array.from({ length: seedCount }, (_, i) => i + 1) : [1, 19, 73];
 const moduleAt = (file) => import(pathToFileURL(resolve(source, file)));
@@ -15,15 +16,27 @@ const { TileManager } = await moduleAt('game/engine/TileManager.js');
 const { canSwapGem, layerCount } = await moduleAt('game/engine/TileRules.js');
 const { GEM_TYPES } = await moduleAt('game/engine/GemFactory.js');
 const { detectBonusFromMatches } = await moduleAt('game/engine/MatchPatterns.js');
+// Vite resolves the shared economy modules exactly as it does in the app.
+const loader = await createServer({
+  root: resolve(source, '..'),
+  server: { middlewareMode: true },
+  appType: 'custom',
+});
+const { cascadeTier, simultaneousMatchCount } = await loader.ssrLoadModule(
+  '/src/game/engine/MatchRewards.js',
+);
+const rules = await loader.ssrLoadModule('/src/game/town/TownRules.js');
+const { createTown, BANDIT_EVENT } = await loader.ssrLoadModule('/src/data/town.js');
+const { eraGate, advanceEra } = await loader.ssrLoadModule('/src/game/town/TownEras.js');
+const allLevels = generateLevelConfigs(requestedCount);
+const levelCount = allLevels.length;
 const engine = new MatchEngine(),
   hints = new HintEngine(),
   manager = new TileManager();
 const results = [];
 const originalRandom = Math.random;
 try {
-  for (const level of generateLevelConfigs(levelCount).filter(
-    (level) => !selectedIds || selectedIds.includes(level.id),
-  )) {
+  for (const level of allLevels.filter((level) => !selectedIds || selectedIds.includes(level.id))) {
     for (const seed of seeds) {
       let randomState = level.id * seed * 7919;
       Math.random = () => {
@@ -38,6 +51,9 @@ try {
         level.boardLayout.gemTypes ?? GEM_TYPES.slice(0, level.boardLayout.gemTypeCount);
       let turns = 0,
         shuffles = 0;
+      let jewels = 0;
+      const comboCounts = {},
+        multiMatchCounts = {};
       const remaining = () =>
         tiles.some((tile) => layerCount(tile) > 0) || board.some((gem) => gem?.type === 'relic');
       while (remaining() && turns < 400 && shuffles < 30) {
@@ -73,13 +89,31 @@ try {
           };
           shuffles++;
         }
-        board = manager.getResolution({ ...evaluation, tiles, cols, rows, gemTypes }).board;
+        const resolution = manager.getResolution({ ...evaluation, tiles, cols, rows, gemTypes });
+        board = resolution.board;
+        resolution.steps.forEach((step, index) => {
+          jewels += step.collectedJewels?.length ?? 0;
+          if (!step.cleared?.length) return;
+          const tier = cascadeTier(step, index),
+            matches = simultaneousMatchCount(step);
+          if (tier >= 2) comboCounts[tier] = (comboCounts[tier] ?? 0) + 1;
+          if (matches >= 2) multiMatchCounts[matches] = (multiMatchCounts[matches] ?? 0) + 1;
+        });
       }
-      results.push({ id: level.id, seed, turns, shuffles, complete: !remaining() });
+      const bonuses = board.filter((g) => ['bomb', 'rainbow', 'cross'].includes(g?.type)).length;
+      results.push({
+        id: level.id,
+        seed,
+        turns,
+        shuffles,
+        complete: !remaining(),
+        coins: rules.miningPayout(jewels, bonuses, comboCounts, multiMatchCounts, level.id),
+      });
     }
   }
 } finally {
   Math.random = originalRandom;
+  await loader.close();
 }
 const chapters = Array.from({ length: Math.ceil(levelCount / 6) }, (_, chapter) => {
   const runs = results.filter((run) => Math.floor((run.id - 1) / 6) === chapter);
@@ -90,7 +124,68 @@ const chapters = Array.from({ length: Math.ceil(levelCount / 6) }, (_, chapter) 
     p90: turns[Math.ceil(turns.length * 0.9) - 1],
     max: turns.at(-1),
     shuffles: runs.reduce((sum, run) => sum + run.shuffles, 0),
+    medianCoins: runs.map((r) => r.coins).sort((a, b) => a - b)[Math.floor(runs.length / 2)],
   };
 });
-console.log(JSON.stringify({ chapters, results }, null, 2));
+// Conservative economy: only normal mining payouts; no chests, hammers,
+// passive income or bounties. Buy suggested projects concurrently on each visit.
+const villages = selectedIds
+  ? []
+  : seeds.map((seed) => {
+      let town = createTown(),
+        eraMilestones = {},
+        frontierAt = null,
+        completeAt = null,
+        longestSavingGap = 0,
+        savingGap = 0,
+        loss = 0;
+      const visit = () => {
+        town = rules.scheduleRaid(town, () => 0);
+        town = rules.banditEncounter(town, () => 0) ?? town;
+        for (const project of Object.values(town.projects).filter(rules.constructionReady))
+          town = rules.reinforceRaid(rules.finishConstruction(town, project.id, project.stage));
+        const raid = town.events[BANDIT_EVENT];
+        if (raid && !raid.seen) {
+          loss += raid.loss;
+          town.events[BANDIT_EVENT] = { ...raid, seen: true };
+        }
+        if (eraGate(town).available) {
+          eraMilestones[town.era] ??= town.completedRuns;
+          frontierAt ??= town.completedRuns;
+          town = advanceEra(town, town.era);
+          town.transition.pending = false;
+        }
+        if (eraGate(town).townComplete) {
+          eraMilestones[town.era] ??= town.completedRuns;
+          if (!eraGate(town).next?.enabled) completeAt ??= town.completedRuns;
+        }
+        let bought = 0;
+        for (let i = 0; i < 100; i++) {
+          const goal = rules.nextGoal(town);
+          if (!goal || goal.reason) break;
+          town = rules.purchase(town, goal.id, goal.stage);
+          bought++;
+        }
+        savingGap = bought || Object.keys(town.projects).length || completeAt ? 0 : savingGap + 1;
+        longestSavingGap = Math.max(longestSavingGap, savingGap);
+      };
+      visit();
+      for (const run of results.filter((r) => r.seed === seed)) {
+        town.coins += run.coins;
+        town.completedRuns++;
+        town = rules.advanceConstruction(town);
+        visit();
+      }
+      return {
+        seed,
+        era: town.era,
+        eraMilestones,
+        frontierAt,
+        completeAt,
+        longestSavingGap,
+        raidLoss: loss,
+        coins: town.coins,
+      };
+    });
+console.log(JSON.stringify({ chapters, villages, results }, null, 2));
 if (results.some((run) => !run.complete)) process.exitCode = 1;

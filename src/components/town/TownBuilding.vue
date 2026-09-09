@@ -1,6 +1,14 @@
 <template>
-  <TownIndustrialBuilding
+  <TownMotorBuilding
     v-if="
+      built &&
+      (era === 'motor-age' || ['garage', 'busDepot', 'gardenCourt', 'diner'].includes(kind))
+    "
+    :kind="kind"
+    :level="eraLevel"
+  />
+  <TownIndustrialBuilding
+    v-else-if="
       built &&
       (era === 'industrial' || ['powerHouse', 'fireStation', 'rowHouses', 'mill'].includes(kind))
     "
@@ -466,6 +474,7 @@ import { BUILDING_BY_ID } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';
 import TownIndustrialBuilding from './TownIndustrialBuilding.vue';
+import TownMotorBuilding from './TownMotorBuilding.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 import { buildingServiceLevel } from '../../data/buildingProgression';

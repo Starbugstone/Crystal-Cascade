@@ -26,7 +26,11 @@
       />
     </div>
     <strong class="raid-notice-emblem" aria-hidden="true">
-      <TownIcon v-if="defended" class="raid-defense-badge" name="sheriff" />
+      <TownIcon
+        v-if="defended"
+        class="raid-defense-badge"
+        :name="kind === 'workshop-fire' ? 'fireStation' : 'sheriff'"
+      />
       <template v-else><TownIcon name="coin" />−{{ number(coins) }}</template>
     </strong>
     <h2>
@@ -36,9 +40,7 @@
             ? 'VILLAGE DEFENDED!'
             : kind === 'workshop-fire'
               ? 'Workshop cleanup: {coins} coins'
-              : kind === 'cargo-theft'
-                ? 'Cargo thieves took {coins} coins!'
-                : 'Bandits stole {coins} coins!',
+              : 'A few coins lost',
           { coins: number(coins) },
         )
       }}
@@ -46,6 +48,9 @@
     <p v-if="bounty" class="raid-bounty">
       {{ t('Capture bounty: +{coins} coins', { coins: number(bounty) }) }}
     </p>
+    <button v-if="!defended" class="raid-protect-action" @click="$emit('protect')">
+      <TownIcon name="sheriff" /><TownIcon name="bank" />{{ t('Protect the village') }} →
+    </button>
     <p>
       {{
         t(
@@ -72,7 +77,7 @@ defineProps({
   defended: Boolean,
   reducedMotion: Boolean,
 });
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'protect']);
 let timeout;
 onMounted(() => {
   timeout = setTimeout(() => emit('close'), 7000);
@@ -90,10 +95,30 @@ onBeforeUnmount(() => clearTimeout(timeout));
   padding: 20px 24px;
   border: 2px solid #edb965;
   border-radius: 18px;
-  background: #542e29f5;
+  background: #605039f5;
   color: #fff0cf;
   text-align: center;
   box-shadow: 0 8px 30px #382b3544;
+}
+.raid-protect-action {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid #d9c389;
+  border-radius: 8px;
+  background: #f7e8bd;
+  color: #49563c;
+  font-size: 13px;
+  font-weight: 700;
+}
+.raid-protect-action svg {
+  width: 24px;
+  height: 24px;
 }
 .raid-notice-close {
   position: absolute;

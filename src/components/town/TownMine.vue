@@ -1,6 +1,7 @@
 <template>
   <g
     class="town-mine-entrance"
+    :data-era="era"
     :role="decorative ? undefined : 'button'"
     :tabindex="decorative ? undefined : 0"
     :aria-label="t('Enter the mine: play level {value0}', { value0: level })"
@@ -67,7 +68,7 @@
       <g
         v-for="n in stage"
         :key="n"
-        :transform="`translate(${(n % 2 ? -1 : 1) * (68 + (n % 3) * 7)} ${48 - Math.floor((n - 1) / 2) * 19})`"
+        :transform="`translate(${(n % 2 ? -1 : 1) * (68 + Math.floor((n - 1) / 12) * 20)} ${48 - Math.floor(((n - 1) % 12) / 2) * 19})`"
       >
         <path
           d="M0-12 8-3 5 9-5 9-8-3Z"
@@ -83,6 +84,32 @@
         stroke-width="7"
       />
       <path v-if="stage >= 5" d="M-67-38H65" stroke="#6c8b7b" stroke-width="12" />
+      <g v-if="era === 'river-rail'">
+        <rect x="-85" y="4" width="24" height="48" rx="8" fill="#8e7860" />
+        <path d="M-73 8V-53M-52 57V-27H52V57" fill="none" stroke="#68887c" stroke-width="10" />
+      </g>
+      <g v-else-if="['industrial', 'motor-age'].includes(era)">
+        <path
+          d="M-51 60V-41H51V60"
+          fill="none"
+          :stroke="era === 'motor-age' ? '#ddcca8' : '#9ba89a'"
+          stroke-width="15"
+        />
+        <path d="M-51 3V-14M51 3V-14" stroke="#ffebad" stroke-width="8" />
+        <path
+          v-if="era === 'motor-age'"
+          d="M-65-27H65M-28-53H28"
+          stroke="#648e8b"
+          stroke-width="10"
+        />
+        <g v-else
+          ><rect x="-84" y="4" width="23" height="39" fill="#859990" /><path
+            d="m-73 12-5 11h9l-6 12"
+            stroke="#edcf79"
+            fill="none"
+            stroke-width="3"
+        /></g>
+      </g>
       <path
         v-if="stage >= 10"
         d="M0-128 15-112 0-96-15-112Z"
@@ -114,6 +141,7 @@ defineProps({
   level: { type: Number, default: 1 },
   decorative: Boolean,
   stage: { type: Number, default: 0 },
+  era: { type: String, default: 'frontier' },
 });
 defineEmits(['enter']);
 </script>

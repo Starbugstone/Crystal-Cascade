@@ -62,10 +62,7 @@ export class HintEngine {
         const nearbyBlocks = new Set();
         for (const index of indices) {
           for (const neighbor of neighborsOf(index, cols, rows)) {
-            if (
-              (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0) ||
-              tiles[neighbor]?.chainHealth > 0
-            )
+            if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
               nearbyBlocks.add(neighbor);
           }
         }
@@ -94,6 +91,7 @@ export class HintEngine {
           Number(usesFusion) * 150 +
           Number(createsBonus) * 100 +
           damage * 120 +
+          indices.filter((index) => tiles[index]?.chainHealth > 0).length * 180 +
           nearbyBlocks.size * 180 +
           relicPaths * 90 +
           indices.length;

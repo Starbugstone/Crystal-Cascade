@@ -9,6 +9,7 @@ import { MatchEngine } from '../src/game/engine/MatchEngine';
 import { TileManager } from '../src/game/engine/TileManager';
 import { BoardAnimator } from '../src/game/phaser/BoardAnimator';
 import { simultaneousMatchCount } from '../src/game/engine/MatchRewards';
+import * as chestRewards from '../src/data/rewards';
 
 const line = (indices, type = 'ruby', orientation = 'horizontal') => ({
   indices,
@@ -71,10 +72,16 @@ describe('chapter-scaled rewards for mining deeper chapters', () => {
     expect(miningPayout(20, 0, {}, {}, 7)).toBe(40);
     expect(miningPayout(0, 0, {}, {}, 60)).toBe(0);
     expect(miningPayout(Number.MAX_SAFE_INTEGER, 0, {}, {}, 60)).toBe(Number.MAX_SAFE_INTEGER);
-    for (const id of [0, -1, 1.5, 121, NaN, Infinity, '7', null])
+    for (const id of [0, -1, 1.5, 145, NaN, Infinity, '7', null])
       expect(miningPayout(100, 0, {}, {}, id)).toBe(100);
   });
   it('banks the exact deeper-level recap once, persists it, and prices replays by their own depth', () => {
+    vi.spyOn(chestRewards, 'rollChestReward').mockReturnValue({
+      id: 'clear-row',
+      kind: 'power',
+      label: 'Clear Row',
+      quantity: 1,
+    });
     const game = useGameStore(),
       campaign = useCampaignStore();
     for (let id = 1; id <= 6; id++) campaign.records[id] = { score: 100, stars: 1 };
@@ -125,6 +132,12 @@ describe('chapter-scaled rewards for mining deeper chapters', () => {
 
 describe('every earned combo contributes to the coin recap', () => {
   it('stacks all tiers across moves and banks the exact recap once, including after reload', () => {
+    vi.spyOn(chestRewards, 'rollChestReward').mockReturnValue({
+      id: 'clear-row',
+      kind: 'power',
+      label: 'Clear Row',
+      quantity: 1,
+    });
     const game = useGameStore(),
       campaign = useCampaignStore();
     game.bootstrap();
@@ -138,7 +151,7 @@ describe('every earned combo contributes to the coin recap', () => {
     expect(campaign.town.coins).toBe(0);
     game.board = [createGem('bomb')];
     game.remainingLayers = 0;
-    // Keep chest rewards out of the mining coin assertion.
+    // Keep score chests out of this recap; the completion chest contains a power.
     game.objectives = [{ type: 'score', target: 1000000 }];
     game.completeLevel();
     // 24 gems + 10 unused bonus + (2*5 + 10 + 15) combos + 10 double match.

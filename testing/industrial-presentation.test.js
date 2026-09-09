@@ -9,6 +9,7 @@ import {
   addIndustrialModernization,
 } from '../src/game/town/buildings/industrial';
 import { TownEraIncident, INCIDENT_DURATION } from '../src/game/town/TownEraIncident';
+import { TownActors } from '../src/game/town/TownActors';
 import { PLOTS } from '../src/game/town/TownLayout';
 import { RIVER, riverDistance, bridgeDeckHeight } from '../src/game/town/TownRiver';
 
@@ -81,10 +82,26 @@ describe('Substantial Industrial structures and village incidents', () => {
       const done = vi.fn(),
         phases = vi.fn();
       const incident = new TownEraIncident(d, event, PLOTS, phases, done);
+      d.raid = incident;
+      d.actorRenderer = new TownActors(d.scene);
+      d.rebuildActors();
+      for (const actor of [...incident.crew, ...incident.thieves])
+        expect(d.actorRenderer.roots).toContain(actor.root);
+      for (const actor of [...incident.crew, ...incident.thieves])
+        actor.root.traverse((object) => {
+          if (object.isMesh) expect(object.layers.mask).toBe(2);
+        });
       let crossed = false;
       for (let tick = 0; tick < INCIDENT_DURATION * 10; tick++) {
         const now = tick / 10;
         incident.update(now);
+        if (tick === 100) {
+          d.actorRenderer.update();
+          for (const actor of incident.crew) expect(actor.root.visible).toBe(true);
+          expect(
+            d.actorRenderer.buckets.reduce((sum, bucket) => sum + bucket.mesh.count, 0),
+          ).toBeGreaterThan(60);
+        }
         for (const actor of incident.crew) {
           const point = actor.root.position;
           if (riverDistance(point.x, point.z) < RIVER.halfWidth) {
@@ -98,6 +115,7 @@ describe('Substantial Industrial structures and village incidents', () => {
         expect(incident.crew[0].root.position).toEqual(position);
       }
       expect(crossed).toBe(true);
+      d.actorRenderer.dispose();
       incident.update(INCIDENT_DURATION);
       incident.update(INCIDENT_DURATION + 1);
       expect(done).toHaveBeenCalledTimes(1);

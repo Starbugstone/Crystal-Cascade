@@ -5,7 +5,8 @@ export const BONUS_CAPACITIES = [3, 5, 8, 20];
 export const CONTINUOUS_COIN_CAP = 25;
 export const HAMMER_CAPACITY = 5;
 export const OVERFLOW_COINS = 10;
-export const bonusCapacity = (town) => BONUS_CAPACITIES[Math.min(3, town.buildings.armory)] ?? 3;
+export const bonusCapacity = (town) =>
+  (BONUS_CAPACITIES[Math.min(3, town.buildings.armory)] ?? 3) + (town.buildings.garage ?? 0) * 2;
 export const CHEST_DROPS = [
   ...POWERS.map((power) => ({
     ...power,
@@ -56,9 +57,21 @@ export function shuffleChestDrops(random = Math.random, eligible = CHEST_DROPS) 
   }
   return drops;
 }
-export function rollChestReward(random = Math.random) {
-  let roll = random() * 100;
-  const drop = CHEST_DROPS.find((item) => (roll -= item.weight) < 0) ?? CHEST_DROPS.at(-1);
+export function chestRewardFits(state, drop) {
+  if (!state || drop.kind === 'coins') return true;
+  const reserved = (state.pendingChests ?? []).filter(
+    (chest) => chest.items[0]?.id === drop.id,
+  ).length;
+  return drop.kind === 'builder-hammer'
+    ? state.builderHammers + reserved < HAMMER_CAPACITY
+    : (state.powers.find((power) => power.id === drop.id)?.quantity ?? 0) + reserved <
+        bonusCapacity(state.town);
+}
+export function rollChestReward(random = Math.random, state) {
+  // Automatic prizes remain useful, including when two chests await opening.
+  const available = CHEST_DROPS.filter((drop) => chestRewardFits(state, drop));
+  let roll = random() * available.reduce((sum, drop) => sum + drop.weight, 0);
+  const drop = available.find((item) => (roll -= item.weight) < 0) ?? available.at(-1);
   return { id: drop.id, label: drop.label, kind: drop.kind, quantity: drop.quantity };
 }
 export const rewardArt = (item) =>

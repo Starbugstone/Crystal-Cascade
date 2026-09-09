@@ -13,6 +13,24 @@
       <circle cx="12" cy="12" r="6" opacity=".5" />
       <path d="m12 8 3 4-3 4-3-4Z" />
     </template>
+    <template v-else-if="name === 'chest'">
+      <path d="M3 11V8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v3M3 11h18v9H3ZM7 4v7m10-7V4M7 14v6m10-6v6" />
+      <path d="M10 10h4v5h-4Z" />
+    </template>
+    <template v-else-if="name === 'bank'">
+      <path d="m3 8 9-5 9 5H3Zm2 3v7m5-7v7m4-7v7m5-7v7M3 21h18M3 18h18" />
+    </template>
+    <template v-else-if="name === 'fireStation'">
+      <path d="M3 20h18V8L12 3 3 8ZM8 20v-8h8v8M12 7v2M9 15h6M9 18h6" />
+    </template>
+    <template v-else-if="name === 'shield'">
+      <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z" />
+      <path d="m8 12 3 3 5-6" />
+    </template>
+    <template v-else-if="name === 'rider'">
+      <path d="M4 7h16M7 7l1-4h8l1 4M6 10h12v4l-6 6-6-6Z" />
+      <path d="M6 11h12M9 11v1m6-1v1M9 16h6" />
+    </template>
     <template v-else-if="name === 'bell'">
       <path d="M6 10a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7ZM10 21h4M12 2v2" />
     </template>

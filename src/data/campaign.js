@@ -69,7 +69,7 @@ export const CHAPTERS = [
   },
   {
     name: 'Chained treasures',
-    description: 'Match beside chains to free the gems within.',
+    description: 'Match the chained gems to break their links.',
     theme: 'forge',
     cols: 7,
     rows: 9,
@@ -181,6 +181,42 @@ export const CHAPTERS = [
     rows: 9,
     gemTypeCount: 5,
   },
+  {
+    id: 'open-road',
+    name: 'Open road seams',
+    description: 'Follow open lanes and deliver little treasures for the growing town.',
+    theme: 'road',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    id: 'garden-paths',
+    name: 'Garden paths',
+    description: 'Emerald seals and sheltered pockets bloom beneath the garden streets.',
+    theme: 'garden',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    id: 'chrome-galleries',
+    name: 'Chrome galleries',
+    description: 'Open workshop shelves and reconnect the bright crystal lanes.',
+    theme: 'chrome',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
+  {
+    id: 'sunrise-valley',
+    name: 'Sunrise valley',
+    description: 'Bring the valley treasures home through sunlit crystal passages.',
+    theme: 'sunrise',
+    cols: 7,
+    rows: 9,
+    gemTypeCount: 5,
+  },
 ];
 export const LEVEL_COUNT = CHAPTERS.length * 6;
 
@@ -198,11 +234,11 @@ export const getLevelGemTypes = (id) => {
 };
 
 export const POWERS = [
-  { id: 'clear-row', label: 'Clear Row', dropWeight: 35 },
-  { id: 'tnt', label: 'TNT', dropWeight: 10 },
-  { id: 'color-wand', label: 'Color Wand', dropWeight: 10 },
-  { id: 'shuffle', label: 'Shuffle', dropWeight: 35 },
-  { id: 'tile-breaker', label: 'Tile Breaker', dropWeight: 10 },
+  { id: 'clear-row', label: 'Clear Row', dropWeight: 30 },
+  { id: 'tnt', label: 'TNT', dropWeight: 25 },
+  { id: 'color-wand', label: 'Color Wand', dropWeight: 20 },
+  { id: 'shuffle', label: 'Shuffle', dropWeight: 10 },
+  { id: 'tile-breaker', label: 'Tile Breaker', dropWeight: 15 },
 ];
 export const CHEST_TIERS = [
   { id: 'crystal', label: 'Crystal chest', multiplier: 1, count: 1 },

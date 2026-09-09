@@ -1392,6 +1392,10 @@
   line-height: 1.5;
   color: #f0dbb7;
 }
+.town-raid-banner .raid-visual-status {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
 .town-raid-defenses {
   grid-column: 1 / -1;
   display: flex;

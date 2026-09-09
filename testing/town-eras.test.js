@@ -66,6 +66,23 @@ afterEach(() => {
 });
 
 describe('Frontier additions preserve bounded services and saves', () => {
+  it('shortens later Steam stages while preserving paid work and the first modernization', () => {
+    let town = advanceEra(frontier(), 'frontier');
+    expect(upgradeOffer(town, 'saloon').runs).toBe(2);
+    town = buildWithHammer(town, 'saloon', upgradeOffer(town, 'saloon').stage);
+    expect(upgradeOffer(town, 'saloon').runs).toBe(1);
+    town = purchase(town, 'saloon', upgradeOffer(town, 'saloon').stage);
+    town.projects.saloon = { ...town.projects.saloon, required: 2, wins: 1 };
+    town.buildings.railDepot = 1;
+    town.projects.railDepot = { id: 'railDepot', stage: 2, required: 2, wins: 1 };
+    const coins = town.coins;
+    town = normalizeTown(town);
+    expect(town.coins).toBe(coins);
+    expect(town.projects.saloon).toMatchObject({ required: 1, wins: 1 });
+    expect(town.projects.railDepot).toMatchObject({ required: 1, wins: 1 });
+    town = finishConstruction(town, 'saloon', town.projects.saloon.stage);
+    expect(upgradeOffer(town, 'saloon').runs).toBe(1);
+  });
   it('loads a v3 receipt without losing its coins, construction, income, stock or inventory', () => {
     const town = frontier();
     delete town.era;
@@ -185,14 +202,16 @@ describe('Collecting Forge TNT into inventory', () => {
     expect(useCampaignStore().town.forge.charge).toBe(1);
   });
   it.each([
-    [1, 20],
-    [2, 16],
-    [3, 12],
-    [4, 8],
-    [5, 5],
+    [1, 6],
+    [2, 5],
+    [3, 4],
+    [4, 3],
+    [5, 2],
   ])(
     'stores one TNT at level %i and restarts its %i-puzzle cycle after collection',
     (level, runs) => {
+      // Keep the newly guaranteed completion chest separate from forge output.
+      vi.spyOn(Math, 'random').mockReturnValue(0.8);
       let c = useCampaignStore();
       c.town.buildings.blacksmith = level;
       c.town.buildings.museum = 1;
@@ -217,14 +236,14 @@ describe('Collecting Forge TNT into inventory', () => {
     c.town.completedRuns = 100;
     c.town.buildings.home = 1;
     c.town.buildings.blacksmith = 1;
-    c.town.forge.progress = 10;
+    c.town.forge.progress = 3;
     c.town.projects.blacksmith = { id: 'blacksmith', stage: 2, wins: 1, required: 1 };
     expect(c.finishConstruction('blacksmith', 2)).toBe(true);
-    expect(c.town.forge).toEqual({ charge: 0, progress: 10 });
+    expect(c.town.forge).toEqual({ charge: 0, progress: 3 });
     setActivePinia(createPinia());
     c = useCampaignStore();
-    expect(c.town.forge.progress).toBe(10);
-    c.town.forge.progress = 15;
+    expect(c.town.forge.progress).toBe(3);
+    c.town.forge.progress = 4;
     c.builderHammers = 1;
     expect(c.useBuilderHammer('blacksmith', 2)).toBe(true);
     expect(c.town.forge).toEqual({ charge: 1, progress: 0 });
@@ -232,11 +251,11 @@ describe('Collecting Forge TNT into inventory', () => {
     c.town = advanceForge(c.town);
     expect(c.town.forge).toEqual({ charge: 0, progress: 1 });
   });
-  it('keeps a saved level-one cycle above five completions and preserves an already stored TNT', () => {
+  it('honors older accumulated forge work under the shorter cycle and preserves stored TNT', () => {
     const town = createTown();
     town.buildings.blacksmith = 1;
     town.forge.progress = 19;
-    expect(normalizeTown(town).forge).toEqual({ charge: 0, progress: 19 });
+    expect(normalizeTown(town).forge).toEqual({ charge: 1, progress: 0 });
     const ready = advanceForge(normalizeTown(town));
     ready.buildings.blacksmith = 5;
     expect(normalizeTown(ready).forge).toEqual({ charge: 1, progress: 0 });
@@ -273,6 +292,8 @@ describe('Collecting Forge TNT into inventory', () => {
   it.each(['exit', 'win', 'reload', 'replace'])(
     'keeps an unused collected TNT after %s',
     (action) => {
+      // The guaranteed win chest must not add TNT to this forge-only assertion.
+      vi.spyOn(Math, 'random').mockReturnValue(0.8);
       const c = useCampaignStore(),
         g = useGameStore();
       c.town.buildings.blacksmith = 1;
@@ -351,6 +372,7 @@ describe('Two eras and explicit modernization', () => {
       'frontier',
       'river-rail',
       'industrial',
+      'motor-age',
     ]);
   });
   it('saves the transition before presenting it and cannot advance twice across reload', () => {
@@ -429,7 +451,9 @@ describe('Two eras and explicit modernization', () => {
     ])
       town = buildWithHammer(town, id, 0);
     expect(isEraComplete(town)).toBe(false);
-    for (const building of BUILDINGS.filter((b) => b.introducedEra !== 'industrial')) {
+    for (const building of BUILDINGS.filter((b) =>
+      ['frontier', 'river-rail'].includes(b.introducedEra),
+    )) {
       for (let level = 2; level <= 3; level++) {
         const offer = upgradeOffer(town, building.id);
         town = buildWithHammer(town, building.id, offer.stage);
@@ -437,9 +461,9 @@ describe('Two eras and explicit modernization', () => {
     }
     expect(isEraComplete(town)).toBe(true);
     expect(eraGate(town, milestoneRecords()).available).toBe(true);
-    expect(residentPopulation(town)).toBe(60);
-    expect(visitorPopulation(town)).toBe(0); // Water is now the limiting service.
-    expect(saloonIncomeRate(town)).toBe(1425);
+    expect(residentPopulation(town)).toBe(70);
+    expect(visitorPopulation(town)).toBe(30); // The Steam waterworks supplies the whole town.
+    expect(saloonIncomeRate(town)).toBe(2531);
   });
 });
 

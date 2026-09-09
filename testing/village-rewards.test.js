@@ -196,11 +196,11 @@ describe('Bounded, saved chest rewards', () => {
     }
     expect(counts).toEqual({ power: 700, coins: 200, 'builder-hammer': 100 });
     expect(powers).toEqual({
-      'clear-row': 245,
-      shuffle: 245,
-      tnt: 70,
-      'color-wand': 70,
-      'tile-breaker': 70,
+      'clear-row': 210,
+      shuffle: 70,
+      tnt: 175,
+      'color-wand': 140,
+      'tile-breaker': 105,
     });
   });
   it.each(['clear-row', 'tnt', 'color-wand', 'shuffle', 'tile-breaker'])(
@@ -266,7 +266,7 @@ describe('Bounded, saved chest rewards', () => {
       combo: 1,
     });
     expect(campaign.bonusLimit).toBe(3);
-    expect(rewards[0].items[0].kind).toBe('coins');
+    expect(rewards[0].items[0]).toMatchObject({ kind: 'power', id: 'tnt' });
     expect(campaign.powers.find((p) => p.id === 'clear-row').quantity).toBe(3);
     expect(campaign.finishConstruction('armory', 1)).toBe(true);
     expect(campaign.bonusLimit).toBe(5);

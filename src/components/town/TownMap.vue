@@ -8,7 +8,7 @@
   >
     <svg
       class="town-diorama"
-      :viewBox="`0 -45 ${mapWidth} 795`"
+      :viewBox="`${mapLeft} -45 ${mapWidth - mapLeft} 795`"
       role="group"
       :aria-label="
         t('Prospect Hollow town map. Choose any building to restore, or enter the mine to play.')
@@ -68,9 +68,22 @@
           <path d="m-4-26 12 2-2 13-12-2Z" fill="#738d8d" />
           <circle cx="26" cy="-37" r="1.5" fill="#403e2e" />
         </g>
+        <g :id="`${uid}-car`">
+          <path d="M-26-12H26V0H-26Z" fill="#819faa" />
+          <path d="M-15-12-9-28H10L19-12Z" fill="#e1cfab" />
+          <path d="M-8-24H8L12-14H-12Z" fill="#9cbbb5" />
+          <circle cx="-16" r="7" fill="#4c554f" />
+          <circle cx="17" r="7" fill="#4c554f" />
+        </g>
       </defs>
       <g aria-hidden="true" class="town-backdrop">
-        <rect x="0" y="-45" :width="mapWidth" height="795" :fill="`url(#${uid}-sky)`" />
+        <rect
+          :x="mapLeft"
+          y="-45"
+          :width="mapWidth - mapLeft"
+          height="795"
+          :fill="`url(#${uid}-sky)`"
+        />
         <circle cx="781" cy="84" r="43" fill="#f6e6b5" opacity=".9" />
         <g fill="#fff9e7" opacity=".55">
           <path
@@ -117,8 +130,20 @@
           <path d="M-15-31Q0-44 15-31L15 28Q0 41-15 28Z" fill="#725d45" />
           <rect x="-13" y="-25" width="26" height="49" rx="4" fill="#e3d3af" />
           <rect x="-9" y="-17" width="18" height="29" fill="#8c9f91" />
-          <rect x="-12" y="24" width="24" height="8" fill="#9b6e51" />
-          <circle cy="-13" r="4" fill="#565f56" />
+          <rect
+            v-if="!modernTransport(town, 'riverPort')"
+            x="-12"
+            y="24"
+            width="24"
+            height="8"
+            fill="#9b6e51"
+          />
+          <circle v-if="!modernTransport(town, 'riverPort')" cy="-13" r="4" fill="#565f56" />
+          <g v-else>
+            <rect x="-10" y="-24" width="20" height="18" fill="#d9ddce" />
+            <path d="M-8-20H8" stroke="#729d9d" stroke-width="6" />
+            <circle v-for="n in 3" :key="n" :cy="n * 7 - 7" r="2" fill="#8bb8bd" />
+          </g>
         </g>
         <g v-if="railEdges(town).length" :transform="`translate(${mapPoint(PLOTS.railDepot)})`">
           <rect x="-50" y="-35" width="115" height="22" rx="2" fill="#b6a181" />
@@ -139,17 +164,55 @@
         <g v-if="railEdges(town).length" :transform="`translate(${mapPoint([-18, -23])})`">
           <path d="M-36 2H22" stroke="#50584f" stroke-width="9" stroke-dasharray="8 7" />
           <path d="M-38-16H-14V0H-38ZM-8-13H24V0H-8Z" fill="#a1825c" />
-          <path d="M-9-20H4V0H-9ZM16-23H22V-11H16Z" fill="#5d7470" />
+          <path
+            v-if="!modernTransport(town, 'railDepot')"
+            d="M-9-20H4V0H-9ZM16-23H22V-11H16Z"
+            fill="#5d7470"
+          />
+          <g v-else>
+            <rect x="-8" y="-20" width="36" height="20" rx="4" fill="#d6c9a1" />
+            <path d="M-34-10H24" stroke="#9ec0bd" stroke-width="5" stroke-dasharray="7 3" />
+          </g>
         </g>
         <path
           v-for="(track, index) in townTracks(town)"
           :key="`track-${index}`"
           :d="`M${mapPoint(track.from).join(' ')} L${mapPoint(track.to).join(' ')}`"
-          :stroke-width="track.width * 14"
-          stroke="#c8ac7f"
+          :stroke-width="track.width * (pavedTown(town) ? 20 : 14)"
+          :stroke="pavedTown(town) ? '#89928a' : '#c8ac7f'"
           stroke-linecap="round"
           fill="none"
         />
+        <g class="mine-forecourt">
+          <path
+            :d="`M${mapPoint([-2.25, -20.1])}L${mapPoint([2.25, -20.1])}L${mapPoint([2.25, -18.6])}L${mapPoint([4.6, -18.6])}L${mapPoint([4.6, -8.7])}L${mapPoint([-4.6, -8.7])}L${mapPoint([-4.6, -18.6])}L${mapPoint([-2.25, -18.6])}Z`"
+            :fill="pavedTown(town) ? '#b8b8a2' : '#c1ad85'"
+          />
+          <path
+            v-for="side in [-1, 1]"
+            :key="side"
+            :d="`M${mapPoint([side * 4.6, -18.4])}L${mapPoint([side * 4.6, -9])}`"
+            stroke="#9b8059"
+            stroke-width="2"
+            stroke-dasharray="8 3"
+          />
+          <g
+            v-for="side in [-1, 1]"
+            :key="`supplies-${side}`"
+            :transform="`translate(${mapPoint([side * 4.95, -18.5])})`"
+          >
+            <rect
+              x="-8"
+              y="-10"
+              width="16"
+              height="14"
+              fill="#a48b61"
+              stroke="#d2b987"
+              stroke-width="2"
+            />
+            <path d="m10 3 6-9 8 10Z" fill="#ad91bd" />
+          </g>
+        </g>
         <path
           d="M0 610q107-31 172 26t138 35m449 12q110-88 241-39"
           fill="none"
@@ -186,7 +249,7 @@
         </g>
       </g>
       <g :transform="`translate(${mapPoint(PLOTS.mine).join(' ')}) scale(.68)`">
-        <TownMine :level="nextLevel" :stage="mineStage" @enter="$emit('mine')" />
+        <TownMine :level="nextLevel" :stage="mineStage" :era="town.era" @enter="$emit('mine')" />
       </g>
       <g
         v-for="building in orderedBuildings"
@@ -317,6 +380,23 @@
         </g>
       </g>
       <g v-if="hasElectricity(town)" aria-hidden="true">
+        <g class="town-power-grid">
+          <path
+            v-for="(pole, index) in grid.poles"
+            :key="`pole-${index}`"
+            :d="`M${mapPoint([pole[0], pole[2]])}L${powerPoint(pole)}`"
+            stroke="#897255"
+            stroke-width="1.5"
+          />
+          <path
+            v-for="(wire, index) in [...grid.wires, ...grid.connections]"
+            :key="`wire-${index}`"
+            :d="powerWire(wire)"
+            fill="none"
+            stroke="#58645d"
+            stroke-width=".85"
+          />
+        </g>
         <g
           v-for="(lamp, index) in ELECTRIC_LAMPS"
           :key="index"
@@ -334,6 +414,43 @@
             <ellipse cy="-6" rx="7" ry="13" />
             <ellipse cy="-6" rx="13" ry="5" />
             <path d="m-10-15 20 18m-20-1 19-18M0-21V9" />
+          </g>
+        </g>
+        <g
+          v-if="town.buildings.farm"
+          aria-hidden="true"
+          :transform="`translate(${mapPoint(atPlot('farm', -0.5, 2.2)).join(' ')})`"
+        >
+          <g v-for="n in 3" :key="n" :transform="`translate(${n * 10} ${(n % 2) * 5})`">
+            <g class="daily-hen" :style="{ animationDelay: `${-n * 2}s` }">
+              <ellipse cy="-4" rx="5" ry="4" fill="#efe2c3" />
+              <circle cx="4" cy="-8" r="3" fill="#efe2c3" />
+              <path d="m6-8 4 1-4 1M-2 0v3M2 0v3" stroke="#bf9256" fill="#bf9256" />
+              <path d="m2-10 2-3 2 3" fill="#b76b51" />
+              <circle cx="5" cy="-9" r=".7" fill="#484637" />
+            </g>
+          </g>
+        </g>
+        <g
+          v-if="population > 0"
+          aria-hidden="true"
+          :transform="`translate(${mapPoint(atPlot('home', 1.5, 2.5)).join(' ')})`"
+        >
+          <g class="daily-dog" fill="#c69b6b">
+            <ellipse cy="-7" rx="9" ry="5" />
+            <ellipse cx="8" cy="-12" rx="5" ry="5" />
+            <ellipse cx="12" cy="-10" rx="4" ry="2.5" fill="#e4c99e" />
+            <path d="M-5-4v7M5-4v7" stroke="#b5895e" stroke-width="3" />
+            <path
+              d="M-7-8q-9-7-8-12"
+              stroke="#c69b6b"
+              stroke-width="3"
+              fill="none"
+              class="daily-tail"
+            />
+            <ellipse cx="5" cy="-12" rx="2" ry="5" fill="#96724f" />
+            <circle cx="10" cy="-14" r="1" fill="#484637" />
+            <circle cx="15" cy="-10" r="1.5" fill="#484637" />
           </g>
         </g>
         <g v-if="population > 0" class="resident-walk resident-one" color="#ac7259">
@@ -382,10 +499,14 @@
           :transform="`translate(${mapPoint(PLOTS.stable).join(' ')}) scale(.48) translate(-735 -455)`"
         >
           <g transform="translate(802 461)">
-            <g class="horse-idle"><use :href="`#${uid}-horse`" /></g>
+            <g :class="{ 'horse-idle': !motorTraffic(town) }">
+              <use :href="`#${uid}-${motorTraffic(town) ? 'car' : 'horse'}`" />
+            </g>
           </g>
-          <g transform="translate(852 487) scale(.8)"><use :href="`#${uid}-horse`" /></g>
-          <g transform="translate(887 446)">
+          <g transform="translate(852 487) scale(.8)">
+            <use :href="`#${uid}-${motorTraffic(town) ? 'car' : 'horse'}`" />
+          </g>
+          <g v-if="!motorTraffic(town)" transform="translate(887 446)">
             <path d="m-16-23 40 7v20l-40-7Z" fill="#a48556" />
             <path d="m24-16 12-8v20L24 4Z" fill="#7d704c" />
             <path d="m-16-23 12-8 40 7-12 8Z" fill="#d1bc8b" />
@@ -416,6 +537,7 @@
 <script setup>
 import { t } from '../../i18n';
 import { hasElectricity, ELECTRIC_LAMPS } from '../../data/industrial';
+import { pavedTown, modernTransport, motorTraffic, powerGrid } from '../../game/town/TownEvolution';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import {
   constructionVisual,
@@ -453,6 +575,16 @@ const props = defineProps({
 });
 defineEmits(['select', 'mine']);
 const scene = ref(null);
+const grid = computed(() => powerGrid(props.town));
+const powerPoint = ([x, y, z]) => {
+  const point = mapPoint([x, z]);
+  return [point[0], point[1] - y * 13];
+};
+const powerWire = ({ from, to }) => {
+  const a = powerPoint(from),
+    b = powerPoint(to);
+  return `M${a}Q${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2 + 8} ${b}`;
+};
 const animatedConstruction = ref(null);
 watch(
   () => props.construction,
@@ -471,12 +603,15 @@ const sheriffPath = `path("M${SHERIFF_PATROL.map((point) => mapPoint(point).join
 const mapWidth = computed(() =>
   Math.max(1370, ...visiblePlots(props.town).map(({ position }) => mapPoint(position)[0] + 120)),
 );
+const mapLeft = computed(() =>
+  Math.min(0, ...visiblePlots(props.town).map(({ position }) => mapPoint(position)[0] - 120)),
+);
 const land = computed(() => {
   const north = Math.min(
     95,
     ...visiblePlots(props.town).map(({ position }) => mapPoint(position)[1] - 60),
   );
-  return `M0 ${north}Q197 ${north - 20} 401 ${north + 5}T${mapWidth.value} ${north - 10}V650L550 730 0 650Z`;
+  return `M${mapLeft.value} ${north}Q197 ${north - 20} 401 ${north + 5}T${mapWidth.value} ${north - 10}V650L550 730 ${mapLeft.value} 650Z`;
 });
 function resetView() {
   scene.value?.style.removeProperty('--look-x');
@@ -541,6 +676,53 @@ const cacti = [
 ];
 </script>
 <style scoped>
+/* Scenery can overlap buildings visually without intercepting their clicks. */
+.town-diorama > g[aria-hidden='true'] {
+  pointer-events: none;
+}
+.daily-hen {
+  animation: daily-peck 8s ease-in-out infinite;
+}
+.daily-dog {
+  animation: daily-stroll 22s ease-in-out infinite;
+}
+.daily-tail {
+  transform-box: fill-box;
+  transform-origin: bottom right;
+  animation: daily-wag 0.6s ease-in-out infinite alternate;
+}
+@keyframes daily-peck {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  35%,
+  65% {
+    transform: translate(12px, 2px);
+  }
+  45%,
+  55% {
+    transform: translate(12px, 3px) rotate(12deg);
+  }
+}
+@keyframes daily-stroll {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  35%,
+  55% {
+    transform: translate(28px, 4px);
+  }
+  75% {
+    transform: translate(12px, 8px);
+  }
+}
+@keyframes daily-wag {
+  to {
+    transform: rotate(25deg);
+  }
+}
 .town-site-assembling {
   animation: town-assemble 1s ease-out both;
 }

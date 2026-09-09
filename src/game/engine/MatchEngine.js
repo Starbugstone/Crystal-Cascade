@@ -112,9 +112,7 @@ export class MatchEngine {
 
     // Bonuses survive passive alignments; only activation can consume them.
     const typeAt = (index) =>
-      board[index]?.type !== 'relic' &&
-      !bonusActivator.isBonus(board[index]?.type) &&
-      !(tiles[index]?.chainHealth > 0)
+      board[index]?.type !== 'relic' && !bonusActivator.isBonus(board[index]?.type)
         ? board[index]?.type
         : null;
 
