@@ -110,10 +110,7 @@ export class TileManager {
       // or overlapping blast cells touch it. Diagonal matches do not damage it.
       for (const index of [...damageTargets]) {
         for (const neighbor of neighborsOf(index, totalCols, totalRows)) {
-          if (
-            (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0) ||
-            tiles[neighbor]?.chainHealth > 0
-          )
+          if (tiles[neighbor]?.type === 'blocker' && tiles[neighbor].health > 0)
             damageTargets.add(neighbor);
         }
       }
@@ -156,7 +153,7 @@ export class TileManager {
         }
         const tile = tiles[index];
         // A chain absorbs the hit and releases its gem. Ice beneath it survives
-        // until a later match, and adjacent hits never destroy the released gem.
+        // until a later match. Only a match/blast containing this cell hits it.
         if (tile?.chainHealth > 0) {
           tile.chainHealth--;
           totalLayersCleared++;
@@ -337,6 +334,14 @@ export class TileManager {
       let writeRow = totalRows - 1;
       for (let row = totalRows - 1; row >= 0; row -= 1) {
         const index = row * totalCols + col;
+        // A chained gem stays pinned to its tile, but gems can fall past it.
+        // Stone and frozen cells still separate the column into segments.
+        if (
+          tiles[index]?.chainHealth > 0 &&
+          tiles[index]?.state !== 'FROZEN' &&
+          tiles[index]?.type !== 'blocker'
+        )
+          continue;
         // Existing gems below a barrier can fall within their segment, but
         // refill only enters from the top. Breaking it reconnects the column.
         if (isAnchored(tiles[index])) {
@@ -345,6 +350,7 @@ export class TileManager {
         }
         const gem = workingBoard[index];
         if (gem) {
+          while (writeRow >= 0 && isAnchored(tiles[writeRow * totalCols + col])) writeRow--;
           const targetIndex = writeRow * totalCols + col;
           if (targetIndex !== index) {
             workingBoard[targetIndex] = gem;
@@ -357,6 +363,7 @@ export class TileManager {
 
       for (let spawnRow = writeRow; spawnRow >= 0; spawnRow -= 1) {
         const index = spawnRow * totalCols + col;
+        if (isAnchored(tiles[index])) continue;
         let type = randomGemType(gemTypes);
         // A pathological RNG (or deterministic test) must not create an endless cascade.
         if (iteration >= 24) {

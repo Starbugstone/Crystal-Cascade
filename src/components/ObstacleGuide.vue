@@ -34,6 +34,36 @@
         </div>
         <div>
           <h3>{{ t(obstacle.name) }}</h3>
+          <div class="obstacle-demo" aria-hidden="true">
+            <template v-if="obstacle.id === 'relic'">
+              <img src="/art/relic.svg" alt="" /><b>↓</b
+              ><img src="/art/obstacles/exit.svg" alt="" /><b class="demo-check">✓</b>
+            </template>
+            <template v-else>
+              <span class="demo-matches"
+                ><span
+                  v-for="n in 3"
+                  :key="n"
+                  :class="{ 'demo-frost': n === 2 && ['ice', 'double-ice'].includes(obstacle.id) }"
+                  ><img
+                    :src="`/art/${obstacle.id.startsWith('seal-') ? obstacle.id.slice(5) : 'ruby'}.svg`"
+                    alt="" /><img
+                    v-if="n === 2 && obstacle.id === 'chain'"
+                    class="demo-chain"
+                    src="/art/obstacles/chain.svg"
+                    alt="" /></span
+              ></span>
+              <img
+                v-if="!['ice', 'double-ice', 'chain'].includes(obstacle.id)"
+                :src="obstacle.art"
+                alt=""
+              />
+              <b>→</b
+              ><span class="demo-check">{{
+                ['double-ice', 'reinforced'].includes(obstacle.id) ? '2× ✓' : '✓'
+              }}</span>
+            </template>
+          </div>
           <p>{{ t(obstacle.instruction) }}</p>
         </div>
       </li>
@@ -56,6 +86,44 @@ const emit = defineEmits(['close']);
 const { dialog, closeButton, dismissBackdrop } = useNativeDialog(() => emit('close'));
 </script>
 <style scoped>
+.obstacle-demo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 7px 0;
+  color: #f1d9a5;
+}
+.obstacle-demo img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+.demo-matches {
+  display: flex;
+  padding: 3px;
+  border: 1px solid #b8c0a0;
+  border-radius: 7px;
+  background: #493452;
+}
+.demo-matches > span {
+  position: relative;
+  display: flex;
+  border-radius: 4px;
+}
+.demo-chain {
+  position: absolute;
+  inset: 0;
+}
+.demo-matches .demo-frost {
+  background: #afdcea;
+  box-shadow: 0 0 0 2px #e0f6ff;
+}
+.obstacle-demo .demo-check {
+  color: #bce5a6;
+  font-weight: 800;
+  font-size: 20px;
+}
 .obstacle-guide {
   width: min(560px, calc(100% - 24px));
   max-height: 85dvh;

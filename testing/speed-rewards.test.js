@@ -64,7 +64,7 @@ it.each([
   [12000, 20000, ['score', 'speed'], 2],
   [100, 20000, ['speed'], 1],
   [12000, 60001, ['score'], 1],
-  [100, 60001, [], 0],
+  [100, 60001, ['completion'], 1],
 ])('awards score %i and time %i independently', (score, elapsedMs, sources, count) => {
   const campaign = useCampaignStore();
   const rewards = campaign.recordVictory({

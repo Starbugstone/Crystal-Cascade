@@ -39,8 +39,10 @@
               phase === 'opened'
                 ? 'JACKPOT!'
                 : reward.source === 'speed'
-                  ? 'SPEED DEMON!'
-                  : 'HIGH SCORE!',
+                  ? 'A LITTLE EXTRA!'
+                  : reward.source === 'completion'
+                    ? 'YOU DID IT!'
+                    : 'HIGH SCORE!',
             )
           }}
         </h2>
@@ -48,8 +50,10 @@
           {{
             t(
               reward.source === 'speed'
-                ? 'You beat the clock. Here’s your speed chest.'
-                : 'You crushed the target. Here’s your score chest.',
+                ? 'A quick puzzle and an extra surprise.'
+                : reward.source === 'completion'
+                  ? 'Every finished puzzle deserves a little treasure.'
+                  : 'You crushed the target. Here’s your score chest.',
             )
           }}
         </p>

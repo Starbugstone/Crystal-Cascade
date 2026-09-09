@@ -20,7 +20,16 @@ export const ERAS = [
     horizon: 'A new light is coming to Prospect Hollow.',
     finale: 'The river still flows. The rails still carry us. Now we build a brighter town.',
   },
-  { id: 'motor-age', label: 'Motor Age', yearLabel: 'c. 1920–1945', enabled: false },
+  {
+    id: 'motor-age',
+    label: 'Motor Age',
+    yearLabel: '1932',
+    enabled: true,
+    story:
+      'A little bus rolls into Prospect Hollow. Sunny gardens, roadside treats and new neighbors fill the familiar streets.',
+    horizon: 'The open road brings new friends to Prospect Hollow.',
+    finale: 'A sunny garden. A welcoming stop. Another lovely day in town.',
+  },
   { id: 'post-war', label: 'Post-war City', yearLabel: 'c. 1945–1980', enabled: false },
   {
     id: 'contemporary',
@@ -31,8 +40,8 @@ export const ERAS = [
 ];
 export const ERA_BY_ID = Object.fromEntries(ERAS.map((era) => [era.id, era]));
 export const FRONTIER_ERA = ERAS[0].id;
-export const FORGE_PRODUCTION_RUNS = [20, 16, 12, 8, 5];
-export const forgeProductionRuns = (level) => FORGE_PRODUCTION_RUNS[level - 1] ?? 20;
+export const FORGE_PRODUCTION_RUNS = [6, 5, 4, 3, 2];
+export const forgeProductionRuns = (level) => FORGE_PRODUCTION_RUNS[level - 1] ?? 6;
 export const createEraState = (plotIds) => ({
   era: FRONTIER_ERA,
   buildingEras: Object.fromEntries(plotIds.map((id) => [id, FRONTIER_ERA])),

@@ -5,12 +5,17 @@ import { renderBridge, addStationDetails } from './infrastructure';
 import { RIVER_RAIL_VARIANTS } from '../../../data/riverRail';
 import { t } from '../../../i18n';
 import { renderIndustrialBuilding, addIndustrialModernization } from './industrial';
+import { renderMotorBuilding, addMotorModernization } from './motorAge';
 
 const kinds = {
   powerHouse: 'armory',
   fireStation: 'sheriff',
   rowHouses: 'home',
   mill: 'farm',
+  garage: 'armory',
+  busDepot: 'museum',
+  gardenCourt: 'home',
+  diner: 'saloon',
   riverPort: 'fisherman',
   railDepot: 'museum',
   post: 'shop',
@@ -28,6 +33,7 @@ export function renderBuilding({
   label,
 }) {
   if (kind === 'bridge') return renderBridge(d, parent, level);
+  if (!construction && level > 0 && renderMotorBuilding(d, parent, kind, label, level)) return;
   if (!construction && level > 0 && renderIndustrialBuilding(d, parent, kind, label, level)) return;
   renderFrontierBuilding(d, parent, kinds[kind] ?? kind, level, label, construction);
   if (construction) return;
@@ -38,6 +44,7 @@ export function renderBuilding({
   if (era !== 'frontier') renderModernization(d, parent, kind, era);
 }
 export function renderModernization(d, parent, kind, era, level = 1) {
+  if (era === 'motor-age') return addMotorModernization(d, parent, kind, level);
   if (era === 'industrial') return addIndustrialModernization(d, parent, kind, level);
   if (era !== 'river-rail') return;
   kind = kinds[kind] ?? kind;

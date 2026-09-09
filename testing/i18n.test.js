@@ -9,6 +9,7 @@ import { FUSION_STYLES } from '../src/game/engine/BonusFusion';
 import { BUILDINGS, INITIAL_STORY } from '../src/data/town';
 import { OBSTACLES } from '../src/data/obstacles';
 import { ERAS } from '../src/data/eras';
+import { MOTOR_AGE_VARIANTS } from '../src/data/motorAge';
 import { INDUSTRIAL_VARIANTS } from '../src/data/industrial';
 import { RIVER_RAIL_VARIANTS } from '../src/data/riverRail';
 
@@ -49,6 +50,7 @@ describe('One browser language across the game and town', () => {
       ...ERAS.flatMap((era) => [era.label, era.yearLabel, ...(era.story ? [era.story] : [])]),
       ...Object.values(RIVER_RAIL_VARIANTS).flat(),
       ...Object.values(INDUSTRIAL_VARIANTS).flat(),
+      ...Object.values(MOTOR_AGE_VARIANTS).flat(),
       ...CHEST_DROPS.map((drop) => drop.label),
       ...Object.values(FUSION_STYLES).flatMap((style) => [style.label, style.detail]),
     ];

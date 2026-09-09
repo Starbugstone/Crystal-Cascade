@@ -30,21 +30,8 @@
           )
         }}</span
       >
-      <div class="victory-stars" :aria-label="t('{value0} of 3 stars', { value0: t(earnedStars) })">
-        <span v-for="i in 3" :key="i" :class="{ earned: i <= earnedStars }">✦</span>
-      </div>
-      <h2 id="victory-title" tabindex="-1" autofocus>{{ t('LEVEL CLEAR!') }}</h2>
-      <div class="result-score">
-        {{ number(score) }}<small> {{ t('POINTS') }} </small>
-      </div>
-      <div class="result-destinations">
-        <button v-if="canContinue" class="result-next" @click="$emit('next')">
-          <GameIcon name="pickaxe" /> <span>{{ t('Continue mining') }}</span>
-        </button>
-        <button class="result-next result-village" @click="$emit('town')">
-          <GameIcon name="home" /> <span>{{ t('Back to village') }}</span>
-        </button>
-      </div>
+      <div class="victory-seal" aria-hidden="true"><TownIcon name="check" /></div>
+      <h2 id="victory-title" tabindex="-1" autofocus>{{ t('YOU DID IT!') }}</h2>
       <CoinReward
         :level-id="levelId"
         :coins="coins + chestCoins"
@@ -54,8 +41,55 @@
         :combo-counts="comboCounts"
         :multi-match-counts="multiMatchCounts"
       />
+      <div v-if="supplyRewards.length" class="result-supplies">
+        <span v-for="(item, index) in supplyRewards" :key="index"
+          ><img :src="rewardArt(item)" :alt="t(item.label)" /><b>+{{ item.quantity }}</b></span
+        >
+      </div>
+      <div class="result-destinations">
+        <button
+          v-if="canContinue"
+          class="result-next"
+          :class="{ 'result-village': villageHasNextStep }"
+          @click="$emit('next')"
+        >
+          <GameIcon name="pickaxe" /> <span>{{ t('Continue mining') }}</span>
+        </button>
+        <button
+          class="result-next"
+          :class="{ 'result-village': !villageHasNextStep }"
+          @click="$emit('town')"
+        >
+          <GameIcon name="home" />
+          <span>{{
+            readyBuildings.length
+              ? t('Finish buildings · {count}', { count: readyBuildings.length })
+              : canDevelop
+                ? t('Build in the village')
+                : t('Back to village')
+          }}</span>
+        </button>
+      </div>
+      <button v-if="readyBuildings.length" class="result-building-preview" @click="$emit('town')">
+        <span v-for="project in readyBuildings.slice(0, 3)" :key="project.id"
+          ><svg viewBox="-160 -200 320 245" aria-hidden="true">
+            <TownBuilding
+              :id="project.id"
+              :stage="
+                project.type === 'modernization'
+                  ? campaign.town.buildings[project.id]
+                  : project.stage
+              "
+              :era="campaign.town.era"
+              :era-level="project.eraLevel ?? project.stage"
+            /></svg
+          ><small>{{ t(BUILDING_BY_ID[project.id].shortName) }} ✓</small></span
+        >
+        <img src="/art/rewards/builder-hammer.svg" alt="" />
+        <strong>{{ t('Ready to finish') }} →</strong>
+      </button>
       <div
-        v-for="project in construction"
+        v-for="project in construction.filter((project) => !project.ready)"
         :key="project.id"
         class="town-construction-reward"
         role="status"
@@ -73,32 +107,60 @@
           }}</span
         >
       </div>
-      <div class="result-stats">
-        <div>
-          <span> {{ t('ACTIVE TIME') }} </span><strong>{{ formatTime(elapsedMs) }}</strong>
-        </div>
-        <div>
-          <span> {{ t('MOVES') }} </span><strong>{{ moves }}</strong>
-        </div>
-        <div>
-          <span> {{ t('BEST CASCADE') }} </span><strong>×{{ maxCombo }}</strong>
-        </div>
-      </div>
-      <div class="result-goals">
-        <div
-          v-for="source in ['score', 'speed']"
-          :key="source"
-          :class="{ earned: rewards.some((r) => r.source === source) }"
+      <div v-if="campaign.lastChapterReward" class="chapter-gift" role="status">
+        <TownIcon name="mine" /><span
+          ><strong>{{ t('Your mine grew!') }}</strong
+          ><small>{{
+            t('Chapter {count} complete', { count: campaign.lastChapterReward.chapter })
+          }}</small></span
         >
-          <b>{{ t(source === 'score' ? '✦' : 'ϟ') }}</b
-          ><span
-            ><strong>{{ t(source === 'score' ? 'SCORE CHEST' : 'SPEED CHEST') }}</strong
-            ><small>{{ t(goalText(source)) }}</small></span
-          ><span class="goal-check">{{
-            t(rewards.some((r) => r.source === source) ? '✓' : '—')
-          }}</span>
-        </div>
+        <img
+          :src="rewardArt(campaign.lastChapterReward.gift)"
+          :alt="t(campaign.lastChapterReward.gift.label)"
+        /><b>+{{ campaign.lastChapterReward.gift.quantity }}</b>
       </div>
+      <JourneyProgress />
+      <details class="result-details">
+        <summary>{{ t('Puzzle highlights') }}</summary>
+        <div class="victory-stars" :aria-label="t('{count} stars earned', { count: earnedStars })">
+          <span v-for="i in earnedStars" :key="i" class="earned">✦</span>
+        </div>
+        <div class="result-stats">
+          <div>
+            <span>{{ t('POINTS') }}</span
+            ><strong>{{ number(score) }}</strong>
+          </div>
+          <div>
+            <span>{{ t('ACTIVE TIME') }}</span
+            ><strong>{{ formatTime(elapsedMs) }}</strong>
+          </div>
+          <div>
+            <span>{{ t('MOVES') }}</span
+            ><strong>{{ moves }}</strong>
+          </div>
+          <div>
+            <span>{{ t('BEST CASCADE') }}</span
+            ><strong>×{{ maxCombo }}</strong>
+          </div>
+        </div>
+        <div class="result-goals">
+          <div v-for="reward in rewards" :key="reward.id" class="earned">
+            <b>✦</b
+            ><span
+              ><strong>{{
+                t(
+                  reward.source === 'completion'
+                    ? 'Completion chest'
+                    : reward.source === 'score'
+                      ? 'SCORE CHEST'
+                      : 'SPEED CHEST',
+                )
+              }}</strong
+              ><small>{{ goalText(reward.source) }}</small></span
+            ><span class="goal-check">✓</span>
+          </div>
+        </div>
+      </details>
       <p class="result-note">
         {{
           t(
@@ -119,9 +181,13 @@ import { t, number } from '../i18n';
 import { BUILDING_BY_ID } from '../data/town';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
+import TownBuilding from './town/TownBuilding.vue';
+import TownIcon from './town/TownIcon.vue';
+import JourneyProgress from './JourneyProgress.vue';
+import { constructionReady, nextGoal } from '../game/town/TownRules';
 import RewardChest from './RewardChest.vue';
 import CoinReward from './CoinReward.vue';
-import { chestCoinsEarned } from '../data/rewards';
+import { chestCoinsEarned, rewardArt } from '../data/rewards';
 import { getStars, formatTime } from '../data/campaign';
 const props = defineProps({
   levelId: { type: Number, default: 1 },
@@ -144,6 +210,14 @@ const props = defineProps({
 const emit = defineEmits(['menu', 'replay', 'next', 'town', 'claimed']);
 import { useCampaignStore } from '../stores/campaignStore';
 const campaign = useCampaignStore();
+const readyBuildings = computed(() =>
+  Object.values(campaign.town.projects).filter(constructionReady),
+);
+const canDevelop = computed(() => {
+  const goal = nextGoal(campaign.town);
+  return goal?.available && (campaign.town.coins >= goal.cost || campaign.builderHammers > 0);
+});
+const villageHasNextStep = computed(() => readyBuildings.value.length > 0 || canDevelop.value);
 const claimReward = (index, reward) => emit('claimed', { index, reward });
 const dialog = ref(null),
   chestIndex = ref(0),
@@ -176,6 +250,9 @@ const nextChest = () => {
   } else showResults();
 };
 const chestCoins = computed(() => chestCoinsEarned(props.rewards));
+const supplyRewards = computed(() =>
+  props.rewards.flatMap((reward) => reward.items).filter((item) => item.kind !== 'coins'),
+);
 const earnedStars = computed(() => getStars(props.score, props.scoreTarget, props.maxCombo));
 const goalText = (source) => {
   const reward = props.rewards.find((r) => r.source === source);
@@ -191,6 +268,106 @@ const goalText = (source) => {
 };
 </script>
 <style scoped>
+.victory-seal {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 14px auto;
+  background: #557557;
+  border: 3px double #ffdc7d;
+  border-radius: 50%;
+}
+.victory-seal svg {
+  width: 34px;
+  height: 34px;
+  color: #ffefba;
+}
+.result-supplies {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: -7px 0 18px;
+}
+.result-supplies span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.result-supplies img {
+  width: 37px;
+  height: 37px;
+  object-fit: contain;
+}
+.chapter-gift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  margin-top: 14px;
+  border: 1px solid #dec178;
+  border-radius: 10px;
+  background: #57674366;
+  text-align: left;
+}
+.chapter-gift > svg,
+.chapter-gift > img {
+  width: 36px;
+  height: 36px;
+}
+.chapter-gift > span {
+  flex: 1;
+  font-size: 13px;
+}
+.chapter-gift small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+}
+.result-details {
+  margin-top: 16px;
+}
+.result-details summary {
+  cursor: pointer;
+  padding: 12px;
+  font-size: 12px;
+  color: #c6aed2;
+}
+
+.result-building-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #b5c282;
+  border-radius: 12px;
+  color: #e1edbc;
+  background: #354333;
+}
+.result-building-preview > span {
+  flex: 1;
+  min-width: 0;
+}
+.result-building-preview svg {
+  width: 100%;
+  max-width: 90px;
+  height: 65px;
+}
+.result-building-preview small {
+  display: block;
+  font-size: 10px;
+}
+.result-building-preview img {
+  width: 28px;
+  height: 28px;
+}
+.result-building-preview strong {
+  max-width: 85px;
+  font-size: 12px;
+  text-align: left;
+}
 .result-destinations {
   display: grid;
   grid-auto-flow: column;
@@ -287,7 +464,7 @@ const goalText = (source) => {
 }
 .result-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 19px 0;
   border-block: 1px solid #ac69c33b;
 }

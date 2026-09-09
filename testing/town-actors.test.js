@@ -4,6 +4,7 @@ import { TownActors } from '../src/game/town/TownActors';
 import { TownDiorama, PLOTS } from '../src/game/town/TownDiorama';
 import { SHERIFF_PATROL } from '../src/game/town/TownLayout';
 import { TownRaid, RAID_DURATION } from '../src/game/town/TownActivity';
+import { addTownLife } from '../src/game/town/TownLife';
 import { createTown } from '../src/data/town';
 import { routeBetween, plotStreet } from '../src/game/town/TownLayout';
 import { riverDistance, RIVER } from '../src/game/town/TownRiver';
@@ -25,9 +26,34 @@ function diorama() {
   d.contactShadowMaterial = new MeshBasicMaterial();
   d.elapsed = 0;
   d.actors = [];
+  d.motions = [];
   return d;
 }
 describe('A visible, articulated frontier encounter', () => {
+  it('adds bounded daily life as buildings open and advances it without changing the town', () => {
+    const d = diorama(),
+      town = createTown();
+    addTownLife(d, town);
+    expect(d.motions).toHaveLength(0);
+    Object.assign(town.buildings, { home: 3, farm: 3, well: 3, square: 1, saloon: 1 });
+    const saved = JSON.stringify(town);
+    addTownLife(d, town);
+    const dog = d.world.getObjectByName('Village dog');
+    expect(d.world.children.filter((child) => child.name === 'Farmyard hen')).toHaveLength(3);
+    expect(d.actors.filter((actor) => actor.root.name === 'Neighbors chatting')).toHaveLength(2);
+    expect(d.motions.length).toBeLessThanOrEqual(10);
+    const count = d.world.children.length;
+    d.motions.forEach((motion) => motion(1));
+    const before = dog.position.clone();
+    d.motions.forEach((motion) => motion(7));
+    expect(dog.position.distanceTo(before)).toBeGreaterThan(0.1);
+    for (let time = 0; time < 100; time++) {
+      d.actors.forEach((actor) => d.animatePerson(actor, time));
+      d.motions.forEach((motion) => motion(time));
+    }
+    expect(d.world.children).toHaveLength(count);
+    expect(JSON.stringify(town)).toBe(saved);
+  });
   it('keeps cross-river residents on the bridge deck without smoothing corners into water', () => {
     const d = diorama(),
       town = createTown();

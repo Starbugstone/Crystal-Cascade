@@ -673,6 +673,7 @@ export const useGameStore = defineStore('game', {
       }
 
       const { boardContainer, scene, animator } = this.renderer;
+      animator.levelId = this.currentLevelId;
       const fallbackWidth =
         scene?.scale?.width ?? scene?.scale?.parentSize?.width ?? scene?.sys?.game?.canvas?.width;
       const fallbackHeight =

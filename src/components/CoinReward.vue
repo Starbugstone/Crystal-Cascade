@@ -21,58 +21,61 @@
       <strong aria-hidden="true">+{{ number(displayedCoins) }}</strong>
       <span aria-hidden="true">{{ t('TOWN COINS') }}</span>
     </div>
-    <div class="coin-breakdown">
-      <div>
-        <span>{{ t('Gems collected') }}</span
-        ><b>{{ number(jewels) }} × 1</b>
-      </div>
-      <div>
-        <span>{{ t('Bonuses left on the board') }}</span
-        ><b>{{ bonusGems }} × {{ BONUS_GEM_COINS }}</b>
-      </div>
-      <template v-if="comboRewards.length">
-        <h3>{{ t('COMBO BONUSES') }}</h3>
-        <div v-for="reward in comboRewards" :key="`combo-${reward.tier}`">
-          <span
-            >{{ t('Combo ×{tier}', { tier: number(reward.tier) }) }}
-            <small>{{
-              t('{count} × {coins} coins', {
-                count: number(reward.count),
-                coins: number(reward.coinsEach),
-              })
-            }}</small>
-          </span>
-          <b>+{{ number(reward.coins) }}</b>
+    <details class="coin-details">
+      <summary>{{ t('See your coin rewards') }}</summary>
+      <div class="coin-breakdown">
+        <div>
+          <span>{{ t('Gems collected') }}</span
+          ><b>{{ number(jewels) }} × 1</b>
         </div>
-      </template>
-      <template v-if="multiMatchRewards.length">
-        <h3 class="multi-match-heading">{{ t('SIMULTANEOUS MATCH BONUSES') }}</h3>
-        <div
-          v-for="reward in multiMatchRewards"
-          :key="`multi-${reward.tier}`"
-          class="multi-match-reward"
-        >
-          <span
-            >{{ t('{count} lines at once', { count: number(reward.tier) }) }}
-            <small>{{
-              t('{count} × {coins} coins', {
-                count: number(reward.count),
-                coins: number(reward.coinsEach),
-              })
-            }}</small>
-          </span>
-          <b>+{{ number(reward.coins) }}</b>
+        <div>
+          <span>{{ t('Bonuses left on the board') }}</span
+          ><b>{{ bonusGems }} × {{ BONUS_GEM_COINS }}</b>
         </div>
-      </template>
-      <div v-if="depthPercent" class="coin-depth-bonus">
-        <span>{{ t('Depth bonus · +{percent}%', { percent: depthPercent }) }}</span>
-        <b>+{{ number(depthCoins) }}</b>
+        <template v-if="comboRewards.length">
+          <h3>{{ t('COMBO BONUSES') }}</h3>
+          <div v-for="reward in comboRewards" :key="`combo-${reward.tier}`">
+            <span
+              >{{ t('Combo ×{tier}', { tier: number(reward.tier) }) }}
+              <small>{{
+                t('{count} × {coins} coins', {
+                  count: number(reward.count),
+                  coins: number(reward.coinsEach),
+                })
+              }}</small>
+            </span>
+            <b>+{{ number(reward.coins) }}</b>
+          </div>
+        </template>
+        <template v-if="multiMatchRewards.length">
+          <h3 class="multi-match-heading">{{ t('SIMULTANEOUS MATCH BONUSES') }}</h3>
+          <div
+            v-for="reward in multiMatchRewards"
+            :key="`multi-${reward.tier}`"
+            class="multi-match-reward"
+          >
+            <span
+              >{{ t('{count} lines at once', { count: number(reward.tier) }) }}
+              <small>{{
+                t('{count} × {coins} coins', {
+                  count: number(reward.count),
+                  coins: number(reward.coinsEach),
+                })
+              }}</small>
+            </span>
+            <b>+{{ number(reward.coins) }}</b>
+          </div>
+        </template>
+        <div v-if="depthPercent" class="coin-depth-bonus">
+          <span>{{ t('Depth bonus · +{percent}%', { percent: depthPercent }) }}</span>
+          <b>+{{ number(depthCoins) }}</b>
+        </div>
+        <div v-if="chestCoins" class="coin-chest-bonus">
+          <span>{{ t('Bonus chest coins') }}</span
+          ><b>+{{ number(chestCoins) }}</b>
+        </div>
       </div>
-      <div v-if="chestCoins" class="coin-chest-bonus">
-        <span>{{ t('Bonus chest coins') }}</span
-        ><b>+{{ number(chestCoins) }}</b>
-      </div>
-    </div>
+    </details>
   </div>
 </template>
 <script setup>
@@ -196,6 +199,12 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   border-top: 1px solid #f8c64a30;
   font-size: 11px;
   color: #e0cedf;
+}
+.coin-details summary {
+  padding-top: 10px;
+  font-size: 11px;
+  color: #eac77f;
+  cursor: pointer;
 }
 .coin-breakdown > div {
   display: flex;

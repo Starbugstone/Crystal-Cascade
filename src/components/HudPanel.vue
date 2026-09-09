@@ -21,28 +21,21 @@
         class="chest-progress"
         :class="{ qualified: tier }"
       >
-        <span>{{ t(tier ? 'Score chest earned' : 'Score chest') }}</span>
+        <span>{{ t('A chest when you finish') }}</span>
         <small>{{
-          t(
-            tier
-              ? '1 bonus on completion'
-              : t('{value0} pts · 1 bonus', { value0: number(target) }),
-          )
+          t(tier ? '1 bonus on completion' : 'Take your time. Your reward is waiting.')
         }}</small>
       </div>
     </div>
     <div class="stats-row">
       <div>
-        <span class="eyebrow">
-          {{ t(game.playMode === 'continuous' ? 'PLAY TIME' : 'SPEED RUN') }} </span
-        ><strong class="run-time" :class="{ expired: game.elapsedMs > game.speedTargetMs }">{{
-          formatTime(game.elapsedMs)
-        }}</strong
+        <span class="eyebrow"> {{ t('PLAY TIME') }} </span
+        ><strong class="run-time">{{ formatTime(game.elapsedMs) }}</strong
         ><small v-if="game.playMode !== 'continuous'" class="speed-target">{{
           t(
             speedTier
               ? t('≤ {value0} · 1 bonus', { value0: formatTime(game.speedTargetMs) })
-              : 'Finish for score',
+              : 'No move limit',
           )
         }}</small>
       </div>
@@ -81,7 +74,7 @@
           t(
             game.playMode === 'continuous'
               ? 'The objectives are just a starting point. Keep matching for as long as you like.'
-              : 'Clear the obstacles to finish. Score and time earn optional chests.',
+              : 'Clear the obstacles to finish. A reward awaits at your own pace.',
           )
         }}
       </p>

@@ -108,8 +108,8 @@ export const INDUSTRIAL_VARIANTS = {
     'Brick columns and a broad canopy shelter the familiar gathering place.',
   ],
   stable: [
-    'Town transport yard',
-    'A covered carriage yard keeps the horses and travelers welcome.',
+    'Town motor garage',
+    'A motor garage welcomes travelers. Its second upgrade brings touring cars to the streets.',
   ],
   bank: ['Commercial town bank', 'Masonry columns surround the existing secure vault.'],
   shop: [
@@ -132,7 +132,8 @@ export const INDUSTRIAL_VARIANTS = {
   bridge: ['Prospect civic bridge', 'Stone approach posts mark the familiar river crossing.'],
 };
 export const INDUSTRIAL_LEVEL_PRICES = [1200, 1600, 2000];
-export const hasElectricity = (town) => town.era === 'industrial' && town.buildings.powerHouse > 0;
+export const hasElectricity = (town) =>
+  ['industrial', 'motor-age'].includes(town.era) && town.buildings.powerHouse > 0;
 export const ELECTRIC_LAMPS = [
   [-3, -7.5],
   [3, -7.5],

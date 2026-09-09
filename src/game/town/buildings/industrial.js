@@ -179,6 +179,13 @@ export function renderIndustrialLandmark(d, parent, kind, label, level = 1) {
       masonry(d, d.group(parent, -1.8, 0, -0.7), 0.55, 4.4, 0.6);
       d.box(parent, 1, 0.6, 0.7, 1, 0.4, 2.2, iron);
     }
+    if (kind === 'stable') {
+      // A broad roller door makes the former stables read as a garage.
+      d.box(parent, 2.35, 1.7, 0.15, 0, 0.95, 1.6, '#607c75');
+      for (let n = 0; n < 6; n++)
+        d.box(parent, 2.2, 0.045, 0.035, 0, 0.28 + n * 0.27, 1.7, '#bbc6b6');
+      d.box(parent, 0.35, 0.85, 0.35, 2.4, 0.48, 1.7, '#bc9273');
+    }
     if (kind === 'market') {
       d.box(parent, 4.4, 0.18, 2.1, 0, 2.2, 2.1, iron);
       for (const x of [-1.8, 0, 1.8]) {

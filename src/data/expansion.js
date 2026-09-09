@@ -4,6 +4,7 @@
 // Ice is seeded around these authored structures. Each chapter has a breather
 // in its fifth puzzle and a finale in its sixth. Five active colors leave room
 // to learn chains, seals and delivery goals without blanket layers of ice.
+import { MOTOR_LEVELS } from './motorLevels.js';
 export const EXPANSION_LEVELS = [
   {
     map: '......./......./......./...#.../......./......./......./......./.......',
@@ -11,7 +12,7 @@ export const EXPANSION_LEVELS = [
     tip: 'One more row to explore. Open the stone barrier to keep the cascades flowing.',
   },
   {
-    map: '......./......./.##..../......./....##./......./.##..../......./.......',
+    map: '......./......./.##..../......./....##./......./...#.../......./.......',
     ice: 60,
     tip: 'Open the staggered stone shelves. Each gap reconnects a column.',
   },
@@ -38,12 +39,12 @@ export const EXPANSION_LEVELS = [
   {
     map: '......./......./......./..c.c../......./......./......./......./.......',
     ice: 62,
-    tip: 'Chained gems cannot move or match. Match beside a chain or hit it with a bonus to free it.',
+    tip: 'Chained gems stay in place. Include them in a match, or hit them with a bonus to break the chain.',
   },
   {
     map: '......./......./..c.c../......./...c.../......./..c.c../......./.......',
     ice: 66,
-    tip: 'Chains hold up falling gems. Free the upper links to refill the columns below.',
+    tip: 'Gems can fall past a chain. Bring matching colors to the pinned gem.',
   },
   {
     map: '......./......./.#...#./......./..c.c../......./.c...c./......./.......',
@@ -58,7 +59,7 @@ export const EXPANSION_LEVELS = [
   {
     map: '......./......./......./.c.c.c./......./......./......./......./.......',
     ice: 58,
-    tip: 'Break free. An adjacent match can release several chains at once.',
+    tip: 'Break free. Include chained gems in your matches to release them.',
   },
   {
     map: '......./......./.cX.Xc./......./..c.c../......./.Xc.cX./......./.......',
@@ -81,7 +82,7 @@ export const EXPANSION_LEVELS = [
     tip: 'R: ruby. S: sapphire. E: emerald. Match the marked color on a seal, or use a bonus.',
   },
   {
-    map: '......./......./.X.r.X./......./.b.g.b./......./.X.r.X./......./.......',
+    map: '......./......./.X.r.X./......./.b.g.b./......./.#.r.#./......./.......',
     ice: 76,
     tip: 'Open the stone chambers, then guide the right colors onto their seals.',
   },
@@ -113,7 +114,7 @@ export const EXPANSION_LEVELS = [
   {
     map: '......./..R.R../......./..c.c../......./.c...c./......./......./..E.E..',
     ice: 72,
-    tip: 'Free the chains holding up the relics, then clear beneath them to reach the exits.',
+    tip: 'Match the chained gems, and clear beneath the relics to reach the exits.',
   },
   {
     map: '......./.R.R.R./......./......./......./......./......./......./.E.E.E.',
@@ -121,14 +122,14 @@ export const EXPANSION_LEVELS = [
     tip: 'Three treasures, open paths. A cross or bomb beneath the relics can bring them home together.',
   },
   {
-    map: '......./..RRR../......./.X...X./......./..c.c../......./......./..EEE..',
+    map: '......./..RRR../......./.#...#./......./..c.c../......./......./..EEE..',
     ice: 76,
     tip: 'The great discovery: free the chains, break the stone, collect all three relics and clear the ice.',
   },
   {
     map: '......./......./..c..../......./....c../......./..c..../......./.......',
     ice: 64,
-    tip: 'Follow the river seam. Adjacent matches open the chains along its banks.',
+    tip: 'Follow the river seam. Match the chained gems along its banks.',
   },
   {
     map: '......./......./.#..c../......./...#.../......./..c..#./......./.......',
@@ -188,7 +189,7 @@ export const EXPANSION_LEVELS = [
   {
     map: '......./......./......./..c.c../......./......./......./......./.......',
     ice: 60,
-    tip: 'Open the workshop entrance. Match beside the two chains.',
+    tip: 'Open the workshop entrance. Include the two chained gems in your matches.',
   },
   {
     map: '......./......./..#..../......./....c../......./..#..../......./.......',
@@ -337,7 +338,7 @@ export const EXPANSION_LEVELS = [
   },
   {
     map: '......./......./....c../......./..c..../......./......./......./.......',
-    ice: 66,
+    ice: 62,
     tip: 'Follow the water channels through chains and colored seals.',
   },
   {
@@ -376,8 +377,8 @@ export const EXPANSION_LEVELS = [
     tip: 'Connect the final galleries beneath the electric town.',
   },
   {
-    map: '......./....R../......./....c../......./.b...r./......./......./....E..',
-    ice: 74,
+    map: '......./....R../......./...c.../......./......./......./......./....E..',
+    ice: 68,
     tip: 'Connect the final galleries beneath the electric town.',
   },
   {
@@ -421,8 +422,9 @@ export const EXPANSION_LEVELS = [
     tip: 'Bring the last treasures into the light of Prospect Hollow.',
   },
   {
-    map: '......./..RRR../......./.c...c./......./..r.b../......./......./..EEE..',
-    ice: 82,
+    map: '......./..RRR../......./.c...c./......./......./......./......./..EEE..',
+    ice: 78,
     tip: 'Bring the last treasures into the light of Prospect Hollow.',
   },
+  ...MOTOR_LEVELS,
 ];

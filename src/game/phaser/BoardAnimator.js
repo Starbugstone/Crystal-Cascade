@@ -1,5 +1,7 @@
 import { t } from '../../i18n';
 import { GEM_COLORS } from './SpriteLoader';
+import { GEM_TYPES } from '../engine/GemFactory';
+import { gemTexture } from '../../data/gemAppearance';
 import { BonusEffects } from './BonusEffects';
 import {
   cascadeTier,
@@ -151,7 +153,9 @@ export class BoardAnimator {
   }
 
   configureGem(sprite, type) {
-    const texture = this.textures[type] ?? this.textures.ruby;
+    const texture = GEM_TYPES.includes(type)
+      ? { key: gemTexture(type, this.levelId) }
+      : (this.textures[type] ?? this.textures.ruby);
     sprite.anims?.stop();
     sprite.setTexture(texture.key, texture.frame);
     sprite.__gemType = type;

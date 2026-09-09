@@ -10,7 +10,11 @@
       'high-contrast': settings.highContrastMode,
     }"
   >
-    <MineBackdrop v-if="game.sessionActive" :theme="currentConfig?.theme" />
+    <MineBackdrop
+      v-if="game.sessionActive"
+      :theme="currentConfig?.theme"
+      :era="campaign.town.era"
+    />
     <div
       v-if="
         game.arcadeImpact && game.sessionActive && !game.levelCleared && !settings.reducedMotion
@@ -195,13 +199,7 @@
         <ArcadeBanner :banner="game.arcadeBanner">
           <div class="mine-seam">
             <span class="mine-seam-copy">
-              <span>{{
-                t('{cols} × {rows} · {count} jewel types', {
-                  cols: game.boardCols,
-                  rows: game.boardRows,
-                  count: currentConfig?.boardLayout.gemTypeCount,
-                })
-              }}</span>
+              <MineGoals :initial-tiles="currentConfig?.tiles" />
               <small
                 >{{
                   t(
@@ -219,7 +217,7 @@
               <img
                 v-for="gem in currentConfig?.boardLayout.gemTypes"
                 :key="gem"
-                :src="`/art/${gem}.svg`"
+                :src="gemArt(gem, game.currentLevelId)"
                 :alt="t(gem)"
               />
             </span>
@@ -355,6 +353,8 @@
 </template>
 
 <script setup>
+import MineGoals from './components/MineGoals.vue';
+import { gemArt } from './data/gemAppearance';
 import { t } from './i18n';
 import {
   computed,

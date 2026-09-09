@@ -15,8 +15,16 @@
         ><small> {{ t('SCORE') }} </small><b>{{ number(game.score) }}</b></span
       >
       <span
+        v-if="game.playMode !== 'continuous'"
+        class="mobile-reward"
+        :aria-label="t('A chest when you finish')"
+      >
+        <small>{{ t('REWARD') }}</small
+        ><b><TownIcon name="chest" /> ✓</b>
+      </span>
+      <span
+        v-else
         class="mobile-time"
-        :class="{ expired: game.elapsedMs > game.speedTargetMs }"
         :aria-label="t('Active time {value0}', { value0: formatTime(game.elapsedMs) })"
         ><small> {{ t('TIME') }} </small><b>{{ formatTime(game.elapsedMs) }}</b></span
       >
@@ -95,7 +103,7 @@
         <p v-if="game.currentLevelId >= 43">
           {{
             t(
-              'Chained gems cannot move or match: match beside them or hit them with a bonus. Match ruby (R), sapphire (S), or emerald (E) gems on the corresponding seals; bonuses open any color. Golden relics cannot swap or be destroyed. Clear beneath them to drop them through the glowing bottom exits.',
+              'Chained gems stay in place: include them in a match or hit them with a bonus. Other gems can fall past. Match ruby (R), sapphire (S), or emerald (E) gems on the corresponding seals; bonuses open any color. Golden relics cannot swap or be destroyed. Clear beneath them to drop them through the glowing bottom exits.',
             )
           }}
         </p>
@@ -111,6 +119,7 @@ import { t, number } from '../i18n';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import GameIcon from './GameIcon.vue';
 import HudPanel from './HudPanel.vue';
+import TownIcon from './town/TownIcon.vue';
 import { formatTime } from '../data/campaign';
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -146,6 +155,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .mobile-game-header {
   display: none;
+}
+.mobile-reward b {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #ffdf80;
+}
+.mobile-reward svg {
+  width: 19px;
+  height: 19px;
 }
 @media (max-width: 640px), (max-height: 500px) and (max-width: 1000px) {
   .mobile-game-header {

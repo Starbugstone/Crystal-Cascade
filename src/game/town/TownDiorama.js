@@ -10,6 +10,7 @@ import { BUILDING_BY_ID } from '../../data/town';
 import { TownFrameCache } from './TownFrameCache';
 import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
+import { addTownLife } from './TownLife';
 import { TownConstruction } from './TownConstruction';
 import { buildTownSquare } from './TownSquare';
 import { renderBuilding, renderModernization } from './buildings/BuildingRenderer';
@@ -18,9 +19,20 @@ import { addScaffolding, addImprovements } from './TownImprovements';
 import { addTownRoads, addTownVisitors, TownRaid } from './TownActivity';
 import { TownEraIncident } from './TownEraIncident';
 import { eventKind } from '../../data/townEvents';
-import { constructionVisual, constructionReady, plotUnlocked, population } from './TownRules';
+import {
+  constructionVisual,
+  constructionReady,
+  plotUnlocked,
+  population,
+  nextGoal,
+} from './TownRules';
 import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 import { addElectricLighting, renderIndustrialLandmark } from './buildings/industrial';
+import { renderMotorLandmark } from './buildings/motorAge';
+import { addMotorActivity } from './TownMotorActivity';
+import { addPowerGrid } from './TownEvolution';
+import { addMineEra } from './TownMineEvolution';
+import { addMineForecourt } from './TownMineForecourt';
 
 import { PLOTS, LANE_X, atPlot, SHERIFF_PATROL, visiblePlots } from './TownLayout';
 import { riverCenterX } from './TownRiver';
@@ -299,7 +311,9 @@ export class TownDiorama {
     this.targets = [];
     this.anchors = [];
     this.town = town;
+    this.guidedPlot = nextGoal(town)?.id;
     addTownRoads(this, town, PLOTS);
+    addMineForecourt(this, town);
     this.controls.maxDistance = town.era !== 'frontier' ? 160 : 110;
     // Expanded towns need a farther overview on phones; keep buildings ahead of the fog.
     if (this.scene.fog) {
@@ -339,8 +353,10 @@ export class TownDiorama {
         } else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
           const industrial =
-            town.buildingEras[id] === 'industrial' &&
-            renderIndustrialLandmark(
+            ['industrial', 'motor-age'].includes(town.buildingEras[id]) &&
+            (town.buildingEras[id] === 'motor-age'
+              ? renderMotorLandmark
+              : renderIndustrialLandmark)(
               this,
               group,
               kind,
@@ -386,7 +402,10 @@ export class TownDiorama {
     const household = population(town);
     addEraActivity(this, town);
     addElectricLighting(this, town);
+    addPowerGrid(this, town);
+    addMotorActivity(this, town);
     addTownVisitors(this, town);
+    addTownLife(this, town);
     this.person({
       color: '#738a83',
       skin: '#d5ad88',
@@ -492,6 +511,7 @@ export class TownDiorama {
       cart.position.z = PLOTS.mine[1] + 1.6 + Math.sin(time * 0.45) * 0.32;
     });
     this.actors.forEach((actor) => this.animatePerson(actor, this.elapsed));
+    this.motions.forEach((motion) => motion(this.elapsed));
     this.rebuildActors();
     this.buildingRenderer.rebuild(this.world.children.filter((child) => child.userData.static));
     this.renderer.shadowMap.needsUpdate = true;
@@ -634,14 +654,21 @@ export class TownDiorama {
     this.box(parent, 1.75, 2.0, 0.12, 0, 1.05, 0.48, '#333b31', true);
     for (const x of [-1, 1]) this.box(parent, 0.2, 2.2, 0.25, x, 1.05, 0.67, '#ae8956');
     this.box(parent, 2.4, 0.25, 0.3, 0, 2.17, 0.68, '#997144');
-    this.sign(parent, label, 1.9, 0, 2.36, 0.8);
+    this.sign(
+      parent,
+      label,
+      1.9,
+      0,
+      this.town?.era && this.town.era !== 'frontier' ? 3 : 2.36,
+      1.3,
+    );
     const gems = ['#b889ca', '#6dace5', '#6bcbae', '#e8c879', '#e495b3'];
     for (let n = 0; n < stage; n++) {
       const side = n % 2 ? 1 : -1;
       this.ball(
         parent,
-        side * (1.35 + (n % 3) * 0.22),
-        0.35 + Math.floor(n / 2) * 0.42,
+        side * (1.35 + Math.floor(n / 12) * 0.55),
+        0.35 + Math.floor((n % 12) / 2) * 0.42,
         0.62,
         [0.18, 0.3, 0.18],
         gems[n % gems.length],
@@ -665,6 +692,7 @@ export class TownDiorama {
     for (let n = 0; n < 9; n++)
       this.box(parent, 1, 0.065, 0.13, 0, 0.04, -0.1 + n * 0.35, '#9f8157');
     this.box(parent, 0.16, 0.28, 0.18, -1.22, 1.63, 0.78, '#e7bd73', true);
+    addMineEra(this, parent, this.town?.era);
   }
   person({
     color,
@@ -682,7 +710,8 @@ export class TownDiorama {
     linear = false,
   }) {
     const root = this.group(parent);
-    root.userData.animated = !manual;
+    // Manual incident actors still need the animated foreground renderer.
+    root.userData.animated = true;
     if (sheriff) {
       root.name = 'Village sheriff';
       root.scale.setScalar(1.3);
@@ -914,7 +943,18 @@ export class TownDiorama {
     if (!this.anchors?.length) return;
     const bounds = new THREE.Box3();
     const corners = [];
-    for (const { id } of this.raid
+    const intimate =
+      this.camera.aspect < 0.8 &&
+      this.town?.era === 'frontier' &&
+      Object.values(this.town.buildings).filter(Boolean).length < 6;
+    const goal = intimate ? nextGoal(this.town)?.id : null;
+    const framing = intimate
+      ? this.anchors.filter(
+          ({ id }) =>
+            id === 'mine' || id === goal || this.town.buildings[id] || this.town.projects[id],
+        )
+      : this.anchors;
+    const visible = this.raid
       ? eventKind(this.raid.event) !== 'bandits'
         ? [...this.raid.event.targets, this.raid.responder].map((id) => ({ id }))
         : [
@@ -923,7 +963,8 @@ export class TownDiorama {
             { id: 'shop' },
             ...(this.raid.phase === 'Back to the open trail' ? [{ id: 'sheriff' }] : []),
           ]
-      : this.anchors) {
+      : framing;
+    for (const { id } of visible) {
       const [x, z] = PLOTS[id];
       bounds.expandByPoint(point(x - 3, 0, z - 3));
       bounds.expandByPoint(point(x + 3, 5, z + 3));
@@ -931,7 +972,7 @@ export class TownDiorama {
         for (const y of [0, 5]) for (const dz of [-3, 3]) corners.push(point(x + dx, y, z + dz));
     }
     // Include a glimpse of the near river from the first visit, without framing future land.
-    if (this.town && !this.raid) {
+    if (this.town && !this.raid && !intimate) {
       const river = point(riverCenterX(2) + 1, 0, 2);
       bounds.expandByPoint(river);
       corners.push(river);
@@ -1041,8 +1082,9 @@ export class TownDiorama {
           (!distant ||
             id === 'mine' ||
             id === this.selected ||
-            constructionReady(this.town.projects[id]) ||
-            this.availablePlots?.has(id)),
+            id === this.guidedPlot ||
+            !!this.town.projects[id] ||
+            (!this.town.buildings[id] && this.availablePlots?.has(id))),
       };
     });
     const shown = [];
@@ -1053,9 +1095,11 @@ export class TownDiorama {
           ? 1
           : id === 'mine'
             ? 2
-            : this.availablePlots?.has(id)
+            : id === this.guidedPlot
               ? 3
-              : 4;
+              : this.availablePlots?.has(id)
+                ? 4
+                : 5;
     for (const anchor of [...projected].sort(
       (a, b) => priority(a.id) - priority(b.id) || a.depth - b.depth,
     )) {

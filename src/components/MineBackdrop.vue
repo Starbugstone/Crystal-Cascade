@@ -1,5 +1,5 @@
 <template>
-  <div class="mine-backdrop" aria-hidden="true">
+  <div class="mine-backdrop" :data-era="era" aria-hidden="true">
     <svg viewBox="0 0 1440 1000" preserveAspectRatio="none" focusable="false">
       <defs>
         <radialGradient id="mine-depth">
@@ -38,6 +38,34 @@
           stroke-width="4"
         />
       </g>
+      <g v-if="era === 'river-rail'" fill="none" stroke="#a48c70" stroke-width="8" opacity=".7">
+        <path d="M112 950V220Q112 195 143 195H175M1328 950V220Q1328 195 1297 195H1265" />
+        <circle cx="112" cy="680" r="20" stroke-width="5" />
+      </g>
+      <g
+        v-else-if="['industrial', 'motor-age'].includes(era)"
+        fill="none"
+        stroke="#8aa39e"
+        stroke-width="10"
+        opacity=".65"
+      >
+        <path d="M183 940V153H1256V940" />
+        <path d="M188 460h28m1010 0h28M188 720h28m1010 0h28" stroke="#d3ddcd" stroke-width="6" />
+        <path d="M208 190Q720 250 1230 190" stroke="#bbc3a4" stroke-width="3" />
+        <path
+          v-for="x in [305, 720, 1125]"
+          :key="x"
+          :d="`M${x - 25} 210h50`"
+          stroke="#fff0b6"
+          stroke-width="9"
+        />
+        <path
+          v-if="era === 'motor-age'"
+          d="M165 940V133H1275V940M460 133V112H970V133"
+          stroke="#d8c4a3"
+          stroke-width="14"
+        />
+      </g>
       <g
         v-for="(position, index) in crystals"
         :key="index"
@@ -52,7 +80,13 @@
         <path d="M0-38 0 66 20 10Z" fill="var(--mine-accent)" opacity=".14" />
         <path d="M-8 63-40 31-36 1-16 19Z" fill="url(#mine-crystal)" />
       </g>
-      <g v-if="theme === 'moss'" fill="none" stroke="#588b72" opacity=".45" stroke-width="5">
+      <g
+        v-if="['moss', 'garden'].includes(theme)"
+        fill="none"
+        stroke="#588b72"
+        opacity=".45"
+        stroke-width="5"
+      >
         <path d="M153 131Q248 264 157 413T139 740M1299 116Q1196 337 1304 448T1291 728" />
         <path d="M180 281l-35-23m23 84 39-26m-44 216-37-20m1161-194 39-28m-41 243-30-36" />
       </g>
@@ -62,7 +96,7 @@
         />
       </g>
       <g
-        v-if="['amber', 'prism', 'opal', 'copper', 'waterworks'].includes(theme)"
+        v-if="['amber', 'prism', 'opal', 'copper', 'waterworks', 'sunrise'].includes(theme)"
         fill="none"
         stroke="var(--mine-accent)"
         stroke-width="3"
@@ -110,7 +144,15 @@
       </g>
       <g
         v-if="
-          ['workshop', 'electric', 'signals', 'brickworks', 'dynamo', 'illuminated'].includes(theme)
+          [
+            'workshop',
+            'electric',
+            'signals',
+            'brickworks',
+            'dynamo',
+            'illuminated',
+            'chrome',
+          ].includes(theme)
         "
         fill="none"
         stroke="var(--mine-accent)"
@@ -126,6 +168,14 @@
           <path :d="`M${x - 16} 458h32m-32 34h32`" stroke-width="4" />
         </g>
       </g>
+      <g v-if="theme === 'road'" fill="none" stroke="var(--mine-accent)" opacity=".3">
+        <path d="M100 850V460q0-45 70-45M1340 850V460q0-45-70-45" stroke-width="8" />
+        <path d="M100 510v300m1240-300v300" stroke-width="3" stroke-dasharray="12 20" />
+      </g>
+      <g v-if="theme === 'garden'" fill="var(--mine-accent)" opacity=".3">
+        <ellipse v-for="n in 5" :key="n" cx="150" :cy="400 + n * 52" rx="20" ry="9" />
+        <ellipse v-for="n in 5" :key="n" cx="1290" :cy="420 + n * 52" rx="20" ry="9" />
+      </g>
       <g fill="none" stroke="var(--mine-edge)" opacity=".18">
         <path d="M360 1000 630 785M1090 1000 810 785" stroke-width="9" />
         <path d="M394 971H1052M450 925H993M508 881H935M564 837H876" stroke-width="12" />
@@ -135,7 +185,7 @@
 </template>
 <script setup>
 import { computed } from 'vue';
-const props = defineProps({ theme: String });
+const props = defineProps({ theme: String, era: { type: String, default: 'frontier' } });
 const crystals = computed(() => {
   const offset = [
     'lantern',
@@ -158,6 +208,10 @@ const crystals = computed(() => {
     'waterworks',
     'dynamo',
     'illuminated',
+    'road',
+    'garden',
+    'chrome',
+    'sunrise',
   ].indexOf(props.theme);
   return [
     [90, 550 + offset * 14, -22],

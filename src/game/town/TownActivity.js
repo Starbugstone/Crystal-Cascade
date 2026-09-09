@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { roadLevel, population } from './TownRules';
 import { LANE_X, townTracks, atPlot, plotStreet } from './TownLayout';
+import { pavedTown, motorTraffic } from './TownEvolution';
+import { motorVehicle } from './TownVehicles';
 
 // Actors share the town's geometry cache; only their joints move each frame.
 export function mountedRider(
@@ -110,6 +112,8 @@ export function mountedRider(
 export function addTownRoads(d, town, plots) {
   const level = roadLevel(town);
   const roads = d.group(d.world);
+  const paved = pavedTown(town);
+  roads.name = paved ? 'Paved village roads' : 'Village dirt tracks';
   // Slightly uneven edges keep the tracks narrow and worn, with prairie between lots.
   for (const [index, { from, to, width }] of townTracks(town).entries()) {
     const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
@@ -118,7 +122,7 @@ export function addTownRoads(d, town, plots) {
     for (const side of [-1, 1])
       for (let n = 0; n <= steps; n++) {
         const i = side < 0 ? n : steps - n;
-        const edge = side * width * (0.5 + Math.sin(i * 1.7 + index) * 0.055);
+        const edge = side * width * (paved ? 0.7 : 0.5 + Math.sin(i * 1.7 + index) * 0.055);
         const along = (i / steps - 0.5) * length;
         if (side < 0 && n === 0) shape.moveTo(edge, along);
         else shape.lineTo(edge, along);
@@ -129,7 +133,7 @@ export function addTownRoads(d, town, plots) {
     geometry.userData.owned = true;
     const track = new THREE.Mesh(
       geometry,
-      d.material(town.era !== 'frontier' ? '#b3a18a' : '#c3a477'),
+      d.material(paved ? '#89928a' : town.era !== 'frontier' ? '#b3a18a' : '#c3a477'),
     );
     track.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
     track.position.set((from[0] + to[0]) / 2, 0.028 + index * 0.0002, (from[1] + to[1]) / 2);
@@ -148,7 +152,7 @@ export function addTownRoads(d, town, plots) {
           x - 1.35 + i * 0.18,
           0.07,
           z + 1.65,
-          i % 3 ? '#ad9065' : '#b79d73',
+          paved ? '#c2bca5' : i % 3 ? '#ad9065' : '#b79d73',
         );
     }
   }
@@ -170,10 +174,14 @@ export function addTownRoads(d, town, plots) {
 export function addTownVisitors(d, town) {
   if (town.buildings.stable)
     for (let n = 0; n < town.buildings.stable; n++) {
-      const mounted = mountedRider(d, d.world, {
-        seed: n + 3,
-        color: ['#7f9191', '#a77a66', '#879667'][n % 3],
-      });
+      const mounted = motorTraffic(town)
+        ? { root: motorVehicle(d, d.world), animate() {} }
+        : mountedRider(d, d.world, {
+            seed: n + 3,
+            color: ['#7f9191', '#a77a66', '#879667'][n % 3],
+          });
+      mounted.root.name = motorTraffic(town) ? 'Touring car' : 'Visiting horse rider';
+      mounted.root.userData.animated = true;
       const curve = new THREE.CatmullRomCurve3(
         [
           new THREE.Vector3(LANE_X, 0.07, 7.5),

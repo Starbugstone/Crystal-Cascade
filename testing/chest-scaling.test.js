@@ -27,6 +27,8 @@ it.each([
   [66, 5500],
   [67, 6000],
   [72, 6000],
+  [121, 10500],
+  [144, 12000],
 ])('awards %i-level chests %i coins', (level, coins) => {
   expect(chestCoinReward(level)).toBe(coins);
   expect(chestReward('coins', level).quantity).toBe(coins);
@@ -79,7 +81,7 @@ it('scales a tapped coin even when the saved fallback was a power', () => {
   expect(rewards[0].items[0].kind).toBe('power');
   expect(campaign.claimChest(rewards[0].id, 'coins').quantity).toBe(3000);
 });
-it.each([undefined, -1, 121, '31'])(
+it.each([undefined, -1, 145, '31'])(
   'safely recovers older or invalid chest level metadata (%s)',
   (levelId) => {
     saves.set(
