@@ -2,6 +2,8 @@
 
 This review continues the four-era, 144-level progression work. Source report: [GitHub issue #30](https://github.com/Starbugstone/Crystal-Cascade/issues/30).
 
+The subsequent [mobile village and gem clarity review](mobile-village-and-gem-clarity.md) replaces the mobile summary with an optional popup, softens gem variants and corrects seal outlines. Its screenshots supersede the corresponding presentation shown below.
+
 ## Changes
 
 - **Level 37:** removed the separate shrink rule and fitted the surrounding controls more tightly. Levels 36 and 37 now use equal-width gems on desktop. At 1366×768, level-37 cells increased from 38.7 to 48.7 pixels; the board and all five bonus buttons fit. At 390×844, cells remain 51.7 pixels with no horizontal overflow.

@@ -1962,6 +1962,48 @@ html:has(.town-museum[open]) {
   top: max(60px, calc(env(safe-area-inset-top) + 60px));
 }
 
+.town-progress-button {
+  display: none;
+}
+.town-progress-dialog .town-dialog-content {
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+.town-dialog.town-progress-dialog .village-next {
+  display: block;
+  z-index: auto;
+  border-top: 0;
+}
+.town-progress-dialog .village-next .journey-trail {
+  display: flex;
+}
+@media (max-width: 900px), (max-height: 500px) {
+  .town-map-frame > .village-next.village-next-inline {
+    display: none;
+  }
+  .town-progress-button {
+    position: absolute;
+    right: 12px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border: 1px solid #a99b76;
+    border-radius: 12px;
+    color: #405b4c;
+    background: #fff9e9ee;
+    box-shadow: 0 3px 14px #54452d1c;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .town-progress-button img {
+    width: 26px;
+    height: 26px;
+  }
+}
+
 .town-has-raid .town-fullscreen-button {
   top: auto;
   bottom: calc(96px + env(safe-area-inset-bottom));
