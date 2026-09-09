@@ -73,28 +73,39 @@ const gems = {
   },
 };
 for (const [name, { hue, points }] of Object.entries(gems)) {
-  const inner = points.map(([x, y]) => [64 + (x - 64) * 0.58, 61 + (y - 64) * 0.58]);
-  const facets = points
-    .map((p, i) => {
-      const j = (i + 1) % points.length;
-      return `<polygon points="${[p, points[j], inner[j], inner[i]].map((p) => p.join(',')).join(' ')}" fill="hsl(${hue},90%,${[80, 52, 34, 26, 40, 63, 86, 67][i % 8]}%)" fill-opacity=".86" stroke="white" stroke-opacity=".16" stroke-width=".7"/>`;
-    })
-    .join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><linearGradient id="g" x2=".85" y2="1"><stop stop-color="hsl(${hue},95%,83%)"/><stop offset=".46" stop-color="hsl(${hue},94%,58%)"/><stop offset="1" stop-color="hsl(${hue},95%,29%)"/></linearGradient><linearGradient id="shine" x2=".5" y2="1"><stop stop-color="white" stop-opacity=".85"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient><filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dy="3" stdDeviation="3" flood-color="hsl(${hue},90%,22%)" flood-opacity=".8"/></filter></defs><g filter="url(#shadow)"><polygon points="${points.map((p) => p.join(',')).join(' ')}" fill="url(#g)" stroke="hsl(${hue},85%,86%)" stroke-width="1.8" stroke-linejoin="round"/>${facets}<polygon points="${inner.map((p) => p.join(',')).join(' ')}" fill="url(#g)" stroke="white" stroke-opacity=".42" stroke-width="1"/><path d="M ${inner[0].join(' ')} L ${inner[1].join(' ')} L 62 66 L ${inner.at(-1).join(' ')} Z" fill="url(#shine)" opacity=".65"/><path d="M ${points.at(-1).join(' ')} L ${points[0].join(' ')} L ${points[1].join(' ')}" fill="none" stroke="white" stroke-opacity=".88" stroke-width="2" stroke-linecap="round"/></g><path d="M 36 23 L 38 31 L 46 33 L 38 35 L 36 43 L 34 35 L 26 33 L 34 31 Z" fill="white" opacity=".94"/></svg>`;
-  writeFileSync(`${out}/${name}.svg`, svg);
-  for (const finish of ['cut', 'geode']) {
-    const inset = points.map(([x, y]) => [
-      64 + (x - 64) * (finish === 'cut' ? 0.7 : 0.8),
-      64 + (y - 64) * (finish === 'cut' ? 0.7 : 0.8),
-    ]);
-    const detail =
-      finish === 'cut'
-        ? `<polygon points="${inset.map((p) => p.join(',')).join(' ')}" fill="none" stroke="hsl(${hue},95%,90%)" stroke-width="2.5"/><path d="${inset.map((p) => `M${p.join(' ')}L64 62`).join('')}" stroke="white" stroke-opacity=".45" stroke-width="1.5"/><polygon points="45,49 77,39 88,73 58,89 39,70" fill="hsl(${hue},90%,72%)" fill-opacity=".45" stroke="white" stroke-opacity=".55"/>`
-        : `<polygon points="${inset.map((p) => p.join(',')).join(' ')}" fill="hsl(${hue},65%,19%)" stroke="hsl(${hue},90%,80%)" stroke-width="3"/><g fill="url(#g)" stroke="hsl(${hue},90%,89%)" stroke-width="1.3"><path d="m41 80-8-28 14-19 13 21-7 30Z"/><path d="m62 91-9-39 13-28 13 30-4 35Z"/><path d="m78 81-4-22 17-19 7 24-10 20Z"/></g><path d="m36 43 8 9m21-16 2 34m22-18-7 15" stroke="white" stroke-width="2" stroke-linecap="round"/>`;
+  const renderGem = (cut = 0.58, shine = '.65') => {
+    const inner = points.map(([x, y]) => [64 + (x - 64) * cut, 61 + (y - 64) * cut]);
+    const facets = points
+      .map((p, i) => {
+        const j = (i + 1) % points.length;
+        return `<polygon points="${[p, points[j], inner[j], inner[i]].map((p) => p.join(',')).join(' ')}" fill="hsl(${hue},90%,${[80, 52, 34, 26, 40, 63, 86, 67][i % 8]}%)" fill-opacity=".86" stroke="white" stroke-opacity=".16" stroke-width=".7"/>`;
+      })
+      .join('');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><defs><linearGradient id="g" x2=".85" y2="1"><stop stop-color="hsl(${hue},95%,83%)"/><stop offset=".46" stop-color="hsl(${hue},94%,58%)"/><stop offset="1" stop-color="hsl(${hue},95%,29%)"/></linearGradient><linearGradient id="shine" x2=".5" y2="1"><stop stop-color="white" stop-opacity=".85"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient><filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dy="3" stdDeviation="3" flood-color="hsl(${hue},90%,22%)" flood-opacity=".8"/></filter></defs><g filter="url(#shadow)"><polygon points="${points.map((p) => p.join(',')).join(' ')}" fill="url(#g)" stroke="hsl(${hue},85%,86%)" stroke-width="1.8" stroke-linejoin="round"/>${facets}<polygon points="${inner.map((p) => p.join(',')).join(' ')}" fill="url(#g)" stroke="white" stroke-opacity=".42" stroke-width="1"/><path d="M ${inner[0].join(' ')} L ${inner[1].join(' ')} L 62 66 L ${inner.at(-1).join(' ')} Z" fill="url(#shine)" opacity="${shine}"/><path d="M ${points.at(-1).join(' ')} L ${points[0].join(' ')} L ${points[1].join(' ')}" fill="none" stroke="white" stroke-opacity=".88" stroke-width="2" stroke-linecap="round"/></g><path d="M 36 23 L 38 31 L 46 33 L 38 35 L 36 43 L 34 35 L 26 33 L 34 31 Z" fill="white" opacity=".94"/></svg>`;
+  };
+  writeFileSync(`${out}/${name}.svg`, renderGem());
+  // Keep the original silhouette, hue and clean facets. Only the central cut
+  // and its highlight vary; legacy asset paths stay compatible with the loader.
+  for (const [finish, cut, shine] of [
+    ['cut', 0.54, '.57'],
+    ['geode', 0.62, '.72'],
+  ]) {
     mkdirSync(`${out}/gems/${finish}`, { recursive: true });
+    writeFileSync(`${out}/gems/${finish}/${name}.svg`, renderGem(cut, shine));
+  }
+  const seal = {
+    ruby: { color: '#ff567b', mark: 'R' },
+    sapphire: { color: '#529bff', mark: 'S' },
+    emerald: { color: '#48e5a9', mark: 'E' },
+  }[name];
+  if (seal) {
+    // Use exactly the gem's outline so the required match is visible by shape
+    // as well as color. The tile renderer displays this frame around the gem.
+    const outline = points.map((point) => point.join(',')).join(' ');
+    mkdirSync(`${out}/obstacles`, { recursive: true });
     writeFileSync(
-      `${out}/gems/${finish}/${name}.svg`,
-      svg.replace('</g><path d="M 36', `${detail}</g><path d="M 36`),
+      `${out}/obstacles/seal-${name}.svg`,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><polygon points="${outline}" fill="${seal.color}" fill-opacity=".18" stroke="#171728" stroke-width="10" stroke-linejoin="round"/><polygon points="${outline}" fill="none" stroke="${seal.color}" stroke-width="5" stroke-linejoin="round"/><rect x="5" y="4" width="30" height="30" rx="7" fill="#191426" stroke="${seal.color}" stroke-width="2.4"/><text x="20" y="26" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="23" fill="white">${seal.mark}</text></svg>`,
     );
   }
 }

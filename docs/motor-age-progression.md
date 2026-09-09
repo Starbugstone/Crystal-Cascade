@@ -17,7 +17,7 @@ The Steam well's second and third improvements each add 20 water places. Electri
 
 New buildings cost 5,400 / 7,500 / 9,900 coins and need one / two / two completed normal puzzles. Modernization costs 3,000 / 3,800 / 4,600 coins and needs two puzzles. Every plot needs all three stages to finish Motor Age: **111 improvements**. An earned hammer still completes a stage instantly and without spending coins.
 
-The next-step panel prioritizes shortages and useful new buildings before cosmetic work. It counts actual era stages, displays the correct preview, and shows the brigade for workshop protection. At a wide camera view, labels focus on the mine, next useful plot, new lots and construction; zooming in reveals more names. Rewards and ready-work icons remain visible, and players can tap the buildings or use the directory.
+On mobile, the next-step panel opens from the Progress button and starts hidden. It prioritizes shortages and useful new buildings before cosmetic work. It counts actual era stages, displays the correct preview, and shows the brigade for workshop protection. At a wide camera view, labels focus on the mine, next useful plot, new lots and construction; zooming in reveals more names. Rewards and ready-work icons remain visible, and players can tap the buildings or use the directory.
 
 ## A gentle mine extension
 

@@ -204,6 +204,7 @@
         />
         <TownNextStep
           v-if="!activeRaid && !town.transition?.pending"
+          class="village-next-inline"
           :town="town"
           :hammers="campaign.builderHammers"
           @select="selectBuilding"
@@ -211,6 +212,15 @@
           @mine="goMining"
           @advance-era="beginEra"
         />
+        <button
+          v-if="!activeRaid && !town.transition?.pending"
+          class="town-progress-button"
+          aria-haspopup="dialog"
+          :aria-expanded="dialogMode === 'progress'"
+          @click="dialogMode = 'progress'"
+        >
+          <img src="/art/rewards/era-compass.svg" alt="" />{{ t('Progress') }}
+        </button>
         <p v-if="forgeCollected" class="town-construction-tip" role="status">
           {{ t('Collected 1 TNT · added to your armory') }}
         </p>
@@ -274,14 +284,27 @@
         t(
           dialogMode === 'story'
             ? 'Village story'
-            : dialogMode === 'directory'
-              ? 'Choose a plot'
-              : 'Your town',
+            : dialogMode === 'progress'
+              ? 'Your next village step'
+              : dialogMode === 'directory'
+                ? 'Choose a plot'
+                : 'Your town',
         )
       "
+      :close-label="dialogMode === 'progress' ? 'Close village progress' : 'Close building details'"
+      :class="{ 'town-progress-dialog': dialogMode === 'progress' }"
       @close="closeDialog"
     >
-      <template v-if="dialogMode === 'story'">
+      <TownNextStep
+        v-if="dialogMode === 'progress'"
+        :town="town"
+        :hammers="campaign.builderHammers"
+        @select="selectBuilding"
+        @inspect="inspectBuilding"
+        @mine="goMining"
+        @advance-era="beginEra"
+      />
+      <template v-else-if="dialogMode === 'story'">
         <section class="town-story-stats" :aria-label="t('Village overview')">
           <h2>{{ t('Village overview') }}</h2>
           <dl>

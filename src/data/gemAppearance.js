@@ -1,5 +1,5 @@
-// Color and silhouette remain stable; only the cut changes between chambers.
-// This keeps matching and the R/S/E seal language familiar.
+// Preserve the original color, silhouette and faceting style. Each chapter
+// varies the cut and shine of just two gems; the others use the original art.
 export const GEM_FINISHES = ['classic', 'cut', 'geode'];
 const chapterFinishes = [
   'classic',
@@ -28,9 +28,16 @@ const chapterFinishes = [
   'classic',
 ];
 export const gemFinish = (levelId) => chapterFinishes[Math.floor((levelId - 1) / 6)] ?? 'classic';
+const variedGems = { cut: ['ruby', 'emerald'], geode: ['sapphire', 'amethyst'] };
+const finishForGem = (type, levelId) => {
+  const finish = gemFinish(levelId);
+  return variedGems[finish]?.includes(type) ? finish : 'classic';
+};
 export const gemArt = (type, levelId) =>
-  gemFinish(levelId) === 'classic'
+  finishForGem(type, levelId) === 'classic'
     ? `/art/${type}.svg`
-    : `/art/gems/${gemFinish(levelId)}/${type}.svg`;
+    : `/art/gems/${finishForGem(type, levelId)}/${type}.svg`;
 export const gemTexture = (type, levelId) =>
-  gemFinish(levelId) === 'classic' ? `gem-${type}` : `gem-${gemFinish(levelId)}-${type}`;
+  finishForGem(type, levelId) === 'classic'
+    ? `gem-${type}`
+    : `gem-${finishForGem(type, levelId)}-${type}`;
