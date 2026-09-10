@@ -346,8 +346,10 @@
     />
     <SettingsDrawer
       :open="settings.isSettingsOpen"
+      :allow-save-transfer="!game.sessionActive"
       @close="settings.toggleSettings(false)"
       @reset-progress="resetProgress"
+      @import-progress="resumeImportedVillage"
     />
   </div>
 </template>
@@ -430,6 +432,13 @@ const resetProgress = () => {
   view.value = 'town';
 };
 const settings = useSettingsStore();
+const resumeImportedVillage = () => {
+  game.exitLevel();
+  returnToMuseum.value = false;
+  townVisit.value++;
+  townVisited.value = true;
+  view.value = 'town';
+};
 const audio = useAudio();
 const focusMode = ref(false);
 const mobileDetailsOpen = ref(false);

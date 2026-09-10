@@ -15,6 +15,46 @@
       </button>
     </header>
     <p class="settings-intro">{{ t('Set the mood for your next cascade.') }}</p>
+    <section v-if="allowSaveTransfer" class="save-transfer" :aria-label="t('Save your village')">
+      <h3>{{ t('Save your village') }}</h3>
+      <p>
+        {{
+          t(
+            'Export your progress to a JSON file, then import it here to continue on another device.',
+          )
+        }}
+      </p>
+      <div class="save-actions">
+        <button type="button" @click="exportProgress">{{ t('Export save') }}</button>
+        <button type="button" :disabled="readingFile" @click="saveInput.click()">
+          {{ t('Import save') }}
+        </button>
+      </div>
+      <input
+        ref="saveInput"
+        type="file"
+        accept=".json,application/json"
+        hidden
+        :aria-label="t('Import save')"
+        @change="selectSave"
+      />
+      <div v-if="pendingSave" class="import-confirmation">
+        <p class="save-filename">{{ pendingSave.name }}</p>
+        <p>
+          {{
+            t(
+              'Replace your current progress with this save? Export your current village first if you want to keep it.',
+            )
+          }}
+        </p>
+        <div class="save-actions">
+          <button type="button" @click="importProgress">{{ t('Replace and continue') }}</button>
+          <button type="button" @click="pendingSave = null">{{ t('Cancel') }}</button>
+        </div>
+      </div>
+      <p v-if="saveError" role="alert" class="save-error">{{ t(saveError) }}</p>
+      <p v-if="saveStatus" role="status">{{ t(saveStatus) }}</p>
+    </section>
     <label
       ><span>
         {{ t('Music') }} <small>{{ t(Math.round(settings.musicVolume * 100)) }}%</small></span
@@ -90,9 +130,76 @@
 import { t } from '../i18n';
 import { ref, watch } from 'vue';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useCampaignStore } from '../stores/campaignStore';
+import { MAX_SAVE_FILE_BYTES, parseSaveFile } from '../services/saveTransfer';
 import GameIcon from './GameIcon.vue';
-const props = defineProps({ open: Boolean });
-const emit = defineEmits(['close', 'reset-progress']);
+const props = defineProps({ open: Boolean, allowSaveTransfer: Boolean });
+const emit = defineEmits(['close', 'reset-progress', 'import-progress']);
+const campaign = useCampaignStore();
+const saveInput = ref(null);
+const pendingSave = ref(null);
+const readingFile = ref(false);
+const saveError = ref('');
+const saveStatus = ref('');
+let selectionVersion = 0;
+function exportProgress() {
+  saveError.value = '';
+  saveStatus.value = '';
+  try {
+    const blob = new Blob([campaign.exportSave()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `prospect-hollow-save-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveStatus.value = 'Save file download started.';
+  } catch {
+    saveError.value = 'Your save could not be exported. Please try again.';
+  }
+}
+async function selectSave(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  const version = ++selectionVersion;
+  pendingSave.value = null;
+  saveError.value = '';
+  saveStatus.value = '';
+  readingFile.value = true;
+  try {
+    if (file.size > MAX_SAVE_FILE_BYTES)
+      throw new Error('Choose a save JSON file smaller than 5 MB.');
+    const text = await file.text();
+    if (version !== selectionVersion) return;
+    parseSaveFile(text);
+    pendingSave.value = { name: file.name, text };
+  } catch (error) {
+    if (version === selectionVersion)
+      saveError.value =
+        error.message?.startsWith('Choose ') || error.message?.startsWith('This save format')
+          ? error.message
+          : 'The save file could not be read. Please try again.';
+  } finally {
+    if (version === selectionVersion) readingFile.value = false;
+  }
+}
+function importProgress() {
+  saveError.value = '';
+  try {
+    campaign.importSave(pendingSave.value.text);
+    pendingSave.value = null;
+    saveStatus.value = 'Save imported. Your village is ready to continue.';
+    emit('import-progress');
+  } catch (error) {
+    saveError.value =
+      error.message === 'The save could not be stored. Your current progress has not changed.'
+        ? error.message
+        : 'Choose a valid Prospect Hollow save JSON file.';
+  }
+}
 const confirmReset = ref(false);
 function resetProgress() {
   emit('reset-progress');
@@ -106,6 +213,11 @@ watch(
   () => props.open,
   (open) => {
     confirmReset.value = false;
+    selectionVersion++;
+    pendingSave.value = null;
+    readingFile.value = false;
+    saveError.value = '';
+    saveStatus.value = '';
     if (open) dialog.value?.showModal();
     else dialog.value?.close();
   },
@@ -125,6 +237,56 @@ const closeBackdrop = (event) => {
 };
 </script>
 <style scoped>
+.save-transfer {
+  margin-bottom: 30px;
+  padding: 18px;
+  border: 1px solid #84619e88;
+  border-radius: 10px;
+  background: #c29ae80a;
+}
+.save-transfer h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.save-transfer p {
+  margin: 12px 0;
+  color: #d6c4db;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.save-actions button {
+  flex: 1 1 110px;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid #93789c;
+  border-radius: 6px;
+  background: #33233f;
+  color: #f4e6f0;
+  font-size: 12px;
+}
+.save-actions button:disabled {
+  opacity: 0.5;
+}
+.save-actions button:focus-visible {
+  outline: 2px solid #e4c1ff;
+  outline-offset: 3px;
+}
+.save-filename {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.save-transfer .save-error {
+  color: #ffc4b8;
+}
+.import-confirmation {
+  border-top: 1px solid #84619e55;
+  margin-top: 18px;
+}
 .audio-credits a {
   color: inherit;
   font-size: 12px;
@@ -159,6 +321,7 @@ const closeBackdrop = (event) => {
   width: min(390px, 92vw);
   height: 100dvh;
   max-height: 100dvh;
+  overflow-y: auto;
   margin: 0;
   padding: 34px 27px;
   background: #1d1629;

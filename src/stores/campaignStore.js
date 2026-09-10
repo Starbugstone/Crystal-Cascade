@@ -12,6 +12,7 @@ import {
 import { grantChapterGift } from '../data/journey';
 
 import { localProfile, SAVE_KEY } from '../services/localProfile';
+import { createSaveFile, parseSaveFile } from '../services/saveTransfer';
 import {
   bonusCapacity,
   CONTINUOUS_COIN_CAP,
@@ -68,10 +69,9 @@ const defaults = () => ({
   lastSaloonIncome: 0,
   powers: POWERS.map((power) => ({ ...power, quantity: 0 })),
 });
-const load = () => {
+const load = (loaded = localProfile.load(), persistRecovered = true) => {
   const state = defaults();
   try {
-    const loaded = localProfile.load();
     const saved = loaded.data;
     state.saveWarning = loaded.warning ?? '';
     state.readOnly = !!loaded.readOnly;
@@ -170,6 +170,7 @@ const load = () => {
         'Bonus storage now has a limit. Extra saved bonuses were exchanged for 10 coins each.';
     }
     if (
+      persistRecovered &&
       recovered.length &&
       !state.readOnly &&
       !localProfile.save({
@@ -181,11 +182,28 @@ const load = () => {
       })
     )
       state.saveWarning = 'Your progress is not saving. Keep this page open to continue.';
-  } catch {
+  } catch (error) {
+    if (!persistRecovered) throw error;
     /* Unavailable or invalid storage starts a fresh in-memory journey. */
   }
   return state;
 };
+
+const profileData = (state) => ({
+  schemaVersion: 2,
+  records: state.records,
+  continuousRecords: state.continuousRecords,
+  powers: state.powers,
+  builderHammers: state.builderHammers,
+  chestsWithoutBuilderHammer: state.chestsWithoutBuilderHammer,
+  pendingChests: state.pendingChests,
+  shopStock: state.shopStock,
+  shopVisit: state.shopVisit,
+  seenObstacles: state.seenObstacles,
+  town: state.town,
+  issuedRun: state.issuedRun,
+  settledRun: state.settledRun,
+});
 
 export const useCampaignStore = defineStore('campaign', {
   state: load,
@@ -263,25 +281,23 @@ export const useCampaignStore = defineStore('campaign', {
     },
     save() {
       if (this.readOnly) return false;
-      const saved = localProfile.save({
-        schemaVersion: 2,
-        records: this.records,
-        continuousRecords: this.continuousRecords,
-        powers: this.powers,
-        builderHammers: this.builderHammers,
-        chestsWithoutBuilderHammer: this.chestsWithoutBuilderHammer,
-        pendingChests: this.pendingChests,
-        shopStock: this.shopStock,
-        shopVisit: this.shopVisit,
-        seenObstacles: this.seenObstacles,
-        town: this.town,
-        issuedRun: this.issuedRun,
-        settledRun: this.settledRun,
-      });
+      const saved = localProfile.save(profileData(this));
       this.saveWarning = saved
         ? ''
         : 'Your progress is not saving. Keep this page open to continue.';
       return saved;
+    },
+    exportSave() {
+      if (this.readOnly)
+        throw new Error('This save cannot be exported by this version of the game.');
+      return createSaveFile(profileData(this));
+    },
+    importSave(text) {
+      const next = load({ data: parseSaveFile(text) }, false);
+      // Commit the normalized profile before replacing any live progress.
+      if (!localProfile.save(profileData(next)))
+        throw new Error('The save could not be stored. Your current progress has not changed.');
+      this.$patch((state) => Object.assign(state, next));
     },
     collectForgeTNT(now = Date.now()) {
       if (!Number.isSafeInteger(now) || now < 0 || this.activeRun || !this.canCollectForge(now))

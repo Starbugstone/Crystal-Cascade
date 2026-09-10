@@ -1643,5 +1643,19 @@
   "Town touring garage": "Garage des voyageurs",
   "A shaded motor courtyard welcomes the same travelers and their touring cars.": "Une cour ombragée accueille les voyageurs et leurs automobiles.",
   "Adds water for twenty people when finished. All existing water stays available during work.": "Ajoute de l’eau pour vingt personnes une fois terminé. Toute l’eau existante reste disponible pendant les travaux.",
-  "A sheltered waiting pavilion welcomes the modern river launch.": "Un pavillon abrité accueille la vedette moderne de la rivière."
+  "A sheltered waiting pavilion welcomes the modern river launch.": "Un pavillon abrité accueille la vedette moderne de la rivière.",
+  "Save your village": "Sauvegarder votre village",
+  "Export your progress to a JSON file, then import it here to continue on another device.": "Exportez votre progression dans un fichier JSON, puis importez-le ici pour continuer sur un autre appareil.",
+  "Export save": "Exporter la sauvegarde",
+  "Import save": "Importer une sauvegarde",
+  "Replace your current progress with this save? Export your current village first if you want to keep it.": "Remplacer votre progression actuelle par cette sauvegarde ? Exportez d’abord votre village actuel si vous souhaitez le conserver.",
+  "Replace and continue": "Remplacer et continuer",
+  "Save file download started.": "Téléchargement de la sauvegarde lancé.",
+  "Your save could not be exported. Please try again.": "Impossible d’exporter votre sauvegarde. Veuillez réessayer.",
+  "Choose a save JSON file smaller than 5 MB.": "Choisissez une sauvegarde JSON de moins de 5 Mo.",
+  "The save file could not be read. Please try again.": "Impossible de lire le fichier de sauvegarde. Veuillez réessayer.",
+  "Save imported. Your village is ready to continue.": "Sauvegarde importée. Votre village est prêt à reprendre.",
+  "The save could not be stored. Your current progress has not changed.": "Impossible d’enregistrer la sauvegarde. Votre progression actuelle n’a pas changé.",
+  "Choose a valid Prospect Hollow save JSON file.": "Choisissez un fichier JSON de sauvegarde Prospect Hollow valide.",
+  "This save format is not supported by this version of the game.": "Ce format de sauvegarde n’est pas pris en charge par cette version du jeu."
 }
