@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useCampaignStore, SAVE_KEY } from '../src/stores/campaignStore';
 import { MAX_SAVE_FILE_BYTES, parseSaveFile } from '../src/services/saveTransfer';
+import { LEVEL_COUNT } from '../src/data/campaign';
+import { CHEST_DROPS, chestReward } from '../src/data/rewards';
 
 let saved;
 beforeEach(() => {
@@ -107,17 +109,63 @@ it('keeps the current live and stored progress when importing cannot write to st
   expect(parseSaveFile(campaign.exportSave()).town.coins).toBe(99);
 });
 
-it('recovers pending chest rewards exactly once during import', () => {
+it.each([...CHEST_DROPS.map((drop) => drop.id), 'hammer'])(
+  'recovers pending %s chest rewards exactly once during import',
+  (id) => {
+    const campaign = useCampaignStore();
+    campaign.issuedRun = 1;
+    campaign.settledRun = 1;
+    campaign.pendingChests = [{ runId: 1, source: 'completion', levelId: 1, items: [{ id }] }];
+    const backup = campaign.exportSave();
+    campaign.importSave(backup);
+    const reward = chestReward(id === 'hammer' ? 'tnt' : id, 1);
+    const quantity = (state) =>
+      reward.kind === 'coins'
+        ? state.town.coins
+        : reward.kind === 'builder-hammer'
+          ? state.builderHammers
+          : state.powers.find((power) => power.id === reward.id).quantity;
+    expect(campaign.pendingChests).toEqual([]);
+    expect(quantity(campaign)).toBe(reward.quantity);
+    setActivePinia(createPinia());
+    expect(quantity(useCampaignStore())).toBe(reward.quantity);
+  },
+);
+
+it.each([
+  ['null receipt', null],
+  ['missing items', {}],
+  ['non-array items', { items: { 0: { id: 'tnt' } } }],
+  ['empty items', { items: [] }],
+  ['null item', { items: [null] }],
+  ['missing reward ID', { items: [{}] }],
+  ['non-string reward ID', { items: [{ id: 1 }] }],
+  ['unknown reward ID', { items: [{ id: 'unknown-reward' }] }],
+  ['extra reward', { items: [{ id: 'tnt' }, { id: 'coins' }] }],
+  ['zero run', { runId: 0, items: [{ id: 'tnt' }] }],
+  ['string run', { runId: '1', items: [{ id: 'tnt' }] }],
+  ['unsettled run', { runId: 2, items: [{ id: 'tnt' }] }],
+  ['unknown source', { source: 'unknown', items: [{ id: 'tnt' }] }],
+  ['missing level', { levelId: undefined, items: [{ id: 'coins' }] }],
+  ['invalid level', { levelId: 0, items: [{ id: 'coins' }] }],
+  ['out-of-range level', { levelId: LEVEL_COUNT + 1, items: [{ id: 'coins' }] }],
+])('rejects a pending chest with %s without changing live or stored progress', (_, fields) => {
   const campaign = useCampaignStore();
-  campaign.issuedRun = 1;
-  campaign.settledRun = 1;
-  campaign.pendingChests = [{ runId: 1, source: 'completion', levelId: 1, items: [{ id: 'tnt' }] }];
-  const backup = campaign.exportSave();
-  campaign.importSave(backup);
-  expect(campaign.pendingChests).toEqual([]);
-  expect(campaign.powers.find((power) => power.id === 'tnt').quantity).toBe(1);
-  setActivePinia(createPinia());
-  expect(useCampaignStore().powers.find((power) => power.id === 'tnt').quantity).toBe(1);
+  campaign.town.coins = 99;
+  campaign.save();
+  const before = saved.get(SAVE_KEY);
+  const file = JSON.parse(campaign.exportSave());
+  file.profile.issuedRun = 2;
+  file.profile.settledRun = 1;
+  file.profile.pendingChests = [
+    fields === null ? null : { runId: 1, source: 'completion', levelId: 1, ...fields },
+  ];
+  const text = JSON.stringify(file);
+  expect(() => parseSaveFile(text)).toThrow('Choose a valid');
+  expect(() => campaign.importSave(text)).toThrow('Choose a valid');
+  expect(campaign.town.coins).toBe(99);
+  expect(campaign.issuedRun).toBe(0);
+  expect(saved.get(SAVE_KEY)).toBe(before);
 });
 
 it('accepts a UTF-8 BOM and rejects oversized files', () => {
