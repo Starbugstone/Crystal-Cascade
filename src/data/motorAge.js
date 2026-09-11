@@ -63,7 +63,7 @@ export const MOTOR_AGE_BUILDINGS = [
   introducedEra: 'motor-age',
   stages: ['Empty plot', 'Motor Age · Level 1', 'Motor Age · Level 2', 'Motor Age · Level 3'],
   upgrades: benefits.map((benefit, index) => ({
-    cost: [3600, 5000, 6600][index],
+    cost: [4320, 6000, 7920][index],
     runs: index ? 2 : 1,
     title: index ? 'Expand {building}' : 'Build {building}',
     benefit,
@@ -71,8 +71,12 @@ export const MOTOR_AGE_BUILDINGS = [
     speaker: 'Ada · the caretaker',
   })),
 }));
-export const MOTOR_AGE_LEVEL_PRICES = [3000, 3800, 4600];
+export const MOTOR_AGE_LEVEL_PRICES = [3500, 4400, 5300];
 export const MOTOR_AGE_VARIANTS = {
+  horseField: [
+    'Willow heritage horse field',
+    'Stone planters and seasonal flowers give the horse field a Motor Age garden frontage.',
+  ],
   home: ['Garden street home', 'A sheltered porch and broad windows welcome the afternoon sun.'],
   farm: [
     'Valley market farm',

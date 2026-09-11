@@ -48,7 +48,7 @@ export function modernization(town, id) {
     runs: town.era === 'river-rail' && level > 0 ? 1 : 2,
     name,
     description:
-      level === 0
+      level === 0 || id === 'horseField'
         ? description
         : town.era === 'motor-age'
           ? level === 1

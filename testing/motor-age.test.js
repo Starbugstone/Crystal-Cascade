@@ -127,7 +127,7 @@ describe('Motor Age follows the complete Electric era', () => {
         expect(offer.available).toBe(true);
         expect(offer.runs).toBeLessThanOrEqual(2);
         expect(offer.cost).toBe(
-          base ? MOTOR_AGE_LEVEL_PRICES[level - 1] : [5400, 7500, 9900][level - 1],
+          base ? MOTOR_AGE_LEVEL_PRICES[level - 1] : [6480, 9000, 11880][level - 1],
         );
         const preview = buildingBenefit(
           town,
@@ -170,10 +170,10 @@ describe('Motor Age follows the complete Electric era', () => {
       expect(upgradeOffer(town, id)).toBeNull();
     },
   );
-  it('requires all 111 improvements, keeps future eras unavailable, and supplies the expanded town', () => {
+  it('requires all 117 improvements, keeps future eras unavailable, and supplies the expanded town', () => {
     const complete = finishEra(motorTown());
     expect(isEraComplete(complete)).toBe(true);
-    expect(BUILDINGS.reduce((sum, b) => sum + eraBuildingLevel(complete, b.id), 0)).toBe(111);
+    expect(BUILDINGS.reduce((sum, b) => sum + eraBuildingLevel(complete, b.id), 0)).toBe(117);
     expect(eraGate(complete)).toMatchObject({
       available: false,
       next: { id: 'post-war', enabled: false },

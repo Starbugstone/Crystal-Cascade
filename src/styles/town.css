@@ -1869,6 +1869,10 @@ html:has(.town-museum[open]) {
   .town-dialog-content {
     padding: 16px 20px max(22px, env(safe-area-inset-bottom));
   }
+  .town-detail-title {
+    flex-direction: column;
+    gap: 6px;
+  }
   .town-detail-title h2 {
     font-size: 25px;
   }

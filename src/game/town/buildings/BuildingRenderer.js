@@ -6,6 +6,7 @@ import { RIVER_RAIL_VARIANTS } from '../../../data/riverRail';
 import { t } from '../../../i18n';
 import { renderIndustrialBuilding, addIndustrialModernization } from './industrial';
 import { renderMotorBuilding, addMotorModernization } from './motorAge';
+import { renderLeisureBuilding } from '../LeisureAssets';
 
 const kinds = {
   powerHouse: 'armory',
@@ -33,6 +34,7 @@ export function renderBuilding({
   label,
 }) {
   if (kind === 'bridge') return renderBridge(d, parent, level);
+  if (!construction && level > 0 && renderLeisureBuilding(d, parent, kind, label, level)) return;
   if (!construction && level > 0 && renderMotorBuilding(d, parent, kind, label, level)) return;
   if (!construction && level > 0 && renderIndustrialBuilding(d, parent, kind, label, level)) return;
   renderFrontierBuilding(d, parent, kinds[kind] ?? kind, level, label, construction);

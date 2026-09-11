@@ -1,6 +1,13 @@
 <template>
+  <TownLeisureBuilding
+    v-if="built && ['horseField', 'park'].includes(kind)"
+    :kind="kind"
+    :level="stage"
+    :heritage="kind === 'horseField' && era === 'motor-age' && stage >= 3"
+    :heritage-level="eraLevel"
+  />
   <TownMotorBuilding
-    v-if="
+    v-else-if="
       built &&
       (era === 'motor-age' || ['garage', 'busDepot', 'gardenCourt', 'diner'].includes(kind))
     "
@@ -475,6 +482,7 @@ import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';
 import TownIndustrialBuilding from './TownIndustrialBuilding.vue';
 import TownMotorBuilding from './TownMotorBuilding.vue';
+import TownLeisureBuilding from './TownLeisureBuilding.vue';
 import { t } from '../../i18n';
 import { computed } from 'vue';
 import { buildingServiceLevel } from '../../data/buildingProgression';

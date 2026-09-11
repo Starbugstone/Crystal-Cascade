@@ -369,7 +369,9 @@ export const happiness = (town) => {
         (town.buildings.square ?? 0) * 8 +
         buildingServiceLevel('museum', town.buildings.museum) * 2 +
         town.buildings.saloon * 2 +
-        Math.min(5, Math.max(0, buildingServiceLevel('school', town.buildings.school ?? 0))),
+        Math.min(5, Math.max(0, buildingServiceLevel('school', town.buildings.school ?? 0))) +
+        (town.buildings.horseField ?? 0) * 2 +
+        (town.buildings.park ?? 0) * 3,
     ),
   );
 };

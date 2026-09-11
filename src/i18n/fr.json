@@ -1657,5 +1657,19 @@
   "Save imported. Your village is ready to continue.": "Sauvegarde importée. Votre village est prêt à reprendre.",
   "The save could not be stored. Your current progress has not changed.": "Impossible d’enregistrer la sauvegarde. Votre progression actuelle n’a pas changé.",
   "Choose a valid Prospect Hollow save JSON file.": "Choisissez un fichier JSON de sauvegarde Prospect Hollow valide.",
-  "This save format is not supported by this version of the game.": "Ce format de sauvegarde n’est pas pris en charge par cette version du jeu."
+  "This save format is not supported by this version of the game.": "Ce format de sauvegarde n’est pas pris en charge par cette version du jeu.",
+  "Willow horse field": "Pré des chevaux du Saule",
+  "Horse field": "Pré des chevaux",
+  "A green home for the town horses": "Un écrin de verdure pour les chevaux du village",
+  "A fenced meadow welcomes one horse. Adds 2 happiness.": "Un pré clôturé accueille un cheval. Ajoute 2 points de bonheur.",
+  "A roofed shelter welcomes a second horse. Adds 4 happiness in total.": "Un abri couvert accueille un deuxième cheval. Ajoute 4 points de bonheur au total.",
+  "Shade, seating and a third horse complete the field. Adds 6 happiness in total.": "De l’ombre, des bancs et un troisième cheval complètent le pré. Ajoute 6 points de bonheur au total.",
+  "Prospect public park": "Parc public de Prospect",
+  "Park": "Parc",
+  "A playground and a stroll with a four-legged friend": "Des jeux et une promenade avec un ami à quatre pattes",
+  "Swings, a bench and occasional dog walks. Adds 3 happiness.": "Des balançoires, un banc et parfois un chien en promenade. Ajoute 3 points de bonheur.",
+  "A slide and climbing steps expand the playground. Adds 6 happiness in total.": "Un toboggan et son échelle agrandissent l’aire de jeux. Ajoute 6 points de bonheur au total.",
+  "Flowers, shade and a park lamp welcome everyone. Adds 9 happiness in total.": "Des fleurs, de l’ombre et un lampadaire accueillent tout le monde. Ajoute 9 points de bonheur au total.",
+  "Willow heritage horse field": "Pré historique des chevaux du Saule",
+  "Stone planters and seasonal flowers give the horse field a Motor Age garden frontage.": "Des jardinières en pierre et des fleurs de saison donnent au pré une entrée fleurie de l’ère automobile."
 }

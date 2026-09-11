@@ -1,6 +1,6 @@
 # Settlement eras: Frontier, River & Rail, Electric and Motor Age
 
-Four eras are playable. Industrial / Electric Town follows River & Rail in 1908, then Motor Age in 1932. Post-war and Contemporary remain disabled. See the [accepted Industrial design](industrial-era-planning.md) for building, event and campaign scope.
+Four eras are playable. The [horse field, park and economy update](leisure-and-economy.md) expands the village to 39 plots. Industrial / Electric Town follows River & Rail in 1908, then Motor Age in 1932. Post-war and Contemporary remain disabled. See the [accepted Industrial design](industrial-era-planning.md) for building, event and campaign scope.
 
 ## Try the eras immediately
 
@@ -26,7 +26,7 @@ Check a transition across reload, dismiss its story, buy a project, complete the
 
 ## Completion, construction and rewards
 
-Era advancement requires every available building at its functional cap and, after Frontier, all three current-era levels. It has no mine-progress gate. Pending construction or an unresolved encounter blocks advancement. River & Rail levels cost 800, 1,200 and 1,400 coins; Industrial levels cost 1,200, 1,600 and 2,000 coins. Motor Age modernization costs 3,000, 3,800 and 4,600 coins; its four new buildings cost 5,400, 7,500 and 9,900 coins per stage. The first Steam modernization takes two normal puzzles; its second and third stages take one each. Electric and Motor Age modernization takes two puzzles and retains existing services. The new buildings take one, two and two completions. Hammers keep their existing instant-build behavior.
+Era advancement requires every available building at its functional cap and, after Frontier, all three current-era levels. It has no mine-progress gate. Pending construction or an unresolved encounter blocks advancement. River & Rail levels cost 800, 1,200 and 1,400 coins; Industrial levels cost 1,400, 1,850 and 2,300 coins. Motor Age modernization costs 3,500, 4,400 and 5,300 coins; its five new buildings cost 6,480, 9,000 and 11,880 coins per stage. The first Steam modernization takes two normal puzzles; its second and third stages take one each. Electric and Motor Age modernization takes two puzzles and retains existing services. The new buildings take one, two and two completions. Hammers keep their existing instant-build behavior.
 
 The 144-level campaign has twenty-four chapters. Industrial adds 48 levels and Motor Age adds a further 24, with familiar puzzle rules and new mine backdrops. Mine earnings and coin chests retain the chapter-based economy. The power house unlocks electric modernization; row houses add up to sixteen resident places, and the main well's completed Industrial modernization adds twenty water places.
 

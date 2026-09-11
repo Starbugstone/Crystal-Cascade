@@ -41,6 +41,8 @@ export const PLOTS = {
   busDepot: [-23, 4],
   gardenCourt: [50, 20],
   diner: [50, 4],
+  horseField: [-23, -4],
+  park: [-23, -12],
 };
 export const PLOT_METADATA = Object.fromEntries(
   Object.entries(PLOTS).map(([id, position]) => [
@@ -97,6 +99,8 @@ export const TOWN_TRACKS = [
   road([-15, 23.5], [-LANE_X, 23.5], 0.85, 'fireStation'),
   road([-23, 15.5], [-19, 15.5], 0.85, 'garage'),
   road([-23, 7.5], [-19, 7.5], 0.85, 'busDepot'),
+  road([-23, -0.5], [-19, -0.5], 0.85, 'horseField'),
+  road([-23, -8.5], [-15, -8.5], 0.85, 'park'),
   ...Object.keys(PLOTS)
     .filter((id) => id !== 'bridge' && PLOTS[id][0] < 35)
     .map((id) => road(atPlot(id, 0, id === 'mine' ? 2.6 : 2), plotStreet(id), 0.75, id)),

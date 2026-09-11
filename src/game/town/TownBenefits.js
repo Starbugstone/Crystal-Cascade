@@ -61,7 +61,7 @@ export function buildingBenefit(town, id, stage, modernization = false) {
     icon = 'people';
     label = 'Visitor capacity';
     read = visitorCapacity;
-  } else if (['square', 'museum', 'school'].includes(id)) {
+  } else if (['square', 'museum', 'school', 'horseField', 'park'].includes(id)) {
     icon = 'happiness';
     label = 'Happiness';
     read = happiness;

@@ -11,6 +11,7 @@ import { TownFrameCache } from './TownFrameCache';
 import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
 import { addTownLife } from './TownLife';
+import { addLeisureActivity } from './TownLeisure';
 import { TownConstruction } from './TownConstruction';
 import { buildTownSquare } from './TownSquare';
 import { renderBuilding, renderModernization } from './buildings/BuildingRenderer';
@@ -406,6 +407,7 @@ export class TownDiorama {
     addMotorActivity(this, town);
     addTownVisitors(this, town);
     addTownLife(this, town);
+    addLeisureActivity(this, town);
     this.person({
       color: '#738a83',
       skin: '#d5ad88',
