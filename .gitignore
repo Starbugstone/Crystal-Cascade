@@ -21,3 +21,12 @@ test-results/
 
 # Hosting metadata and generated build cache
 .vercel/
+
+/backend/vendor/
+/backend/var/
+/backend/.env.local
+/.env
+/release/
+/backups/
+!/.env.example
+!/backend/.env.example

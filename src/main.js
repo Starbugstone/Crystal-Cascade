@@ -2,17 +2,19 @@ import { createApp, watch } from 'vue';
 import { locale, browserLocale } from './i18n';
 import { createPinia } from 'pinia';
 import App from './App.vue';
+import CloudRoot from './components/CloudRoot.vue';
+import { cloudEnabled } from './services/cloudMode';
 import './styles/base.css';
 import './styles/theme.css';
 import './styles/arcade.css';
 import './styles/mine.css';
 
-const app = createApp(App);
+const app = createApp(cloudEnabled ? CloudRoot : App);
 const pinia = createPinia();
 
 app.use(pinia);
 const languageChanged = () => {
-  locale.value = browserLocale();
+  if (!cloudEnabled) locale.value = browserLocale();
 };
 const stopLanguageWatch = watch(
   locale,

@@ -10,4 +10,10 @@ capacitor/
 # Hosting metadata and generated build cache
 .vercel/
 src/assets/leisure-meshes.json
+
+backend/vendor/
+backend/var/
+backend/content/
+backend/composer.lock
+release/
 src/assets/city-meshes.json

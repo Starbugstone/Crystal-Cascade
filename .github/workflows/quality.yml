@@ -2,7 +2,6 @@ name: Quality checks
 
 on:
   pull_request:
-    branches: [main, Develop]
   push:
     branches: [main, Develop]
 
@@ -14,9 +13,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -25,3 +24,84 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+      - run: npm run build
+        env:
+          VITE_CLOUD: 'true'
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        database: [postgres, mysql]
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: cascade_test
+          POSTGRES_USER: cascade
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cascade -d cascade_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: cascade_test
+          MYSQL_USER: cascade
+          MYSQL_PASSWORD: local-ci-only
+          MYSQL_ROOT_PASSWORD: local-root-ci-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 5s --health-timeout 3s --health-retries 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pdo_mysql, intl, mbstring, xml
+          coverage: none
+      - run: npm ci
+      - run: node scripts/export-server-content.mjs
+      - run: composer install --working-dir=backend --no-interaction --prefer-dist
+      - name: Backend and rule parity tests
+        env:
+          DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgresql://cascade:local-ci-only@127.0.0.1:5432/cascade_test' || 'mysql://cascade:local-ci-only@127.0.0.1:3306/cascade_test?charset=utf8mb4' }}
+        run: |
+          php backend/bin/migrate.php
+          php backend/tests/api-unit.php
+          php backend/tests/puzzle.php
+          php backend/tests/town.php
+          TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/api-integration.php
+          TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/puzzle-service.php
+          TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/api-concurrency.php
+      - run: composer audit --working-dir=backend
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_SECRET: container-ci-only-secret-not-for-production-12345
+      DB_PASSWORD: container-ci-only-password
+      APP_ORIGIN: http://localhost:8094
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: docker compose up -d --build
+      - run: docker compose exec -T app php bin/migrate.php
+      - name: Check packaged app
+        run: |
+          curl --fail --retry 10 --retry-delay 2 --retry-all-errors http://localhost:8094/api/v1/health
+          curl --fail http://localhost:8094/ > /dev/null
+          TEST_HTTP_ORIGIN=http://localhost:8094 php backend/tests/api-http.php
+      - if: failure()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down

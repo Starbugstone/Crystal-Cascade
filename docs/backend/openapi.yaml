@@ -1,0 +1,247 @@
+openapi: 3.1.0
+info:
+  title: Prospect Hollow authoritative API
+  version: 1.0.0
+  description: >-
+    Same-origin web sessions. Mutations require the exact APP_ORIGIN and application/json.
+    HTTPS cookie is __Host-cascade; local HTTP uses cascade_local. Authenticated mutations
+    require X-CSRF-Token from guests, auth/confirm, or profile. No native token or CORS transport.
+servers:
+  - url: /api/v1
+security:
+  - session: []
+paths:
+  /health:
+    get:
+      summary: Database connectivity check
+      security: []
+      responses:
+        '200': { description: 'Database reachable; body {ok: true}.' }
+  /content:
+    get:
+      summary: Hash-versioned read-only game catalog
+      security: []
+      responses:
+        '200': { description: 'Building, price, level, power and era definitions.' }
+  /guests:
+    post:
+      summary: Create a guest or reuse the current valid session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
+      responses:
+        '200': { description: 'Sets HttpOnly session cookie and returns csrf.' }
+        default: { $ref: '#/components/responses/Error' }
+  /auth/login-link:
+    post:
+      summary: Request a neutral-response one-use email proof
+      description: link=true requires the current guest session and CSRF. Email links expire in 15 minutes.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                link: { type: boolean }
+      responses:
+        '200': { description: 'Neutral delivery message; never returns the proof.' }
+        default: { $ref: '#/components/responses/Error' }
+  /auth/confirm:
+    post:
+      summary: Explicitly confirm the emailed proof
+      description: >-
+        Guest linking requires the original guest session and CSRF. Existing-email conflict
+        returns 409 without consuming proof; repeat with useExisting=true to choose that cloud
+        village. The guest is retained separately. No balances are merged.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[a-f0-9]{64}$' }
+                useExisting: { type: boolean }
+      responses:
+        '200': { description: 'Sets fresh session cookie and returns csrf.' }
+        default: { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      summary: Revoke this session
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { description: 'Session revoked and cookie cleared.' }
+        default: { $ref: '#/components/responses/Error' }
+  /auth/revoke-all:
+    post:
+      summary: Revoke all sessions belonging to this player
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { description: 'All devices signed out.' }
+        default: { $ref: '#/components/responses/Error' }
+  /profile:
+    get:
+      summary: Read authoritative village and active run
+      responses:
+        '200':
+          description: Current profile plus csrf and run (null when no active unexpired mine).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        default: { $ref: '#/components/responses/Error' }
+  /actions:
+    post:
+      summary: Apply a validated intention atomically
+      description: |
+        Commands and their exact args:
+        - preferences: {locale: en|fr}
+        - run.start: {level: integer 1..144, mode: normal|continuous}
+        - run.move: {runId, a: tile index, b: tile index, activate?: boolean}; b may be omitted for activation.
+        - run.power: {runId, power: tnt|color-wand|tile-breaker|clear-row|shuffle, index?: tile index}
+        - run.resume / run.abandon: {runId}
+        - town.upgrade / town.hammer: {id: plot ID, stage: displayed offer stage}
+        - town.finish: {id: plot ID, stage: project target stage}
+        - town.collect: {source: saloon|blacksmith}
+        - shop.buy: {id: stock ID, visit: stock version}
+        - town.era: {era: current era ID}
+        - town.raid-seen: {id: saved encounter sequence}
+        - town.sync / town.raid / town.tour / town.lights / town.era-seen: {}
+
+        All other fields and commands are rejected. Never send score, jewels, coins, price,
+        timestamp, stock quantity, profile, or a completion result. The server derives them.
+        Replay exactly the same actionId/revision/type/args after a lost response; object
+        property order does not matter. A receipt is checked before stale revision rejection.
+        Same ID with different content and stale revision both return 409.
+        X-Player-Id optionally binds an intention to the displayed account; a mismatch
+        returns 409 before mutation. X-Content-Version optionally binds new intentions to
+        the client catalog hash; a mismatch returns 409 after looking up an existing receipt.
+        Historical receipts remain recoverable across catalog updates. The web client sends
+        both headers on every action. No import command
+        or client-result settlement endpoint exists. runId is 32 lowercase hex characters.
+      parameters:
+        - { name: Origin, in: header, required: true, schema: { type: string } }
+        - { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }
+        - { name: X-Player-Id, in: header, required: false, schema: { type: string } }
+        - { name: X-Content-Version, in: header, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [actionId, revision, type, args]
+              properties:
+                actionId: { type: string, pattern: '^[a-zA-Z0-9-]{16,64}$' }
+                revision: { type: integer, minimum: 0 }
+                type:
+                  enum:
+                    [
+                      preferences,
+                      run.start,
+                      run.move,
+                      run.power,
+                      run.resume,
+                      run.abandon,
+                      town.upgrade,
+                      town.hammer,
+                      town.finish,
+                      town.collect,
+                      town.era,
+                      town.raid-seen,
+                      town.sync,
+                      town.raid,
+                      town.tour,
+                      town.lights,
+                      town.era-seen,
+                      shop.buy,
+                    ]
+                args: { type: object, description: Strict per-command fields described above. }
+            example:
+              actionId: 152daf3d-2f30-4665-b08d-077241e26389
+              revision: 0
+              type: town.upgrade
+              args: { id: well, stage: 0 }
+      responses:
+        '200':
+          description: Profile plus actionId and saved run snapshot/receipt (null for town actions).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        default: { $ref: '#/components/responses/Error' }
+  /account:
+    delete:
+      summary: Permanently delete the authenticated account and village
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties:
+                confirmation: { const: DELETE MY ACCOUNT }
+      responses:
+        '200':
+          { description: 'Player, sessions, runs, receipts and ledger deleted; cookie cleared.' }
+        default: { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: __Host-cascade }
+  requestBodies:
+    Empty:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: false }
+  responses:
+    Error:
+      description: >-
+        JSON error. 400 malformed JSON/host,401 no valid session/proof,403 origin/CSRF,
+        404 unknown resource,409 stale/conflicting action,413 oversized body,
+        415 content type,422 invalid intent,429 rate limited,500 unexpected failure.
+        Errors do not commit game state.429 includes Retry-After.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string }
+  schemas:
+    Profile:
+      type: object
+      required: [contentVersion, playerId, linked, revision, savedAt, profile]
+      properties:
+        contentVersion:
+          type: string
+          description: >-
+            Current server catalog hash on profile reads and new action results.
+            Historical action receipts retain the hash recorded when accepted.
+        playerId: { type: string }
+        linked: { type: boolean }
+        locale: { enum: [en, fr, null] }
+        revision: { type: integer }
+        savedAt: { type: integer, description: Server Unix seconds. }
+        csrf: { type: string, description: Present on GET profile. }
+        actionId: { type: string, description: Present on action receipts. }
+        profile: { type: object, description: Read-only village snapshot; never accepted as input. }
+        run:
+          type: [object, 'null']
+          description: >-
+            runId/status/level/mode, board/tiles, cols/rows, score/moves/jewels,
+            remainingLayers/totalLayers/remainingRelics/totalRelics, maxCascade,
+            comboCounts/multiMatchCounts, cleared, startedAt/expiresAt. Action responses
+            can include animation steps and immutable receipt coins/chests/construction.
