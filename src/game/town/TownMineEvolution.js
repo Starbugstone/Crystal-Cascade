@@ -1,5 +1,11 @@
+import { isCityEra } from '../../data/city';
+import { cityModel } from './buildings/city';
 export function addMineEra(d, parent, era = 'frontier') {
   if (era === 'frontier') return;
+  if (isCityEra(era)) {
+    cityModel(d, parent, `${era}-mine`);
+    return;
+  }
   const root = d.group(parent);
   root.name = `${era} mine entrance`;
   if (era === 'river-rail') {

@@ -1,5 +1,7 @@
 # Horse field, public park and later-game economy
 
+This report records the four-era prerequisite in #36. See [six-era completion](complete-settlement-eras.md) for the subsequent 48-plot, 240-puzzle update.
+
 Issues #34 and #35 are delivered together. The Electric era gains a horse field; Motor Age gains a public park. Both are real selectable plots with three construction stages, ordinary paid construction, hammer support, saved progress and English/French building cards. The village now has 39 plots. Existing saves gain the two empty plots without losing their current era, buildings, wallet or funded projects.
 
 ## Village life and happiness

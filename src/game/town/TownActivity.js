@@ -1,7 +1,8 @@
+import { routePose } from './TownRoutes';
 import * as THREE from 'three';
 import { roadLevel, population } from './TownRules';
 import { LANE_X, townTracks, atPlot, plotStreet } from './TownLayout';
-import { pavedTown, motorTraffic } from './TownEvolution';
+import { pavedTown, motorTraffic, roadSurface } from './TownEvolution';
 import { motorVehicle } from './TownVehicles';
 
 // Actors share the town's geometry cache; only their joints move each frame.
@@ -45,6 +46,7 @@ export function mountedRider(
   const rider = d.person({
     parent: horse,
     manual: true,
+    era: 'frontier',
     sheriff,
     color,
     skin: seed % 2 ? '#b88863' : '#d7af8a',
@@ -81,6 +83,7 @@ export function mountedRider(
     if (o.isMesh) o.castShadow = false;
   });
   d.contactShadow(root, 0.4, 0.9);
+  let lastPoseTime;
   return {
     root,
     rider,
@@ -88,21 +91,27 @@ export function mountedRider(
     flash,
     gun,
     animate(time, moving = true, aiming = false, surrender = false) {
+      const delta = lastPoseTime === undefined ? Infinity : time - lastPoseTime;
+      const blend = delta < 0 || delta > 1 ? 1 : 1 - Math.exp(-14 * delta);
+      const ease = (from, to) => from + (to - from) * blend;
+      lastPoseTime = time;
       const stride = time * 9 + seed;
       horse.position.y = moving ? Math.sin(stride * 2) * 0.035 : Math.sin(time * 1.6) * 0.007;
       legs.forEach(({ leg, knee }, i) => {
         const swing = Math.sin(stride + (i === 0 || i === 3 ? 0 : Math.PI));
-        leg.rotation.x = moving ? swing * 0.42 : 0;
-        knee.rotation.x = moving ? Math.max(0, -swing) * 0.65 : 0;
+        leg.rotation.x = ease(leg.rotation.x, moving ? swing * 0.42 : 0);
+        knee.rotation.x = ease(knee.rotation.x, moving ? Math.max(0, -swing) * 0.65 : 0);
       });
       neck.rotation.x = moving ? Math.sin(stride) * 0.065 : Math.sin(time * 0.8 + seed) * 0.08;
       tail.rotation.z = Math.sin(time * 2.5 + seed) * 0.2;
       rider.torso.rotation.x = moving ? -0.06 + Math.sin(stride) * 0.025 : 0;
-      rider.arms[1].upper.rotation.x = aiming ? -1.65 : -0.65;
-      rider.arms[1].lower.rotation.x = aiming ? -0.45 : -0.65;
       rider.arms.forEach((arm, i) => {
-        arm.upper.rotation.z = surrender ? (i ? -2.4 : 2.4) : 0;
-        if (surrender) arm.lower.rotation.x = -0.2;
+        arm.upper.rotation.x = ease(arm.upper.rotation.x, i === 1 && aiming ? -1.65 : -0.65);
+        arm.lower.rotation.x = ease(
+          arm.lower.rotation.x,
+          surrender ? -0.2 : i === 1 && aiming ? -0.45 : -0.65,
+        );
+        arm.upper.rotation.z = ease(arm.upper.rotation.z, surrender ? (i ? -2.4 : 2.4) : 0);
       });
       gun.visible = aiming && !surrender;
     },
@@ -131,10 +140,7 @@ export function addTownRoads(d, town, plots) {
     const geometry = new THREE.ShapeGeometry(shape);
     geometry.rotateX(-Math.PI / 2);
     geometry.userData.owned = true;
-    const track = new THREE.Mesh(
-      geometry,
-      d.material(paved ? '#89928a' : town.era !== 'frontier' ? '#b3a18a' : '#c3a477'),
-    );
+    const track = new THREE.Mesh(geometry, d.material(roadSurface(town)));
     track.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
     track.position.set((from[0] + to[0]) / 2, 0.028 + index * 0.0002, (from[1] + to[1]) / 2);
     track.receiveShadow = true;
@@ -320,24 +326,10 @@ export class TownRaid {
       .reduce((sum, p, i) => sum + Math.hypot(p[0] - points[i][0], p[1] - points[i][1]), 0);
   }
   travel(actor, points, distance) {
-    let remaining = Math.max(0, distance);
-    for (let i = 1; i < points.length; i++) {
-      const from = points[i - 1],
-        to = points[i],
-        length = Math.hypot(to[0] - from[0], to[1] - from[1]);
-      if (remaining <= length || i === points.length - 1) {
-        const p = Math.min(1, remaining / (length || 1));
-        actor.root.position.set(
-          THREE.MathUtils.lerp(from[0], to[0], p),
-          0.07,
-          THREE.MathUtils.lerp(from[1], to[1], p),
-        );
-        actor.root.rotation.y = Math.atan2(to[0] - from[0], to[1] - from[1]);
-        return remaining <= length;
-      }
-      remaining -= length;
-    }
-    return false;
+    const pose = routePose(points, distance);
+    actor.root.position.set(pose.x, 0.07, pose.z);
+    actor.root.rotation.y = pose.heading;
+    return pose.moving;
   }
   cue(id, at, time, kind, actor) {
     if (time < at || this.cues.has(id)) return;
@@ -373,7 +365,18 @@ export class TownRaid {
       const arrival = 8 + n * 0.8;
       let moving = false;
       actor.root.visible = time >= arrival;
-      if (time < 17) moving = this.travel(actor, entry, Math.max(0, time - arrival) * 5.5);
+      if (time < 17)
+        moving = this.travel(
+          actor,
+          entry,
+          Math.max(0, time - arrival) *
+            Math.max(
+              5.5,
+              ...this.patrol.map(
+                (_, index) => this.pathLength(this.escort(index)) / (16.5 - 8 - index * 0.8),
+              ),
+            ),
+        );
       else if (time < depart) {
         this.travel(actor, [line, [line[0], line[1] - 1]], 0);
       } else {

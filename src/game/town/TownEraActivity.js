@@ -1,3 +1,5 @@
+import { isCityEra } from '../../data/city';
+import { cityModel } from './buildings/city';
 import { RIVER, riverCenterX } from './TownRiver';
 import { PLOTS, RAIL_EDGE, railEdges, routeBetween, plotStreet } from './TownLayout';
 import { modernTransport } from './TownEvolution';
@@ -78,6 +80,12 @@ export function addEraActivity(d, town) {
       const paddle = d.group(wheel);
       paddle.rotation.x = (n * Math.PI) / 4;
       d.box(paddle, 1.5, 0.15, 0.3, 0, 0.55, 0, '#9b6e51');
+    }
+    const portEra = town.buildingEras.riverPort;
+    if (isCityEra(portEra)) {
+      for (const child of [...boat.children]) boat.remove(child);
+      cityModel(d, boat, `${portEra}-boat`);
+      boat.name = portEra === 'contemporary' ? 'Solar river ferry' : 'Rebuilding river launch';
     }
     d.motions.push((time) => {
       const phase = (time + 18) % 95;
@@ -168,6 +176,25 @@ export function addEraActivity(d, town) {
         wheel.rotation.x = Math.PI / 2;
         wheels.push(wheel);
       }
+    if (isCityEra(town.buildingEras.railDepot)) {
+      for (const child of [...train.children]) train.remove(child);
+      wheels.length = 0;
+      train.name =
+        town.buildingEras.railDepot === 'contemporary'
+          ? 'Electric city train'
+          : 'Rebuilding steam train';
+      for (const x of [0, -4, -8]) {
+        const carriage = cityModel(
+          d,
+          train,
+          town.buildingEras.railDepot === 'post-war' && x === 0
+            ? 'post-war-locomotive'
+            : `${town.buildingEras.railDepot}-railcar`,
+        );
+        carriage.rotation.y = Math.PI / 2;
+        carriage.position.x = x;
+      }
+    }
     const parts = train.children.map((part) => ({ part, y: part.position.y, x: part.position.x }));
     d.motions.push((time) => {
       const journey = trainJourney(time);

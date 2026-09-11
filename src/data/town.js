@@ -4,6 +4,7 @@ import { FRONTIER_BUILDINGS } from './frontier';
 import { FRONTIER_ERA, createEraState } from './eras';
 import { RIVER_RAIL_BUILDINGS } from './riverRail';
 import { INDUSTRIAL_BUILDINGS, INDUSTRIAL_LEVEL_PRICES } from './industrial';
+import { CITY_BUILDINGS } from './city';
 import { MOTOR_AGE_BUILDINGS } from './motorAge';
 import { LEISURE_BUILDINGS } from './leisure';
 
@@ -562,6 +563,7 @@ export const BUILDINGS = [
   ...RIVER_RAIL_BUILDINGS,
   ...INDUSTRIAL_BUILDINGS,
   ...MOTOR_AGE_BUILDINGS,
+  ...CITY_BUILDINGS,
   ...LEISURE_BUILDINGS,
   ...[
     ['home2', 'home', 'Willow house', 'Home II', 95, 320],

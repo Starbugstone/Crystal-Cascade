@@ -3,12 +3,14 @@ import assets from '../../assets/leisure-meshes.json';
 
 // Authored in Blender. Geometry belongs to the diorama's existing cache and is
 // released with it; actors keep named pivots, while buildings use normal batching.
-export function leisureModel(d, parent, name) {
+export const leisureModel = (d, parent, name) => blenderModel(d, parent, assets, name, 'leisure');
+
+export function blenderModel(d, parent, catalog, name, namespace) {
   const root = d.group(parent);
   root.name = `Blender ${name}`;
   const joints = new Map();
-  for (const [index, part] of assets.models[name].entries()) {
-    const key = `leisure:${name}:${index}`;
+  for (const [index, part] of catalog.models[name].entries()) {
+    const key = `${namespace}:${name}:${index}`;
     if (!d.geometries[key]) {
       const geometry = new BufferGeometry();
       geometry.setAttribute('position', new Float32BufferAttribute(part.positions, 3));

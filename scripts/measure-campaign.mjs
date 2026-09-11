@@ -21,6 +21,7 @@ const loader = await createServer({
   root: resolve(source, '..'),
   server: { middlewareMode: true },
   appType: 'custom',
+  optimizeDeps: { noDiscovery: true, entries: [] },
 });
 const { cascadeTier, simultaneousMatchCount } = await loader.ssrLoadModule(
   '/src/game/engine/MatchRewards.js',

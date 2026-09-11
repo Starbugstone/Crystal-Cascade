@@ -1,6 +1,13 @@
 <template>
+  <TownCityBuilding
+    v-if="built && isCityEra(era)"
+    :kind="kind"
+    :era="era"
+    :level="eraLevel"
+    :service-level="stage"
+  />
   <TownLeisureBuilding
-    v-if="built && ['horseField', 'park'].includes(kind)"
+    v-else-if="built && ['horseField', 'park'].includes(kind)"
     :kind="kind"
     :level="stage"
     :heritage="kind === 'horseField' && era === 'motor-age' && stage >= 3"
@@ -477,6 +484,8 @@
 </template>
 
 <script setup>
+import { isCityEra } from '../../data/city';
+import TownCityBuilding from './TownCityBuilding.vue';
 import { BUILDING_BY_ID } from '../../data/town';
 import { RIVER_RAIL_VARIANTS } from '../../data/riverRail';
 import TownSquare from './TownSquare.vue';

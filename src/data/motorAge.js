@@ -73,6 +73,22 @@ export const MOTOR_AGE_BUILDINGS = [
 }));
 export const MOTOR_AGE_LEVEL_PRICES = [3500, 4400, 5300];
 export const MOTOR_AGE_VARIANTS = {
+  cityHall: [
+    'Prospect city hall',
+    'A civic entrance canopy and stepped frontage welcome the motor-age city.',
+  ],
+  apartments: [
+    'Cedar court apartments',
+    'Sunny balconies and a sheltered entrance renew the established courtyard.',
+  ],
+  supermarket: [
+    'Valley food hall',
+    'A wide street canopy welcomes deliveries to the cooperative food hall.',
+  ],
+  waterPlant: [
+    'Prospect water plant',
+    'A sheltered service wing keeps the established water plant working.',
+  ],
   horseField: [
     'Willow heritage horse field',
     'Stone planters and seasonal flowers give the horse field a Motor Age garden frontage.',

@@ -1,3 +1,4 @@
+import { renderCityBuilding } from '../src/game/town/buildings/city';
 import { expect, it } from 'vitest';
 import { BoxGeometry, Group, MeshBasicMaterial, Scene } from 'three';
 import { BUILDINGS, createTown } from '../src/data/town';
@@ -15,7 +16,7 @@ import { renderMotorLandmark } from '../src/game/town/buildings/motorAge';
 
 it('every plot begins in its own era, advances through every later playable era, and visibly changes', () => {
   let town = createTown();
-  town.coins = 1000000;
+  town.coins = 10000000;
   town.tourSeen = true;
   const signatures = new Map();
   const d = Object.create(TownDiorama.prototype);
@@ -73,7 +74,10 @@ it('every plot begins in its own era, advances through every later playable era,
       if (kind === 'bridge') {
         renderBuilding({ town: d, parent: root, kind, level: stage, label: b.name });
         renderModernization(d, root, kind, era.id, 3);
-      } else if (!modern?.(d, root, kind, b.name, 3)) {
+      } else if (
+        !renderCityBuilding(d, root, kind, b.name, 3, era.id, stage) &&
+        !modern?.(d, root, kind, b.name, 3)
+      ) {
         if (kind === 'square') buildTownSquare(d, root, stage);
         else if (kind === 'well') d.well(root);
         else renderBuilding({ town: d, parent: root, kind, level: stage, label: b.name });

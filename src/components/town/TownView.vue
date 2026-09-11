@@ -192,7 +192,7 @@
           :reduced-motion="settings.reducedMotion"
           @protect="
             inspectBuilding(
-              eventKind(raidNotice) === 'workshop-fire'
+              civicIncident(eventKind(raidNotice))
                 ? 'fireStation'
                 : town.buildings.sheriff <= town.buildings.bank
                   ? 'sheriff'
@@ -352,7 +352,7 @@
                   t(
                     event
                       ? banditStory.text
-                      : eraEventKind(town.era) === 'workshop-fire'
+                      : civicIncident(eraEventKind(town.era))
                         ? 'Workshop fires can cost cleanup coins. Upgrade the fire station; no building can be destroyed.'
                         : town.era === 'river-rail'
                           ? 'Cargo thieves may visit the freight yard. The police and bank protect your savings.'
@@ -391,14 +391,12 @@
             <button
               class="town-secondary"
               @click="
-                inspectBuilding(
-                  eraEventKind(town.era) === 'workshop-fire' ? 'fireStation' : 'sheriff',
-                )
+                inspectBuilding(civicIncident(eraEventKind(town.era)) ? 'fireStation' : 'sheriff')
               "
             >
               {{
                 t(
-                  eraEventKind(town.era) === 'workshop-fire'
+                  civicIncident(eraEventKind(town.era))
                     ? 'Visit the fire station'
                     : 'Visit the sheriff',
                 )
@@ -473,13 +471,15 @@
         <p class="town-service">
           {{
             t(
-              town.era === 'motor-age'
-                ? 'Every Motor Age building has 3 levels. Each construction takes at most 2 mining runs.'
-                : town.era === 'industrial'
-                  ? 'Every Industrial building has 3 levels. Finish all upgrades to complete the era.'
-                  : town.era === 'river-rail'
-                    ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
-                    : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
+              ['post-war', 'contemporary'].includes(town.era)
+                ? 'Every city building has 3 levels. Existing services stay open during modernization.'
+                : town.era === 'motor-age'
+                  ? 'Every Motor Age building has 3 levels. Each construction takes at most 2 mining runs.'
+                  : town.era === 'industrial'
+                    ? 'Every Industrial building has 3 levels. Finish all upgrades to complete the era.'
+                    : town.era === 'river-rail'
+                      ? 'Every River & Rail building has 3 levels. Each construction takes at most 2 mining runs.'
+                      : 'Supporting buildings finish at level 3 with their full benefits. The town square, sheriff, bank, saloon and blacksmith have 5 levels.',
             )
           }}
         </p>
@@ -587,6 +587,8 @@
   </main>
 </template>
 <script setup>
+import { motorTraffic } from '../../game/town/TownEvolution';
+import { civicIncident } from '../../data/townEvents';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t, number } from '../../i18n';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT, INITIAL_STORY } from '../../data/town';
@@ -812,10 +814,12 @@ const { playRaidCue } = useTownAudio(() => ({
   population: people.value,
   construction: activeProjects.value.length > 0,
   buildCue: construction.value?.serial,
-  stable: town.value.buildings.stable > 0,
+  stable: town.value.buildings.stable > 0 && !motorTraffic(town.value),
   river: true,
-  railDepot: town.value.era !== 'frontier' && town.value.buildings.railDepot > 0,
-  riverPort: town.value.era !== 'frontier' && town.value.buildings.riverPort > 0,
+  railDepot:
+    town.value.buildings.railDepot > 0 && town.value.buildingEras.railDepot !== 'contemporary',
+  riverPort:
+    town.value.buildings.riverPort > 0 && town.value.buildingEras.riverPort !== 'contemporary',
   raid:
     activeRaid.value && eventKind(activeRaid.value) === 'bandits'
       ? `${activeRaid.value.id}-${raidPhase.value}`
@@ -826,8 +830,8 @@ const { playRaidCue } = useTownAudio(() => ({
 const event = computed(() => town.value.events[BANDIT_EVENT]);
 const readyRaidDefenses = computed(() =>
   activeRaid.value && !event.value?.seen
-    ? (eventKind(event.value) === 'workshop-fire' ? ['fireStation'] : ['sheriff', 'bank']).filter(
-        (id) => constructionReady(town.value.projects[id]),
+    ? (civicIncident(eventKind(event.value)) ? ['fireStation'] : ['sheriff', 'bank']).filter((id) =>
+        constructionReady(town.value.projects[id]),
       )
     : [],
 );

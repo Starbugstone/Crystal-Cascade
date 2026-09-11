@@ -3,7 +3,7 @@ import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Matrix4, Scene, Vector3 } 
 import { TownActors } from '../src/game/town/TownActors';
 import { TownDiorama, PLOTS } from '../src/game/town/TownDiorama';
 import { SHERIFF_PATROL } from '../src/game/town/TownLayout';
-import { TownRaid, RAID_DURATION } from '../src/game/town/TownActivity';
+import { TownRaid, RAID_DURATION, mountedRider } from '../src/game/town/TownActivity';
 import { addTownLife } from '../src/game/town/TownLife';
 import { createTown } from '../src/data/town';
 import { routeBetween, plotStreet } from '../src/game/town/TownLayout';
@@ -197,6 +197,40 @@ describe('A visible, articulated frontier encounter', () => {
             `riders ${i}/${j} at ${t.toFixed(1)}`,
           ).toBeGreaterThan(1.15);
     }
+    raid.dispose();
+  });
+  it('moves continuously through raid phases and eases combat poses', () => {
+    const d = diorama();
+    const raid = new TownRaid(
+      d,
+      { id: 1, gangSize: 10, sheriffLevel: 5, outcome: 'protected', loss: 0 },
+      PLOTS,
+      vi.fn(),
+      vi.fn(),
+    );
+    let previous = new Map();
+    for (let time = 0; time < RAID_DURATION; time += 0.02) {
+      raid.update(time);
+      for (const actor of [...raid.bandits, ...raid.patrol]) {
+        if (actor.root.visible && previous.has(actor))
+          expect(
+            actor.root.position.distanceTo(previous.get(actor)),
+            `rider at ${time}`,
+          ).toBeLessThan(0.3);
+        if (actor.root.visible) previous.set(actor, actor.root.position.clone());
+        else previous.delete(actor);
+      }
+    }
+    const actor = mountedRider(d, d.world);
+    actor.animate(0, false);
+    const arm = actor.rider.arms[1].upper;
+    const before = arm.rotation.x;
+    actor.animate(0.02, false, true);
+    expect(Math.abs(arm.rotation.x - before)).toBeLessThan(0.3);
+    actor.animate(0.5, false, true);
+    expect(arm.rotation.x).toBeCloseTo(-1.65, 2);
+    actor.animate(0.52, false, false, true);
+    expect(Math.abs(arm.rotation.z)).toBeLessThan(0.7);
     raid.dispose();
   });
   it('synchronizes each shot and vocal cue once and never emits after disposal', () => {

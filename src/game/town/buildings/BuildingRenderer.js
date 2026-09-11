@@ -1,3 +1,5 @@
+import { addCityModernization, renderCityBuilding } from './city';
+import { isCityEra, CITY_BUILDINGS } from '../../../data/city';
 import { renderFrontierBuilding } from './frontier';
 import { addCivicDetails } from './civic';
 import { addFishingDock } from './river';
@@ -33,6 +35,16 @@ export function renderBuilding({
   construction = false,
   label,
 }) {
+  if (!construction && level > 0 && renderCityBuilding(d, parent, kind, label, level, era, level))
+    return;
+  const city = CITY_BUILDINGS.find((b) => b.kind === kind);
+  if (
+    !construction &&
+    level > 0 &&
+    city &&
+    renderCityBuilding(d, parent, kind, label, level, city.introducedEra, level)
+  )
+    return;
   if (kind === 'bridge') return renderBridge(d, parent, level);
   if (!construction && level > 0 && renderLeisureBuilding(d, parent, kind, label, level)) return;
   if (!construction && level > 0 && renderMotorBuilding(d, parent, kind, label, level)) return;
@@ -46,6 +58,7 @@ export function renderBuilding({
   if (era !== 'frontier') renderModernization(d, parent, kind, era);
 }
 export function renderModernization(d, parent, kind, era, level = 1) {
+  if (isCityEra(era)) return addCityModernization(d, parent, kind, era, level);
   if (era === 'motor-age') return addMotorModernization(d, parent, kind, level);
   if (era === 'industrial') return addIndustrialModernization(d, parent, kind, level);
   if (era !== 'river-rail') return;

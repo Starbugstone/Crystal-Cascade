@@ -372,7 +372,9 @@ describe('Two eras and explicit modernization', () => {
       'frontier',
       'river-rail',
       'industrial',
+      'post-war',
       'motor-age',
+      'contemporary',
     ]);
   });
   it('saves the transition before presenting it and cannot advance twice across reload', () => {

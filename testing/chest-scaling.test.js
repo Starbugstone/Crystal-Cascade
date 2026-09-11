@@ -81,7 +81,7 @@ it('scales a tapped coin even when the saved fallback was a power', () => {
   expect(rewards[0].items[0].kind).toBe('power');
   expect(campaign.claimChest(rewards[0].id, 'coins').quantity).toBe(2250);
 });
-it.each([undefined, -1, 145, '31'])(
+it.each([undefined, -1, 241, '31'])(
   'safely recovers older or invalid chest level metadata (%s)',
   (levelId) => {
     saves.set(
