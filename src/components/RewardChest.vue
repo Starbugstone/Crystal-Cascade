@@ -284,7 +284,7 @@ const savedPrize = props.reward.items[0];
 const prize = ref(
   eligibleDrops.some((drop) => drop.id === savedPrize.id)
     ? savedPrize
-    : chestReward('coins', props.reward.levelId),
+    : chestReward('coins', props.reward.levelId, props.reward.economyVersion ?? 1),
 );
 // Each chest gets a fresh order, with two chances to catch every reward.
 const reelOrder = shuffleChestDrops(Math.random, eligibleDrops);

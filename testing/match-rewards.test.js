@@ -72,7 +72,7 @@ describe('chapter-scaled rewards for mining deeper chapters', () => {
     expect(miningPayout(20, 0, {}, {}, 7)).toBe(40);
     expect(miningPayout(0, 0, {}, {}, 60)).toBe(0);
     expect(miningPayout(Number.MAX_SAFE_INTEGER, 0, {}, {}, 60)).toBe(Number.MAX_SAFE_INTEGER);
-    for (const id of [0, -1, 1.5, 145, NaN, Infinity, '7', null])
+    for (const id of [0, -1, 1.5, 241, NaN, Infinity, '7', null])
       expect(miningPayout(100, 0, {}, {}, id)).toBe(100);
   });
   it('banks the exact deeper-level recap once, persists it, and prices replays by their own depth', () => {

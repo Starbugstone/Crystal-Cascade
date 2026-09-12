@@ -4,6 +4,7 @@
 // Ice is seeded around these authored structures. Each chapter has a breather
 // in its fifth puzzle and a finale in its sixth. Five active colors leave room
 // to learn chains, seals and delivery goals without blanket layers of ice.
+import { CITY_LEVELS } from './cityLevels.js';
 import { MOTOR_LEVELS } from './motorLevels.js';
 export const EXPANSION_LEVELS = [
   {
@@ -427,4 +428,5 @@ export const EXPANSION_LEVELS = [
     tip: 'Bring the last treasures into the light of Prospect Hollow.',
   },
   ...MOTOR_LEVELS,
+  ...CITY_LEVELS,
 ];

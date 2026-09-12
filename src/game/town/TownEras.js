@@ -1,3 +1,4 @@
+import { isCityEra, CITY_LEVEL_PRICES, cityVariant } from '../../data/city';
 import { RIVER_RAIL_LEVEL_PRICES } from '../../data/economy';
 import { ERAS, ERA_BY_ID, FRONTIER_ERA } from '../../data/eras';
 import { BUILDINGS, BUILDING_BY_ID, BANDIT_EVENT } from '../../data/town';
@@ -26,6 +27,30 @@ export function modernization(town, id) {
     level >= ERA_BUILDING_LEVELS
   )
     return null;
+  if (isCityEra(town.era)) {
+    const description = cityVariant(building.kind, town.era);
+    if (!description) return null;
+    return {
+      type: 'modernization',
+      targetEra: town.era,
+      eraLevel: level + 1,
+      stage: town.buildings[id] + level,
+      cost: CITY_LEVEL_PRICES[town.era][level],
+      runs: 2,
+      name: building.name,
+      description:
+        level === 0
+          ? description
+          : level === 1
+            ? 'Add a sheltered side wing and a planted forecourt.'
+            : 'Complete the landmark with its roof garden and civic lighting.',
+      title:
+        town.era === 'post-war'
+          ? 'Post-war level {level}: {name}'
+          : 'Contemporary level {level}: {name}',
+      benefit: 'Visual modernization. Existing services stay unchanged.',
+    };
+  }
   const variant = (
     town.era === 'motor-age'
       ? MOTOR_AGE_VARIANTS
@@ -48,7 +73,7 @@ export function modernization(town, id) {
     runs: town.era === 'river-rail' && level > 0 ? 1 : 2,
     name,
     description:
-      level === 0
+      level === 0 || id === 'horseField'
         ? description
         : town.era === 'motor-age'
           ? level === 1
@@ -131,7 +156,8 @@ export function normalizeEraState(town, saved) {
     receipt &&
     receipt.id === `${receipt.from}:${receipt.to}` &&
     ERA_BY_ID[receipt.from]?.enabled &&
-    eraIndex(receipt.to) === eraIndex(receipt.from) + 1 &&
+    (eraIndex(receipt.to) === eraIndex(receipt.from) + 1 ||
+      (receipt.from === 'industrial' && receipt.to === 'motor-age')) &&
     receipt.to === town.era &&
     ERA_BY_ID[receipt.to]?.enabled
   ) {

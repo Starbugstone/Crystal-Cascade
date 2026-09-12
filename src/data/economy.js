@@ -15,8 +15,15 @@ export const miningDepthBonus = (baseCoins, levelId) =>
     Math.floor((baseCoins * depthBonusPercent(levelId)) / 100),
   );
 
-// Chest coins grow with each six-level chapter as village upgrades become dearer.
-export const chestCoinReward = (levelId = 1) => 500 * miningChapter(levelId);
+// Preserve the first three chapters, then taper windfalls instead of letting a
+// single late chest buy several improvements. Old pending receipts keep version 1.
+export const CHEST_ECONOMY_VERSION = 2;
+export const chestCoinReward = (levelId = 1, version = CHEST_ECONOMY_VERSION) => {
+  const chapter = miningChapter(levelId);
+  return version === 1
+    ? 500 * chapter
+    : Math.min(4000, 500 * Math.min(3, chapter) + 250 * Math.max(0, chapter - 3));
+};
 
 // Agreed per-era level prices. Mining windfalls never increase a quoted price.
 export const RIVER_RAIL_LEVEL_PRICES = [800, 1200, 1400];

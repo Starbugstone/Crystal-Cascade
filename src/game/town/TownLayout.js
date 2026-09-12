@@ -41,6 +41,17 @@ export const PLOTS = {
   busDepot: [-23, 4],
   gardenCourt: [50, 20],
   diner: [50, 4],
+  horseField: [-23, -4],
+  park: [-23, -12],
+  cityHall: [58, -4],
+  apartments: [58, 4],
+  supermarket: [58, 12],
+  waterPlant: [58, 20],
+  transitHub: [42, -12],
+  library: [50, -12],
+  crystalLab: [58, -12],
+  cityHomes: [50, 28],
+  riverPark: [42, 28],
 };
 export const PLOT_METADATA = Object.fromEntries(
   Object.entries(PLOTS).map(([id, position]) => [
@@ -77,7 +88,7 @@ const road = (from, to, width = 0.85, plot = null) => ({
   to,
   width,
   plot,
-  modes: ['pedestrian', 'horse', 'wagon'],
+  modes: ['pedestrian', 'horse', 'wagon', 'car'],
 });
 export const TOWN_TRACKS = [
   road([-LANE_X, -15.5], [LANE_X, -15.5]),
@@ -97,6 +108,8 @@ export const TOWN_TRACKS = [
   road([-15, 23.5], [-LANE_X, 23.5], 0.85, 'fireStation'),
   road([-23, 15.5], [-19, 15.5], 0.85, 'garage'),
   road([-23, 7.5], [-19, 7.5], 0.85, 'busDepot'),
+  road([-23, -0.5], [-19, -0.5], 0.85, 'horseField'),
+  road([-23, -8.5], [-15, -8.5], 0.85, 'park'),
   ...Object.keys(PLOTS)
     .filter((id) => id !== 'bridge' && PLOTS[id][0] < 35)
     .map((id) => road(atPlot(id, 0, id === 'mine' ? 2.6 : 2), plotStreet(id), 0.75, id)),
@@ -122,13 +135,29 @@ const EAST_TRACKS = [
     road(atPlot(id, 0, 2), plotStreet(id), 0.75),
   ]),
 ];
-const INDUSTRIAL_TRACKS = ['rowHouses', 'mill', 'gardenCourt', 'diner'].flatMap((id) => [
+const INDUSTRIAL_TRACKS = [
+  'rowHouses',
+  'mill',
+  'gardenCourt',
+  'diner',
+  'cityHall',
+  'apartments',
+  'supermarket',
+  'waterPlant',
+  'transitHub',
+  'library',
+  'crystalLab',
+  'cityHomes',
+  'riverPark',
+].flatMap((id) => [
   road([38, plotStreet(id)[1]], plotStreet(id), 0.85, id),
   road(atPlot(id, 0, 2), plotStreet(id), 0.75, id),
 ]);
 export const townTracks = (town) => [
   ...TOWN_TRACKS.filter(({ plot }) => !plot || plot === 'mine' || plotUnlocked(town, plot)),
   ...(town.era !== 'frontier' && town.buildings.bridge ? [CROSSING, ...EAST_TRACKS] : []),
+  ...(plotUnlocked(town, 'transitHub') ? [road([38, -8.5], [38, -0.5], 1.05)] : []),
+  ...(plotUnlocked(town, 'riverPark') ? [road([38, 23.5], [38, 31.5], 1.05)] : []),
   ...INDUSTRIAL_TRACKS.filter(({ plot }) => plotUnlocked(town, plot)),
 ];
 export const railEdges = (town) =>

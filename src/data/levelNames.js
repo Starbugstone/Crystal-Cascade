@@ -1,3 +1,4 @@
+import { CITY_LEVEL_NAMES } from './cityLevels.js';
 export const LEVEL_NAMES = [
   'First light',
   'Dew drops',
@@ -143,4 +144,5 @@ export const LEVEL_NAMES = [
   'Sunlit chambers',
   'Golden picnic',
   'Hello, tomorrow',
+  ...CITY_LEVEL_NAMES,
 ];

@@ -1,5 +1,6 @@
 // A chapter owns its board dimensions and active jewel count. Two-level seams
 // rotate identities only; larger boards introduce the fifth color at level 13.
+import { CITY_CHAPTERS } from './cityLevels.js';
 export const CHAPTERS = [
   {
     name: 'First light',
@@ -217,6 +218,7 @@ export const CHAPTERS = [
     rows: 9,
     gemTypeCount: 5,
   },
+  ...CITY_CHAPTERS,
 ];
 export const LEVEL_COUNT = CHAPTERS.length * 6;
 

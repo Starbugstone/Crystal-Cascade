@@ -1,5 +1,6 @@
 import { INDUSTRIAL_VARIANTS, ELECTRIC_LAMPS, hasElectricity } from '../../../data/industrial';
 import { t } from '../../../i18n';
+import { renderLeisureBuilding } from '../LeisureAssets';
 
 const brick = '#aa795f',
   trim = '#dfcba4',
@@ -108,6 +109,7 @@ export function addElectricLighting(d, town) {
 // Whole architectural families replace the timber shells. Landmark positions,
 // services and identifying details survive; the silhouette changes at completion.
 export function renderIndustrialLandmark(d, parent, kind, label, level = 1) {
+  if (renderLeisureBuilding(d, parent, kind, label, level)) return true;
   if (!INDUSTRIAL_VARIANTS[kind] || ['square', 'bridge'].includes(kind)) return false;
   if (kind === 'well') {
     masonry(d, parent, 2.2, 1.7, 2.1, '#9da99d');

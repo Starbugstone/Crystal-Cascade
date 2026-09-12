@@ -1,3 +1,5 @@
+import { TownRenderQuality } from './TownRenderQuality';
+import { renderCityBuilding } from './buildings/city';
 import { bridgeDeckHeight } from './TownRiver';
 import { eraBuildingLevel } from './TownEras';
 import { buildingServiceLevel } from '../../data/buildingProgression';
@@ -11,6 +13,7 @@ import { TownFrameCache } from './TownFrameCache';
 import { TownStatics } from './TownStatics';
 import { TownActors } from './TownActors';
 import { addTownLife } from './TownLife';
+import { addLeisureActivity } from './TownLeisure';
 import { TownConstruction } from './TownConstruction';
 import { buildTownSquare } from './TownSquare';
 import { renderBuilding, renderModernization } from './buildings/BuildingRenderer';
@@ -30,7 +33,7 @@ import { buildLandscape, keepCameraAboveTerrain } from './TownLandscape';
 import { addElectricLighting, renderIndustrialLandmark } from './buildings/industrial';
 import { renderMotorLandmark } from './buildings/motorAge';
 import { addMotorActivity } from './TownMotorActivity';
-import { addPowerGrid } from './TownEvolution';
+import { addPowerGrid, motorTraffic } from './TownEvolution';
 import { addMineEra } from './TownMineEvolution';
 import { addMineForecourt } from './TownMineForecourt';
 
@@ -79,7 +82,8 @@ export class TownDiorama {
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 320);
     this.camera.position.set(12, 12, 25);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    this.renderQuality = new TownRenderQuality(window.devicePixelRatio || 1);
+    this.renderer.setPixelRatio(this.renderQuality.ratio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
@@ -314,7 +318,11 @@ export class TownDiorama {
     this.guidedPlot = nextGoal(town)?.id;
     addTownRoads(this, town, PLOTS);
     addMineForecourt(this, town);
-    this.controls.maxDistance = town.era !== 'frontier' ? 160 : 110;
+    this.controls.maxDistance = ['post-war', 'motor-age', 'contemporary'].includes(town.era)
+      ? 180
+      : town.era !== 'frontier'
+        ? 160
+        : 110;
     // Expanded towns need a farther overview on phones; keep buildings ahead of the fog.
     if (this.scene.fog) {
       this.scene.fog.near = town.era !== 'frontier' ? 215 : 125;
@@ -353,16 +361,25 @@ export class TownDiorama {
         } else if (!stage) this.plot(group, kind, project ? 2 : -1, labels[id]);
         else {
           const industrial =
-            ['industrial', 'motor-age'].includes(town.buildingEras[id]) &&
-            (town.buildingEras[id] === 'motor-age'
-              ? renderMotorLandmark
-              : renderIndustrialLandmark)(
+            renderCityBuilding(
               this,
               group,
               kind,
               labels[id],
               town.buildingEraLevels[id] || 1,
-            );
+              town.buildingEras[id],
+              stage,
+            ) ||
+            (['industrial', 'motor-age'].includes(town.buildingEras[id]) &&
+              (town.buildingEras[id] === 'motor-age'
+                ? renderMotorLandmark
+                : renderIndustrialLandmark)(
+                this,
+                group,
+                kind,
+                labels[id],
+                town.buildingEraLevels[id] || 1,
+              ));
           if (!industrial) {
             if (kind === 'square') buildTownSquare(this, group, stage);
             else if (kind === 'well') this.well(group);
@@ -406,6 +423,7 @@ export class TownDiorama {
     addMotorActivity(this, town);
     addTownVisitors(this, town);
     addTownLife(this, town);
+    addLeisureActivity(this, town);
     this.person({
       color: '#738a83',
       skin: '#d5ad88',
@@ -487,7 +505,7 @@ export class TownDiorama {
         sheriff: true,
         loop: true,
       });
-    if (town.buildings.stable) {
+    if (town.buildings.stable && !motorTraffic(town)) {
       this.horse(...atPlot('stable', 2.25, 0.9), 0.5);
       this.horse(...atPlot('stable', 2.65, -0.9), -0.9, 0.85);
     }
@@ -708,6 +726,7 @@ export class TownDiorama {
     sheriff = false,
     loop = false,
     linear = false,
+    era = this.town?.era,
   }) {
     const root = this.group(parent);
     // Manual incident actors still need the animated foreground renderer.
@@ -741,9 +760,20 @@ export class TownDiorama {
     this.ball(head, 0, 0.045, -0.03, [0.123, 0.12, 0.097], '#73563d');
     this.ball(head, 0, -0.005, 0.111, [0.022, 0.028, 0.025], skin);
     for (const x of [-0.044, 0.044]) this.ball(head, x, 0.025, 0.105, 0.012, '#39392f');
-    this.mesh(head, 'cylinder', [0.195, 0.025, 0.18], [0, 0.105, 0], hat);
-    this.mesh(head, 'cone', [0.12, 0.115, 0.11], [0, 0.164, 0], hat);
-    this.mesh(head, 'cylinder', [0.122, 0.028, 0.112], [0, 0.129, 0], '#6a6050');
+    if (['post-war', 'contemporary'].includes(era)) {
+      this.ball(head, 0, 0.11, -0.005, [0.135, 0.065, 0.12], hat);
+      this.box(head, 0.17, 0.025, 0.11, 0, 0.11, 0.105, hat, true);
+    } else {
+      this.mesh(
+        head,
+        'cylinder',
+        [era === 'motor-age' ? 0.155 : 0.195, 0.025, 0.18],
+        [0, 0.105, 0],
+        hat,
+      );
+      this.mesh(head, 'cone', [0.12, 0.115, 0.11], [0, 0.164, 0], hat);
+      this.mesh(head, 'cylinder', [0.122, 0.028, 0.112], [0, 0.129, 0], '#6a6050');
+    }
     const arms = [],
       legs = [];
     for (const side of [-1, 1]) {
@@ -1120,6 +1150,18 @@ export class TownDiorama {
   tick(now) {
     if (this.contextUnavailable) return;
     if (this.lastFrame && now - this.lastFrame < 1000 / 60 - 1) return;
+    if (
+      this.lastFrame &&
+      !this.cameraGesture &&
+      (!this.cinematic || this.cinematic.finished) &&
+      !this.construction
+    ) {
+      const ratio = this.renderQuality?.sample(now - this.lastFrame);
+      if (ratio !== null && ratio !== undefined) {
+        this.renderer.setPixelRatio(ratio);
+        this.frameCache.valid = false;
+      }
+    }
     this.elapsed += this.lastFrame ? Math.min((now - this.lastFrame) / 1000, 0.5) : 0;
     this.lastFrame = now;
     if (this.waterMaterial) this.waterMaterial.uniforms.time.value = this.elapsed;
@@ -1242,6 +1284,7 @@ export class TownDiorama {
     if (this.motionEnabled === enabled) return;
     this.motionEnabled = enabled;
     this.lastFrame = 0;
+    this.renderQuality?.resetWindow();
     this.renderer.setAnimationLoop(enabled && !this.contextUnavailable ? this.tick : null);
   }
   dispose() {
