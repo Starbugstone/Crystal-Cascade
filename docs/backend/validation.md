@@ -2,6 +2,10 @@
 
 Validated locally on 12 September 2026, based on game PR #37 revision `81966e3` (including PR #36). All backend edits use a separate worktree. The other rendering checkout remains untouched.
 
+## Database benchmark — 12 September 2026
+
+The [PostgreSQL/MySQL comparison](database-benchmark.md) exercises the real Apache API with identical synthetic data and equal database resource limits. All 72 trials passed: 18,432 measured requests and 9,216 warm-up requests, including exact mining move/revision and receipt/ledger checks. The report retains all trial ranges, CPU/memory measurements, image versions and the connection diagnostic. Results are mixed: MySQL usually leads read and town-action throughput; PostgreSQL uses much less database memory and has steadier mining results at concurrency 1 and 32. Shared-host contention limits production extrapolation. Benchmark containers, volumes, fake data, temporary dependencies and the newly downloaded load-generator image were removed afterward.
+
 ## Opt-in community follow-up — 12 September 2026
 
 Accounts now expose explicit public village settings and a paginated leaderboard with read-only visits. Registration remains an emailed confirmation flow, with one private village per account. Existing accounts are not published by the schema upgrade.

@@ -49,7 +49,7 @@ Schema version 2 adds the opt-in leaderboard without rewriting private saves or 
 
 For hosting with SQL import only, check `SELECT version FROM schema_versions ORDER BY version`. If version 1 exists and version 2 is absent, import **backend/migrations/002-community.sql** for MySQL/MariaDB or **backend/migrations/002-community-postgresql.sql** for PostgreSQL exactly once. Verify version 2 exists afterward. Do not import the initial schema over an existing database. New accounts and upgraded accounts remain private until their owners opt in.
 
-Both supported databases use an indexed public ranking projection. Neither has been shown faster under equivalent production load; use the provider's best-supported database close to the PHP application, and benchmark representative concurrent gameplay before changing engines for performance.
+Both supported databases use an indexed public ranking projection. The [local API benchmark](database-benchmark.md) found higher MySQL throughput in most read and town-action tests, but much lower PostgreSQL database memory use and steadier mining results at low and high concurrency. Keep PostgreSQL as the current default pending a representative benchmark on the intended hosting tier; this shared-host test does not establish a universal performance winner.
 
 ## Backups and recovery
 
