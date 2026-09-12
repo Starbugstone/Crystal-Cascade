@@ -6,6 +6,18 @@ Symfony 7.4 handles HTTP routing and responses. Doctrine DBAL provides one datab
 
 Each mutation locks the player row, rechecks session validity, checks an existing action receipt **before** checking the expected revision, validates the command, changes state, and writes the profile, run, receipt and economy audit record in one transaction. Reusing an action ID with different content is a conflict. Concurrent devices cannot overwrite one another's snapshots or independently spend the same stock. Account deletion and session revocation participate in the same locking order. Browser cookies are HttpOnly, SameSite=Strict, and Secure with a `__Host-` prefix on HTTPS. Mutations require the exact configured Origin, JSON content type and a session-bound CSRF header.
 
+## Private accounts and optional village visits
+
+Email registration links the current guest village after explicit proof confirmation. Signing in on another device recovers that account's village. Each player has one cloud save and one active mine; multiple save slots are not implemented. Private reads and writes derive ownership from the session, never a requested player ID.
+
+New and existing accounts are unlisted by default. Only linked players can opt in through account settings, choosing a public village name. The server validates this setting through the same revision, CSRF, ownership and replay checks as other commands. Opting out deletes the public projection immediately; old visit URLs return 404. Publishing again creates a new public ID. Account deletion also removes the projection.
+
+Authenticated players, including guests, can read the leaderboard and visit listed villages. These endpoints select only the separate `public_villages` projection: public ID/name, era, building progress, completed mines, population and building appearance. They never serialize private profiles, emails, private player IDs, coins, inventory, active mines, reward receipts or construction costs/timers. Public IDs cannot target mutations. There are no village-interaction endpoints.
+
+The browser renders visits in an isolated town model with building/mine actions disabled, including the SVG fallback. Visiting does not patch the visitor's campaign or game stores. Camera controls remain available. The visitor's underlying game input and town rendering pause while the dialog is open.
+
+Rank is ordered by era, completed building and modernization stages, then completed mines. A composite index supports fixed 20-entry pages without sorting private save JSON. Projections update atomically with relevant owner actions and skip unchanged writes; ordinary mining moves do not update the leaderboard. Opting out prevents future reads, but cannot retract information someone already viewed or copied.
+
 ## Puzzle validation
 
 PHP validates individual swaps, bonus activations and inventory power targets against its saved board. It generates refills and calculates cascades, tile damage, relic collection, score and completion. Level eligibility, museum replay access and one active run per player are checked before issue. Continuous runs credit only their bounded lifetime allowance per player/level and cannot become normal victories. Run ownership is part of every SQL query. Runs expire after 24 hours.

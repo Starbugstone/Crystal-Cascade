@@ -2,7 +2,11 @@
   <div
     ref="scene"
     class="town-map"
-    :class="{ 'town-map-paused': paused, 'town-map-still': reducedMotion }"
+    :class="{
+      'town-map-paused': paused,
+      'town-map-still': reducedMotion,
+      'town-map-read-only': readOnly,
+    }"
     @pointermove="lookAround"
     @pointerleave="resetView"
   >
@@ -11,7 +15,11 @@
       :viewBox="`${mapLeft} -45 ${mapWidth - mapLeft} 795`"
       role="group"
       :aria-label="
-        t('Prospect Hollow town map. Choose any building to restore, or enter the mine to play.')
+        t(
+          readOnly
+            ? 'Village visit · view only'
+            : 'Prospect Hollow town map. Choose any building to restore, or enter the mine to play.',
+        )
       "
     >
       <defs>
@@ -257,13 +265,19 @@
         </g>
       </g>
       <g :transform="`translate(${mapPoint(PLOTS.mine).join(' ')}) scale(.68)`">
-        <TownMine :level="nextLevel" :stage="mineStage" :era="town.era" @enter="$emit('mine')" />
+        <TownMine
+          :level="nextLevel"
+          :stage="mineStage"
+          :era="town.era"
+          :decorative="readOnly"
+          @enter="!readOnly && $emit('mine')"
+        />
       </g>
       <g
         v-for="building in orderedBuildings"
         :key="building.id"
-        role="button"
-        tabindex="0"
+        :role="readOnly ? 'img' : 'button'"
+        :tabindex="readOnly ? undefined : 0"
         :aria-label="
           indicators[building.id] === 'era'
             ? t('Advance to the next era')
@@ -272,7 +286,7 @@
                 value1: t(building.stages[town.buildings[building.id]]),
               })
         "
-        :aria-pressed="selected === building.id"
+        :aria-pressed="readOnly ? undefined : selected === building.id"
         :transform="`translate(${building.x} ${building.y}) scale(.48)`"
         class="map-building"
         :data-town-plot="building.id"
@@ -280,9 +294,9 @@
           selected: selected === building.id,
           'is-repaired': town.buildings[building.id] > 0,
         }"
-        @click="$emit('select', building.id)"
-        @keydown.enter.prevent="$emit('select', building.id)"
-        @keydown.space.prevent="$emit('select', building.id)"
+        @click="!readOnly && $emit('select', building.id)"
+        @keydown.enter.prevent="!readOnly && $emit('select', building.id)"
+        @keydown.space.prevent="!readOnly && $emit('select', building.id)"
       >
         <ellipse
           class="plot-ring"
@@ -574,6 +588,7 @@ import TownSite from './TownSite.vue';
 import { RIVER, riverOutline, riverCenterX } from '../../game/town/TownRiver';
 import TownMine from './TownMine.vue';
 const props = defineProps({
+  readOnly: Boolean,
   town: { type: Object, required: true },
   builderHammers: { type: Number, default: 0 },
   forgeCollectible: Boolean,
@@ -656,10 +671,10 @@ watch(
 );
 const hasIncome = (id) => indicators.value[id] === 'coins';
 const indicators = computed(() =>
-  buildingIndicators(props.town, props.forgeCollectible, props.now),
+  props.readOnly ? {} : buildingIndicators(props.town, props.forgeCollectible, props.now),
 );
 const availableIds = computed(() =>
-  availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
+  props.readOnly ? [] : availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const uid = `town-${useId().replaceAll(':', '')}`;
 const orderedBuildings = computed(() =>

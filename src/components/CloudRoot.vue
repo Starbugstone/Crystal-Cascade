@@ -18,8 +18,17 @@
     >
       {{ t('Abandon mine') }}
     </button>
+    <button
+      :disabled="!cloud.ready || cloud.accountBusy"
+      @click="
+        communityOpen = true;
+        accountOpen = false;
+      "
+    >
+      {{ t('Leaderboard') }}
+    </button>
     <button @click="accountOpen = !accountOpen">
-      {{ t(cloud.linked ? 'My account' : 'Save my progress') }}
+      {{ t(cloud.linked ? 'My account' : 'Create account') }}
     </button>
   </aside>
   <p v-if="cloud.error" class="cloud-error" role="alert">{{ cloud.error }}</p>
@@ -38,7 +47,9 @@
         <input v-model="email" type="email" autocomplete="email" required maxlength="254"
       /></label>
       <button :disabled="sending || cloud.busy || cloud.accountBusy || !cloud.ready">
-        {{ t('Save this village to my email') }}
+        {{
+          t(cloud.linked ? 'Save this village to my email' : 'Create account and save this village')
+        }}
       </button>
       <button
         type="button"
@@ -72,6 +83,8 @@
         <option value="fr">Français</option>
       </select>
     </label>
+    <CommunitySettings v-if="cloud.ready" />
+    <button @click="accountOpen = false">{{ t('Close account settings') }}</button>
     <template v-if="cloud.linked">
       <button :disabled="cloud.busy || cloud.accountBusy" @click="logout(false)">
         {{ t('Sign out') }}
@@ -99,15 +112,24 @@
       <a href="?mode=demo">{{ t('Open local demo') }}</a>
     </p>
   </section>
-  <App v-if="cloud.ready" />
-  <section v-else class="cloud-account">
+  <App v-if="cloud.ready" :suspended="communityOpen" />
+  <CommunityPanel
+    v-if="communityOpen && cloud.ready"
+    @close="communityOpen = false"
+    @settings="
+      communityOpen = false;
+      accountOpen = true;
+    "
+  />
+  <section v-if="!cloud.ready" class="cloud-account">
     <h1>Prospect Hollow</h1>
     <p>{{ t('Connecting to your village…') }}</p>
     <button @click="connect">{{ t('Retry connection') }}</button>
   </section>
 </template>
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
+import CommunitySettings from './community/CommunitySettings.vue';
 import App from '../App.vue';
 import {
   cloud,
@@ -120,6 +142,14 @@ import {
 } from '../services/cloudProfile';
 import { useGameStore } from '../stores/gameStore';
 import { locale, t } from '../i18n';
+const CommunityPanel = defineAsyncComponent(() => import('./community/CommunityPanel.vue'));
+const communityOpen = ref(false);
+watch(
+  () => cloud.playerId,
+  () => {
+    communityOpen.value = false;
+  },
+);
 const game = useGameStore();
 const accountBar = ref(null);
 let barObserver;

@@ -4,7 +4,7 @@ namespace App;
 use Symfony\Component\HttpFoundation\{Request,JsonResponse};
 use Symfony\Component\Routing\Attribute\Route;
 final class ApiController {
-    public function __construct(private Auth $auth,private ProfileService $profiles,private Content $content,private Database $database) {}
+    public function __construct(private Auth $auth,private ProfileService $profiles,private Content $content,private Database $database,private CommunityService $community) {}
     #[Route('/api/v1/{path}',name:'api',requirements:['path'=>'.*'])]
     public function __invoke(Request $r,string $path): JsonResponse {
         try {
@@ -22,7 +22,7 @@ final class ApiController {
                 if (property_exists($object,'args') && !$object->args instanceof \stdClass) throw new ApiError(422,'Command args must be a JSON object.');
                 $body=json_decode($r->getContent(),true,64,JSON_THROW_ON_ERROR);
             }
-            if ($r->query->count()>0) throw new ApiError(422,'Query parameters are not supported.');
+            if ($r->query->count()>0 && !($method==='GET' && $path==='leaderboard')) throw new ApiError(422,'Query parameters are not supported.');
             // REMOTE_ADDR by default; forwarded client IPs are deliberately not trusted.
             $ip=$r->getClientIp() ?? 'unknown';
             $this->auth->limit('http:'.$ip,600,60);
@@ -36,8 +36,9 @@ final class ApiController {
                 'GET profile'=>$this->profiles->get($r),
                 'POST actions'=>$this->profiles->action($r,$body),
                 'DELETE account'=>$this->delete($r,$body),
+                'GET leaderboard'=>$this->community->leaderboard($r),
                 'GET content'=>$this->content->data,
-                default=>throw new ApiError(404,'Endpoint not found.'),
+                default=>$method==='GET' && preg_match('~^villages/([a-f0-9]{32})$~D',$path,$match) ? $this->community->visit($r,$match[1]) : throw new ApiError(404,'Endpoint not found.'),
             };
             $response=$result instanceof JsonResponse ? $result : new JsonResponse($result);
         } catch (ApiError $e) { $response=new JsonResponse(['error'=>$e->getMessage()],$e->status); }

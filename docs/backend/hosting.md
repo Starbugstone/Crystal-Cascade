@@ -32,7 +32,7 @@ This creates `release/app/` containing the compiled frontend, Symfony applicatio
 
 The host needs **PHP 8.3 or newer**, `pdo_mysql` (or `pdo_pgsql` for PostgreSQL), PDO, XML, ctype, iconv, OpenSSL and the extensions required by the locked Composer dependencies, **MySQL 8 / MariaDB with InnoDB** or PostgreSQL, HTTPS, an SMTP account, and Apache `mod_rewrite` and `mod_headers`. The bundle checks PHP and declared extension requirements on startup; `/api/v1/health` additionally verifies the configured PDO driver and database connection. The local image uses PHP 8.4 and PostgreSQL 17. Prefer a maintained PHP patch version available in the hosting panel.
 
-1. Create a dedicated database and database user in the hosting panel. Use only that database's privileges. Import **backend/schema.sql** through phpMyAdmin for a new MySQL/MariaDB database. For PostgreSQL use `backend/schema-postgresql.sql`. These are initial schemas, not scripts to replay on existing data; later upgrades need versioned migrations.
+1. Create a dedicated database and database user in the hosting panel. Use only that database's privileges. Import **backend/schema.sql** through phpMyAdmin for a new MySQL/MariaDB database. For PostgreSQL use `backend/schema-postgresql.sql`. These initial schemas include version 2; do not replay them on existing data. Use the upgrade instructions below for existing databases.
 2. Upload `release/app/` outside the public web directory. Set the site's document root to **app/public** through the hosting panel. Only that directory may be served. Do not upload the whole backend into `public_html` and hope dotfiles stay hidden.
 3. Copy `.env.example` to **app/.env.local**, outside `public/`. Set a new random `APP_SECRET`, the exact HTTPS `APP_ORIGIN` (no trailing slash), the database URL, authenticated SMTP DSN, and verified `MAIL_FROM`. Require transport encryption: use `smtp://USER:PASSWORD@smtp.example.com:587?require_tls=true` for mandatory STARTTLS, or `smtps://USER:PASSWORD@smtp.example.com:465` for implicit TLS. Keep certificate verification enabled. The local Mailpit service is only for development. Percent-encode reserved characters in URL credentials. Keep this file out of Git and restrict file permissions.
 4. Give PHP write access only to `app/var/`. Application code and `vendor/` should not be writable by web requests. Ensure `public/.htaccess` was uploaded; FTP clients often hide dotfiles. Use SFTP or FTPS if the provider offers it.
@@ -42,6 +42,14 @@ The host needs **PHP 8.3 or newer**, `pdo_mysql` (or `pdo_pgsql` for PostgreSQL)
 If the hosting account cannot set a document root or keep PHP code/secrets outside it, this bundle is not ready for that account until its directory layout is configured safely. FTP alone does not establish whether PHP, database, SMTP and HTTPS are available; these hosting capabilities have not been verified here.
 
 `APP_ORIGIN` is a strict host/scheme/port allowlist. Do not weaken it to fix a proxy mismatch. Optional `TRUSTED_PROXIES` accepts only known proxy IPs/CIDRs and only forwarding of scheme/port. Ask the host for its exact proxy setup if PHP does not see HTTPS. Forwarded client IP/Host headers are not trusted. Enable edge request/body/rate limits through the provider; application limits are not DDoS protection.
+
+## Upgrading an existing database
+
+Schema version 2 adds the opt-in leaderboard without rewriting private saves or publishing existing villages. Back up the database, then run `php bin/migrate.php` from the application directory before enabling the new application version. The CLI skips installed versions and can be run again safely.
+
+For hosting with SQL import only, check `SELECT version FROM schema_versions ORDER BY version`. If version 1 exists and version 2 is absent, import **backend/migrations/002-community.sql** for MySQL/MariaDB or **backend/migrations/002-community-postgresql.sql** for PostgreSQL exactly once. Verify version 2 exists afterward. Do not import the initial schema over an existing database. New accounts and upgraded accounts remain private until their owners opt in.
+
+Both supported databases use an indexed public ranking projection. Neither has been shown faster under equivalent production load; use the provider's best-supported database close to the PHP application, and benchmark representative concurrent gameplay before changing engines for performance.
 
 ## Backups and recovery
 

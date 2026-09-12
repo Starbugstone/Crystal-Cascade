@@ -21,10 +21,11 @@ final class Content {
         }
         // Existing era, projects and receipts retain their original meaning and content versions.
         // In particular, inserting Post-war never downgrades an existing Motor Age account.
+        $profile['community']??=['listed'=>false,'villageName'=>''];
         $profile['contentVersion']=$this->data['version'];
         return $profile;
     }
     public function fresh(): array {
-        return ['schemaVersion'=>2, 'contentVersion'=>$this->data['version'], 'records'=>[], 'continuousRecords'=>[], 'powers'=>array_map(fn($p)=>array_merge($p,['quantity'=>0]),$this->data['powers']), 'builderHammers'=>0, 'pendingChests'=>[], 'chestsWithoutBuilderHammer'=>0, 'town'=>$this->data['town'], 'shopStock'=>[], 'shopVisit'=>0, 'seenObstacles'=>[], 'issuedRun'=>0, 'settledRun'=>0, 'firstStartUsed'=>false];
+        return ['community'=>['listed'=>false,'villageName'=>''], 'schemaVersion'=>2, 'contentVersion'=>$this->data['version'], 'records'=>[], 'continuousRecords'=>[], 'powers'=>array_map(fn($p)=>array_merge($p,['quantity'=>0]),$this->data['powers']), 'builderHammers'=>0, 'pendingChests'=>[], 'chestsWithoutBuilderHammer'=>0, 'town'=>$this->data['town'], 'shopStock'=>[], 'shopVisit'=>0, 'seenObstacles'=>[], 'issuedRun'=>0, 'settledRun'=>0, 'firstStartUsed'=>false];
     }
 }

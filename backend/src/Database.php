@@ -19,17 +19,16 @@ final class Database {
         $db=$this->get();
         // Run once from the deployment CLI, never automatically in an HTTP request.
         $db->executeStatement('CREATE TABLE IF NOT EXISTS schema_versions (version INTEGER PRIMARY KEY)');
-        if ($db->fetchOne('SELECT version FROM schema_versions WHERE version=1')) return;
         $mysql=$db->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
-        $schema=file_get_contents(dirname(__DIR__).($mysql ? '/schema.sql' : '/schema-postgresql.sql'));
-        $apply=function() use($db,$mysql,$schema): void {
-            foreach (explode(';',$schema) as $statement) {
-                $statement=trim($statement);
-                if ($statement==='') continue;
-                $db->executeStatement($statement);
-            }
-        };
-        // MySQL DDL implicitly commits; PostgreSQL migrations are atomic.
-        if ($mysql) $apply(); else $db->transactional($apply);
+        $suffix=$mysql?'':'-postgresql';
+        foreach([1=>'/schema'.$suffix.'.sql',2=>'/migrations/002-community'.$suffix.'.sql'] as $version=>$file) {
+            if($db->fetchOne('SELECT version FROM schema_versions WHERE version=?',[$version]))continue;
+            $schema=file_get_contents(dirname(__DIR__).$file);
+            $apply=function() use($db,$schema): void {
+                foreach(explode(';',$schema) as $statement)if(trim($statement)!=='')$db->executeStatement(trim($statement));
+            };
+            // MySQL DDL implicitly commits; PostgreSQL migrations are atomic.
+            if($mysql)$apply();else $db->transactional($apply);
+        }
     }
 }

@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace App;
 use Symfony\Component\HttpFoundation\Request;
 final class ProfileService {
-    public function __construct(private Database $database,private Auth $auth,private TownService $town,private PuzzleService $puzzle,private Content $content) {}
+    public function __construct(private Database $database,private Auth $auth,private TownService $town,private PuzzleService $puzzle,private Content $content,private CommunityService $community) {}
     public function view(array $row): array {
         $p=$this->content->hydrate(json_decode($row['profile'],true,512,JSON_THROW_ON_ERROR));
         // Display accrued income using server time; persistence happens on the next command.
@@ -81,6 +81,8 @@ final class ProfileService {
                 self::keys($args,['locale']);
                 if (!in_array($args['locale']??null,['en','fr'],true)) throw new ApiError(422,'Choose English or French.');
                 $row['locale']=$args['locale'];
+            } elseif ($type==='community.preferences') {
+                $this->community->preferences($p,$args,(bool)$row['email']);
             } elseif ($type==='import') {
                 // Editable local saves cannot establish authoritative balances or unlocks.
                 // Keep the device copy; use local-demo mode to continue it.
@@ -91,6 +93,7 @@ final class ProfileService {
             if (strlen($row['profile'])>1048576) throw new ApiError(422,'Village storage limit reached.');
             $row['revision']=(int)$row['revision']+1; $row['saved_at']=time();
             $db->update('players',['profile'=>$row['profile'],'revision'=>$row['revision'],'saved_at'=>$row['saved_at'],'locale'=>$row['locale']],['id'=>$row['id']]);
+            if($type==='community.preferences'||str_starts_with($type,'town.')||($runResult['cleared']??false))$this->community->sync($row['id'],$p,(bool)$row['email']);
             $result=$this->view($row); $result['actionId']=$id; $result['run']=$runResult;
             $db->insert('actions',['player_id'=>$row['id'],'action_id'=>$id,'fingerprint'=>$fingerprint,'response'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>time()]);
             $db->insert('ledger',['player_id'=>$row['id'],'action_id'=>$id,'reason'=>$type,'before_state'=>json_encode($before),'after_state'=>json_encode($this->economy($p)),'created_at'=>time()]);

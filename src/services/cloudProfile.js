@@ -19,6 +19,7 @@ export const cloud = reactive({
   playerId: '',
   revision: 0,
   linked: false,
+  community: { listed: false, villageName: '' },
   run: null,
   pending: false,
 });
@@ -62,6 +63,7 @@ function applyProfile(result) {
     cloud.playerId = result.playerId;
     cloud.revision = result.revision;
     cloud.linked = result.linked;
+    cloud.community = result.profile.community ?? { listed: false, villageName: '' };
     if (result.locale) locale.value = result.locale;
   }
   campaign.saveWarning = '';

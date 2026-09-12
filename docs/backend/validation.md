@@ -2,6 +2,27 @@
 
 Validated locally on 12 September 2026, based on game PR #37 revision `81966e3` (including PR #36). All backend edits use a separate worktree. The other rendering checkout remains untouched.
 
+## Opt-in community follow-up — 12 September 2026
+
+Accounts now expose explicit public village settings and a paginated leaderboard with read-only visits. Registration remains an emailed confirmation flow, with one private village per account. Existing accounts are not published by the schema upgrade.
+
+- PostgreSQL 17 and MySQL 8.4 each pass 724 community assertions covering default privacy, linked-only opt-in, strict name/settings validation, public-field whitelisting, private-save/run ownership, forged interaction requests, server-derived ranking, construction/victory updates, pagination, opt-out and account deletion. Each also passes the 59 API integration requests and concurrency suite.
+- An upgrade test starts from schema version 1, preserves an existing private profile and revision byte-for-byte, publishes no villages, and verifies repeatable CLI migration. Both databases pass. CI now runs this upgrade check and the community suite.
+- All 1,051 frontend tests across 59 files pass. The final focused cloud/profile, public render-model and translation suite passes 30 tests after browser fixes. Formatting and the cloud production build pass.
+- Separate Chromium sessions verify creating and confirming an account through local Mailpit, default-unchecked public settings, explicit opt-in with a chosen name, and a guest viewing the published village. A disposable database fixture supplies completed frontier buildings for appearance checks; it is not earned gameplay evidence.
+- At 1440×1000, opening a visit, clicking buildings and dragging the camera leave the visitor's private campaign/game state unchanged, send zero write requests, and expose zero enabled building actions. Background private-profile polling and underlying town rendering pause during visits. With WebGL deliberately unavailable, the SVG fallback also blocks building/mine clicks with zero writes.
+- At 390×844, account settings and village visits have no horizontal overflow. Opting out removes the listing; trying a previously cached visit returns 404. The desktop/mobile console has no application exception; expected initial guest 401 responses, the opt-out 404, software WebGL warnings and the deliberately forced fallback are accounted for.
+
+![Opt-in village leaderboard](images/pr38-leaderboard-desktop.png)
+
+![Read-only village visit](images/pr38-visit-desktop.png)
+
+![Public village settings on mobile](images/pr38-optin-mobile.png)
+
+![Read-only mobile visit](images/pr38-visit-mobile.png)
+
+Both databases are functionally validated; no equivalent production-load benchmark establishes that one is faster. No production deployment or hosted migration was performed.
+
 ## Authority and responsiveness follow-up — 12 September 2026
 
 Merged `develop` at `ababf214` into the PR branch. The backend audit covered authentication and session revocation, save replacement, purchases, reward selection, puzzle completion, unlock eligibility, timestamps, command replay and concurrent mutations.

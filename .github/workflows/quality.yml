@@ -73,11 +73,13 @@ jobs:
         env:
           DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgresql://cascade:local-ci-only@127.0.0.1:5432/cascade_test' || 'mysql://cascade:local-ci-only@127.0.0.1:3306/cascade_test?charset=utf8mb4' }}
         run: |
+          TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/migration-upgrade.php
           php backend/bin/migrate.php
           php backend/tests/api-unit.php
           php backend/tests/puzzle.php
           php backend/tests/town.php
           TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/api-integration.php
+          TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/community.php
           TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/puzzle-service.php
           TEST_DATABASE_URL="$DATABASE_URL" php backend/tests/api-concurrency.php
       - run: composer audit --working-dir=backend
