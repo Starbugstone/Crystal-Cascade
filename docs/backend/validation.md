@@ -2,6 +2,29 @@
 
 Validated locally on 12 September 2026, based on game PR #37 revision `81966e3` (including PR #36). All backend edits use a separate worktree. The other rendering checkout remains untouched.
 
+## Authority and responsiveness follow-up — 12 September 2026
+
+Merged `develop` at `ababf214` into the PR branch. The backend audit covered authentication and session revocation, save replacement, purchases, reward selection, puzzle completion, unlock eligibility, timestamps, command replay and concurrent mutations.
+
+Fixed an economic bypass where withholding a raid acknowledgment prevented subsequent encounters and losses. All six eras now retain their five-victory cadence regardless of UI acknowledgment. Historical action receipts remain immutable; a stale acknowledgment cannot alter the latest encounter.
+
+The frontend now starts reversible swap animation while the backend validates the move, rejects obvious mis-swaps locally, preserves the existing gem-bound input buffer, and pauses town income polling during mining. Failed requests restore the confirmed board. Account/session changes and newer snapshots cannot be overwritten by an older animation continuation.
+
+Follow-up validation:
+
+- PostgreSQL 17 and MySQL 8.4 each pass 59 API integration requests, 64 puzzle-service assertions, API unit checks, and concurrent purchase, replay, settlement and revocation checks. Forged save, reward, completion, board, price, timer, construction and unlock payloads leave the stored profile, revision and receipt count unchanged.
+- 44,342 town-rule checks pass, including repeated unacknowledged encounters in every era. All 240 levels remain playable; 509 JavaScript evaluations and 267 full cascade comparisons pass.
+- The final full frontend suite passes 1,050 tests across 58 files, including 36 cloud/responsiveness tests. The ordinary parallel run exceeded several default test timeouts on a busy shared host; reduced-concurrency verification uses `npx vitest run --maxWorkers=2 --testTimeout=30000`. Formatting and the cloud production build pass.
+- Chromium at `http://localhost:5194`, with an isolated Apache/PostgreSQL backend: at 1440×1000, an actual pointer swipe starts its animation during an injected 800 ms request delay, while displayed score/moves remain at the previous confirmed values. Server cascades then advance the score from 300 to 600 and moves from one to two. This checks latency overlap, not a physical-device frame-rate guarantee.
+- At 390×844, deliberately dropping the response **after** the server commits keeps the displayed board at two moves / 600 points. The visible Retry save button resends the identical action ID, recovering the exact server board at three moves / 900 points with no extra move or horizontal overflow. Reloading and resuming restores the same three moves / 900 points.
+- Browser console inspection found only the expected initial unauthenticated profile request, deliberately aborted move request, and software WebGL performance warnings; no application exception occurred in the verified flows.
+
+![Cloud mine after delayed validation](images/pr38-latency-desktop.png)
+
+![Mobile mine after idempotent retry](images/pr38-retry-mobile.png)
+
+The earlier release validation below describes the original implementation and remains historical evidence. No production deployment or hosted database migration was performed during this follow-up.
+
 ## Automated checks
 
 - `npm run verify`: 1,041 tests across 58 files, formatting and production build pass. The Docker build also compiles with `VITE_CLOUD=true`.

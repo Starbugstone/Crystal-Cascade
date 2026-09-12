@@ -75,6 +75,25 @@ $town->action($p,'town.raid-seen',['id'=>$event['id']]);check($p['town']['coins'
 denied(function()use($town,&$p,$event){$town->action($p,'town.raid-seen',['id'=>$event['id']]);},'repeated raid ack');
 denied(function()use($town,&$p){$town->action($p,'town.bell',[]);},'bell cannot rewrite saved loss');
 check($p['town']['nextRaidRun']===10,'fixed five victory cadence');
+// A modified client must not suppress future economic events by withholding UI acknowledgments.
+foreach(['frontier','river-rail','industrial','post-war','motor-age','contemporary'] as $era) {
+ $unseen=$content->fresh();$unseen['town']['era']=$era;$unseen['town']['coins']=10000;
+ foreach(['well','farm','home','railDepot','powerHouse'] as $id)$unseen['town']['buildings'][$id]=1;
+ $unseen['town']['nextRaidRun']=5;
+ for($i=1;$i<=15;$i++) {
+  $town->victory($unseen,runFor(),'unseen-'.$era.'-'.$i);
+  if($i%5!==0)continue;
+  $event=$unseen['town']['events']['dusty-trail-visitors'];
+  check($event['atRun']===$i && $event['id']===intdiv($i,5),'unseen event cannot suppress cadence '.$era);
+  check($event['loss']>0 && !$event['seen'],'unseen event still settles loss '.$era);
+  check($unseen['town']['nextRaidRun']===$i+5,'next event remains scheduled '.$era);
+  $balance=$unseen['town']['coins'];
+  check($balance===$event['balance'],'event records settled balance '.$era);
+  if($i>5)denied(function()use($town,&$unseen,$event){$town->action($unseen,'town.raid-seen',['id'=>$event['id']-1]);},'old acknowledgment cannot affect new encounter');
+  check($unseen['town']['coins']===$balance,'stale acknowledgment cannot change balance '.$era);
+ }
+}
+
 $p['town']['coins']=999999999;$town->grant($p,['id'=>'coins','kind'=>'coins','label'=>'Coins','quantity'=>1000]);check($p['town']['coins']===1000000000,'coin cap saturates');
 // Every enabled era uses the same authored modernization price/stage/work sequence.
 foreach(['river-rail','industrial','post-war','motor-age','contemporary'] as $era) {

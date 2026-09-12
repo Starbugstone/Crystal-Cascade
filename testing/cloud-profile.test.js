@@ -283,3 +283,203 @@ describe('cloud persistence and account boundaries', () => {
     expect(api.cloud.playerId).toBe('guest-account');
   });
 });
+
+function mine() {
+  const board = [
+    'ruby',
+    'sapphire',
+    'ruby',
+    'emerald',
+    'ruby',
+    'emerald',
+    'sapphire',
+    'emerald',
+    'topaz',
+  ].map((type, i) => ({ id: `gem-${i}`, type }));
+  return {
+    runId: 'mine-a',
+    status: 'active',
+    level: 1,
+    mode: 'normal',
+    board,
+    tiles: board.map(() => ({ type: 'normal', health: 1 })),
+    cols: 3,
+    rows: 3,
+    score: 0,
+    moves: 0,
+    jewels: 0,
+    remainingLayers: 9,
+    totalLayers: 9,
+    remainingRelics: 0,
+    totalRelics: 0,
+    maxCascade: 1,
+    comboCounts: {},
+    multiMatchCounts: {},
+    cleared: false,
+    startedAt: 1,
+    steps: [],
+    shuffled: false,
+  };
+}
+function playing() {
+  const run = mine();
+  Object.assign(stores.game, {
+    board: run.board,
+    tiles: run.tiles,
+    boardCols: 3,
+    boardRows: 3,
+    sessionActive: true,
+    runId: run.runId,
+    animationInProgress: false,
+    availableLevels: [{ id: 1, config: { boardLayout: {}, objectives: [] } }],
+    bootstrap: vi.fn(),
+    cancelHint: vi.fn(),
+    clearBonusPreview: vi.fn(),
+    scheduleHint: vi.fn(),
+    updateObjectives: vi.fn(),
+    refreshBoardVisuals: vi.fn(),
+    processQueuedInput: vi.fn(),
+    queueSwap: vi.fn(() => true),
+    renderer: {
+      animator: { animateSwap: vi.fn(), animateInvalidSwap: vi.fn(), playSteps: vi.fn() },
+    },
+  });
+  api.cloud.run = run;
+  return run;
+}
+
+describe('responsive authoritative mining', () => {
+  it('starts the swap before the response and waits for both before playing server cascades', async () => {
+    const run = playing();
+    const response = deferred();
+    const animation = deferred();
+    const animator = stores.game.renderer.animator;
+    animator.animateSwap.mockReturnValue(animation.promise);
+    fetchMock.mockReturnValue(response.promise);
+    const move = stores.game.resolveSwap(1, 4);
+    expect(animator.animateSwap).toHaveBeenCalledOnce();
+    expect(stores.game.board).toEqual(run.board);
+    expect(stores.game.moves ?? 0).toBe(0);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const accepted = { ...run, score: 100, moves: 1, steps: [{ server: true }] };
+    response.resolve(reply(profile('account-a', 1, accepted)));
+    await vi.waitFor(() => expect(api.cloud.revision).toBe(1));
+    expect(animator.playSteps).not.toHaveBeenCalled();
+    animation.resolve();
+    expect(await move).toBe(true);
+    expect(animator.playSteps).toHaveBeenCalledWith(accepted.steps);
+    expect(stores.game.score).toBe(100);
+    expect(stores.game.animationInProgress).toBe(false);
+  });
+
+  it('rejects an obvious mis-swap immediately without spending a request or changing progress', async () => {
+    const run = playing();
+    expect(await stores.game.resolveSwap(0, 1)).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(stores.game.renderer.animator.animateInvalidSwap).toHaveBeenCalledOnce();
+    expect(stores.game.board).toEqual(run.board);
+    expect(api.cloud.revision).toBe(0);
+    expect(api.cloud.error).toBe('');
+  });
+
+  it('restores the confirmed board on a lost response and blocks new rewarded moves until retry', async () => {
+    const run = playing();
+    fetchMock.mockRejectedValue(new TypeError('Lost response'));
+    expect(await stores.game.resolveSwap(1, 4)).toBe(false);
+    expect(api.cloud.pending).toBe(true);
+    expect(stores.game.board).toEqual(run.board);
+    expect(stores.game.score).toBe(0);
+    expect(stores.game.renderer.animator.playSteps).not.toHaveBeenCalled();
+    expect(await stores.game.resolveSwap(1, 4)).toBe(false);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('reconciles a conflict only after the in-flight swap finishes', async () => {
+    const run = playing();
+    const animation = deferred();
+    stores.game.renderer.animator.animateSwap.mockReturnValue(animation.promise);
+    const latest = { ...run, score: 200, moves: 2 };
+    fetchMock
+      .mockResolvedValueOnce(reply({ error: 'Stale revision' }, 409))
+      .mockResolvedValueOnce(reply(profile('account-a', 2, latest)));
+    const move = stores.game.resolveSwap(1, 4);
+    await vi.waitFor(() => expect(api.cloud.revision).toBe(2));
+    expect(stores.game.animationInProgress).toBe(true);
+    expect(stores.game.score ?? 0).toBe(0);
+    animation.resolve();
+    expect(await move).toBe(false);
+    expect(stores.game.score).toBe(200);
+    expect(stores.game.animationInProgress).toBe(false);
+    expect(api.cloud.pending).toBe(false);
+  });
+
+  it('recovers saved progress even if the renderer fails', async () => {
+    const run = playing();
+    stores.game.renderer.animator.animateSwap.mockRejectedValue(new Error('Renderer failed'));
+    stores.game.renderer.animator.playSteps.mockRejectedValue(new Error('Renderer failed'));
+    fetchMock.mockResolvedValue(
+      reply(profile('account-a', 1, { ...run, score: 100, steps: [{}] })),
+    );
+    expect(await stores.game.resolveSwap(1, 4)).toBe(true);
+    expect(stores.game.score).toBe(100);
+    expect(api.cloud.pending).toBe(false);
+    expect(stores.game.animationInProgress).toBe(false);
+  });
+
+  it('keeps a newer server snapshot received while an older cascade is playing', async () => {
+    const run = playing();
+    const cascade = deferred();
+    stores.game.renderer.animator.playSteps.mockReturnValue(cascade.promise);
+    fetchMock
+      .mockResolvedValueOnce(reply(profile('account-a', 1, { ...run, score: 100, steps: [{}] })))
+      .mockResolvedValueOnce(reply(profile('account-a', 2, { ...run, score: 200, moves: 2 })));
+    const move = stores.game.resolveSwap(1, 4);
+    await vi.waitFor(() => expect(stores.game.renderer.animator.playSteps).toHaveBeenCalledOnce());
+    await api.refresh();
+    expect(stores.game.animationInProgress).toBe(true);
+    cascade.resolve();
+    expect(await move).toBe(false);
+    expect(stores.game.score).toBe(200);
+    expect(stores.game.moves).toBe(2);
+  });
+
+  it('does not play an old cascade or unlock a new session after navigation', async () => {
+    const run = playing();
+    const response = deferred();
+    fetchMock.mockReturnValue(response.promise);
+    const move = stores.game.resolveSwap(1, 4);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    stores.game.exitLevel();
+    stores.game.animationInProgress = true;
+    response.resolve(reply(profile('account-a', 1, { ...run, steps: [{}] })));
+    expect(await move).toBe(false);
+    expect(stores.game.renderer.animator.playSteps).not.toHaveBeenCalled();
+    expect(stores.game.animationInProgress).toBe(true);
+  });
+
+  it('preserves buffered input through reconciliation without unlocking its new animation', async () => {
+    const run = playing();
+    const response = deferred();
+    fetchMock.mockReturnValue(response.promise);
+    const move = stores.game.resolveSwap(1, 4);
+    const queued = { aIndex: 3, bIndex: 4, gems: [] };
+    stores.game.queuedSwap = queued;
+    expect(stores.game.resolveSwap(3, 4)).toBe(true);
+    expect(stores.game.queueSwap).toHaveBeenCalledWith(3, 4);
+    stores.game.processQueuedInput.mockImplementation(() => {
+      expect(stores.game.queuedSwap).toEqual(queued);
+      expect(api.cloud.busy).toBe(false);
+      expect(stores.game.animationInProgress).toBe(false);
+      stores.game.animationInProgress = true;
+    });
+    response.resolve(reply(profile('account-a', 1, run)));
+    expect(await move).toBe(true);
+    expect(stores.game.animationInProgress).toBe(true);
+  });
+
+  it('does not put town income polling ahead of an active mining gesture', () => {
+    playing();
+    expect(stores.campaign.accrueSaloonIncome()).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

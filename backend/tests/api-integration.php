@@ -80,6 +80,28 @@ try {
     $changed['actionId']=bin2hex(random_bytes(16)); expect(409,callApi('POST','actions',$changed),'Stale revision');
     $changed['revision']=1; $changed['playerId']='other'; expect(422,callApi('POST','actions',$changed),'Ownership payload rejected');
     expect(422,callApi('POST','actions',['actionId'=>bin2hex(random_bytes(16)),'revision'=>1,'type'=>'import','args'=>(object)[]]),'Untrusted imports rejected');
+
+    // Treat requests as hostile even when the normal UI never generates these commands.
+    $beforeAttack=$db->fetchAssociative('SELECT profile,revision FROM players WHERE id=?',[$first['playerId']]);
+    $beforeReceipts=(int)$db->fetchOne('SELECT COUNT(*) FROM actions WHERE player_id=?',[$first['playerId']]);
+    foreach([
+        ['save',['coins'=>999999999,'records'=>['240'=>['stars'=>3]]]],
+        ['reward.claim',['quantity'=>999999999]],
+        ['run.complete',['level'=>240,'score'=>999999999,'elapsedMs'=>1]],
+        ['run.start',['level'=>240,'mode'=>'normal']],
+        ['run.start',['level'=>1,'mode'=>'normal','board'=>[]]],
+        ['town.upgrade',['id'=>'well','stage'=>0,'cost'=>0]],
+        ['town.finish',['id'=>'well','stage'=>1,'wins'=>99]],
+        ['town.hammer',['id'=>'well','stage'=>0]],
+        ['town.era',['era'=>'frontier']],
+        ['town.collect',['source'=>'saloon','now'=>PHP_INT_MAX]],
+        ['shop.buy',['id'=>'tnt','visit'=>0,'price'=>-100000]],
+        ['preferences',['locale'=>'fr','profile'=>['town'=>['coins'=>999999999]]]],
+    ] as [$type,$args]) {
+        expect(422,callApi('POST','actions',['actionId'=>bin2hex(random_bytes(16)),'revision'=>1,'type'=>$type,'args'=>$args]),'Forged authority rejected: '.$type);
+        ensure($db->fetchAssociative('SELECT profile,revision FROM players WHERE id=?',[$first['playerId']])===$beforeAttack,'Attack cannot change balances, inventory, records or revision');
+    }
+    ensure((int)$db->fetchOne('SELECT COUNT(*) FROM actions WHERE player_id=?',[$first['playerId']])===$beforeReceipts,'Rejected attacks cannot mint receipts');
     expect(422,callApi('DELETE','account',['confirmation'=>'yes']),'Deletion explicit confirmation');
     $email='integration-'.bin2hex(random_bytes(8)).'@example.test';
     $link=intent($email,$first['playerId'],$auth->hash($guestCookies[$auth->cookieName()]));

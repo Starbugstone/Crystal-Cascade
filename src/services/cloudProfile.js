@@ -1,9 +1,13 @@
 import { version as contentVersion } from '../../backend/content/game.json';
 import { reactive } from 'vue';
+import { MatchEngine } from '../game/engine/MatchEngine';
+
 import { useCampaignStore } from '../stores/campaignStore';
 import { useGameStore } from '../stores/gameStore';
 import { useInventoryStore } from '../stores/inventoryStore';
 import { locale } from '../i18n';
+
+const matchEngine = new MatchEngine();
 
 export const cloud = reactive({
   ready: false,
@@ -87,7 +91,7 @@ export async function refresh() {
   applyProfile(result);
   cloud.run = result.run;
   cloud.pending = pendingCommands().length > 0;
-  if (game.sessionActive && !game.levelCleared) {
+  if (game.sessionActive && !game.levelCleared && !game.animationInProgress) {
     if (result.run?.runId === game.runId) applyRun(result.run);
     else game.exitLevel();
   }
@@ -134,8 +138,7 @@ async function deliver(entry) {
       localStorage.removeItem(entry.key);
       cloud.pending = pendingCommands().length > 0;
       if (error.status === 409) {
-        const refreshed = await refresh();
-        if (game.sessionActive && refreshed.run?.runId === game.runId) applyRun(refreshed.run);
+        await refresh();
       }
     } else {
       cloud.pending = true;
@@ -154,7 +157,8 @@ export function retryPending() {
       await refresh();
       for (const entry of pendingCommands()) {
         const saved = await deliver(entry);
-        if (saved.run && game.sessionActive) applyRun(saved.run);
+        if (saved.run && game.sessionActive && saved.revision >= cloud.revision)
+          applyRun(saved.run);
       }
       await refresh();
       cloud.pending = false;
@@ -299,7 +303,14 @@ export function installCloudAdapters() {
   };
   let lastSync = 0;
   campaign.accrueSaloonIncome = () => {
-    if (!cloud.ready || cloud.busy || cloud.pending || Date.now() - lastSync < 30000) return 0;
+    if (
+      !cloud.ready ||
+      cloud.busy ||
+      cloud.pending ||
+      game.sessionActive ||
+      Date.now() - lastSync < 30000
+    )
+      return 0;
     lastSync = Date.now();
     const epoch = identityEpoch;
     const operation = queue.then(async () => {
@@ -358,34 +369,105 @@ export function installCloudAdapters() {
       game.inputPaused ||
       game.animationInProgress ||
       cloud.busy ||
-      cloud.pending
+      cloud.pending ||
+      cloud.accountBusy
     )
       return false;
     game.animationInProgress = true;
     game.cancelHint(true);
+    game.clearBonusPreview(true);
     const session = game.sessionVersion;
-    const result = await safely(type, { runId: game.runId, ...args });
-    if (session !== game.sessionVersion) return false;
-    if (result) {
-      // The saved receipt exists before the animation. Renderer failure cannot undo it.
-      try {
-        const animator = game.renderer?.animator;
-        if (animator && !result.run.shuffled && result.run.steps?.length) {
-          if (type === 'run.move' && !args.activate)
-            await animator.animateSwap({ aIndex: args.a, bIndex: args.b });
-          await animator.playSteps(result.run.steps);
+    const epoch = identityEpoch;
+    const current = () => session === game.sessionVersion && epoch === identityEpoch;
+    const reconcile = () => {
+      if (cloud.run?.runId === game.runId) applyRun(cloud.run);
+      else game.exitLevel();
+    };
+    const animator = game.renderer?.animator;
+    const swap = type === 'run.move' && !args.activate;
+    const payload = { aIndex: args.a, bIndex: args.b };
+    try {
+      // Local validation only avoids round trips for obvious mis-swaps. The server
+      // independently validates every submitted move and generates every refill.
+      if (type === 'run.move') {
+        const evaluation = args.activate
+          ? matchEngine.evaluateActivation(
+              game.board,
+              game.boardCols,
+              game.boardRows,
+              args.a,
+              game.tiles,
+            )
+          : matchEngine.evaluateSwap(
+              game.board,
+              game.boardCols,
+              game.boardRows,
+              args.a,
+              args.b,
+              game.tiles,
+            );
+        if (!evaluation.matches.length) {
+          try {
+            if (swap && matchEngine.areAdjacent(args.a, args.b, game.boardCols))
+              await animator?.animateInvalidSwap(payload);
+          } catch {
+            game.refreshBoardVisuals(true);
+          }
+          return false;
         }
-      } catch {
-        /* final server snapshot repairs presentation */
       }
-      if (session === game.sessionVersion) applyRun(result.run);
+      // Start reversible visual feedback immediately, overlapping network latency.
+      // Catch renderer failures independently so they cannot hide a saved receipt.
+      const animation = (async () => {
+        try {
+          if (swap) await animator?.animateSwap(payload);
+        } catch {
+          /* repaired below */
+        }
+      })();
+      const saving = safely(type, { runId: game.runId, ...args });
+      const [result] = await Promise.all([saving, animation]);
+      if (!current()) return false;
+      if (result && result.revision < cloud.revision) {
+        reconcile();
+        return false;
+      }
+      if (result) {
+        try {
+          if (animator && !result.run.shuffled && result.run.steps?.length)
+            await animator.playSteps(result.run.steps);
+        } catch {
+          /* final server snapshot repairs presentation */
+        }
+        if (!current()) return false;
+        if (result.revision < cloud.revision) {
+          reconcile();
+          return false;
+        }
+        const queuedSwap = game.queuedSwap;
+        applyRun(result.run);
+        // Preserve one buffered gesture only if its visible gems survive unchanged.
+        game.queuedSwap = queuedSwap;
+      } else {
+        // A conflict may have refreshed the server board while the swap was moving.
+        // A lost response keeps its durable ID pending; no speculative progress survives.
+        reconcile();
+      }
+      return !!result;
+    } finally {
+      if (current()) {
+        game.animationInProgress = false;
+        if (!cloud.pending && !cloud.accountBusy) game.processQueuedInput();
+        if (!game.animationInProgress && !game.levelCleared && game.sessionActive)
+          game.scheduleHint();
+      }
     }
-    game.animationInProgress = false;
-    if (!game.levelCleared && game.sessionActive) game.scheduleHint();
-    return !!result;
   };
-  game.resolveSwap = (a, b, { activateInPlace = false } = {}) =>
-    execute('run.move', { a, b, activate: activateInPlace });
+  game.resolveSwap = (a, b, { activateInPlace = false } = {}) => {
+    if (game.animationInProgress && !cloud.pending && !cloud.accountBusy && !activateInPlace)
+      return game.queueSwap(a, b);
+    return execute('run.move', { a, b, activate: activateInPlace });
+  };
   game.resolveBonusClick = (index) => {
     const power = game.activeBonusMode?.replaceAll('_', '-');
     if (!power) return false;

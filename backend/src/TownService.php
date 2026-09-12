@@ -270,7 +270,8 @@ final class TownService {
     }
     private function raid(array &$p): void {
         $this->scheduleRaid($p);$t=&$p['town'];
-        if($this->population($t)[0]<=0 || $t['nextRaidRun']===null || $t['completedRuns']<$t['nextRaidRun'] || (isset($t['events'][self::EVENT])&&!$t['events'][self::EVENT]['seen']))return;
+        // Acknowledgment controls the notice only; withholding it cannot suspend losses.
+        if($this->population($t)[0]<=0 || $t['nextRaidRun']===null || $t['completedRuns']<$t['nextRaidRun'])return;
         if($t['era']==='river-rail' && !$t['buildings']['railDepot'] && !$t['buildings']['riverPort'])return;
         if($t['era']==='industrial' && !$t['buildings']['powerHouse'] && !$t['buildings']['mill'])return;
         $kind=$this->content->data['eraEventKinds'][$t['era']];
