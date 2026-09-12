@@ -3,6 +3,7 @@
     v-if="fallback"
     ref="map"
     :town="town"
+    :read-only="readOnly"
     :builder-hammers="builderHammers"
     :forge-collectible="forgeCollectible"
     :now="now"
@@ -14,14 +15,14 @@
     :mine-stage="mineStage"
     :fullscreen="fullscreen"
     :construction="construction"
-    @select="$emit('select', $event)"
-    @mine="$emit('mine')"
+    @select="!readOnly && $emit('select', $event)"
+    @mine="!readOnly && $emit('mine')"
   />
   <div
     v-else
     class="town-scene"
-    :class="{ 'is-raiding': raid && !reducedMotion }"
-    :aria-label="t('Interactive 3D town')"
+    :class="{ 'is-raiding': raid && !reducedMotion, 'is-read-only': readOnly }"
+    :aria-label="t(readOnly ? 'Village visit · view only' : 'Interactive 3D town')"
     @pointerdown="rememberPointer"
     @pointermove="movePointer"
     @pointerup="pick"
@@ -75,9 +76,14 @@
         />
       </button>
     </div>
-    <div class="town-scene-labels" role="group" :aria-label="t('Choose a plot or enter the mine')">
+    <div
+      class="town-scene-labels"
+      role="group"
+      :aria-label="t(readOnly ? 'Village buildings' : 'Choose a plot or enter the mine')"
+    >
       <button
         v-for="anchor in anchors"
+        :disabled="readOnly"
         :key="anchor.id"
         :data-town-plot="anchor.id"
         v-show="anchor.visible"
@@ -96,48 +102,57 @@
         }"
         :aria-label="
           t(
-            anchor.id === 'mine'
-              ? t('Enter the mine: play level {level}', { level: nextLevel })
-              : t('Choose {building}', { building: t(BUILDING_BY_ID[anchor.id].name) }),
+            readOnly
+              ? t(anchor.id === 'mine' ? 'Mine' : BUILDING_BY_ID[anchor.id].name)
+              : anchor.id === 'mine'
+                ? t('Enter the mine: play level {level}', { level: nextLevel })
+                : t('Choose {building}', { building: t(BUILDING_BY_ID[anchor.id].name) }),
           )
         "
         :aria-pressed="anchor.id === 'mine' ? undefined : anchor.id === selected"
         @click="chooseLabel(anchor.id, $event)"
       >
         {{ t(anchor.id === 'mine' ? t('Mine') : t(BUILDING_BY_ID[anchor.id].shortName)) }}
-        <small v-if="anchor.id === 'mine'"
-          >{{ t('Level {level}', { level: nextLevel }) }} · ✦{{ mineStage }} →</small
-        >
-        <small v-else-if="constructionReady(town.projects[anchor.id])">{{
-          t('Tap to finish')
-        }}</small>
-        <small
-          v-else-if="town.projects[anchor.id]"
-          class="construction-count"
-          :title="
-            t('Construction: {wins} of {required} mining runs completed', {
-              wins: Math.min(town.projects[anchor.id].wins, 2),
-              required: constructionRuns(town.projects[anchor.id]),
-            })
-          "
-        >
-          <GameIcon name="wall" />{{ Math.min(town.projects[anchor.id].wins, 2) }}/{{
-            constructionRuns(town.projects[anchor.id])
-          }}
-        </small>
-        <small v-else-if="indicators[anchor.id] === 'coins'">{{
-          t('Collect {coins} coins', { coins: town.income.stored })
-        }}</small>
-        <small v-else-if="anchor.id === 'blacksmith' && forgeCollectible">{{
-          t('Collect 1 TNT')
-        }}</small>
-        <small v-else-if="availableIds.includes(anchor.id)">{{
-          t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
-        }}</small>
-        <small v-else-if="town.buildings[anchor.id]">{{
-          t('Lv. {level}', { level: eraBuildingLevel(town, anchor.id) })
-        }}</small>
-        <span v-else aria-hidden="true">+</span>
+        <template v-if="readOnly">
+          <small v-if="town.buildings[anchor.id]">{{
+            t('Lv. {level}', { level: eraBuildingLevel(town, anchor.id) })
+          }}</small>
+        </template>
+        <template v-else>
+          <small v-if="anchor.id === 'mine'"
+            >{{ t('Level {level}', { level: nextLevel }) }} · ✦{{ mineStage }} →</small
+          >
+          <small v-else-if="constructionReady(town.projects[anchor.id])">{{
+            t('Tap to finish')
+          }}</small>
+          <small
+            v-else-if="town.projects[anchor.id]"
+            class="construction-count"
+            :title="
+              t('Construction: {wins} of {required} mining runs completed', {
+                wins: Math.min(town.projects[anchor.id].wins, 2),
+                required: constructionRuns(town.projects[anchor.id]),
+              })
+            "
+          >
+            <GameIcon name="wall" />{{ Math.min(town.projects[anchor.id].wins, 2) }}/{{
+              constructionRuns(town.projects[anchor.id])
+            }}
+          </small>
+          <small v-else-if="indicators[anchor.id] === 'coins'">{{
+            t('Collect {coins} coins', { coins: town.income.stored })
+          }}</small>
+          <small v-else-if="anchor.id === 'blacksmith' && forgeCollectible">{{
+            t('Collect 1 TNT')
+          }}</small>
+          <small v-else-if="availableIds.includes(anchor.id)">{{
+            t(town.buildings[anchor.id] ? 'Upgrade' : 'Build')
+          }}</small>
+          <small v-else-if="town.buildings[anchor.id]">{{
+            t('Lv. {level}', { level: eraBuildingLevel(town, anchor.id) })
+          }}</small>
+          <span v-else aria-hidden="true">+</span>
+        </template>
       </button>
     </div>
     <div class="town-camera-bar">
@@ -187,6 +202,7 @@ import {
 import { t, locale } from '../../i18n';
 import TownMap from './TownMap.vue';
 const props = defineProps({
+  readOnly: Boolean,
   fullscreen: Boolean,
   cinematic: Boolean,
   active: { type: Boolean, default: true },
@@ -217,10 +233,10 @@ const canvas = ref(null),
   anchors = ref([]),
   fallback = ref(false);
 const indicators = computed(() =>
-  buildingIndicators(props.town, props.forgeCollectible, props.now),
+  props.readOnly ? {} : buildingIndicators(props.town, props.forgeCollectible, props.now),
 );
 const availableIds = computed(() =>
-  availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
+  props.readOnly ? [] : availablePurchases(props.town, props.builderHammers).map(({ id }) => id),
 );
 const upgradeIds = computed(() =>
   Object.keys(indicators.value).filter((id) => indicators.value[id] === 'upgrade'),
@@ -266,7 +282,9 @@ let scene,
   disposed = false,
   dragged = false;
 const pointers = new Map();
-const choose = (id) => (id === 'mine' ? emit('mine') : emit('select', id));
+const choose = (id) => {
+  if (!props.readOnly) id === 'mine' ? emit('mine') : emit('select', id);
+};
 const chooseLabel = (id, event) => {
   // Pointer taps are settled on pointerup; keep native keyboard/AT activation.
   if (event.detail === 0) choose(id);
@@ -291,7 +309,7 @@ const pick = (event) => {
   const start = pointers.get(event.pointerId);
   const tap = start && !dragged;
   pointers.delete(event.pointerId);
-  if (tap) {
+  if (tap && !props.readOnly) {
     if (start[2]) choose(start[2]);
     else scene?.pick(event.clientX, event.clientY);
   }

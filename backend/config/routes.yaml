@@ -1,0 +1,3 @@
+api:
+  resource: '../src/ApiController.php'
+  type: attribute

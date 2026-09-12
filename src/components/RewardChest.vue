@@ -282,7 +282,7 @@ const campaign = useCampaignStore();
 const eligibleDrops = availableChestDrops(campaign);
 const savedPrize = props.reward.items[0];
 const prize = ref(
-  eligibleDrops.some((drop) => drop.id === savedPrize.id)
+  props.reward.serverGranted || eligibleDrops.some((drop) => drop.id === savedPrize.id)
     ? savedPrize
     : chestReward('coins', props.reward.levelId, props.reward.economyVersion ?? 1),
 );
@@ -314,6 +314,7 @@ const finish = (selection) => {
 };
 const stopRoulette = () => {
   if (phase.value !== 'opening') return;
+  if (props.reward.serverGranted) return finish();
   const windowBounds = roulette.value.querySelector('.slot-window').getBoundingClientRect();
   const center = (windowBounds.top + windowBounds.bottom) / 2;
   const symbols = [...roulette.value.querySelectorAll('.slot-symbol')];

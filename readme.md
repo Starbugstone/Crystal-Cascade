@@ -90,3 +90,7 @@ Run `npm run verify` for formatting, the complete regression suite, and a produc
 Mine teardown explicitly releases its WebGL context. If the village loses its graphics context, it rebuilds the 3D scene on a fresh canvas while preserving the camera. Repeated recovery failures use the playable SVG town. Interrupted frame-cache renders restore renderer state before another draw.
 
 The [Motor Age progression review](docs/motor-age-progression.md) covers the current four-era, 144-level campaign and verification. The [earlier progression and visual UX review](docs/progression-ux-review.md) documents the original 72-level tuning pass.
+
+## Account backend and FTP deployment
+
+This branch adds a PHP/Symfony application with server-validated game actions and shared account progress. Start it locally with Docker Compose, or build a precompiled bundle for FTP hosting. See [local setup and hosting](docs/backend/hosting.md), [security boundaries](docs/backend/security.md), and the [API contract](docs/backend/openapi.yaml). Automated deployment is disabled on this branch.
