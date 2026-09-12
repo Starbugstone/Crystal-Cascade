@@ -23,7 +23,7 @@ import {
 const townAt = (era) => {
   const town = createTown();
   town.era = era;
-  const eras = ['frontier', 'river-rail', 'industrial', 'motor-age'];
+  const eras = ['frontier', 'river-rail', 'industrial', 'post-war', 'motor-age', 'contemporary'];
   for (const b of BUILDINGS.filter((b) => eras.indexOf(b.introducedEra) <= eras.indexOf(era))) {
     town.buildings[b.id] = b.upgrades.length;
     town.buildingEras[b.id] = era;

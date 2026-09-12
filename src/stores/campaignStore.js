@@ -1,4 +1,4 @@
-import { miningDepthBonus } from '../data/economy';
+import { miningDepthBonus, CHEST_ECONOMY_VERSION } from '../data/economy';
 import { defineStore } from 'pinia';
 import { SHOP_ITEMS, rollShopStock, shopSlots, shopSpace } from '../data/shop';
 import {
@@ -158,7 +158,11 @@ const load = (loaded = localProfile.load(), persistRecovered = true) => {
       if (recoveredSources.has(chest.source)) continue;
       recoveredSources.add(chest.source);
       const savedId = chest.items?.[0]?.id;
-      const drop = chestReward(savedId === 'hammer' ? 'tnt' : savedId, chest.levelId);
+      const drop = chestReward(
+        savedId === 'hammer' ? 'tnt' : savedId,
+        chest.levelId,
+        chest.economyVersion ?? 1,
+      );
       if (drop) grantReward(state, drop);
     }
     if (overflow) {
@@ -534,8 +538,8 @@ export const useCampaignStore = defineStore('campaign', {
     claimChest(id, selection) {
       const chest = this.pendingChests.find((entry) => entry.id === id);
       if (!chest) return null;
-      const chosen = chestReward(selection, chest.levelId);
-      const fallback = chestReward(chest.items[0].id, chest.levelId);
+      const chosen = chestReward(selection, chest.levelId, chest.economyVersion ?? 1);
+      const fallback = chestReward(chest.items[0].id, chest.levelId, chest.economyVersion ?? 1);
       const granted = grantReward(this, chosen ?? fallback);
       this.pendingChests = this.pendingChests.filter((entry) => entry.id !== id);
       this.save();
@@ -630,6 +634,7 @@ export const useCampaignStore = defineStore('campaign', {
           id: `${runId}-${source}`,
           runId,
           levelId: id,
+          economyVersion: CHEST_ECONOMY_VERSION,
           count: 1,
           source,
           items: [drop],

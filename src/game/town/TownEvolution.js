@@ -1,12 +1,15 @@
 import { hasElectricity } from '../../data/industrial';
 import { PLOTS, plotStreet, routeBetween } from './TownLayout';
 
-export const pavedTown = (town) => ['industrial', 'motor-age'].includes(town.era);
+export const pavedTown = (town) =>
+  ['industrial', 'motor-age', 'post-war', 'contemporary'].includes(town.era);
 export const modernTransport = (town, id) =>
-  town.buildings[id] > 0 && ['industrial', 'motor-age'].includes(town.buildingEras[id]);
+  town.buildings[id] > 0 &&
+  ['industrial', 'motor-age', 'post-war', 'contemporary'].includes(town.buildingEras[id]);
 export const motorTraffic = (town) =>
   modernTransport(town, 'stable') &&
-  (town.buildingEras.stable === 'motor-age' || town.buildingEraLevels.stable >= 2);
+  (['motor-age', 'contemporary'].includes(town.buildingEras.stable) ||
+    town.buildingEraLevels.stable >= 2);
 
 // A shared road-following network for WebGL and the accessible map. Merge
 // common branches so every completed plot gets a service without duplicate wires.
@@ -47,7 +50,7 @@ export function powerGrid(town) {
 
 export function addPowerGrid(d, town) {
   const network = powerGrid(town);
-  if (!network.poles.length) return;
+  if (!network.poles.length || town.era === 'contemporary') return;
   const root = d.group(d.world);
   root.name = 'Connected village power grid';
   root.userData.static = true;
@@ -71,3 +74,13 @@ export function addPowerGrid(d, town) {
   }
   d.batch(root);
 }
+
+export const roadSurface = (town) =>
+  ({
+    frontier: '#c3a477',
+    'river-rail': '#b3a18a',
+    industrial: '#89928a',
+    'post-war': '#a38f7d',
+    'motor-age': '#858b86',
+    contemporary: '#a5afa5',
+  })[town.era] ?? '#c3a477';

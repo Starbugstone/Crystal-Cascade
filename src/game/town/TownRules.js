@@ -2,8 +2,9 @@ import { RIVER_RAIL_LEVEL_PRICES } from '../../data/economy';
 import { buildingServiceLevel, hasShortProgression } from '../../data/buildingProgression';
 import { t } from '../../i18n';
 import { miningDepthBonus } from '../../data/economy';
+import { isCityEra, cityCapacity } from '../../data/city';
 import { hasElectricity } from '../../data/industrial';
-import { eventKind, eraEventKind, fireProtection } from '../../data/townEvents';
+import { eventKind, eraEventKind, fireProtection, civicIncident } from '../../data/townEvents';
 import { forgeProductionRuns } from '../../data/eras';
 import { plotInEra, modernization, normalizeEraState, eraGate } from './TownEras';
 import { BUILDINGS, BUILDING_BY_ID, INTRO_ORDER, BANDIT_EVENT, createTown } from '../../data/town';
@@ -129,7 +130,7 @@ export function normalizeTown(saved) {
             : []),
         ],
       };
-      if (['cargo-theft', 'workshop-fire'].includes(event.kind)) {
+      if (['cargo-theft', 'workshop-fire', 'storm-cleanup'].includes(event.kind)) {
         const receipt = town.events[BANDIT_EVENT];
         receipt.kind = event.kind;
         receipt.fireStationLevel =
@@ -142,7 +143,13 @@ export function normalizeTown(saved) {
           .filter((id) => Object.hasOwn(BUILDING_BY_ID, id) && town.buildings[id] > 0)
           .slice(0, 1);
         if (!receipt.targets.length)
-          receipt.targets = [event.kind === 'workshop-fire' ? 'blacksmith' : 'railDepot'];
+          receipt.targets = [
+            event.kind === 'storm-cleanup'
+              ? 'riverPark'
+              : event.kind === 'workshop-fire'
+                ? 'blacksmith'
+                : 'railDepot',
+          ];
       }
     }
   }
@@ -308,26 +315,35 @@ export const foodCapacity = (town) =>
   totalLevels(town, 'farm') * 6 +
   Math.min(5, Math.max(0, buildingServiceLevel('fisherman', town.buildings.fisherman ?? 0))) +
   (town.buildings.market ?? 0) * 10 +
-  (town.buildingEras.farm === 'motor-age' && town.buildingEraLevels.farm === 3 ? 20 : 0);
+  ((town.buildingEras.farm === 'motor-age' && town.buildingEraLevels.farm === 3) ||
+  town.buildingEras.farm === 'contemporary'
+    ? 20
+    : 0) +
+  cityCapacity(town, 'food');
 export const waterCapacity = (town) => {
   const era = town.buildingEras.well,
     level = town.buildingEraLevels.well || 1;
   const waterworks = !town.buildings.well
     ? 0
-    : era === 'motor-age'
-      ? 60 + (level === 3 ? 20 : 0)
-      : era === 'industrial'
-        ? 40 + (level === 3 ? 20 : 0)
-        : era === 'river-rail'
-          ? Math.max(0, level - 1) * 20
-          : 0;
-  return totalLevels(town, 'well') * 6 + waterworks;
+    : era === 'contemporary'
+      ? 80
+      : era === 'post-war'
+        ? 60
+        : era === 'motor-age'
+          ? 60 + (level === 3 ? 20 : 0)
+          : era === 'industrial'
+            ? 40 + (level === 3 ? 20 : 0)
+            : era === 'river-rail'
+              ? Math.max(0, level - 1) * 20
+              : 0;
+  return totalLevels(town, 'well') * 6 + waterworks + cityCapacity(town, 'water');
 };
 export const housingCapacity = (town) =>
   totalLevels(town, 'home') * 2 +
   (town.buildings.home5 ?? 0) * 8 +
   [0, 6, 12, 16][town.buildings.rowHouses ?? 0] +
-  (town.buildings.gardenCourt ?? 0) * 6;
+  (town.buildings.gardenCourt ?? 0) * 6 +
+  cityCapacity(town, 'housing');
 export function settleForgeProduction(town) {
   if (
     !town.buildings.blacksmith ||
@@ -351,7 +367,8 @@ export const visitorCapacity = (town) =>
   Math.max(0, buildingServiceLevel('museum', town.buildings.museum) - 1) * 2 +
   (town.buildings.railDepot ?? 0) * 2 +
   (town.buildings.hotel ?? 0) * 2 +
-  (town.buildings.busDepot ?? 0) * 2;
+  (town.buildings.busDepot ?? 0) * 2 +
+  cityCapacity(town, 'visitors');
 export const visitorPopulation = (town) =>
   Math.min(
     visitorCapacity(town),
@@ -369,7 +386,10 @@ export const happiness = (town) => {
         (town.buildings.square ?? 0) * 8 +
         buildingServiceLevel('museum', town.buildings.museum) * 2 +
         town.buildings.saloon * 2 +
-        Math.min(5, Math.max(0, buildingServiceLevel('school', town.buildings.school ?? 0))),
+        Math.min(5, Math.max(0, buildingServiceLevel('school', town.buildings.school ?? 0))) +
+        (town.buildings.horseField ?? 0) * 2 +
+        (town.buildings.park ?? 0) * 3 +
+        cityCapacity(town, 'happiness'),
     ),
   );
 };
@@ -532,13 +552,20 @@ export function nextGoal(town) {
           ),
         )
       : null) ??
+    (need && !town.projects[need === 'well' ? 'waterPlant' : 'supermarket']
+      ? available.find(
+          (b) =>
+            b.id === (need === 'well' ? 'waterPlant' : 'supermarket') &&
+            upgradeOffer(town, b.id).type !== 'modernization',
+        )?.id
+      : null) ??
     (town.era === 'industrial' &&
     available.some((b) => b.id === 'powerHouse') &&
     !town.buildings.powerHouse
       ? 'powerHouse'
       : null) ??
-    (population(town) > 0 && eraEventKind(town.era) !== 'workshop-fire' ? defense : null) ??
-    (eraEventKind(town.era) === 'workshop-fire' &&
+    (population(town) > 0 && !civicIncident(eraEventKind(town.era)) ? defense : null) ??
+    (civicIncident(eraEventKind(town.era)) &&
     town.buildings.fireStation < 3 &&
     available.some((b) => b.id === 'fireStation')
       ? 'fireStation'
@@ -632,11 +659,11 @@ export function raidReady(town) {
 }
 export const CAPTURE_BOUNTY = 10;
 export const raidBounty = (event) =>
-  eventKind(event) !== 'workshop-fire' && event?.outcome === 'protected' && event.loss === 0
+  !civicIncident(eventKind(event)) && event?.outcome === 'protected' && event.loss === 0
     ? Math.min(event.gangSize, event.sheriffLevel * 2) * CAPTURE_BOUNTY
     : 0;
 export const raidProtection = (town, riders = gangSize(town), kind = eraEventKind(town.era)) =>
-  kind === 'workshop-fire'
+  civicIncident(kind)
     ? fireProtection(town.buildings.fireStation)
     : (Math.min(riders, town.buildings.sheriff * 2) +
         Math.min(riders, (town.buildings.bank ?? 0) * 2)) /
@@ -683,11 +710,13 @@ export function banditEncounter(town, random = Math.random) {
         Math.max(0, town.coins - 50),
       );
   const target = (
-    kind === 'workshop-fire'
-      ? ['mill', 'blacksmith', 'powerHouse']
-      : kind === 'cargo-theft'
-        ? ['warehouse', 'railDepot', 'riverPort']
-        : ['saloon', 'armory', 'farm', 'home']
+    kind === 'storm-cleanup'
+      ? ['riverPark', 'riverPort', 'square']
+      : kind === 'workshop-fire'
+        ? ['mill', 'blacksmith', 'powerHouse']
+        : kind === 'cargo-theft'
+          ? ['warehouse', 'railDepot', 'riverPort']
+          : ['saloon', 'armory', 'farm', 'home']
   ).find((id) => town.buildings[id]);
   const event = {
     id: (town.events[BANDIT_EVENT]?.id ?? 0) + 1,
@@ -717,7 +746,7 @@ export function banditEncounter(town, random = Math.random) {
 export function reinforceRaid(town) {
   const event = town.events[BANDIT_EVENT];
   if (!event || event.seen) return town;
-  if (eventKind(event) === 'workshop-fire') {
+  if (civicIncident(eventKind(event))) {
     const level = Math.max(event.fireStationLevel ?? 0, town.buildings.fireStation ?? 0);
     if (level === event.fireStationLevel) return town;
     const protection = fireProtection(level);

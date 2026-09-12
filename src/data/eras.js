@@ -21,6 +21,16 @@ export const ERAS = [
     finale: 'The river still flows. The rails still carry us. Now we build a brighter town.',
   },
   {
+    id: 'post-war',
+    label: 'Post-war Rebuilding',
+    yearLabel: '1920',
+    enabled: true,
+    story:
+      'After the Great War, new courtyards, a civic hall and dependable utilities bring neighbors together around familiar landmarks.',
+    horizon: 'A new generation is coming home to Prospect Hollow.',
+    finale: 'The city grows. Its familiar places stay with us.',
+  },
+  {
     id: 'motor-age',
     label: 'Motor Age',
     yearLabel: '1932',
@@ -30,12 +40,15 @@ export const ERAS = [
     horizon: 'The open road brings new friends to Prospect Hollow.',
     finale: 'A sunny garden. A welcoming stop. Another lovely day in town.',
   },
-  { id: 'post-war', label: 'Post-war City', yearLabel: 'c. 1945–1980', enabled: false },
   {
     id: 'contemporary',
     label: 'Contemporary Crystal City',
-    yearLabel: 'c. 1980–today',
-    enabled: false,
+    yearLabel: '2005',
+    enabled: true,
+    story:
+      'Electric trains, a library by the river and a crystal institute beside the old mine story. Six eras of care have made this city home.',
+    horizon: 'The crystals still have stories to tell.',
+    finale: 'From the first well to the river promenade. This is our Prospect Hollow.',
   },
 ];
 export const ERA_BY_ID = Object.fromEntries(ERAS.map((era) => [era.id, era]));
